@@ -3,26 +3,53 @@
 Plataforma self-hosted multi-sessão de WhatsApp (engine **Baileys**), **Modular Monolith + DDD**.
 Blueprint completo do produto: **[`PROMPT-MESTRE-WHATSAPP-GATEWAY.md`](./PROMPT-MESTRE-WHATSAPP-GATEWAY.md)**.
 
-Estado atual: **Fase F2 concluída** (a + b). F0 (fundação) + F1 (sessão + QR/pairing + auth store Postgres) + F2a (enviar/receber texto, `getMessage`, resolução JID BR + LID, Inbox, Event Monitor SSE) + F2b (webhooks: BullMQ + HMAC SHA-512 + retries + UI). Suíte de qualidade (ESLint + Prettier + Vitest e2e, 16 testes). Próximo: F3 (proxies + faixas por instância + Webshare).
+> **Estado atual: F0 → F6 concluídas.** Sessões (QR/pairing + auth store Postgres), mensagens
+> texto + webhooks + Event Monitor (SSE), **proxies** (pool com `position` estável, faixas por
+> instância, rotação, sticky, health-test e sync Webshare), **mídia** (S3/MinIO), **grupos /
+> contatos / canais**, e **campanhas** (BullMQ + rate-limit + humanização). **Próxima: F7 —
+> Observability + Escala** (`/metrics`, timeline, process pool/sharding).
+>
+> **Manutenção recente:** engine migrada para **Baileys 7.0.0-rc13** — corrige o bug de **LID
+> multi-device** (mensagens enviadas pelo aparelho que apareciam como "Aguardando mensagem" no
+> destinatário). Detalhes em [`docs/agent-whatzapp_api.md`](./docs/agent-whatzapp_api.md).
 
 ---
 
-## Stack (versões confirmadas na doc oficial)
+## Roadmap (ver §20 do blueprint)
+
+| Fase | Escopo | Status |
+| --- | --- | --- |
+| **F0** | Fundação (monorepo, NestJS+Fastify, Postgres/Redis, EventBus, IAM mínimo) | ✅ |
+| **F1** | Sessão + QR/Pairing + Auth store Postgres + reconexão | ✅ |
+| **F2** | Mensagens texto + webhooks (HMAC/retries) + Event Monitor (SSE) | ✅ |
+| **F3** ⭐ | Proxy + Webshare + faixas por instância + rotação/sticky/health-test | ✅ |
+| **F4** | Mídia (imagem/vídeo/voz/doc) + storage S3/MinIO + download on-demand | ✅ |
+| **F5** | Grupos / Contatos (`onWhatsApp` BR + LID) / Canais (newsletter) | ✅ |
+| **F6** | Campanhas + anti-ban (BullMQ, rate-limit por chip, humanização, relatório) | ✅ |
+| **F7** | **Observability + Escala** (`/metrics`, timeline, process pool/sharding) | ⏳ **próxima** |
+| **F8** | WWebJS plugável (segundo `IEngine` por trás da mesma API) | ⬜ |
+| **F9** | IAM completo (RBAC, team seats, API keys) + licença offline + deploy Dokploy | ⬜ |
+
+---
+
+## Stack (versões confirmadas)
 
 | Camada     | Versão                                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------------------------- |
 | Runtime    | Node **26.3.1**                                                                                            |
-| Backend    | NestJS **11.1.27** (adapter Fastify **5.8.5**)                                                             |
-| Config/JWT | `@nestjs/config` **4.0.4** · `@nestjs/jwt` **11.0.2**                                                      |
-| ORM        | **Prisma 7.8.0** (generator `prisma-client` + driver adapter `@prisma/adapter-pg`)                         |
-| DB / Cache | PostgreSQL **18** · Redis **7** (`ioredis` 5.11)                                                           |
-| Frontend   | React **19** · Vite **8.0.13** · `@vitejs/plugin-react` **6** · Tailwind **4.3.1** · react-router **7.18** |
+| Backend    | NestJS **11** (adapter Fastify **5**)                                                                      |
+| WhatsApp   | **@whiskeysockets/baileys 7.0.0-rc13**                                                                     |
+| Config/JWT | `@nestjs/config` **4** · `@nestjs/jwt` **11**                                                              |
+| ORM        | **Prisma 7.8** (generator `prisma-client` + driver adapter `@prisma/adapter-pg`)                           |
+| DB / Cache | PostgreSQL **18** · Redis **7** (`ioredis` 5) · filas **BullMQ**                                           |
+| Mídia      | MinIO / S3 (`@aws-sdk/client-s3`)                                                                          |
+| Frontend   | React **19** · Vite **8** · Tailwind **4** · react-router **7**                                            |
 
 ---
 
 ## Pré-requisitos
 
-- **Node 26** (versão atual; mínimo técnico Node ≥ 22.12). No WSL, via nvm:
+- **Node 26** (mínimo técnico Node ≥ 22.12). No WSL, via nvm:
   ```bash
   nvm install 26 && nvm alias default 26 && nvm use 26
   node -v   # v26.x
@@ -44,9 +71,9 @@ npm run infra:up
 cp apps/gateway/env.example   apps/gateway/.env
 cp apps/dashboard/env.example apps/dashboard/.env
 
-# 4. Gerar o Prisma Client e criar o schema (tabela users)
+# 4. Gerar o Prisma Client e aplicar as migrations
 npm run gateway:generate
-cd apps/gateway && npx prisma migrate dev --name init && cd ../..
+npm run gateway:migrate          # prisma migrate dev
 
 # 5. Rodar gateway (3000) + dashboard (5173) juntos
 #    Use o script (garante Node 26 mesmo se o shell estiver no Node do sistema):
@@ -60,7 +87,10 @@ Depois:
 - Health (JSON): `curl http://localhost:3000/health`
 - API: `http://localhost:3000/api/...`
 
-> O card **"Saúde do sistema"** no painel atualiza a cada 5s mostrando PostgreSQL e Redis ao vivo — é o teste visual da F0.
+> ⚠️ Com uma **sessão WhatsApp real conectada**, evite editar arquivos `.ts` do gateway: o
+> `nest start --watch` reinicia o processo a cada save e a rajada de restarts pode dessincronizar a
+> sessão Signal. Para trabalho cirúrgico: pare a stack, edite em lote, suba uma vez. (Ver
+> `docs/agent-whatzapp_api.md`.)
 
 ---
 
@@ -69,14 +99,16 @@ Depois:
 | Comando                           | O que faz                                                           |
 | --------------------------------- | ------------------------------------------------------------------- |
 | `npm run infra:up` / `infra:down` | sobe/derruba Postgres+Redis+MinIO                                   |
+| `npm run dev`                     | backend + frontend juntos                                           |
 | `npm run gateway:dev`             | só o backend (watch)                                                |
 | `npm run dashboard:dev`           | só o frontend                                                       |
 | `npm run gateway:generate`        | regenera o Prisma Client                                            |
 | `npm run gateway:migrate`         | `prisma migrate dev`                                                |
-| `npm run dev`                     | backend + frontend juntos                                           |
 | `npm run lint` / `lint:fix`       | ESLint (typescript-eslint + react-hooks)                            |
 | `npm run format`                  | Prettier (formata o repo)                                           |
-| `npm run test`                    | testes e2e do gateway (Vitest) — requer `infra:up` (Postgres/Redis) |
+| `npm run test`                    | testes do gateway (Vitest) — requer `infra:up` (Postgres/Redis)     |
+| `bash scripts/status.sh`          | status das sessões (psql)                                           |
+| `bash scripts/diag-aguardando.sh` | diagnóstico read-only de descriptografia/"Aguardando mensagem"      |
 
 ---
 
@@ -88,25 +120,43 @@ apps/
     prisma/schema.prisma
     src/
       bootstrap/           # config + validação de env (zod)
-      shared-kernel/       # Result, ULID, Clock, Crypto, EventBus
-      infra/               # PrismaService (adapter pg), RedisService
-      modules/
+      shared-kernel/       # EventBus, ULID, Result, Clock, Crypto
+      infra/               # prisma (adapter pg), redis, storage (S3/MinIO), directory (LID↔tel)
+      modules/             # cada módulo: domain / application / infrastructure / interface
         health/            # GET /health
-        iam/               # login admin (domain/application/infrastructure/interface)
-  dashboard/               # React + Vite + Tailwind (login + shell + card de saúde)
+        iam/               # login admin (JWT)
+        sessions/          # engine Baileys, QR/pairing, auth store PG, máquina de estados
+        messaging/         # enviar/receber texto, getMessage, persistência
+        webhooks/          # dispatcher (BullMQ + HMAC + retries)
+        events/            # Event Monitor (SSE)
+        proxies/           # pool, faixas, rotação, sticky, health-test, Webshare
+        groups/            # grupos
+        contacts/          # contatos (onWhatsApp BR + LID) + diretório
+        channels/          # canais (newsletter)
+        campaigns/         # campanhas (BullMQ, rate-limit, humanização)
+  dashboard/               # React + Vite — Sessions, Inbox, Monitor, Proxies, Groups,
+                           # Contacts, Campaigns, Webhooks, Dashboard, Login
 packages/
   contracts/               # tipos compartilhados backend↔frontend
-docker-compose.yml         # infra de dev
+docker-compose.yml         # infra de dev (Postgres 18 + Redis 7 + MinIO)
+docs/
+  agent-whatzapp_api.md    # base de conhecimento do projeto (arquitetura + gargalos)
 ```
 
 ---
 
 ## Notas
 
-- **O Prisma Client é gerado** em `apps/gateway/src/generated/prisma` (gitignored). Antes de `npm run gateway:generate`, o editor acusa erro no import `../../generated/prisma/client` — é **esperado** e some após gerar.
-- Prisma 7 é ESM por padrão; usamos `moduleFormat = "cjs"` no generator para casar com o NestJS (CommonJS).
+- **O Prisma Client é gerado** em `apps/gateway/src/generated/prisma` (gitignored). Antes de
+  `npm run gateway:generate`, o editor acusa erro no import gerado — é **esperado** e some após gerar.
+- Prisma 7 é ESM por padrão; usamos `moduleFormat = "cjs"` no generator para casar com o NestJS.
+- Baileys 7.x é ESM-only, mas o **Node 26 faz `require()` de ESM** — os imports do gateway (CJS) funcionam sem mudança.
 - Hash de senha usa `scrypt` nativo do Node (zero dependências).
+
+---
 
 ## Próxima fase
 
-**F3 — Proxies (diferencial): pool com `position` estável, faixas por instância (ex.: 1–10, 5–10), estratégias de rotação, health-test e sync automático do Webshare.** Ver roadmap no blueprint (§7, §20).
+**F7 — Observability + Escala**: endpoint `/metrics` (Prometheus), timeline de eventos, process
+pool / sharding de sessões (crash de uma sessão não derruba as outras) e registry no Redis.
+Critério de pronto: métricas visíveis por shard no grid e isolamento de falhas. Ver §20 do blueprint.
