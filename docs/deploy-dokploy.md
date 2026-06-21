@@ -77,6 +77,19 @@ traefik.http.services.<service>.loadBalancer.responseForwarding.flushInterval=10
 2. Gateway (deploy → confere `/health` em `https://api.conexozenvo.com/health`).
 3. Dashboard (deploy → abre `https://app.conexozenvo.com`, login admin).
 
+## Troubleshooting
+
+**`Error: No start command could be found` / `Nixpacks build failed`**
+O app está usando **Nixpacks** (build type padrão), não o Dockerfile — e a raiz do monorepo não tem
+um `start`. Corrija na Application → aba **General** → campo **Build Type** → selecione **Dockerfile**.
+Aparecem 3 campos; preencha:
+- **Dockerfile Path** (obrigatório): `apps/gateway/Dockerfile` (ou `apps/dashboard/Dockerfile`)
+- **Docker Context Path**: `.`
+- **Docker Build Stage**: (deixe vazio)
+
+Depois **Save** → **Deploy**. O `Dockerfile Path` é relativo ao Context. Para o dashboard, o
+`VITE_API_URL` vai na aba **Environment → Build Time Arguments** (não nos campos acima).
+
 ## Notas
 - Imagem do gateway inclui **Chromium** (engine WWEBJS). Para usar só Baileys, edite o `apt-get` do
   `apps/gateway/Dockerfile` (remova `chromium` e `fonts-liberation`) — fica bem menor.
