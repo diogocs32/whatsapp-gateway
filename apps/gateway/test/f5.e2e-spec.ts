@@ -1,0 +1,110 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { createTestApp, inject, login } from './setup-app';
+
+describe('F5 grupos/contatos/canais (e2e)', () => {
+  let app: NestFastifyApplication;
+  let token: string;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    token = await login(app);
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const auth = () => ({ authorization: `Bearer ${token}` });
+  const jsonAuth = () => ({ ...auth(), 'content-type': 'application/json' });
+
+  it('GET groups sem auth → 401', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/s1/groups',
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('GET groups → 200 (lista, manager mockado)', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/s1/groups',
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.json())).toBe(true);
+  });
+
+  it('criar grupo sem subject → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups',
+      headers: jsonAuth(),
+      payload: { participants: ['5511999999999'] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('criar grupo válido → 201', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups',
+      headers: jsonAuth(),
+      payload: { subject: 'Time', participants: ['5511999999999'] },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().subject).toBe('Grupo Fake');
+  });
+
+  it('participants com ação inválida → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups/123-456@g.us/participants',
+      headers: jsonAuth(),
+      payload: { action: 'kick', participants: ['5511999999999'] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('invite link → 200 com code e url', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/s1/groups/123-456@g.us/invite',
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().url).toContain('chat.whatsapp.com/FAKEINVITE');
+  });
+
+  it('contacts check vazio → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/contacts/check',
+      headers: jsonAuth(),
+      payload: { numbers: [] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('contacts check válido → 200 array', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/contacts/check',
+      headers: jsonAuth(),
+      payload: { numbers: ['5511999999999'] },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()[0].exists).toBe(true);
+  });
+
+  it('criar canal válido → 201', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/channels',
+      headers: jsonAuth(),
+      payload: { name: 'Meu Canal' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().name).toBe('Canal Fake');
+  });
+});

@@ -1,0 +1,5 @@
+**/dist/**
+**/node_modules/**
+apps/gateway/src/generated/**
+apps/gateway/prisma/migrations/**
+*.log

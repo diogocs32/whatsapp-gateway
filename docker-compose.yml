@@ -1,0 +1,57 @@
+name: whatsapp-gateway-dev
+
+# Infraestrutura local de desenvolvimento (Postgres + Redis + MinIO).
+# A aplicação (gateway) e o dashboard rodam no host via `npm run dev`.
+# Em produção, o deploy é no Dokploy (ver PROMPT-MESTRE-WHATSAPP-GATEWAY.md §19).
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: gateway
+    ports:
+      - '5432:5432'
+    volumes:
+      # PostgreSQL 18+: o volume vai em /var/lib/postgresql (NÃO /data) — a imagem
+      # passou a guardar os dados num subdiretório por versão. Mount em /data faz crash-loop.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gateway']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - miniodata:/data
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

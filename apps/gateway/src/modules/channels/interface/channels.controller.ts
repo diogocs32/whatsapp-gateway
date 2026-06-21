@@ -1,0 +1,62 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { z } from 'zod';
+import { JwtAuthGuard } from '../../iam/interface/auth.guard';
+import { SessionManager } from '../../sessions/application/session-manager.service';
+
+const createChannelSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(2000).optional(),
+});
+
+// Canais (newsletter) — beta: depende de suporte da conta; erros viram 400 com a msg original.
+@UseGuards(JwtAuthGuard)
+@Controller('sessions/:id/channels')
+export class ChannelsController {
+  constructor(private readonly manager: SessionManager) {}
+
+  @Post()
+  async create(@Param('id') id: string, @Body() body: unknown) {
+    const r = createChannelSchema.safeParse(body);
+    if (!r.success) {
+      throw new BadRequestException(
+        r.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    return this.run(() =>
+      this.manager.createChannel(id, r.data.name, r.data.description),
+    );
+  }
+
+  @Get(':jid')
+  info(@Param('id') id: string, @Param('jid') jid: string) {
+    return this.run(() => this.manager.channelInfo(id, jid));
+  }
+
+  @Post(':jid/follow')
+  async follow(@Param('id') id: string, @Param('jid') jid: string) {
+    await this.run(() => this.manager.followChannel(id, jid));
+    return { ok: true };
+  }
+
+  @Post(':jid/unfollow')
+  async unfollow(@Param('id') id: string, @Param('jid') jid: string) {
+    await this.run(() => this.manager.unfollowChannel(id, jid));
+    return { ok: true };
+  }
+
+  private async run<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+}

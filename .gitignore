@@ -1,0 +1,37 @@
+# deps
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+
+# env / segredos
+.env
+.env.*
+!.env.example
+
+# prisma
+apps/gateway/prisma/migrations/dev.db*
+# client gerado pelo Prisma 7 (regerado via `prisma generate`)
+apps/gateway/src/generated/
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / SO
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# dados locais de dev
+/data
+/media
+/auth
+
+# backup temporário da migração Baileys 7.x
+.migration-backup-v7/

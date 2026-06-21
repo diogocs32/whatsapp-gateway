@@ -1,0 +1,39 @@
+{
+  "name": "whatsapp-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WhatsApp Gateway — plataforma self-hosted multi-sessão (Baileys) — Modular Monolith + DDD",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "gateway:dev": "npm run start:dev -w apps/gateway",
+    "gateway:build": "npm run build -w apps/gateway",
+    "gateway:migrate": "npm run prisma:migrate -w apps/gateway",
+    "gateway:generate": "npm run prisma:generate -w apps/gateway",
+    "dashboard:dev": "npm run dev -w apps/dashboard",
+    "dashboard:build": "npm run build -w apps/dashboard",
+    "dev": "concurrently -n gateway,dashboard -c blue,magenta \"npm:gateway:dev\" \"npm:dashboard:dev\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test -w apps/gateway"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.4",
+    "typescript-eslint": "^8.61.1"
+  }
+}

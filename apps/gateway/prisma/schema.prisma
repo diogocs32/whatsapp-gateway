@@ -1,0 +1,292 @@
+// Prisma 7 — generator novo `prisma-client` (ESM por padrão; forçamos CJS p/ NestJS).
+// O client é GERADO em src/generated/prisma (gitignored) e usado via driver adapter @prisma/adapter-pg.
+// Rode `npm run prisma:generate -w apps/gateway` (ou migrate) antes de buildar.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model User {
+  id           String   @id
+  username     String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum Engine {
+  BAILEYS
+  WWEBJS
+}
+
+enum SessionStatus {
+  STOPPED
+  STARTING
+  SCAN_QR_CODE
+  PAIRING_CODE
+  WORKING
+  FAILED
+  DEGRADED
+}
+
+// Instância/sessão de WhatsApp. `creds` guarda o AuthenticationCreds (BufferJSON-encoded);
+// as Signal keys ficam em WaAuthKey (custom auth store — blueprint §8.4).
+model WaSession {
+  id          String        @id
+  name        String        @unique
+  engine      Engine        @default(BAILEYS)
+  status      SessionStatus @default(STOPPED)
+  meJid       String?
+  mePushName  String?
+  phoneNumber String?
+  autostart   Boolean       @default(true)
+  creds       Json?
+  metadata    Json?
+  lastError   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  authKeys  WaAuthKey[]
+  messages  WaMessage[]
+  contacts  WaContact[]
+  campaigns Campaign[]
+
+  @@map("wa_sessions")
+}
+
+// Mensagens (F2) — enviadas e recebidas. `raw` guarda o conteúdo proto para histórico/depuração.
+model WaMessage {
+  id        String   @id
+  sessionId String
+  keyId     String
+  chatJid   String
+  senderJid String?
+  fromMe    Boolean  @default(false)
+  type      String   @default("text")
+  text      String?
+  status    String?
+  raw       Json?
+  // Mídia (F4): em mídia, `type` = image|video|audio|document|sticker; mediaKey = objeto no S3.
+  mediaType String?
+  mimetype  String?
+  fileName  String?
+  mediaKey  String?
+  fileSize  Int?
+  timestamp DateTime
+  createdAt DateTime @default(now())
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, chatJid, timestamp])
+  @@index([sessionId, keyId])
+  @@map("wa_messages")
+}
+
+// Diretório de contatos (F5+) — mapeia LID↔telefone e acumula metadados de TODAS as fontes
+// (mensagens, onWhatsApp, participantes de grupo, contacts.upsert/update). `waId` é o id
+// canônico do Baileys (jid OU lid). `data` (jsonb) é bucket livre p/ automações/"tratamento".
+model WaContact {
+  id           String   @id
+  sessionId    String
+  waId         String // id canônico do Baileys (jid ou lid)
+  jid          String? // telefone @s.whatsapp.net (quando conhecido)
+  lid          String? // identificador anônimo @lid
+  phone        String? // só dígitos
+  pushName     String? // nome que o contato definiu (notify)
+  name         String? // nome salvo na agenda
+  verifiedName String? // nome verificado (business)
+  imgUrl       String?
+  status       String?
+  source       String? // message | onwhatsapp | group | contacts-sync
+  data         Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, waId])
+  @@index([sessionId, lid])
+  @@index([sessionId, jid])
+  @@map("wa_contacts")
+}
+
+// Webhook (F2b): entrega de eventos a sistemas externos. sessionId null = global.
+model Webhook {
+  id          String   @id
+  sessionId   String?
+  url         String
+  events      String[]
+  secret      String?
+  headers     Json?
+  enabled     Boolean  @default(true)
+  maxAttempts Int      @default(5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("webhooks")
+}
+
+enum ProxyProtocol {
+  HTTP
+  HTTPS
+  SOCKS4
+  SOCKS5
+}
+
+enum ProxySource {
+  MANUAL
+  WEBSHARE
+}
+
+enum ProxyStatus {
+  UNTESTED
+  ALIVE
+  DEAD
+}
+
+enum ProxyMode {
+  NONE
+  SINGLE
+  RANGE
+  GLOBAL_ROUND_ROBIN
+}
+
+enum ProxyStrategy {
+  STICKY
+  ROUND_ROBIN
+  LEAST_LATENCY
+  RANDOM
+}
+
+// Pool de proxies (§7.2). `position` é o ID 1..N estável usado nas faixas por instância.
+model Proxy {
+  id           String        @id
+  position     Int           @unique
+  label        String?
+  protocol     ProxyProtocol @default(SOCKS5)
+  host         String
+  port         Int
+  username     String?
+  password     String?
+  source       ProxySource   @default(MANUAL)
+  webshareId   String?       @unique
+  country      String?
+  exitIp       String?
+  latencyMs    Int?
+  status       ProxyStatus   @default(UNTESTED)
+  lastTestedAt DateTime?
+  enabled      Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([enabled, status])
+  @@map("proxies")
+}
+
+// Atribuição de proxy por sessão (§7.3): modo + faixa de posições + estratégia.
+model SessionProxyAssignment {
+  sessionId      String        @id
+  mode           ProxyMode     @default(NONE)
+  rangeStart     Int?
+  rangeEnd       Int?
+  strategy       ProxyStrategy @default(STICKY)
+  currentProxyId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("session_proxy_assignments")
+}
+
+// Signal key store (pre-keys, sender-keys, app-state-sync-keys...). 1 linha por (sessão, tipo, id).
+model WaAuthKey {
+  sessionId String
+  type      String
+  keyId     String
+  data      Json
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, type, keyId])
+  @@index([sessionId, type])
+  @@map("wa_auth_keys")
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  DONE
+  CANCELLED
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+// Campanhas em massa (F6) com anti-ban: espaçamento aleatório, "digitando", cap diário, agendamento.
+model Campaign {
+  id            String         @id
+  sessionId     String
+  name          String
+  messageType   String         @default("text") // text | image | video | audio | document
+  text          String?
+  mediaUrl      String? // mídia por URL (o worker baixa e envia)
+  mediaMime     String?
+  fileName      String?
+  minDelaySec   Int            @default(8) // anti-ban: espaçamento mínimo entre envios
+  maxDelaySec   Int            @default(25) // espaçamento máximo
+  dailyCap      Int? // limite diário de envios (opcional)
+  typingPreview Boolean        @default(true) // humanização: mostra "digitando" antes
+  status        CampaignStatus @default(DRAFT)
+  total         Int            @default(0)
+  sentCount     Int            @default(0)
+  failedCount   Int            @default(0)
+  scheduledAt   DateTime?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  session    WaSession           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  recipients CampaignRecipient[]
+
+  @@index([sessionId, status])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id         String                  @id
+  campaignId String
+  to         String // número (E.164 sem +) ou JID
+  status     CampaignRecipientStatus @default(PENDING)
+  keyId      String?
+  error      String?
+  sentAt     DateTime?
+  createdAt  DateTime                @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@map("campaign_recipients")
+}
