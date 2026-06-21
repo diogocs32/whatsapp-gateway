@@ -27,6 +27,9 @@ export class WWebJSEngine implements IEngine {
   // Cache LID(serializado) -> telefone (<num>@c.us) já resolvido via Store, para não consultar o
   // Puppeteer a cada mensagem. Persiste entre start/stop da mesma sessão (o mapeamento não muda).
   private readonly lidToPnCache = new Map<string, string>();
+  // keyId das mensagens enviadas PELO painel (sendText/sendMedia) — para o handler message_create
+  // não duplicá-las (já são emitidas no envio). Sobra capturar as enviadas pelo próprio celular.
+  private readonly sentByPanel = new Set<string>();
 
   constructor(private readonly deps: BaileysEngineDeps) {}
 
@@ -94,10 +97,10 @@ export class WWebJSEngine implements IEngine {
         error: this.stopped ? null : `desconectado: ${String(reason)}`,
       });
     });
-    // 'message' = somente RECEBIDAS. As enviadas (painel) são emitidas no próprio sendText/sendMedia
-    // já com o telefone que digitamos — garante que apareçam no inbox por número. (Pelo message_create
-    // as fromMe viriam com o @lid interno do WhatsApp, não buscável.) Ver docs/motores-whatsapp.md.
-    client.on('message', (msg: Message) => void this.onMessage(msg));
+    // message_create capta recebidas E enviadas de QUALQUER device (inclusive do celular). As enviadas
+    // pelo painel já são emitidas no sendText/sendMedia (com telefone + metadados) e deduplicadas aqui
+    // via sentByPanel; resta capturar as enviadas pelo celular. O @lid é resolvido para telefone (merge).
+    client.on('message_create', (msg: Message) => void this.onMessageCreate(msg));
 
     await client.initialize();
   }
@@ -141,6 +144,7 @@ export class WWebJSEngine implements IEngine {
     const jid = this.toChatId(to);
     const sent = await c.sendMessage(jid, text);
     const keyId = sent.id?._serialized ?? '';
+    if (keyId) this.rememberPanel(keyId);
     this.deps.onEvent('message', {
       keyId,
       chatJid: jid,
@@ -169,6 +173,7 @@ export class WWebJSEngine implements IEngine {
       sendAudioAsVoice: input.ptt,
     });
     const keyId = sent.id?._serialized ?? '';
+    if (keyId) this.rememberPanel(keyId);
     this.deps.onEvent('message', {
       keyId,
       chatJid: jid,
@@ -195,19 +200,27 @@ export class WWebJSEngine implements IEngine {
     else await chat.clearState();
   }
 
-  // Handler do evento 'message' (somente RECEBIDAS — as enviadas são emitidas no sendText/sendMedia).
-  // chatJid normaliza @lid → telefone (best-effort) para casar com as enviadas (mesmo número).
-  private async onMessage(msg: Message): Promise<void> {
+  // Handler do message_create: capta recebidas E enviadas de qualquer device. As enviadas pelo painel
+  // já foram emitidas no sendText/sendMedia (sentByPanel) — aqui são ignoradas após uma janela curta
+  // (o keyId só é conhecido quando o sendMessage resolve). Resta capturar as enviadas pelo CELULAR.
+  // O "chat" é o outro lado (msg.to nas enviadas, msg.from nas recebidas), com merge @lid→telefone.
+  private async onMessageCreate(msg: Message): Promise<void> {
     try {
-      if (msg.fromMe) return;
-      const raw = msg.from ?? '';
+      const keyId = msg.id?._serialized ?? '';
+      if (msg.fromMe) {
+        await new Promise((r) => setTimeout(r, 3000));
+        if (this.sentByPanel.has(keyId)) return; // enviada pelo painel: já emitida
+      }
+      const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
       if (!raw || raw === 'status@broadcast') return;
       const chatJid = await this.resolveNumberJid(raw);
       this.deps.onEvent('message', {
-        keyId: msg.id?._serialized ?? '',
+        keyId,
         chatJid,
-        senderJid: chatJid,
-        fromMe: false,
+        senderJid: msg.fromMe
+          ? (this.client?.info?.wid?._serialized ?? null)
+          : chatJid,
+        fromMe: !!msg.fromMe,
         type: msg.hasMedia ? 'other' : 'text',
         text: msg.body || null,
         timestamp:
@@ -216,8 +229,17 @@ export class WWebJSEngine implements IEngine {
             : Math.floor(Date.now() / 1000),
       });
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: onMessage falhou');
+      this.deps.logger.error({ e }, 'wwebjs: onMessageCreate falhou');
     }
+  }
+
+  // Marca uma mensagem como enviada pelo painel (com teto para não vazar memória).
+  private rememberPanel(keyId: string): void {
+    if (this.sentByPanel.size >= 1000) {
+      const oldest = this.sentByPanel.values().next().value;
+      if (oldest) this.sentByPanel.delete(oldest);
+    }
+    this.sentByPanel.add(keyId);
   }
 
   // Merge automático @lid → telefone (como o WAHA): resolve via Store interno do WhatsApp Web e, ao
