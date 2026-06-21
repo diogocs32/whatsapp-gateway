@@ -18,7 +18,10 @@ async function bootstrap(): Promise<void> {
 
   // /api para tudo, exceto /health (usado pelo healthcheck do Docker/Swarm — blueprint §19.6).
   app.setGlobalPrefix('api', {
-    exclude: [{ path: 'health', method: RequestMethod.GET }],
+    exclude: [
+      { path: 'health', method: RequestMethod.GET },
+      { path: 'metrics', method: RequestMethod.GET },
+    ],
   });
 
   // CORS — origens vêm de CORS_ORIGIN no .env (lido no boot; mudanças no .env exigem restart).

@@ -5,7 +5,7 @@ import { RedisService } from '../../infra/redis/redis.service';
 export interface HealthReport {
   status: 'ok' | 'degraded' | 'unhealthy';
   uptimeSeconds: number;
-  checks: { database: boolean; redis: boolean };
+  checks: { database: boolean; redis: boolean; heapUsedPct: number };
   version: string;
   timestamp: string;
 }
@@ -23,13 +23,26 @@ export class HealthService {
       this.redis.ping(),
     ]);
 
+    // Pressão de memória: heap usado / heap total. >92% sinaliza degradação (blueprint §14).
+    const mem = process.memoryUsage();
+    const heapUsedPct = mem.heapTotal > 0 ? mem.heapUsed / mem.heapTotal : 0;
+    const heapOk = heapUsedPct < 0.92;
+
     const status =
-      database && redis ? 'ok' : database || redis ? 'degraded' : 'unhealthy';
+      !database && !redis
+        ? 'unhealthy'
+        : database && redis && heapOk
+          ? 'ok'
+          : 'degraded';
 
     return {
       status,
       uptimeSeconds: Math.round(process.uptime()),
-      checks: { database, redis },
+      checks: {
+        database,
+        redis,
+        heapUsedPct: Math.round(heapUsedPct * 100) / 100,
+      },
       version: process.env.npm_package_version ?? '0.1.0',
       timestamp: new Date().toISOString(),
     };

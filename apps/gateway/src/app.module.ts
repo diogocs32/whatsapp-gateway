@@ -7,6 +7,7 @@ import { RedisModule } from './infra/redis/redis.module';
 import { StorageModule } from './infra/storage/storage.module';
 import { DirectoryModule } from './infra/directory/directory.module';
 import { HealthModule } from './modules/health/health.module';
+import { ObservabilityModule } from './modules/observability/observability.module';
 import { IamModule } from './modules/iam/iam.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
@@ -27,6 +28,7 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
     StorageModule,
     DirectoryModule,
     HealthModule,
+    ObservabilityModule,
     IamModule,
     SessionsModule,
     MessagingModule,
