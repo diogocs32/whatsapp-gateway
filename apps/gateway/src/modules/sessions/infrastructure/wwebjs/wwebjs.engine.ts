@@ -89,7 +89,9 @@ export class WWebJSEngine implements IEngine {
         error: this.stopped ? null : `desconectado: ${String(reason)}`,
       });
     });
-    client.on('message', (msg: Message) => this.onMessage(msg));
+    // message_create capta recebidas E as suas enviadas de qualquer device (inclusive do celular);
+    // 'message' sozinho só pega recebidas (whatsapp-web.js #1226).
+    client.on('message_create', (msg: Message) => void this.onMessageCreate(msg));
 
     await client.initialize();
   }
@@ -131,18 +133,10 @@ export class WWebJSEngine implements IEngine {
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
     const jid = this.toChatId(to);
+    // Não emite o evento aqui: o handler message_create capta esta mensagem, normaliza o JID
+    // (@lid → número) e persiste — evita duplicação e unifica enviadas/recebidas no mesmo chat.
     const sent = await c.sendMessage(jid, text);
-    const keyId = sent.id?._serialized ?? '';
-    this.deps.onEvent('message', {
-      keyId,
-      chatJid: jid,
-      senderJid: c.info?.wid?._serialized ?? null,
-      fromMe: true,
-      type: 'text',
-      text,
-      timestamp: Math.floor(Date.now() / 1000),
-    });
-    return { keyId, jid };
+    return { keyId: sent.id?._serialized ?? '', jid };
   }
 
   async sendMedia(
@@ -156,25 +150,12 @@ export class WWebJSEngine implements IEngine {
       input.buffer.toString('base64'),
       input.fileName ?? undefined,
     );
+    // Captura via message_create (ver sendText). Mídia no WWEBJS é básica (sem download/S3 ainda).
     const sent = await c.sendMessage(jid, media, {
       caption: input.caption ?? undefined,
       sendAudioAsVoice: input.ptt,
     });
-    const keyId = sent.id?._serialized ?? '';
-    this.deps.onEvent('message', {
-      keyId,
-      chatJid: jid,
-      senderJid: c.info?.wid?._serialized ?? null,
-      fromMe: true,
-      type: input.type,
-      text: input.caption ?? null,
-      mediaType: input.type,
-      mimetype: input.mimetype,
-      fileName: input.fileName ?? null,
-      fileSize: input.buffer.length,
-      timestamp: Math.floor(Date.now() / 1000),
-    });
-    return { keyId, jid };
+    return { keyId: sent.id?._serialized ?? '', jid };
   }
 
   async sendPresence(
@@ -187,12 +168,16 @@ export class WWebJSEngine implements IEngine {
     else await chat.clearState();
   }
 
-  private onMessage(msg: Message): void {
+  // Handler do message_create: capta recebidas E enviadas (qualquer device). O "chat" é o outro
+  // lado (msg.to nas enviadas, msg.from nas recebidas); normalizamos @lid → número (best-effort).
+  private async onMessageCreate(msg: Message): Promise<void> {
     try {
-      const chatJid = msg.from;
-      if (!chatJid || chatJid === 'status@broadcast') return;
+      const keyId = msg.id?._serialized ?? '';
+      const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
+      if (!raw || raw === 'status@broadcast') return;
+      const chatJid = await this.resolveNumberJid(raw);
       this.deps.onEvent('message', {
-        keyId: msg.id?._serialized ?? '',
+        keyId,
         chatJid,
         senderJid: msg.fromMe
           ? (this.client?.info?.wid?._serialized ?? null)
@@ -206,8 +191,29 @@ export class WWebJSEngine implements IEngine {
             : Math.floor(Date.now() / 1000),
       });
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: onMessage falhou');
+      this.deps.logger.error({ e }, 'wwebjs: onMessageCreate falhou');
     }
+  }
+
+  // Resolve @lid → telefone real (best-effort) via getContactById. Só aceita o número quando ele é
+  // DIFERENTE do próprio LID — caso contrário o whatsapp-web.js apenas devolveu o LID de volta (bug
+  // upstream #3969/#3857/#4003) e mantemos o @lid puro, sem inventar um número falso. Quando resolve
+  // (típico de contatos salvos), enviadas e recebidas caem no mesmo <tel>@c.us, buscável por número.
+  // A resolução robusta de LID está em outros motores (Baileys 7.x, WAHA NOWEB/GOWS, WPPConnect) —
+  // ver docs/motores-whatsapp.md.
+  private async resolveNumberJid(rawId: string): Promise<string> {
+    if (!rawId.endsWith('@lid')) return rawId;
+    const lidNum = rawId.slice(0, -'@lid'.length);
+    try {
+      const contact = (await this.req().getContactById(rawId)) as {
+        number?: string;
+      } | null;
+      const num = contact?.number?.replace(/\D/g, '');
+      if (num && num !== lidNum) return `${num}@c.us`;
+    } catch {
+      /* fallback abaixo */
+    }
+    return rawId;
   }
 
   private toChatId(to: string): string {
