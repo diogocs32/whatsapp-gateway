@@ -3,11 +3,12 @@
 Plataforma self-hosted multi-sessão de WhatsApp (engine **Baileys**), **Modular Monolith + DDD**.
 Blueprint completo do produto: **[`PROMPT-MESTRE-WHATSAPP-GATEWAY.md`](./PROMPT-MESTRE-WHATSAPP-GATEWAY.md)**.
 
-> **Estado atual: F0 → F6 concluídas.** Sessões (QR/pairing + auth store Postgres), mensagens
-> texto + webhooks + Event Monitor (SSE), **proxies** (pool com `position` estável, faixas por
-> instância, rotação, sticky, health-test e sync Webshare), **mídia** (S3/MinIO), **grupos /
-> contatos / canais**, e **campanhas** (BullMQ + rate-limit + humanização). **Próxima: F7 —
-> Observability + Escala** (`/metrics`, timeline, process pool/sharding).
+> **Estado atual: F0 → F6 + F7 (observability/isolamento) + F8 (engine plugável) concluídas.**
+> Sessões, mensagens texto + webhooks + Event Monitor (SSE), **proxies** (faixas/rotação/sticky/
+> Webshare), **mídia** (S3/MinIO), **grupos/contatos/canais**, **campanhas** (BullMQ + anti-ban),
+> **observability** (`/metrics` Prometheus + tela Logs & saúde + isolamento de falhas) e **engine
+> plugável** (Baileys **ou** whatsapp-web.js por sessão). **Próxima: F9 — IAM completo + licença +
+> deploy.** (F7.3 — sharding multi-processo — adiada para quando o volume exigir.)
 >
 > **Manutenção recente:** engine migrada para **Baileys 7.0.0-rc13** — corrige o bug de **LID
 > multi-device** (mensagens enviadas pelo aparelho que apareciam como "Aguardando mensagem" no
@@ -26,9 +27,9 @@ Blueprint completo do produto: **[`PROMPT-MESTRE-WHATSAPP-GATEWAY.md`](./PROMPT-
 | **F4** | Mídia (imagem/vídeo/voz/doc) + storage S3/MinIO + download on-demand | ✅ |
 | **F5** | Grupos / Contatos (`onWhatsApp` BR + LID) / Canais (newsletter) | ✅ |
 | **F6** | Campanhas + anti-ban (BullMQ, rate-limit por chip, humanização, relatório) | ✅ |
-| **F7** | **Observability + Escala** (`/metrics`, timeline, process pool/sharding) | ⏳ **próxima** |
-| **F8** | WWebJS plugável (segundo `IEngine` por trás da mesma API) | ⬜ |
-| **F9** | IAM completo (RBAC, team seats, API keys) + licença offline + deploy Dokploy | ⬜ |
+| **F7** | Observability (`/metrics`, timeline, tela Logs & saúde) + isolamento de falhas | 🟡 F7.1+F7.2 ✅ · F7.3 (sharding) adiada |
+| **F8** | Engine plugável: WWebJS (whatsapp-web.js) por sessão, mesmo `IEngine` | ✅ |
+| **F9** | IAM completo (RBAC, team seats, API keys) + licença offline + deploy Dokploy | ⏳ **próxima** |
 
 ---
 
@@ -157,6 +158,9 @@ docs/
 
 ## Próxima fase
 
-**F7 — Observability + Escala**: endpoint `/metrics` (Prometheus), timeline de eventos, process
-pool / sharding de sessões (crash de uma sessão não derruba as outras) e registry no Redis.
-Critério de pronto: métricas visíveis por shard no grid e isolamento de falhas. Ver §20 do blueprint.
+**F9 — IAM completo + Licença + Deploy**: RBAC, team seats (5 vagas), API keys, licença offline
+e deploy no Dokploy (white-label). Ver §20 do blueprint.
+
+> **Pendência da F7:** F7.3 (sharding / process pool multi-processo) foi adiada — o critério da
+> F7 (métricas visíveis + crash de 1 sessão não derruba as outras) já é atendido pela F7.1/F7.2
+> no modelo single-process. Retomar quando o volume de sessões justificar (blueprint §8.2).
