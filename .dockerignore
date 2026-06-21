@@ -1,0 +1,22 @@
+# Dependências e artefatos: reinstalados/gerados dentro do build
+node_modules
+**/node_modules
+**/dist
+apps/gateway/src/generated
+
+# Segredos e dados locais — NUNCA na imagem
+.env
+.env.*
+**/.env
+**/.env.*
+auth
+.wwebjs_auth
+.wwebjs_cache
+data
+
+# Git, logs, backups, lixo de dev
+.git
+.gitignore
+**/*.log
+.migration-backup-v7
+scripts/*.tmp
