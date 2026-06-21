@@ -24,6 +24,9 @@ export class WWebJSEngine implements IEngine {
   private status: SessionStatus = 'STOPPED';
   private qrBase64: string | null = null;
   private stopped = false;
+  // Cache LID(serializado) -> telefone (<num>@c.us) já resolvido via Store, para não consultar o
+  // Puppeteer a cada mensagem. Persiste entre start/stop da mesma sessão (o mapeamento não muda).
+  private readonly lidToPnCache = new Map<string, string>();
 
   constructor(private readonly deps: BaileysEngineDeps) {}
 
@@ -80,6 +83,8 @@ export class WWebJSEngine implements IEngine {
         mePushName: client.info?.pushname ?? null,
         error: null,
       });
+      // Merge: funde conversas antigas divididas em @lid (após o Store sincronizar).
+      setTimeout(() => void this.mergeExistingLids(), 4000);
     });
     client.on('auth_failure', (m: string) =>
       this.setStatus('FAILED', { error: `auth_failure: ${m}` }),
@@ -215,25 +220,119 @@ export class WWebJSEngine implements IEngine {
     }
   }
 
-  // Resolve @lid → telefone real (best-effort) via getContactById. Só aceita o número quando ele é
-  // DIFERENTE do próprio LID — caso contrário o whatsapp-web.js apenas devolveu o LID de volta (bug
-  // upstream #3969/#3857/#4003) e mantemos o @lid puro, sem inventar um número falso. Quando resolve
-  // (típico de contatos salvos), enviadas e recebidas caem no mesmo <tel>@c.us, buscável por número.
-  // A resolução robusta de LID está em outros motores (Baileys 7.x, WAHA NOWEB/GOWS, WPPConnect) —
-  // ver docs/motores-whatsapp.md.
+  // Merge automático @lid → telefone (como o WAHA): resolve via Store interno do WhatsApp Web e, ao
+  // descobrir o número, funde a conversa (retroativo) e registra o par no diretório. Mantém o @lid
+  // puro se o Store não souber o número (contato anônimo). Ver docs/motores-whatsapp.md.
   private async resolveNumberJid(rawId: string): Promise<string> {
     if (!rawId.endsWith('@lid')) return rawId;
-    const lidNum = rawId.slice(0, -'@lid'.length);
+    const cached = this.lidToPnCache.get(rawId);
+    if (cached) return cached;
+    const pn = await this.resolveLidToPhone(rawId);
+    const num = pn?.replace(/\D/g, '');
+    if (!num) return rawId;
+    const phoneJid = `${num}@c.us`;
+    this.lidToPnCache.set(rawId, phoneJid);
+    await this.mergeLidMessages(rawId, phoneJid);
+    this.deps.contacts?.record({
+      waId: rawId,
+      lid: rawId,
+      jid: `${num}@s.whatsapp.net`,
+      phone: num,
+      source: 'wwebjs-lid',
+    });
+    return phoneJid;
+  }
+
+  // Consulta o Store interno do WhatsApp Web (window.Store.LidUtils.getPhoneNumber) via Puppeteer —
+  // o MESMO mecanismo de WAHA/WPPConnect. Fonte confiável de LID↔telefone no motor browser (o
+  // getContact().number do whatsapp-web.js devolve o próprio LID).
+  private async resolveLidToPhone(lid: string): Promise<string | null> {
+    const page = (
+      this.client as unknown as {
+        pupPage?: {
+          evaluate: (
+            fn: (l: string) => unknown,
+            arg: string,
+          ) => Promise<unknown>;
+        } | null;
+      } | null
+    )?.pupPage;
+    if (!page) return null;
     try {
-      const contact = (await this.req().getContactById(rawId)) as {
-        number?: string;
-      } | null;
-      const num = contact?.number?.replace(/\D/g, '');
-      if (num && num !== lidNum) return `${num}@c.us`;
-    } catch {
-      /* fallback abaixo */
+      // window.WWebJS.enforceLidAndPnRetrieval força o WhatsApp Web a buscar o par LID↔telefone;
+      // depois WWebJS.getContact devolve o contato com id já no formato <telefone>@c.us. (O
+      // window.Store NÃO é exposto no whatsapp-web.js 1.34 — esta é a via suportada para o merge.)
+      const idStr = (await page.evaluate(async (lidId: string) => {
+        const J = (globalThis as { WWebJS?: Record<string, any> }).WWebJS;
+        if (!J || typeof J.getContact !== 'function') return null;
+        try {
+          if (typeof J.enforceLidAndPnRetrieval === 'function') {
+            try {
+              await J.enforceLidAndPnRetrieval([lidId]);
+            } catch {
+              /* segue mesmo sem enforce */
+            }
+          }
+          const c = await J.getContact(lidId);
+          const id = c?.id?._serialized ?? c?.id;
+          return typeof id === 'string' ? id : null;
+        } catch {
+          return null;
+        }
+      }, lid)) as string | null;
+      if (!idStr || !idStr.endsWith('@c.us')) return null;
+      const num = idStr.replace(/[^0-9]/g, '');
+      const lidNum = lid.replace(/[^0-9]/g, '');
+      return num && num !== lidNum ? num : null;
+    } catch (e) {
+      this.deps.logger.error({ e }, 'wwebjs: resolveLidToPhone falhou');
+      return null;
     }
-    return rawId;
+  }
+
+  // Merge retroativo: reescreve para o telefone as mensagens já gravadas com este @lid (funde a
+  // conversa que estava dividida). Idempotente.
+  private async mergeLidMessages(lid: string, phoneJid: string): Promise<void> {
+    try {
+      const r = await this.deps.prisma.waMessage.updateMany({
+        where: { sessionId: this.deps.sessionId, chatJid: lid },
+        data: { chatJid: phoneJid },
+      });
+      if (r.count > 0) {
+        this.deps.logger.info(
+          { lid, phoneJid, count: r.count },
+          'wwebjs: merge LID->telefone (retroativo)',
+        );
+      }
+    } catch (e) {
+      this.deps.logger.error({ e }, 'wwebjs: mergeLidMessages falhou');
+    }
+  }
+
+  // No 'ready': tenta resolver/fundir todos os @lid já gravados nesta sessão (conversas antigas
+  // divididas). As novas são fundidas na entrada via resolveNumberJid.
+  private async mergeExistingLids(): Promise<void> {
+    try {
+      const rows = await this.deps.prisma.waMessage.findMany({
+        where: {
+          sessionId: this.deps.sessionId,
+          chatJid: { endsWith: '@lid' },
+        },
+        distinct: ['chatJid'],
+        select: { chatJid: true },
+      });
+      for (const r of rows) {
+        await this.resolveNumberJid(r.chatJid);
+      }
+      if (rows.length) {
+        this.deps.logger.info(
+          { lids: rows.length },
+          'wwebjs: merge de LIDs existentes processado',
+        );
+      }
+    } catch (e) {
+      this.deps.logger.error({ e }, 'wwebjs: mergeExistingLids falhou');
+    }
   }
 
   private toChatId(to: string): string {

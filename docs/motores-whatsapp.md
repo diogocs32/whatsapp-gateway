@@ -22,7 +22,7 @@ número" não acha as recebidas.
 | **WAHA (NOWEB/GOWS)** | ✅ merge automático | 2026.3 funde `@lid`↔`@c.us` numa thread única (com flag p/ desligar) |
 | **WPPConnect (wa-js)** | 🟡 API dedicada | `lidPnCache.getPhoneNumber`, `getPnForLid`, `requestPhoneNumber` |
 | **whatsmeow** (Evolution Go / WAHA-GOWS) | ✅ | lib Go madura, mapeia LID |
-| **whatsapp-web.js** (nosso WWEBJS) | ❌ não confiável | `getContact().number` costuma devolver o próprio LID (issues abertas) |
+| **whatsapp-web.js** (nosso WWEBJS) | ✅ via WWebJS interno | `enforceLidAndPnRetrieval([lid])` + `WWebJS.getContact` → id vira `<tel>@c.us` (**merge implementado aqui**, seção 5). `getContact().number` sozinho NÃO serve |
 | **API Oficial Meta** | ✅ N/A | trabalha com `wa_id` (telefone), sem o hack de LID |
 
 Fontes: [wwebjs #3969](https://github.com/pedroslopez/whatsapp-web.js/issues/3969) ·
@@ -32,9 +32,10 @@ Fontes: [wwebjs #3969](https://github.com/pedroslopez/whatsapp-web.js/issues/396
 [wa-js getPhoneNumber](https://wppconnect.io/wa-js/functions/whatsapp.lidPnCache.getPhoneNumber.html) ·
 [wa-js getPnForLid](https://wppconnect.io/wa-js/functions/whatsapp.functions.getPnForLid.html)
 
-> **Conclusão prática:** para 1:1 com inbox por número, **Baileys** é o melhor "in-process" que já
-> temos. Entre os motores **WhatsApp-Web (browser)**, o **whatsapp-web.js é o mais fraco em LID**;
-> **WPPConnect** é o upgrade natural. Servidores REST que já resolvem o merge: **WAHA** (NOWEB/GOWS).
+> **Conclusão prática:** **Baileys** resolve LID nativo. No motor **WhatsApp-Web (whatsapp-web.js)** o
+> merge `@lid`↔telefone foi **implementado neste projeto** via `window.WWebJS.enforceLidAndPnRetrieval`
+> + `getContact` (seção 5) — `window.Store` não é exposto na 1.34, então usamos o `window.WWebJS`.
+> Alternativas com merge pronto fora da caixa: **WAHA** (NOWEB/GOWS) e **WPPConnect** (`getPnForLid`).
 
 ---
 
@@ -164,12 +165,19 @@ Fontes: [wwebjs #3969](https://github.com/pedroslopez/whatsapp-web.js/issues/396
   porque ele traria o `@lid` interno (não buscável) — e capturar `fromMe` por evento é justamente o
   ponto frágil dos outros motores: o WAHA NOWEB **não dispara webhook ao enviar do próprio device**
   ([WAHA #1318](https://github.com/devlikeapro/waha/issues/1318)).
-- **Recebidas:** via evento `message`, com `resolveNumberJid` (@lid→telefone best-effort; resolve
-  contatos salvos, mantém `@lid` puro nos não-resolvidos).
-- **Como WAHA/Evolution fazem:** mesmo padrão (um evento p/ todas + `fromMe`); e sofrem dos **mesmos
-  bugs** — `from` vindo `@lid` ([WAHA #1418](https://github.com/devlikeapro/waha/issues/1418)) e
-  enviadas-do-device não capturadas (#1318). A WAHA mitiga com **merge `@lid`↔`@c.us`** (2026.3).
-- **Limitações abertas (whatsapp-web.js):** (a) mensagens **enviadas pelo próprio celular** não são
-  capturadas; (b) recebidas de contatos **não-salvos** podem ficar em `@lid` e não casar com o número.
-  Resolução definitiva = motor com LID nativo/merge (Baileys, WAHA NOWEB/GOWS, WPPConnect — seção 0)
-  **ou** inbox por **lista de conversas** (clicar em vez de digitar — funciona com qualquer motor).
+- **Recebidas:** via evento `message`, com `resolveNumberJid` que faz o **merge `@lid`→telefone**.
+- **Merge automático `@lid`→telefone (implementado ✅):** resolve via
+  `window.WWebJS.enforceLidAndPnRetrieval([lid])` + `WWebJS.getContact` (o id volta como `<tel>@c.us`),
+  chamado por `pupPage.evaluate` — pois o `window.Store` NÃO é exposto na 1.34. Ao resolver:
+  (a) `mergeLidMessages` reescreve retroativamente as mensagens já gravadas naquele `@lid` → funde a
+  conversa antes dividida; (b) registra o par no `ContactDirectory`; (c) cacheia em memória
+  (`lidToPnCache`). No `ready`, `mergeExistingLids` funde todas as conversas `@lid` já existentes; nas
+  novas mensagens, o merge ocorre na entrada. **Validado:** 5/5 LIDs fundidos (ex.: recebidas em
+  `47661889642695@lid` + enviadas em `551731670499@c.us` → uma thread só, com 6 enviadas + 5 recebidas).
+- **Como WAHA/Evolution fazem:** mesmo padrão (um evento p/ todas + `fromMe`), e a WAHA tem o mesmo
+  merge nativo ([2026.3](https://waha.devlike.pro/blog/waha-2026-3/)); enviadas-do-device não
+  capturadas é limitação compartilhada ([WAHA #1318](https://github.com/devlikeapro/waha/issues/1318)).
+- **Limitações restantes (whatsapp-web.js):** (a) mensagens **enviadas pelo próprio celular** não são
+  capturadas (igual ao WAHA NOWEB #1318); (b) se o WhatsApp Web ainda não souber o telefone de um
+  `@lid` (contato novo/anônimo), o `enforceLidAndPnRetrieval` pode não resolver e a conversa fica em
+  `@lid` até o WA sincronizar — o merge é re-tentado a cada boot e em cada nova mensagem.
