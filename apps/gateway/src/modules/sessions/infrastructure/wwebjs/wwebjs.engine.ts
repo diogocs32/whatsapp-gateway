@@ -89,9 +89,10 @@ export class WWebJSEngine implements IEngine {
         error: this.stopped ? null : `desconectado: ${String(reason)}`,
       });
     });
-    // message_create capta recebidas E as suas enviadas de qualquer device (inclusive do celular);
-    // 'message' sozinho só pega recebidas (whatsapp-web.js #1226).
-    client.on('message_create', (msg: Message) => void this.onMessageCreate(msg));
+    // 'message' = somente RECEBIDAS. As enviadas (painel) são emitidas no próprio sendText/sendMedia
+    // já com o telefone que digitamos — garante que apareçam no inbox por número. (Pelo message_create
+    // as fromMe viriam com o @lid interno do WhatsApp, não buscável.) Ver docs/motores-whatsapp.md.
+    client.on('message', (msg: Message) => void this.onMessage(msg));
 
     await client.initialize();
   }
@@ -133,10 +134,18 @@ export class WWebJSEngine implements IEngine {
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
     const jid = this.toChatId(to);
-    // Não emite o evento aqui: o handler message_create capta esta mensagem, normaliza o JID
-    // (@lid → número) e persiste — evita duplicação e unifica enviadas/recebidas no mesmo chat.
     const sent = await c.sendMessage(jid, text);
-    return { keyId: sent.id?._serialized ?? '', jid };
+    const keyId = sent.id?._serialized ?? '';
+    this.deps.onEvent('message', {
+      keyId,
+      chatJid: jid,
+      senderJid: c.info?.wid?._serialized ?? null,
+      fromMe: true,
+      type: 'text',
+      text,
+      timestamp: Math.floor(Date.now() / 1000),
+    });
+    return { keyId, jid };
   }
 
   async sendMedia(
@@ -150,12 +159,25 @@ export class WWebJSEngine implements IEngine {
       input.buffer.toString('base64'),
       input.fileName ?? undefined,
     );
-    // Captura via message_create (ver sendText). Mídia no WWEBJS é básica (sem download/S3 ainda).
     const sent = await c.sendMessage(jid, media, {
       caption: input.caption ?? undefined,
       sendAudioAsVoice: input.ptt,
     });
-    return { keyId: sent.id?._serialized ?? '', jid };
+    const keyId = sent.id?._serialized ?? '';
+    this.deps.onEvent('message', {
+      keyId,
+      chatJid: jid,
+      senderJid: c.info?.wid?._serialized ?? null,
+      fromMe: true,
+      type: input.type,
+      text: input.caption ?? null,
+      mediaType: input.type,
+      mimetype: input.mimetype,
+      fileName: input.fileName ?? null,
+      fileSize: input.buffer.length,
+      timestamp: Math.floor(Date.now() / 1000),
+    });
+    return { keyId, jid };
   }
 
   async sendPresence(
@@ -168,21 +190,19 @@ export class WWebJSEngine implements IEngine {
     else await chat.clearState();
   }
 
-  // Handler do message_create: capta recebidas E enviadas (qualquer device). O "chat" é o outro
-  // lado (msg.to nas enviadas, msg.from nas recebidas); normalizamos @lid → número (best-effort).
-  private async onMessageCreate(msg: Message): Promise<void> {
+  // Handler do evento 'message' (somente RECEBIDAS — as enviadas são emitidas no sendText/sendMedia).
+  // chatJid normaliza @lid → telefone (best-effort) para casar com as enviadas (mesmo número).
+  private async onMessage(msg: Message): Promise<void> {
     try {
-      const keyId = msg.id?._serialized ?? '';
-      const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
+      if (msg.fromMe) return;
+      const raw = msg.from ?? '';
       if (!raw || raw === 'status@broadcast') return;
       const chatJid = await this.resolveNumberJid(raw);
       this.deps.onEvent('message', {
-        keyId,
+        keyId: msg.id?._serialized ?? '',
         chatJid,
-        senderJid: msg.fromMe
-          ? (this.client?.info?.wid?._serialized ?? null)
-          : chatJid,
-        fromMe: !!msg.fromMe,
+        senderJid: chatJid,
+        fromMe: false,
         type: msg.hasMedia ? 'other' : 'text',
         text: msg.body || null,
         timestamp:
@@ -191,7 +211,7 @@ export class WWebJSEngine implements IEngine {
             : Math.floor(Date.now() / 1000),
       });
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: onMessageCreate falhou');
+      this.deps.logger.error({ e }, 'wwebjs: onMessage falhou');
     }
   }
 

@@ -155,9 +155,21 @@ Fontes: [wwebjs #3969](https://github.com/pedroslopez/whatsapp-web.js/issues/396
 
 ## 5. Estado atual do WWEBJS neste projeto (2026-06-21)
 
-- `message_create` capta **recebidas + enviadas de qualquer device** (inclusive do celular) e
-  persiste tudo unificado por `chatJid`.
-- `resolveNumberJid` faz best-effort de `@lid`→telefone (só aceita número ≠ do LID).
-- **Limitação aberta:** contatos cujo telefone o whatsapp-web.js não resolve continuam em `@lid` e
-  **não aparecem no inbox "digite o número"**. Resolução definitiva = motor com LID (seção 0) **ou**
-  inbox por **lista de conversas** (clicar em vez de digitar — funciona com qualquer formato/motor).
+**Versões (confirmadas as mais recentes):** `whatsapp-web.js@1.34.7` (= última no npm) ·
+`@whiskeysockets/baileys@7.0.0-rc13` (= tag `latest`). O bug de LID **persiste na última** do wwebjs
+(o changelog 1.34 só traz fixes pontuais de LID, ex. block/unblock).
+
+- **Enviadas pelo painel:** emitidas no próprio `sendText`/`sendMedia` com o **telefone digitado**
+  (`<num>@c.us`) → sempre aparecem no inbox por número. Não usamos `message_create` para as `fromMe`
+  porque ele traria o `@lid` interno (não buscável) — e capturar `fromMe` por evento é justamente o
+  ponto frágil dos outros motores: o WAHA NOWEB **não dispara webhook ao enviar do próprio device**
+  ([WAHA #1318](https://github.com/devlikeapro/waha/issues/1318)).
+- **Recebidas:** via evento `message`, com `resolveNumberJid` (@lid→telefone best-effort; resolve
+  contatos salvos, mantém `@lid` puro nos não-resolvidos).
+- **Como WAHA/Evolution fazem:** mesmo padrão (um evento p/ todas + `fromMe`); e sofrem dos **mesmos
+  bugs** — `from` vindo `@lid` ([WAHA #1418](https://github.com/devlikeapro/waha/issues/1418)) e
+  enviadas-do-device não capturadas (#1318). A WAHA mitiga com **merge `@lid`↔`@c.us`** (2026.3).
+- **Limitações abertas (whatsapp-web.js):** (a) mensagens **enviadas pelo próprio celular** não são
+  capturadas; (b) recebidas de contatos **não-salvos** podem ficar em `@lid` e não casar com o número.
+  Resolução definitiva = motor com LID nativo/merge (Baileys, WAHA NOWEB/GOWS, WPPConnect — seção 0)
+  **ou** inbox por **lista de conversas** (clicar em vez de digitar — funciona com qualquer motor).
