@@ -179,6 +179,7 @@ export function Sessions() {
   const [sessions, setSessions] = useState<SessionDto[]>([]);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
+  const [engine, setEngine] = useState<'BAILEYS' | 'WWEBJS'>('BAILEYS');
   const [error, setError] = useState<string | null>(null);
   const [connect, setConnect] = useState<SessionDto | null>(null);
 
@@ -202,7 +203,7 @@ export function Sessions() {
     try {
       const s = await api.sessions.create({
         name: name.trim(),
-        engine: 'BAILEYS',
+        engine,
       });
       setName('');
       setCreating(false);
@@ -268,7 +269,19 @@ export function Sessions() {
                 className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
               />
             </label>
-            <span className="text-xs text-zinc-500">Engine: Baileys</span>
+            <label className="space-y-1">
+              <span className="text-xs text-zinc-400">Engine</span>
+              <select
+                value={engine}
+                onChange={(e) =>
+                  setEngine(e.target.value as 'BAILEYS' | 'WWEBJS')
+                }
+                className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              >
+                <option value="BAILEYS">Baileys (recomendado)</option>
+                <option value="WWEBJS">WhatsApp Web.js</option>
+              </select>
+            </label>
             <button className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">
               Criar e conectar
             </button>

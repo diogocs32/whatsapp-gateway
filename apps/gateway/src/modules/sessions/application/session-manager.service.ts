@@ -18,13 +18,14 @@ import {
   SESSION_REPOSITORY,
   type SessionRepository,
 } from '../domain/session.repository';
-import { BaileysEngine } from '../infrastructure/baileys/baileys.engine';
+import { EngineFactory } from '../infrastructure/engine.factory';
 import type {
   ChannelInfo,
   ContactCheck,
   EngineEventName,
   GroupInfo,
   GroupParticipantAction,
+  IEngine,
   MessagePayload,
   SendMediaInput,
   SessionStatePayload,
@@ -34,7 +35,7 @@ import type {
 @Injectable()
 export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SessionManager.name);
-  private readonly engines = new Map<string, BaileysEngine>();
+  private readonly engines = new Map<string, IEngine>();
   private readonly names = new Map<string, string>();
 
   constructor(
@@ -45,6 +46,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly proxyResolver: ProxyResolver,
     private readonly mediaStorage: MediaStorage,
     private readonly contactDirectory: ContactDirectory,
+    private readonly engineFactory: EngineFactory,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -65,10 +67,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     );
   }
 
-  private getOrCreateEngine(sessionId: string): BaileysEngine {
+  private getOrCreateEngine(sessionId: string, engineType: string): IEngine {
     let engine = this.engines.get(sessionId);
     if (!engine) {
-      engine = new BaileysEngine({
+      engine = this.engineFactory.create(engineType, {
         sessionId,
         deviceName: 'WhatsApp Gateway',
         prisma: this.prisma,
@@ -151,7 +153,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     const session = await this.repo.findById(sessionId);
     if (!session) throw new Error('Sessão não encontrada');
     this.names.set(sessionId, session.name);
-    await this.getOrCreateEngine(sessionId).start();
+    await this.getOrCreateEngine(sessionId, session.engine).start();
   }
 
   async stop(sessionId: string): Promise<void> {
@@ -196,7 +198,9 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     sessionId: string,
     phoneNumber: string,
   ): Promise<string> {
-    const engine = this.getOrCreateEngine(sessionId);
+    const session = await this.repo.findById(sessionId);
+    if (!session) throw new Error('Sessão não encontrada');
+    const engine = this.getOrCreateEngine(sessionId, session.engine);
     if (engine.getStatus() === 'STOPPED') {
       await engine.start();
       await new Promise((r) => setTimeout(r, 1500));
@@ -234,7 +238,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   // Retorna a engine só se a sessão estiver conectada (WORKING) — usado pelas operações F5.
-  private working(sessionId: string): BaileysEngine {
+  private working(sessionId: string): IEngine {
     const engine = this.engines.get(sessionId);
     if (!engine) throw new Error('Sessão não iniciada');
     if (engine.getStatus() !== 'WORKING') {

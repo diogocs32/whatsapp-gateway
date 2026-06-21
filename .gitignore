@@ -35,3 +35,8 @@ npm-debug.log*
 
 # backup temporário da migração Baileys 7.x
 .migration-backup-v7/
+
+# auth local do whatsapp-web.js (engine WWEBJS — F8)
+auth/
+.wwebjs_auth/
+.wwebjs_cache/
