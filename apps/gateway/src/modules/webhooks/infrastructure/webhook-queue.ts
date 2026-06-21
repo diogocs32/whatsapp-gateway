@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, type ConnectionOptions } from 'bullmq';
 import { createHmac } from 'node:crypto';
 import type { Env } from '../../../bootstrap/config';
+import { redisConnection } from '../../../infra/redis/redis-connection';
 
 export interface WebhookJob {
   webhookId: string;
@@ -29,13 +30,9 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly config: ConfigService<Env, true>) {}
 
   onModuleInit(): void {
-    const u = new URL(this.config.get('REDIS_URL', { infer: true }));
-    // Passamos OPÇÕES (não uma instância) — o BullMQ usa o ioredis dele, evitando conflito de tipos.
-    const connection: ConnectionOptions = {
-      host: u.hostname,
-      port: Number(u.port) || 6379,
-      maxRetriesPerRequest: null,
-    };
+    // Conexão (URL ou partes, com senha) via helper compartilhado. Passamos OPÇÕES (não instância):
+    // o BullMQ usa o ioredis dele, evitando conflito de tipos.
+    const connection: ConnectionOptions = redisConnection(this.config);
     this.queue = new Queue(QUEUE_NAME, { connection });
     this.worker = new Worker(
       QUEUE_NAME,

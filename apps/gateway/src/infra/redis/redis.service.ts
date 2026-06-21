@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import type { Env } from '../../bootstrap/config';
+import { redisConnection } from './redis-connection';
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
@@ -9,10 +10,8 @@ export class RedisService implements OnModuleDestroy {
   readonly client: Redis;
 
   constructor(config: ConfigService<Env, true>) {
-    // maxRetriesPerRequest:null é o recomendado quando o mesmo Redis serve filas (BullMQ — F2+).
-    this.client = new Redis(config.get('REDIS_URL', { infer: true }), {
-      maxRetriesPerRequest: null,
-    });
+    // Conexão (URL ou partes) resolvida pelo helper compartilhado com as filas BullMQ.
+    this.client = new Redis(redisConnection(config));
     this.client.on('error', (e) => this.logger.error('Erro no Redis', e));
   }
 

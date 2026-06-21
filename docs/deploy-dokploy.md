@@ -23,8 +23,8 @@ serviço). Elas vão nas envs do gateway (`DATABASE_URL`, `REDIS_URL`).
 ```
 NODE_ENV=production
 PORT=3000
-DATABASE_URL=postgresql://...           # do Postgres gerenciado (?sslmode=require se externo)
-REDIS_URL=redis://...                    # do Redis gerenciado
+DB_HOST=...  DB_PORT=5432  DB_USER=...  DB_PASSWORD=...  DB_NAME=...   # Postgres do Dokploy (partes)
+REDIS_HOST=...  REDIS_PORT=6379  REDIS_PASSWORD=...                    # Redis do Dokploy (partes)
 JWT_SECRET=...                           # openssl rand -hex 32
 API_KEY=...                              # openssl rand -hex 24
 DASHBOARD_PASSWORD=...                   # senha forte

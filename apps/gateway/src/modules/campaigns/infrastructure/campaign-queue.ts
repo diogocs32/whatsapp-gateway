@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, type ConnectionOptions } from 'bullmq';
 import type { Env } from '../../../bootstrap/config';
+import { redisConnection } from '../../../infra/redis/redis-connection';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { CampaignRepository } from './campaign.repository';
@@ -57,12 +58,7 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
     // Em testes não subimos a fila/worker (as conexões do BullMQ geram ruído no teardown
     // e nenhum job é enfileirado nos e2e).
     if (this.config.get('NODE_ENV', { infer: true }) === 'test') return;
-    const u = new URL(this.config.get('REDIS_URL', { infer: true }));
-    const connection: ConnectionOptions = {
-      host: u.hostname,
-      port: Number(u.port) || 6379,
-      maxRetriesPerRequest: null,
-    };
+    const connection: ConnectionOptions = redisConnection(this.config);
     this.queue = new Queue(QUEUE_NAME, { connection });
     this.worker = new Worker(
       QUEUE_NAME,
