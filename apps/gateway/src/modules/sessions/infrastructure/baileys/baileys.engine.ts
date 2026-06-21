@@ -380,12 +380,24 @@ export class BaileysEngine implements IEngine {
     this.sock = sock;
     this.setStatus('STARTING');
 
-    sock.ev.on('creds.update', saveCreds);
-    sock.ev.on('connection.update', (u) => void this.onConnectionUpdate(u));
-    sock.ev.on('messages.upsert', (u) => this.onMessagesUpsert(u));
+    // F7.2 — cada handler roda dentro de `safe()`: um erro processando evento de UMA sessão é
+    // logado e isolado (não vira uncaughtException nem derruba as outras sessões).
+    sock.ev.on('creds.update', () =>
+      this.safe(() => saveCreds(), 'creds.update'),
+    );
+    sock.ev.on('connection.update', (u) =>
+      this.safe(() => this.onConnectionUpdate(u), 'connection.update'),
+    );
+    sock.ev.on('messages.upsert', (u) =>
+      this.safe(() => this.onMessagesUpsert(u), 'messages.upsert'),
+    );
     // Sync de contatos do WhatsApp → diretório persistente (a fonte mais rica de LID↔telefone).
-    sock.ev.on('contacts.upsert', (cs) => this.onContacts(cs));
-    sock.ev.on('contacts.update', (cs) => this.onContacts(cs));
+    sock.ev.on('contacts.upsert', (cs) =>
+      this.safe(() => this.onContacts(cs), 'contacts.upsert'),
+    );
+    sock.ev.on('contacts.update', (cs) =>
+      this.safe(() => this.onContacts(cs), 'contacts.update'),
+    );
   }
 
   private async onConnectionUpdate(
@@ -743,6 +755,27 @@ export class BaileysEngine implements IEngine {
       );
     }
     return undefined;
+  }
+
+  // F7.2 — executa um handler de evento isolando falhas (sync e async). Erro de UMA sessão é
+  // logado com o sessionId e NÃO propaga (não derruba o processo nem as outras sessões).
+  private safe(fn: () => void | Promise<void>, ctx: string): void {
+    try {
+      const r = fn();
+      if (r && typeof (r as Promise<void>).catch === 'function') {
+        void (r as Promise<void>).catch((e) =>
+          this.deps.logger.error(
+            { e, sessionId: this.deps.sessionId },
+            `handler ${ctx} falhou`,
+          ),
+        );
+      }
+    } catch (e) {
+      this.deps.logger.error(
+        { e, sessionId: this.deps.sessionId },
+        `handler ${ctx} falhou`,
+      );
+    }
   }
 
   private sk(): WASocket {

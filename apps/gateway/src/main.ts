@@ -8,6 +8,21 @@ import { buildFastifyAdapter } from './bootstrap/fastify-adapter';
 import type { Env } from './bootstrap/config';
 
 async function bootstrap(): Promise<void> {
+  // Isolamento de falhas (F7.2): um erro não-tratado de uma sessão NÃO derruba o processo
+  // (e, portanto, não derruba as outras sessões). Loga e segue — rede de segurança; os erros
+  // são tratados localmente nos handlers da engine (wrapper `safe()`).
+  process.on('uncaughtException', (err) => {
+    Logger.error(`uncaughtException: ${err?.message ?? err}`, err?.stack, 'Process');
+  });
+  process.on('unhandledRejection', (reason) => {
+    const err = reason instanceof Error ? reason : undefined;
+    Logger.error(
+      `unhandledRejection: ${err?.message ?? String(reason)}`,
+      err?.stack,
+      'Process',
+    );
+  });
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     buildFastifyAdapter(),
