@@ -50,7 +50,7 @@ RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3000
 # Healthcheck do container. No Dokploy, configure também o Swarm Health Check (ver docs/deploy-dokploy.md).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -fsS http://localhost:3000/health || exit 1
+  CMD curl -fsS http://127.0.0.1:3000/health || exit 1
 
 # tini como init: faz o "reaping" dos processos do Chrome e propaga sinais (shutdown limpo).
 ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
