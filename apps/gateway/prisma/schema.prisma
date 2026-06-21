@@ -67,8 +67,24 @@ model WaSession {
   messages  WaMessage[]
   contacts  WaContact[]
   campaigns Campaign[]
+  events    WaSessionEvent[]
 
   @@map("wa_sessions")
+}
+
+// Timeline de eventos da sessão (F7 — Observability): conexões, reconexões, troca de proxy, erros.
+model WaSessionEvent {
+  id        String   @id
+  sessionId String
+  type      String   @default("status") // status | proxy | error
+  status    String? // valor de SessionStatus quando type=status
+  detail    String? // texto livre (erro, proxy, etc.)
+  createdAt DateTime @default(now())
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("wa_session_events")
 }
 
 // Mensagens (F2) — enviadas e recebidas. `raw` guarda o conteúdo proto para histórico/depuração.

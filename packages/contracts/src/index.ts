@@ -23,9 +23,28 @@ export interface HealthResponse {
   checks: {
     database: boolean;
     redis: boolean;
+    heapUsedPct: number;
   };
   version: string;
   timestamp: string;
+}
+
+// Observability (F7) — resumo JSON para a tela "Logs & saúde".
+export interface ObservabilitySummary {
+  uptimeSeconds: number;
+  rssBytes: number;
+  heapUsedBytes: number;
+  heapUsedPct: number;
+  sessions: Record<string, number>;
+  messages: { out: number; in: number };
+}
+
+export interface TimelineEvent {
+  id: string;
+  type: string;
+  status: string | null;
+  detail: string | null;
+  at: string;
 }
 
 // Envelope padronizado de evento (ver blueprint §10) — usado a partir da F2.

@@ -16,6 +16,7 @@ import type {
   HealthResponse,
   LoginResponse,
   MessageDto,
+  ObservabilitySummary,
   PairingCodeResponse,
   ProfilePictureDto,
   ProxyAssignmentDto,
@@ -25,6 +26,7 @@ import type {
   SendTextResponse,
   SessionDto,
   SetProxyAssignmentRequest,
+  TimelineEvent,
   WebhookDto,
   WebshareSyncResult,
 } from '@contracts';
@@ -327,5 +329,14 @@ export const api = {
       request<Ok>(`/api/campaigns/${id}/cancel`, { method: 'POST' }),
     remove: (id: string) =>
       request<Ok>(`/api/campaigns/${id}`, { method: 'DELETE' }),
+  },
+
+  observability: {
+    summary: () =>
+      request<ObservabilitySummary>('/api/observability/summary'),
+    timeline: (sessionId: string, limit = 50) =>
+      request<TimelineEvent[]>(
+        `/api/observability/timeline/${sessionId}?limit=${limit}`,
+      ),
   },
 };

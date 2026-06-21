@@ -11,6 +11,7 @@ import { Proxies } from './routes/Proxies';
 import { Groups } from './routes/Groups';
 import { Contacts } from './routes/Contacts';
 import { Campaigns } from './routes/Campaigns';
+import { Health } from './routes/Health';
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -97,6 +98,14 @@ export function App() {
         element={
           <Protected>
             <Campaigns />
+          </Protected>
+        }
+      />
+      <Route
+        path="/health"
+        element={
+          <Protected>
+            <Health />
           </Protected>
         }
       />

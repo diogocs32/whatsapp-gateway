@@ -165,6 +165,17 @@ export function Dashboard() {
             agendamento e progresso ao vivo.
           </p>
         </Link>
+
+        <Link
+          to="/health"
+          className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
+        >
+          <h2 className="mb-2 font-medium text-zinc-100">Logs &amp; saúde →</h2>
+          <p className="text-sm text-zinc-400">
+            Métricas (Prometheus em /metrics), heap/uptime, sessões por status e
+            timeline por sessão.
+          </p>
+        </Link>
       </main>
     </div>
   );

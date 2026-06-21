@@ -36,6 +36,49 @@ export class MetricsService implements OnModuleInit {
     return this.registry.metrics();
   }
 
+  // Resumo JSON para a UI (tela "Logs & saúde").
+  async summary() {
+    const rows = await this.prisma.waSession.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+    const sessions: Record<string, number> = {};
+    for (const r of rows) sessions[r.status] = r._count._all;
+
+    const [out, inbound] = await Promise.all([
+      this.prisma.waMessage.count({ where: { fromMe: true } }),
+      this.prisma.waMessage.count({ where: { fromMe: false } }),
+    ]);
+    const mem = process.memoryUsage();
+    return {
+      uptimeSeconds: Math.round(process.uptime()),
+      rssBytes: mem.rss,
+      heapUsedBytes: mem.heapUsed,
+      heapUsedPct:
+        mem.heapTotal > 0
+          ? Math.round((mem.heapUsed / mem.heapTotal) * 100) / 100
+          : 0,
+      sessions,
+      messages: { out, in: inbound },
+    };
+  }
+
+  // Timeline de eventos de uma sessão (mais recentes primeiro).
+  async timeline(sessionId: string, limit: number) {
+    const rows = await this.prisma.waSessionEvent.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      type: r.type,
+      status: r.status,
+      detail: r.detail,
+      at: r.createdAt.toISOString(),
+    }));
+  }
+
   private async refresh(): Promise<void> {
     const rows = await this.prisma.waSession.groupBy({
       by: ['status'],
