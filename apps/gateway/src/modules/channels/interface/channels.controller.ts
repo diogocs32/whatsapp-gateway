@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 
@@ -18,7 +19,7 @@ const createChannelSchema = z.object({
 });
 
 // Canais (newsletter) — beta: depende de suporte da conta; erros viram 400 com a msg original.
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions/:id/channels')
 export class ChannelsController {
   constructor(private readonly manager: SessionManager) {}

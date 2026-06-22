@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { newId } from '../../../shared-kernel/ulid';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { MinRole } from '../../iam/interface/roles.decorator';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import { WebhookDispatcher } from '../application/webhook-dispatcher.service';
 import type { Webhook } from '../domain/webhook.entity';
 import {
@@ -34,7 +36,8 @@ function toDto(w: Webhook) {
   };
 }
 
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
+@MinRole('ADMIN')
 @Controller('webhooks')
 export class WebhooksController {
   constructor(

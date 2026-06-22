@@ -11,6 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { MinRole } from '../../iam/interface/roles.decorator';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import { ProxyService } from '../application/proxy.service';
 import type { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import {
@@ -48,7 +50,8 @@ function assignmentToDto(a: ProxyAssignment) {
   };
 }
 
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
+@MinRole('ADMIN')
 @Controller()
 export class ProxiesController {
   constructor(private readonly service: ProxyService) {}

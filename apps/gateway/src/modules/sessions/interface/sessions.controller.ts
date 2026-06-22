@@ -13,6 +13,8 @@ import {
 } from '@nestjs/common';
 import { newId } from '../../../shared-kernel/ulid';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { MinRole } from '../../iam/interface/roles.decorator';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../application/session-manager.service';
 import { SessionRefPipe } from './session-ref.pipe';
 import type { Session } from '../domain/session.entity';
@@ -38,7 +40,7 @@ function toDto(s: Session) {
   };
 }
 
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions')
 export class SessionsController {
   constructor(
@@ -47,6 +49,7 @@ export class SessionsController {
   ) {}
 
   @Post()
+  @MinRole('ADMIN')
   async create(@Body() body: unknown) {
     const parsed = createSessionSchema.safeParse(body);
     if (!parsed.success) {
@@ -116,6 +119,7 @@ export class SessionsController {
   }
 
   @Delete(':id')
+  @MinRole('ADMIN')
   async remove(@Param('id', SessionRefPipe) id: string) {
     await this.ensure(id);
     await this.manager.remove(id);

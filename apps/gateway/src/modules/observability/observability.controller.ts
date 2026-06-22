@@ -1,10 +1,11 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiKeyAuthGuard } from '../iam/interface/api-key-auth.guard';
+import { RolesGuard } from '../iam/interface/roles.guard';
 import { MetricsService } from './metrics.service';
 
 // Endpoints JSON da Observability para a UI (tela "Logs & saúde") e integrações.
 // Aceitam X-Api-Key ou Bearer JWT. O scrape Prometheus fica no MetricsController (/metrics, sem auth, fora do /api).
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('observability')
 export class ObservabilityController {
   constructor(private readonly metrics: MetricsService) {}

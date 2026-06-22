@@ -11,6 +11,7 @@ import {
 import { z } from 'zod';
 import { ContactDirectory } from '../../../infra/directory/contact-directory.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 
@@ -22,7 +23,7 @@ const blockSchema = z.object({
   action: z.enum(['block', 'unblock']),
 });
 
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions/:id/contacts')
 export class ContactsController {
   constructor(

@@ -13,6 +13,7 @@ import { ApiKeyAuthGuard } from './interface/api-key-auth.guard';
 import { ApiKeysController } from './interface/api-keys.controller';
 import { AuthController } from './interface/auth.controller';
 import { JwtAuthGuard } from './interface/auth.guard';
+import { RolesGuard } from './interface/roles.guard';
 
 @Module({
   imports: [
@@ -31,12 +32,13 @@ import { JwtAuthGuard } from './interface/auth.guard';
     LoginUseCase,
     JwtAuthGuard,
     ApiKeyAuthGuard,
+    RolesGuard,
     ApiKeyService,
     AdminSeeder,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: API_KEY_REPOSITORY, useClass: PrismaApiKeyRepository },
   ],
-  // ApiKeyAuthGuard exportado: os módulos de API (sessions, messaging, …) o usam nos endpoints.
-  exports: [JwtModule, JwtAuthGuard, ApiKeyAuthGuard, ApiKeyService],
+  // Guards exportados: os módulos de API (sessions, messaging, …) os usam nos endpoints.
+  exports: [JwtModule, JwtAuthGuard, ApiKeyAuthGuard, RolesGuard, ApiKeyService],
 })
 export class IamModule {}

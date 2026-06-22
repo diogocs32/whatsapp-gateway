@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 
@@ -25,7 +26,7 @@ const participantsSchema = z.object({
 const subjectSchema = z.object({ subject: z.string().min(1).max(100) });
 const descriptionSchema = z.object({ description: z.string().max(2000) });
 
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions/:id/groups')
 export class GroupsController {
   constructor(private readonly manager: SessionManager) {}

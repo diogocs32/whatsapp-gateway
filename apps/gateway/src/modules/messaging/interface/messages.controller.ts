@@ -14,6 +14,7 @@ import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { MediaStorage } from '../../../infra/storage/media-storage.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
@@ -91,7 +92,7 @@ function toDto(m: StoredMessage, mediaUrl: string | null) {
   };
 }
 
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions/:id/messages')
 export class MessagesController {
   constructor(

@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
+import { RolesGuard } from '../../iam/interface/roles.guard';
 import { CampaignService } from '../application/campaign.service';
 
 const createCampaignSchema = z
@@ -86,7 +87,7 @@ function toDto(c: CampaignRow) {
   };
 }
 
-@UseGuards(ApiKeyAuthGuard)
+@UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('campaigns')
 export class CampaignsController {
   constructor(private readonly service: CampaignService) {}

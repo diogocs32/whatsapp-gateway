@@ -11,11 +11,14 @@ import {
 import { z } from 'zod';
 import { ApiKeyService } from '../application/api-key.service';
 import { JwtAuthGuard } from './auth.guard';
+import { MinRole } from './roles.decorator';
+import { RolesGuard } from './roles.guard';
 
 const createSchema = z.object({ name: z.string().min(1).max(60) });
 
 // CRUD de API keys — só pelo painel (JWT). A chave em texto é retornada UMA ÚNICA VEZ na criação.
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@MinRole('ADMIN')
 @Controller('api-keys')
 export class ApiKeysController {
   constructor(private readonly apiKeys: ApiKeyService) {}
