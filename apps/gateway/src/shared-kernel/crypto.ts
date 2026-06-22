@@ -1,4 +1,10 @@
-import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  scrypt,
+  timingSafeEqual,
+} from 'node:crypto';
 import { promisify } from 'node:util';
 
 // Hash de senha com scrypt (API nativa do Node — zero dependências, sem build nativo).
@@ -26,4 +32,9 @@ export async function verifyPassword(
 // HMAC SHA-512 para assinar webhooks (blueprint §10.3).
 export function hmacSha512(secret: string, payload: string): string {
   return createHmac('sha512', secret).update(payload).digest('hex');
+}
+
+// SHA-512 (hex) de um texto — usado para guardar/validar API keys (blueprint §15: "texto + SHA-512").
+export function sha512(text: string): string {
+  return createHash('sha512').update(text).digest('hex');
 }

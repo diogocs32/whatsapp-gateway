@@ -31,6 +31,19 @@ model User {
   @@map("users")
 }
 
+model WaApiKey {
+  id         String    @id
+  name       String
+  prefix     String // primeiros chars da chave (exibição no painel)
+  hash       String    @unique // SHA-512 (hex) da chave completa — o texto da chave NÃO é guardado
+  scopes     String[]  @default([])
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@map("wa_api_keys")
+}
+
 enum Engine {
   BAILEYS
   WWEBJS

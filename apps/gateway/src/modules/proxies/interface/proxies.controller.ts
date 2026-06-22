@@ -10,7 +10,7 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../../iam/interface/auth.guard';
+import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { ProxyService } from '../application/proxy.service';
 import type { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import {
@@ -48,7 +48,7 @@ function assignmentToDto(a: ProxyAssignment) {
   };
 }
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(ApiKeyAuthGuard)
 @Controller()
 export class ProxiesController {
   constructor(private readonly service: ProxyService) {}

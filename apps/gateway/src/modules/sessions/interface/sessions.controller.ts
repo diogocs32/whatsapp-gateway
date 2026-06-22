@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { newId } from '../../../shared-kernel/ulid';
-import { JwtAuthGuard } from '../../iam/interface/auth.guard';
+import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { SessionManager } from '../application/session-manager.service';
 import type { Session } from '../domain/session.entity';
 import {
@@ -37,7 +37,7 @@ function toDto(s: Session) {
   };
 }
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(ApiKeyAuthGuard)
 @Controller('sessions')
 export class SessionsController {
   constructor(

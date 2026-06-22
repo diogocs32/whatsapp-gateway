@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { ContactDirectory } from '../../../infra/directory/contact-directory.service';
-import { JwtAuthGuard } from '../../iam/interface/auth.guard';
+import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 
 const checkSchema = z.object({
@@ -21,7 +21,7 @@ const blockSchema = z.object({
   action: z.enum(['block', 'unblock']),
 });
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(ApiKeyAuthGuard)
 @Controller('sessions/:id/contacts')
 export class ContactsController {
   constructor(

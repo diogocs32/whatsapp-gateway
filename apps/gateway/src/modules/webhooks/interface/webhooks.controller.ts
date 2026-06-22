@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { newId } from '../../../shared-kernel/ulid';
-import { JwtAuthGuard } from '../../iam/interface/auth.guard';
+import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { WebhookDispatcher } from '../application/webhook-dispatcher.service';
 import type { Webhook } from '../domain/webhook.entity';
 import {
@@ -34,7 +34,7 @@ function toDto(w: Webhook) {
   };
 }
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(ApiKeyAuthGuard)
 @Controller('webhooks')
 export class WebhooksController {
   constructor(

@@ -13,7 +13,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { MediaStorage } from '../../../infra/storage/media-storage.service';
-import { JwtAuthGuard } from '../../iam/interface/auth.guard';
+import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import {
@@ -90,7 +90,7 @@ function toDto(m: StoredMessage, mediaUrl: string | null) {
   };
 }
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(ApiKeyAuthGuard)
 @Controller('sessions/:id/messages')
 export class MessagesController {
   constructor(

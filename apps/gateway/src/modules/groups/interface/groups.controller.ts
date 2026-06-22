@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
-import { JwtAuthGuard } from '../../iam/interface/auth.guard';
+import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 
 const createGroupSchema = z.object({
@@ -24,7 +24,7 @@ const participantsSchema = z.object({
 const subjectSchema = z.object({ subject: z.string().min(1).max(100) });
 const descriptionSchema = z.object({ description: z.string().max(2000) });
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(ApiKeyAuthGuard)
 @Controller('sessions/:id/groups')
 export class GroupsController {
   constructor(private readonly manager: SessionManager) {}
