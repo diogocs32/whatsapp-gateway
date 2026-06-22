@@ -209,6 +209,94 @@ Após mexer em deps: confirmar `node_modules/<pkg>` e, se faltar declarada, `npm
 
 ---
 
+## 6B. GARGALOS DE DEPLOY EM PRODUÇÃO (Dokploy) ⚠️
+
+> Saga de subir em produção (2026-06-21). Passo a passo completo em `docs/deploy-dokploy.md`.
+> Topologia: **2 Applications** (gateway `api.conexozenvo.com`:3000, dashboard `conexozenvo.com`:80) +
+> **Databases** gerenciados (Postgres, Redis). Cada erro abaixo custou um ciclo de deploy — decore.
+
+### 6B.1 — Application (não Compose) + Build Type Dockerfile
+- Use **Application** (não Docker Compose): dá backup de DB, domínio/SSL automáticos, healthcheck/rollback
+  por app. Postgres/Redis = recursos **Database** (gerenciados); gateway/dashboard = **Application**.
+- **Build Type = Dockerfile** (não Nixpacks). Sintoma Nixpacks: `Error: No start command could be found`
+  (a raiz do monorepo não tem `start`). Trocar em **General → Build Type → Dockerfile**.
+
+### 6B.2 — Dockerfile Path × Context (não inverter)
+- **Dockerfile Path** = `apps/gateway/Dockerfile` (o ARQUIVO, relativo ao Context).
+- **Docker Context Path** = `.` (a PASTA = raiz do monorepo). Tem que ser a raiz: os Dockerfiles fazem
+  `COPY package.json`, `COPY apps/...`, `COPY packages/contracts/...`.
+- Sintomas: `open Dockerfile: no such file` (Path vazio) · `cd: can't cd to .../Dockerfile` (puseram o
+  arquivo no campo Context).
+
+### 6B.3 — Conexão Postgres/Redis: use as PARTES, não a URL
+- O app aceita `DATABASE_URL`/`REDIS_URL` **OU** as partes (`DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME/
+  DB_SSL`, `REDIS_HOST/REDIS_PORT/REDIS_USERNAME/REDIS_PASSWORD/REDIS_DB`). **A URL tem prioridade se setada.**
+- **Prefira as partes** — `config.ts` (runtime, PrismaPg/ioredis) e `prisma.config.ts` (migrate) montam a
+  URL com encode. Motivo: senha do Dokploy costuma ter `@ : / # { }` que quebram a URL.
+- Sintomas resolvidos pelas partes: `NOAUTH Authentication required` (Redis com senha) ·
+  `P1013: scheme not recognized` (DATABASE_URL sem `postgresql://`, ou começando com `//`, ou senha não-escapada).
+- ⚠️ Se `DATABASE_URL`/`REDIS_URL` ficar setada com valor inválido, ela tem prioridade e quebra tudo →
+  **apague-a** e use só as partes. Host = NOME DO SERVIÇO interno (ex.: `campanha-dbname-xxxx`), nunca localhost.
+
+### 6B.4 — BullMQ precisa da senha do Redis (helper central)
+- As filas (webhooks, campanhas) montavam a connection só com host/port (sem senha) → `NOAUTH` em Redis
+  autenticado. Centralizado em **`infra/redis/redis-connection.ts`** (`redisConnection()`), usado por
+  `RedisService`, `webhook-queue` e `campaign-queue`. **Qualquer nova fila DEVE usar esse helper.**
+
+### 6B.5 — Healthcheck + IPv6 (causa de 502 no dashboard)
+- No container `localhost` resolve para `::1` (IPv6). Se o serviço só faz `listen 80` (IPv4) e o
+  healthcheck usa `wget http://localhost/`, o **wget do BusyBox não faz fallback p/ IPv4** → check falha →
+  container **unhealthy** → Swarm reinicia em loop → Traefik **502**.
+- Correção: nginx do dashboard com `listen [::]:80` **e** healthchecks usando **`127.0.0.1`** (não
+  `localhost`). O gateway usa `curl` (faz fallback IPv6→IPv4 sozinho) — por isso nunca quebrou, mas também
+  foi p/ 127.0.0.1 por robustez.
+- Container unhealthy = Traefik tira do balanceador = 502 (mesmo com o processo no ar).
+
+### 6B.6 — `VITE_API_URL` é BUILD-TIME (causa de 405 no login)
+- O dashboard é Vite estático: `VITE_API_URL` é **embutido no bundle durante `npm run build`** → tem que ir
+  em **Build-time Arguments** (NÃO Environment runtime). O Dockerfile já tem `ARG VITE_API_URL`.
+- Sintoma: `POST https://conexozenvo.com/api/auth/login 405 (Method Not Allowed)` — o front chama o PRÓPRIO
+  domínio (BASE vazio → caminho relativo) e o nginx recusa POST. = `VITE_API_URL` não foi embutido. Corrigir
+  o Build Arg e **rebuildar** (não só restart). Valor: `https://api.conexozenvo.com`. Conferir no DevTools→Network.
+
+### 6B.7 — Migrations e reset do banco
+- `docker-entrypoint.sh` roda **`prisma migrate deploy`** no start: cria as TABELAS (não o database). O
+  database precisa existir; aplica só as migrations de `prisma/migrations`.
+- Build do gateway tem `ENV DATABASE_URL=postgresql://build:build@localhost:5432/build` (dummy) **só no
+  stage build** (o `prisma generate` exige a var mas não conecta). Runtime usa a env do Dokploy.
+- **Reset total**: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` (limpa tabelas **e**
+  `_prisma_migrations`). Se deixar `_prisma_migrations`, o migrate "acha" que aplicou e NÃO recria → app quebra.
+
+### 6B.8 — Admin só no 1º boot + reset de senha
+- `AdminSeeder` (`onApplicationBootstrap`) cria o admin **só se `count()==0`**, com `DASHBOARD_USERNAME`
+  (default `admin`) + `DASHBOARD_PASSWORD`. **Mudar a senha depois NÃO atualiza** o admin existente.
+- "Credenciais inválidas" = senha ≠ a do admin (cuidado com **aspas/espaços** no Environment) ou usuário ≠ `admin`.
+- Reset sem depender do seeder (hash scrypt `salt:derived`, ver `shared-kernel/crypto.ts`):
+  ```sql
+  INSERT INTO "User" (id, username, name, "passwordHash", role, "createdAt", "updatedAt")
+  VALUES ('<id>','admin','Administrador','<salt:derived>','OWNER',now(),now())
+  ON CONFLICT (username) DO UPDATE SET "passwordHash" = EXCLUDED."passwordHash";
+  ```
+  Gerar hash: `node -e "const{scrypt,randomBytes}=require('crypto');const s=randomBytes(16).toString('hex');scrypt('SENHA',s,64,(e,d)=>console.log(s+':'+d.toString('hex')))"`
+- ⚠️ Tabela é **`"User"`** (PascalCase) — SQL precisa de **aspas duplas** (`DELETE FROM "User"`, não `User`).
+- ⚠️ **TablePlus externo pode estar em outro banco** que não o da API → mudança não reflete. Use o terminal
+  do **serviço Postgres do Dokploy** (banco interno que a API usa). Isolar dashboard×credencial testando a
+  API direto: `curl -X POST https://api.conexozenvo.com/api/auth/login -d '{"username":"admin","password":"..."}'`
+  → **401** = credencial errada · **405** = front apontando pro domínio errado · **token** = ok.
+
+### 6B.9 — Portas, domínios, CORS, DNS
+- **Container Port**: gateway **3000**, dashboard **80** (nginx). Porta errada no domínio → **502**.
+- `CORS_ORIGIN` = domínio do **dashboard** (ex.: `https://conexozenvo.com`). DNS: registros A p/ `@` e `api`.
+- App escuta `0.0.0.0` (ok p/ container). `/` no gateway = 404 (é API; rotas em `/api/*` e `/health`).
+
+### 6B.10 — Memória: Chromium deixa o gateway `degraded`
+- A imagem do gateway inclui **Chromium** (engine WWEBJS) → RAM alta; `/health` fica `degraded`
+  (`heapUsedPct` ~0.9+). Aumentar a RAM do container **ou**, se usar só Baileys, remover
+  `chromium`/`fonts-liberation` do `apt-get` em `apps/gateway/Dockerfile`. `WWEBJS_DATA_PATH=/data/wwebjs`
+  precisa de **volume persistente** (senão re-pareia a cada deploy).
+
+---
+
 ## 7. Histórico de decisões importantes
 
 - **2026-06-21 — Migração Baileys 6.7.23 → 7.0.0-rc13** para corrigir o "Aguardando mensagem"/LID
@@ -216,6 +304,16 @@ Após mexer em deps: confirmar `node_modules/<pkg>` e, se faltar declarada, `npm
   `proto.fromObject` inalterados; creds 6.x reconectam sem re-QR. Validado em produção local
   (gateway rodou ~6,6h estável). Backup do 6.x em `.migration-backup-v7/` (gitignored).
 - Antes da migração foram aplicados os fixes de §6.1, §6.3, §6.4 (ainda válidos no 7.x).
+- **2026-06-21 — Merge automático de LID no WWEBJS**: `message_create` (capta enviadas de qualquer
+  device) + `resolveNumberJid` via `window.WWebJS.enforceLidAndPnRetrieval` + `getContact` (o `window.Store`
+  não é exposto no whatsapp-web.js 1.34) + merge retroativo (`mergeExistingLids` no boot). Unifica
+  conversas que ficavam divididas entre `@lid` (recebidas) e `<tel>@c.us` (enviadas).
+- **2026-06-21 — Conexão Postgres/Redis por partes** (`DB_*`/`REDIS_*`) além da URL; helper
+  `infra/redis/redis-connection.ts` para o BullMQ. Ver §6B.3 / §6B.4.
+- **2026-06-21 — Primeiro deploy em produção (Dokploy)** — `conexozenvo.com` (dashboard) +
+  `api.conexozenvo.com` (gateway). Criados `apps/*/Dockerfile` + `docker-entrypoint.sh` (migrate deploy) +
+  `nginx.conf`. Gargalos consolidados em §6B; guia em `docs/deploy-dokploy.md`. Roadmap de motores e por que
+  NÃO embutir WAHA/Evolution/Z-API (são concorrentes, não engines) em `docs/motores-whatsapp.md`.
 
 ---
 
