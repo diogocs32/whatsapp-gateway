@@ -4,6 +4,7 @@ import type { Role } from '../domain/role';
 import { User } from '../domain/user.entity';
 import type {
   CreateUserInput,
+  UpdateUserInput,
   UserRepository,
 } from '../domain/user.repository';
 
@@ -13,6 +14,7 @@ interface UserRow {
   name: string;
   passwordHash: string;
   role: string;
+  createdAt: Date;
 }
 
 @Injectable()
@@ -46,6 +48,33 @@ export class PrismaUserRepository implements UserRepository {
     return this.prisma.user.count();
   }
 
+  async list(): Promise<User[]> {
+    const rows = await this.prisma.user.findMany({
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((r) => this.toDomain(r));
+  }
+
+  async update(id: string, patch: UpdateUserInput): Promise<User> {
+    const row = await this.prisma.user.update({
+      where: { id },
+      data: { name: patch.name, role: patch.role },
+    });
+    return this.toDomain(row);
+  }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.user.delete({ where: { id } });
+  }
+
+  async countByRole(role: Role): Promise<number> {
+    return this.prisma.user.count({ where: { role } });
+  }
+
   private toDomain(row: UserRow): User {
     return new User(
       row.id,
@@ -53,6 +82,7 @@ export class PrismaUserRepository implements UserRepository {
       row.name,
       row.passwordHash,
       row.role as Role,
+      row.createdAt,
     );
   }
 }

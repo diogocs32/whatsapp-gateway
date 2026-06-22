@@ -178,6 +178,33 @@ export interface CreatedApiKeyDto {
   key: string;
 }
 
+// ---- Usuários / assentos (F9.4) ----
+export interface UserDto {
+  id: string;
+  username: string;
+  name: string;
+  role: Role;
+  createdAt: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  name: string;
+  password: string;
+  role: Role;
+}
+
+export interface UpdateUserRequest {
+  name?: string;
+  role?: Role;
+}
+
+export interface UsersListResponse {
+  users: UserDto[];
+  usedSeats: number;
+  maxSeats: number;
+}
+
 // ---- Proxies (F3) ----
 export type ProxyProtocol = 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5';
 export type ProxySource = 'MANUAL' | 'WEBSHARE';

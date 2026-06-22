@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import type { Env } from '../../bootstrap/config';
 import { ApiKeyService } from './application/api-key.service';
 import { LoginUseCase } from './application/login.usecase';
+import { UserService } from './application/user.service';
 import { API_KEY_REPOSITORY } from './domain/api-key.repository';
 import { USER_REPOSITORY } from './domain/user.repository';
 import { AdminSeeder } from './infrastructure/admin-seeder';
@@ -14,6 +15,7 @@ import { ApiKeysController } from './interface/api-keys.controller';
 import { AuthController } from './interface/auth.controller';
 import { JwtAuthGuard } from './interface/auth.guard';
 import { RolesGuard } from './interface/roles.guard';
+import { UsersController } from './interface/users.controller';
 
 @Module({
   imports: [
@@ -27,9 +29,10 @@ import { RolesGuard } from './interface/roles.guard';
       }),
     }),
   ],
-  controllers: [AuthController, ApiKeysController],
+  controllers: [AuthController, ApiKeysController, UsersController],
   providers: [
     LoginUseCase,
+    UserService,
     JwtAuthGuard,
     ApiKeyAuthGuard,
     RolesGuard,

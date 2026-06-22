@@ -8,5 +8,6 @@ export class User {
     public readonly name: string,
     public readonly passwordHash: string,
     public readonly role: Role,
+    public readonly createdAt: Date,
   ) {}
 }

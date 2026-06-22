@@ -34,6 +34,7 @@ const base = z.object({
   API_KEY: z.string().min(8).optional(),
   DASHBOARD_USERNAME: z.string().min(1).default('admin'),
   DASHBOARD_PASSWORD: z.string().min(6),
+  MAX_SEATS: z.coerce.number().int().positive().default(5), // F9.4 — limite de usuários (assentos do time)
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   WA_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
