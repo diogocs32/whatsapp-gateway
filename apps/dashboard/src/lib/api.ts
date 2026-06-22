@@ -18,6 +18,7 @@ import type {
   GroupInviteDto,
   GroupParticipantAction,
   HealthResponse,
+  LicenseStatus,
   LoginResponse,
   MessageDto,
   ObservabilitySummary,
@@ -144,6 +145,16 @@ export const api = {
       }),
     remove: (id: string) =>
       request<Ok>(`/api/users/${id}`, { method: 'DELETE' }),
+  },
+
+  license: {
+    status: () => request<LicenseStatus>('/api/license'),
+    install: (token: string) =>
+      request<LicenseStatus>('/api/license', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }),
+    remove: () => request<LicenseStatus>('/api/license', { method: 'DELETE' }),
   },
 
   sessions: {

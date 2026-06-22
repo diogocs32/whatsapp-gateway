@@ -9,6 +9,7 @@ import { Monitor } from './routes/Monitor';
 import { Webhooks } from './routes/Webhooks';
 import { ApiKeys } from './routes/ApiKeys';
 import { Users } from './routes/Users';
+import { License } from './routes/License';
 import { Proxies } from './routes/Proxies';
 import { Groups } from './routes/Groups';
 import { Contacts } from './routes/Contacts';
@@ -84,6 +85,14 @@ export function App() {
         element={
           <Protected>
             <Users />
+          </Protected>
+        }
+      />
+      <Route
+        path="/license"
+        element={
+          <Protected>
+            <License />
           </Protected>
         }
       />
