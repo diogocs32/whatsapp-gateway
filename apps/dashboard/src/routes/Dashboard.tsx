@@ -124,6 +124,17 @@ export function Dashboard() {
         </Link>
 
         <Link
+          to="/api-keys"
+          className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
+        >
+          <h2 className="mb-2 font-medium text-zinc-100">API keys →</h2>
+          <p className="text-sm text-zinc-400">
+            Chaves X-Api-Key para integrações (n8n etc.) chamarem a API sem o
+            login do painel.
+          </p>
+        </Link>
+
+        <Link
           to="/proxies"
           className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
         >

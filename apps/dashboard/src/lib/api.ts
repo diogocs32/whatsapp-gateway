@@ -1,4 +1,5 @@
 import type {
+  ApiKeyDto,
   AuthUser,
   BulkImportProxiesRequest,
   BulkImportResult,
@@ -6,10 +7,12 @@ import type {
   ChannelDto,
   ContactCheckDto,
   ContactDirectoryDto,
+  CreateApiKeyRequest,
   CreateCampaignRequest,
   CreateProxyRequest,
   CreateSessionRequest,
   CreateWebhookRequest,
+  CreatedApiKeyDto,
   GroupDto,
   GroupInviteDto,
   GroupParticipantAction,
@@ -106,6 +109,17 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
   me: () => request<AuthUser>('/api/auth/me'),
+
+  apiKeys: {
+    list: () => request<ApiKeyDto[]>('/api/api-keys'),
+    create: (body: CreateApiKeyRequest) =>
+      request<CreatedApiKeyDto>('/api/api-keys', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    revoke: (id: string) =>
+      request<Ok>(`/api/api-keys/${id}`, { method: 'DELETE' }),
+  },
 
   sessions: {
     list: () => request<SessionDto[]>('/api/sessions'),

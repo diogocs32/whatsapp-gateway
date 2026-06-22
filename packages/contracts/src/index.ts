@@ -156,6 +156,28 @@ export interface CreateWebhookRequest {
 // Eventos disponíveis para assinar (use '*' para todos).
 export const WEBHOOK_EVENTS = ['*', 'message', 'session.status'] as const;
 
+// ---- API keys (F9.1) ----
+export interface ApiKeyDto {
+  id: string;
+  name: string;
+  prefix: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateApiKeyRequest {
+  name: string;
+}
+
+// Resposta da criação: a chave em texto (`key`) é retornada UMA ÚNICA VEZ.
+export interface CreatedApiKeyDto {
+  id: string;
+  name: string;
+  prefix: string;
+  key: string;
+}
+
 // ---- Proxies (F3) ----
 export type ProxyProtocol = 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5';
 export type ProxySource = 'MANUAL' | 'WEBSHARE';
