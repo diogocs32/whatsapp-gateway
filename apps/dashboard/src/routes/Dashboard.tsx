@@ -134,6 +134,18 @@ export function Dashboard() {
           </p>
         </Link>
 
+        {user?.role === 'OWNER' && (
+          <Link
+            to="/users"
+            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
+          >
+            <h2 className="mb-2 font-medium text-zinc-100">Usuários →</h2>
+            <p className="text-sm text-zinc-400">
+              Membros do time, papéis (RBAC) e assentos. Visível só para OWNER.
+            </p>
+          </Link>
+        )}
+
         <Link
           to="/proxies"
           className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"

@@ -11,6 +11,7 @@ import type {
   CreateCampaignRequest,
   CreateProxyRequest,
   CreateSessionRequest,
+  CreateUserRequest,
   CreateWebhookRequest,
   CreatedApiKeyDto,
   GroupDto,
@@ -30,6 +31,9 @@ import type {
   SessionDto,
   SetProxyAssignmentRequest,
   TimelineEvent,
+  UpdateUserRequest,
+  UserDto,
+  UsersListResponse,
   WebhookDto,
   WebshareSyncResult,
 } from '@contracts';
@@ -119,6 +123,27 @@ export const api = {
       }),
     revoke: (id: string) =>
       request<Ok>(`/api/api-keys/${id}`, { method: 'DELETE' }),
+  },
+
+  users: {
+    list: () => request<UsersListResponse>('/api/users'),
+    create: (body: CreateUserRequest) =>
+      request<UserDto>('/api/users', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: UpdateUserRequest) =>
+      request<UserDto>(`/api/users/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    resetPassword: (id: string, password: string) =>
+      request<Ok>(`/api/users/${id}/password`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      }),
+    remove: (id: string) =>
+      request<Ok>(`/api/users/${id}`, { method: 'DELETE' }),
   },
 
   sessions: {
