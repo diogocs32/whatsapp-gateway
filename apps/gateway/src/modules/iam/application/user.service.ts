@@ -5,8 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { Env } from '../../../bootstrap/config';
 import { hashPassword } from '../../../shared-kernel/crypto';
 import { newId } from '../../../shared-kernel/ulid';
 import type { Role } from '../domain/role';
@@ -16,6 +14,7 @@ import {
   type UpdateUserInput,
   type UserRepository,
 } from '../domain/user.repository';
+import { LicenseService } from './license.service';
 
 export interface CreateUserData {
   username: string;
@@ -28,7 +27,7 @@ export interface CreateUserData {
 export class UserService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
-    private readonly config: ConfigService<Env, true>,
+    private readonly license: LicenseService,
   ) {}
 
   list(): Promise<User[]> {
@@ -38,15 +37,15 @@ export class UserService {
   async seats(): Promise<{ used: number; max: number }> {
     return {
       used: await this.users.count(),
-      max: this.config.get('MAX_SEATS', { infer: true }),
+      max: this.license.effective().maxSeats,
     };
   }
 
   async create(data: CreateUserData): Promise<User> {
-    const max = this.config.get('MAX_SEATS', { infer: true });
+    const max = this.license.effective().maxSeats;
     if ((await this.users.count()) >= max) {
       throw new ConflictException(
-        `Limite de ${max} assentos atingido — remova um usuário ou aumente MAX_SEATS.`,
+        `Limite de ${max} assentos atingido — instale uma licença com mais assentos.`,
       );
     }
     if (await this.users.findByUsername(data.username)) {

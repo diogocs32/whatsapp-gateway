@@ -3,17 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { Env } from '../../bootstrap/config';
 import { ApiKeyService } from './application/api-key.service';
+import { LicenseService } from './application/license.service';
 import { LoginUseCase } from './application/login.usecase';
 import { UserService } from './application/user.service';
 import { API_KEY_REPOSITORY } from './domain/api-key.repository';
+import { LICENSE_REPOSITORY } from './domain/license.repository';
 import { USER_REPOSITORY } from './domain/user.repository';
 import { AdminSeeder } from './infrastructure/admin-seeder';
 import { PrismaApiKeyRepository } from './infrastructure/prisma-api-key.repository';
+import { PrismaLicenseRepository } from './infrastructure/prisma-license.repository';
 import { PrismaUserRepository } from './infrastructure/prisma-user.repository';
 import { ApiKeyAuthGuard } from './interface/api-key-auth.guard';
 import { ApiKeysController } from './interface/api-keys.controller';
 import { AuthController } from './interface/auth.controller';
 import { JwtAuthGuard } from './interface/auth.guard';
+import { LicenseController } from './interface/license.controller';
 import { RolesGuard } from './interface/roles.guard';
 import { UsersController } from './interface/users.controller';
 
@@ -29,10 +33,16 @@ import { UsersController } from './interface/users.controller';
       }),
     }),
   ],
-  controllers: [AuthController, ApiKeysController, UsersController],
+  controllers: [
+    AuthController,
+    ApiKeysController,
+    UsersController,
+    LicenseController,
+  ],
   providers: [
     LoginUseCase,
     UserService,
+    LicenseService,
     JwtAuthGuard,
     ApiKeyAuthGuard,
     RolesGuard,
@@ -40,8 +50,16 @@ import { UsersController } from './interface/users.controller';
     AdminSeeder,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: API_KEY_REPOSITORY, useClass: PrismaApiKeyRepository },
+    { provide: LICENSE_REPOSITORY, useClass: PrismaLicenseRepository },
   ],
-  // Guards exportados: os módulos de API (sessions, messaging, …) os usam nos endpoints.
-  exports: [JwtModule, JwtAuthGuard, ApiKeyAuthGuard, RolesGuard, ApiKeyService],
+  // Guards + LicenseService exportados: os módulos de API (sessions, …) os usam.
+  exports: [
+    JwtModule,
+    JwtAuthGuard,
+    ApiKeyAuthGuard,
+    RolesGuard,
+    ApiKeyService,
+    LicenseService,
+  ],
 })
 export class IamModule {}

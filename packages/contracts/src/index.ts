@@ -210,6 +210,23 @@ export interface UsersListResponse {
   maxSeats: number;
 }
 
+// ---- Licença (F9.5) ----
+export interface LicenseStatus {
+  valid: boolean; // true = licença assinada e válida
+  community: boolean; // true = modo comunidade (sem licença válida)
+  customer: string;
+  maxSeats: number;
+  maxSessions: number;
+  features: string[];
+  issuedAt: string | null;
+  expiresAt: string | null;
+  reason: string | null; // motivo quando em comunidade (expirada/assinatura/ausente)
+}
+
+export interface InstallLicenseRequest {
+  token: string;
+}
+
 // ---- Proxies (F3) ----
 export type ProxyProtocol = 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5';
 export type ProxySource = 'MANUAL' | 'WEBSHARE';

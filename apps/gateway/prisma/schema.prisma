@@ -31,6 +31,14 @@ model User {
   @@map("users")
 }
 
+model WaLicense {
+  id          String   @id @default("singleton")
+  token       String
+  installedAt DateTime @default(now())
+
+  @@map("wa_licenses")
+}
+
 model WaApiKey {
   id         String    @id
   name       String

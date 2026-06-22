@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { newId } from '../../../shared-kernel/ulid';
+import { LicenseService } from '../../iam/application/license.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
 import { RolesGuard } from '../../iam/interface/roles.guard';
@@ -46,6 +47,7 @@ export class SessionsController {
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly repo: SessionRepository,
     private readonly manager: SessionManager,
+    private readonly license: LicenseService,
   ) {}
 
   @Post()
@@ -65,6 +67,12 @@ export class SessionsController {
     }
     if (await this.repo.findByName(name)) {
       throw new ConflictException('Já existe uma sessão com esse nome');
+    }
+    const maxSessions = this.license.effective().maxSessions;
+    if ((await this.repo.list()).length >= maxSessions) {
+      throw new ConflictException(
+        `Limite de ${maxSessions} sessão(ões) atingido — instale uma licença com mais sessões.`,
+      );
     }
 
     const created = await this.repo.create({
