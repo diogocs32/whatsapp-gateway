@@ -16,6 +16,7 @@ import { MediaStorage } from '../../../infra/storage/media-storage.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
+import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 import {
   MESSAGE_REPOSITORY,
   type MessageRepository,
@@ -101,7 +102,7 @@ export class MessagesController {
 
   @Get()
   async list(
-    @Param('id') id: string,
+    @Param('id', SessionRefPipe) id: string,
     @Query('chatId') chatId?: string,
     @Query('limit') limit?: string,
   ) {
@@ -123,7 +124,7 @@ export class MessagesController {
   }
 
   @Post('text')
-  async sendText(@Param('id') id: string, @Body() body: unknown) {
+  async sendText(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
     const parsed = sendTextSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(
@@ -145,7 +146,7 @@ export class MessagesController {
   // Envio por upload (multipart/form-data). Envie os campos de texto ANTES do arquivo
   // (campo "file"); @fastify/multipart só expõe em data.fields o que vem antes do arquivo.
   @Post('media')
-  async sendMedia(@Param('id') id: string, @Req() req: FastifyRequest) {
+  async sendMedia(@Param('id', SessionRefPipe) id: string, @Req() req: FastifyRequest) {
     const data = await req.file();
     if (!data) {
       throw new BadRequestException('arquivo é obrigatório (campo "file")');
@@ -183,7 +184,7 @@ export class MessagesController {
 
   // Envio por URL (JSON): o gateway baixa o arquivo e envia (uso programático/integrações).
   @Post('media-url')
-  async sendMediaUrl(@Param('id') id: string, @Body() body: unknown) {
+  async sendMediaUrl(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
     const parsed = sendMediaUrlSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(

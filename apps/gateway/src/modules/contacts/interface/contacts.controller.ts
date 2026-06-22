@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { ContactDirectory } from '../../../infra/directory/contact-directory.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
+import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 
 const checkSchema = z.object({
   numbers: z.array(z.string().min(5).max(40)).min(1).max(50),
@@ -32,7 +33,7 @@ export class ContactsController {
   // Diretório persistente (LID↔telefone + metadados) acumulado de todas as fontes — base p/ automações.
   @Get('directory')
   async listDirectory(
-    @Param('id') id: string,
+    @Param('id', SessionRefPipe) id: string,
     @Query('search') search?: string,
     @Query('limit') limit?: string,
   ) {
@@ -59,7 +60,7 @@ export class ContactsController {
 
   // Verifica se números têm WhatsApp (retorna o JID canônico — corrige 9º dígito BR).
   @Post('check')
-  async check(@Param('id') id: string, @Body() body: unknown) {
+  async check(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
     const r = checkSchema.safeParse(body);
     if (!r.success) {
       throw new BadRequestException(
@@ -74,7 +75,7 @@ export class ContactsController {
   }
 
   @Get(':jid/profile-picture')
-  async profilePicture(@Param('id') id: string, @Param('jid') jid: string) {
+  async profilePicture(@Param('id', SessionRefPipe) id: string, @Param('jid') jid: string) {
     try {
       const url = await this.manager.profilePicture(id, jid);
       return { jid, url };
@@ -84,7 +85,7 @@ export class ContactsController {
   }
 
   @Post('block')
-  async block(@Param('id') id: string, @Body() body: unknown) {
+  async block(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
     const r = blockSchema.safeParse(body);
     if (!r.success) {
       throw new BadRequestException(

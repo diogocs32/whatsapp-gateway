@@ -10,6 +10,7 @@ import {
 import { z } from 'zod';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
+import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 
 const createChannelSchema = z.object({
   name: z.string().min(1).max(100),
@@ -23,7 +24,7 @@ export class ChannelsController {
   constructor(private readonly manager: SessionManager) {}
 
   @Post()
-  async create(@Param('id') id: string, @Body() body: unknown) {
+  async create(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
     const r = createChannelSchema.safeParse(body);
     if (!r.success) {
       throw new BadRequestException(
@@ -36,18 +37,18 @@ export class ChannelsController {
   }
 
   @Get(':jid')
-  info(@Param('id') id: string, @Param('jid') jid: string) {
+  info(@Param('id', SessionRefPipe) id: string, @Param('jid') jid: string) {
     return this.run(() => this.manager.channelInfo(id, jid));
   }
 
   @Post(':jid/follow')
-  async follow(@Param('id') id: string, @Param('jid') jid: string) {
+  async follow(@Param('id', SessionRefPipe) id: string, @Param('jid') jid: string) {
     await this.run(() => this.manager.followChannel(id, jid));
     return { ok: true };
   }
 
   @Post(':jid/unfollow')
-  async unfollow(@Param('id') id: string, @Param('jid') jid: string) {
+  async unfollow(@Param('id', SessionRefPipe) id: string, @Param('jid') jid: string) {
     await this.run(() => this.manager.unfollowChannel(id, jid));
     return { ok: true };
   }
