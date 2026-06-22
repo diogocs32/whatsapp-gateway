@@ -23,7 +23,9 @@ export interface HealthResponse {
   checks: {
     database: boolean;
     redis: boolean;
-    heapUsedPct: number;
+    heapUsedPct: number; // pressão do heap V8 (used_heap_size / heap_size_limit)
+    memoryUsedPct: number; // RAM real do container (cgroup) ou heap se não houver limite
+    rssBytes: number;
   };
   version: string;
   timestamp: string;
@@ -35,6 +37,9 @@ export interface ObservabilitySummary {
   rssBytes: number;
   heapUsedBytes: number;
   heapUsedPct: number;
+  heapLimitBytes: number;
+  memoryUsedPct: number; // RAM real do container (cgroup) ou heap se não houver limite
+  containerLimitBytes: number | null;
   sessions: Record<string, number>;
   messages: { out: number; in: number };
 }

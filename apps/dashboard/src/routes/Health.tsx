@@ -130,8 +130,15 @@ export function Health() {
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-zinc-400">Heap usado</dt>
+                <dt className="text-zinc-400">Heap V8</dt>
                 <dd>{Math.round(health.checks.heapUsedPct * 100)}%</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-zinc-400">Memória (RAM)</dt>
+                <dd>
+                  {Math.round(health.checks.memoryUsedPct * 100)}% ·{' '}
+                  {mb(health.checks.rssBytes)} RSS
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-zinc-400">Uptime</dt>
@@ -160,6 +167,15 @@ export function Health() {
                 <dt className="text-zinc-400">Heap / RSS</dt>
                 <dd>
                   {mb(summary.heapUsedBytes)} / {mb(summary.rssBytes)}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-zinc-400">RAM / limite</dt>
+                <dd>
+                  {Math.round(summary.memoryUsedPct * 100)}%
+                  {summary.containerLimitBytes
+                    ? ` de ${mb(summary.containerLimitBytes)}`
+                    : ' (sem limite)'}
                 </dd>
               </div>
               <div className="pt-2">

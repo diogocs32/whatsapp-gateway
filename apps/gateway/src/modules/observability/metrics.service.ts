@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { memoryStats } from '../../shared-kernel/memory';
 
 // Exporta métricas no formato Prometheus (F7 — Observability, blueprint §14).
 // Usa um Registry próprio (não o global) para não conflitar com nada.
@@ -49,15 +50,15 @@ export class MetricsService implements OnModuleInit {
       this.prisma.waMessage.count({ where: { fromMe: true } }),
       this.prisma.waMessage.count({ where: { fromMe: false } }),
     ]);
-    const mem = process.memoryUsage();
+    const mem = memoryStats();
     return {
       uptimeSeconds: Math.round(process.uptime()),
-      rssBytes: mem.rss,
-      heapUsedBytes: mem.heapUsed,
-      heapUsedPct:
-        mem.heapTotal > 0
-          ? Math.round((mem.heapUsed / mem.heapTotal) * 100) / 100
-          : 0,
+      rssBytes: mem.rssBytes,
+      heapUsedBytes: mem.heapUsedBytes,
+      heapUsedPct: mem.heapUsedPct,
+      heapLimitBytes: mem.heapLimitBytes,
+      memoryUsedPct: mem.memoryUsedPct,
+      containerLimitBytes: mem.containerLimitBytes,
       sessions,
       messages: { out, in: inbound },
     };

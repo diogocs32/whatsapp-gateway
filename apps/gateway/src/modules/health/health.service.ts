@@ -1,11 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
+import { memoryStats } from '../../shared-kernel/memory';
 
 export interface HealthReport {
   status: 'ok' | 'degraded' | 'unhealthy';
   uptimeSeconds: number;
-  checks: { database: boolean; redis: boolean; heapUsedPct: number };
+  checks: {
+    database: boolean;
+    redis: boolean;
+    heapUsedPct: number;
+    memoryUsedPct: number;
+    rssBytes: number;
+  };
   version: string;
   timestamp: string;
 }
@@ -23,15 +30,16 @@ export class HealthService {
       this.redis.ping(),
     ]);
 
-    // Pressão de memória: heap usado / heap total. >92% sinaliza degradação (blueprint §14).
-    const mem = process.memoryUsage();
-    const heapUsedPct = mem.heapTotal > 0 ? mem.heapUsed / mem.heapTotal : 0;
-    const heapOk = heapUsedPct < 0.92;
+    // Pressão de memória: usa a RAM REAL do container (cgroup — inclui os Chromium do wwebjs)
+    // quando há limite; senão, o heap V8 vs seu limite (heap_size_limit). >90% = degradação.
+    // NÃO se usa heapUsed/heapTotal (falso positivo: heapTotal é dinâmico — ver shared-kernel/memory).
+    const mem = memoryStats();
+    const memoryOk = mem.memoryUsedPct < 0.9;
 
     const status =
       !database && !redis
         ? 'unhealthy'
-        : database && redis && heapOk
+        : database && redis && memoryOk
           ? 'ok'
           : 'degraded';
 
@@ -41,7 +49,9 @@ export class HealthService {
       checks: {
         database,
         redis,
-        heapUsedPct: Math.round(heapUsedPct * 100) / 100,
+        heapUsedPct: mem.heapUsedPct,
+        memoryUsedPct: mem.memoryUsedPct,
+        rssBytes: mem.rssBytes,
       },
       version: process.env.npm_package_version ?? '0.1.0',
       timestamp: new Date().toISOString(),
