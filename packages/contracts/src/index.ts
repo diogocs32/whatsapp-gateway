@@ -242,6 +242,17 @@ export interface UpdateBrandingRequest {
   faviconUrl?: string | null;
 }
 
+// ---- Audit log (F9.7) ----
+export interface AuditLogDto {
+  id: string;
+  actor: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  ip: string | null;
+  at: string;
+}
+
 // ---- Proxies (F3) ----
 export type ProxyProtocol = 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5';
 export type ProxySource = 'MANUAL' | 'WEBSHARE';

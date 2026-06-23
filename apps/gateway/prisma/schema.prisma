@@ -50,6 +50,19 @@ model WaBranding {
   @@map("wa_branding")
 }
 
+model WaAuditLog {
+  id         String   @id
+  actor      String // "username (ROLE)" | "key:nome" | "login:username" | "anônimo"
+  method     String
+  path       String
+  statusCode Int
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("wa_audit_logs")
+}
+
 model WaApiKey {
   id         String    @id
   name       String
