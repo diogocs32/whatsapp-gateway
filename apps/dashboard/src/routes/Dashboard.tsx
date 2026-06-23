@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { HealthResponse } from '@contracts';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useBranding } from '../lib/branding';
 
 function Dot({ up }: { up: boolean }) {
   return (
@@ -14,6 +15,7 @@ function Dot({ up }: { up: boolean }) {
 
 export function Dashboard() {
   const { user, signOut } = useAuth();
+  const { branding } = useBranding();
   const [health, setHealth] = useState<HealthResponse | null>(null);
 
   useEffect(() => {
@@ -30,8 +32,12 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
-        <h1 className="text-lg font-semibold">
-          WhatsApp Gateway <span className="text-zinc-500">· painel</span>
+        <h1 className="flex items-center gap-2 text-lg font-semibold">
+          {branding.logoUrl && (
+            <img src={branding.logoUrl} alt="" className="h-6 object-contain" />
+          )}
+          {branding.productName}{' '}
+          <span className="text-zinc-500">· painel</span>
         </h1>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-zinc-400">
@@ -155,6 +161,19 @@ export function Dashboard() {
             <p className="text-sm text-zinc-400">
               Status do licenciamento, instalar/remover licença e limites do
               plano. Visível só para OWNER.
+            </p>
+          </Link>
+        )}
+
+        {user?.role === 'OWNER' && (
+          <Link
+            to="/branding"
+            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
+          >
+            <h2 className="mb-2 font-medium text-zinc-100">Marca →</h2>
+            <p className="text-sm text-zinc-400">
+              White-label: nome do produto, logo, cor do tema e favicon.
+              Visível só para OWNER.
             </p>
           </Link>
         )}

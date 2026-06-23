@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { useBranding } from '../lib/branding';
 
 export function Login() {
   const { signIn } = useAuth();
+  const { branding } = useBranding();
   const navigate = useNavigate();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
@@ -30,8 +32,15 @@ export function Login() {
         onSubmit={onSubmit}
         className="w-full max-w-sm space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-xl"
       >
-        <div className="space-y-1 text-center">
-          <h1 className="text-xl font-semibold">WhatsApp Gateway</h1>
+        <div className="space-y-2 text-center">
+          {branding.logoUrl && (
+            <img
+              src={branding.logoUrl}
+              alt={branding.productName}
+              className="mx-auto h-10 object-contain"
+            />
+          )}
+          <h1 className="text-xl font-semibold">{branding.productName}</h1>
           <p className="text-sm text-zinc-400">Entrar no painel</p>
         </div>
 

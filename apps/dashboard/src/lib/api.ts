@@ -1,6 +1,7 @@
 import type {
   ApiKeyDto,
   AuthUser,
+  Branding,
   BulkImportProxiesRequest,
   BulkImportResult,
   CampaignDto,
@@ -32,6 +33,7 @@ import type {
   SessionDto,
   SetProxyAssignmentRequest,
   TimelineEvent,
+  UpdateBrandingRequest,
   UpdateUserRequest,
   UserDto,
   UsersListResponse,
@@ -155,6 +157,15 @@ export const api = {
         body: JSON.stringify({ token }),
       }),
     remove: () => request<LicenseStatus>('/api/license', { method: 'DELETE' }),
+  },
+
+  branding: {
+    get: () => request<Branding>('/api/branding'),
+    update: (body: UpdateBrandingRequest) =>
+      request<Branding>('/api/branding', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
   },
 
   sessions: {

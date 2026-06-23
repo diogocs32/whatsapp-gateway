@@ -10,6 +10,7 @@ import { Webhooks } from './routes/Webhooks';
 import { ApiKeys } from './routes/ApiKeys';
 import { Users } from './routes/Users';
 import { License } from './routes/License';
+import { Branding } from './routes/Branding';
 import { Proxies } from './routes/Proxies';
 import { Groups } from './routes/Groups';
 import { Contacts } from './routes/Contacts';
@@ -93,6 +94,14 @@ export function App() {
         element={
           <Protected>
             <License />
+          </Protected>
+        }
+      />
+      <Route
+        path="/branding"
+        element={
+          <Protected>
+            <Branding />
           </Protected>
         }
       />
