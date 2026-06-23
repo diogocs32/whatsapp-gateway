@@ -1,5 +1,6 @@
 import type {
   ApiKeyDto,
+  AuditLogDto,
   AuthUser,
   Branding,
   BulkImportProxiesRequest,
@@ -166,6 +167,11 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(body),
       }),
+  },
+
+  audit: {
+    list: (limit = 100, offset = 0) =>
+      request<AuditLogDto[]>(`/api/audit?limit=${limit}&offset=${offset}`),
   },
 
   sessions: {

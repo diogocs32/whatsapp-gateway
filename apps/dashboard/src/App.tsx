@@ -11,6 +11,7 @@ import { ApiKeys } from './routes/ApiKeys';
 import { Users } from './routes/Users';
 import { License } from './routes/License';
 import { Branding } from './routes/Branding';
+import { Audit } from './routes/Audit';
 import { Proxies } from './routes/Proxies';
 import { Groups } from './routes/Groups';
 import { Contacts } from './routes/Contacts';
@@ -102,6 +103,14 @@ export function App() {
         element={
           <Protected>
             <Branding />
+          </Protected>
+        }
+      />
+      <Route
+        path="/audit"
+        element={
+          <Protected>
+            <Audit />
           </Protected>
         }
       />

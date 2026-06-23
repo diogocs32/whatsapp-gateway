@@ -178,6 +178,19 @@ export function Dashboard() {
           </Link>
         )}
 
+        {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
+          <Link
+            to="/audit"
+            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
+          >
+            <h2 className="mb-2 font-medium text-zinc-100">Auditoria →</h2>
+            <p className="text-sm text-zinc-400">
+              Histórico de ações que alteram estado (quem, o quê, quando).
+              OWNER e ADMIN.
+            </p>
+          </Link>
+        )}
+
         <Link
           to="/proxies"
           className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
