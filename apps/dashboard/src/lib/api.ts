@@ -9,6 +9,7 @@ import type {
   ChannelDto,
   ContactCheckDto,
   ContactDirectoryDto,
+  ConversationDto,
   CreateApiKeyRequest,
   CreateCampaignRequest,
   CreateProxyRequest,
@@ -201,6 +202,10 @@ export const api = {
     messages: (id: string, chatId: string, limit = 50) =>
       request<MessageDto[]>(
         `/api/sessions/${id}/messages?chatId=${encodeURIComponent(chatId)}&limit=${limit}`,
+      ),
+    conversations: (id: string, limit = 100) =>
+      request<ConversationDto[]>(
+        `/api/sessions/${id}/messages/conversations?limit=${limit}`,
       ),
     sendText: (id: string, to: string, text: string) =>
       request<SendTextResponse>(`/api/sessions/${id}/messages/text`, {

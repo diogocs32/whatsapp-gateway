@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import { newId } from '../../../shared-kernel/ulid';
 import type {
+  ConversationSummary,
   MessageRepository,
   SaveMessageInput,
   StoredMessage,
@@ -62,5 +63,41 @@ export class PrismaMessageRepository implements MessageRepository {
       mediaKey: r.mediaKey,
       fileSize: r.fileSize,
     }));
+  }
+
+  // Conversas = chatJid distintos. DISTINCT ON pega a última mensagem de cada conversa
+  // (usa o índice [sessionId, chatJid, timestamp]); a subquery externa reordena pela mais
+  // recente. LEFT JOIN best-effort com wa_contacts (jid/waId/lid) p/ nome e foto.
+  async listConversations(
+    sessionId: string,
+    limit: number,
+  ): Promise<ConversationSummary[]> {
+    return this.prisma.$queryRaw<ConversationSummary[]>`
+      SELECT sub."chatJid"       AS "chatJid",
+             sub."name"          AS "name",
+             sub."imgUrl"        AS "imgUrl",
+             sub."lastText"      AS "lastText",
+             sub."lastType"      AS "lastType",
+             sub."lastFromMe"    AS "lastFromMe",
+             sub."lastTimestamp" AS "lastTimestamp"
+      FROM (
+        SELECT DISTINCT ON (m."chatJid")
+               m."chatJid"                                          AS "chatJid",
+               COALESCE(c."name", c."verifiedName", c."pushName")   AS "name",
+               c."imgUrl"                                           AS "imgUrl",
+               m."text"                                             AS "lastText",
+               m."type"                                             AS "lastType",
+               m."fromMe"                                           AS "lastFromMe",
+               m."timestamp"                                        AS "lastTimestamp"
+        FROM "wa_messages" m
+        LEFT JOIN "wa_contacts" c
+          ON c."sessionId" = m."sessionId"
+         AND (c."jid" = m."chatJid" OR c."waId" = m."chatJid" OR c."lid" = m."chatJid")
+        WHERE m."sessionId" = ${sessionId}
+        ORDER BY m."chatJid", m."timestamp" DESC
+      ) sub
+      ORDER BY sub."lastTimestamp" DESC
+      LIMIT ${limit}
+    `;
   }
 }

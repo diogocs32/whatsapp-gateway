@@ -126,6 +126,18 @@ export interface MessageDto {
   mediaUrl?: string | null; // URL pré-assinada temporária para exibir/baixar
 }
 
+// Resumo de conversa p/ a lista da inbox (1 por chatJid). Derivado das mensagens,
+// com nome/foto do contato quando há match.
+export interface ConversationDto {
+  chatJid: string;
+  name: string | null; // nome do contato (agenda/verificado/pushName) ou null
+  imgUrl: string | null;
+  lastText: string | null; // texto da última msg; null em mídia (use lastType p/ rótulo)
+  lastType: string; // text | image | video | audio | document | sticker
+  lastFromMe: boolean;
+  lastTimestamp: string;
+}
+
 export interface SendTextRequest {
   to: string; // número (E.164 sem +) ou JID completo
   text: string;

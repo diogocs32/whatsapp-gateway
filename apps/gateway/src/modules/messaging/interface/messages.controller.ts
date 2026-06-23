@@ -20,6 +20,7 @@ import { SessionManager } from '../../sessions/application/session-manager.servi
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 import {
   MESSAGE_REPOSITORY,
+  type ConversationSummary,
   type MessageRepository,
   type StoredMessage,
 } from '../domain/message.repository';
@@ -73,6 +74,18 @@ function candidateJids(chatId: string): string[] {
   return [...jids];
 }
 
+function toConversationDto(c: ConversationSummary) {
+  return {
+    chatJid: c.chatJid,
+    name: c.name,
+    imgUrl: c.imgUrl,
+    lastText: c.lastText,
+    lastType: c.lastType,
+    lastFromMe: c.lastFromMe,
+    lastTimestamp: c.lastTimestamp.toISOString(),
+  };
+}
+
 function toDto(m: StoredMessage, mediaUrl: string | null) {
   return {
     id: m.id,
@@ -100,6 +113,17 @@ export class MessagesController {
     private readonly manager: SessionManager,
     private readonly mediaStorage: MediaStorage,
   ) {}
+
+  // Lista de conversas (chatJid distintos) p/ a inbox — última msg, nome/foto, ordenada por recência.
+  @Get('conversations')
+  async conversations(
+    @Param('id', SessionRefPipe) id: string,
+    @Query('limit') limit?: string,
+  ) {
+    const take = Math.min(Number(limit) || 100, 500);
+    const convs = await this.repo.listConversations(id, take);
+    return convs.map(toConversationDto);
+  }
 
   @Get()
   async list(
