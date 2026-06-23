@@ -13,6 +13,11 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 # A URL real entra em runtime (env do Dokploy) e é usada pelo `migrate deploy` no entrypoint.
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 
+# openssl: o Prisma CLI precisa detectar a libssl no `generate` (bookworm-slim não inclui o pacote),
+# senão cai no fallback "openssl-1.1.x" e emite warning. Ver docs/prisma system-requirements.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Manifests primeiro → camada de cache das dependências
 COPY package.json package-lock.json ./
 COPY apps/gateway/package.json apps/gateway/
@@ -29,8 +34,9 @@ ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # curl = healthcheck (sempre). chromium/fonts/tini = engine WWEBJS (remova se só Baileys).
+# openssl = libssl p/ o `prisma migrate deploy` no entrypoint (schema engine nativo).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl ca-certificates tini chromium fonts-liberation \
+      curl ca-certificates tini chromium fonts-liberation openssl \
     && rm -rf /var/lib/apt/lists/*
 ENV WWEBJS_CHROME_PATH=/usr/bin/chromium
 ENV WWEBJS_DATA_PATH=/data/wwebjs
