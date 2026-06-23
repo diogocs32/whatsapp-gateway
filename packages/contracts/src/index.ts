@@ -227,6 +227,21 @@ export interface InstallLicenseRequest {
   token: string;
 }
 
+// ---- Branding white-label (F9.6) ----
+export interface Branding {
+  productName: string;
+  logoUrl: string | null;
+  primaryColor: string; // hex (#rrggbb)
+  faviconUrl: string | null;
+}
+
+export interface UpdateBrandingRequest {
+  productName: string;
+  primaryColor: string;
+  logoUrl?: string | null;
+  faviconUrl?: string | null;
+}
+
 // ---- Proxies (F3) ----
 export type ProxyProtocol = 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5';
 export type ProxySource = 'MANUAL' | 'WEBSHARE';

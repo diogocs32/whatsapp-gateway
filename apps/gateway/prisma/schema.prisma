@@ -39,6 +39,17 @@ model WaLicense {
   @@map("wa_licenses")
 }
 
+model WaBranding {
+  id           String   @id @default("singleton")
+  productName  String   @default("WhatsApp Gateway")
+  logoUrl      String?
+  primaryColor String   @default("#10b981")
+  faviconUrl   String?
+  updatedAt    DateTime @updatedAt @default(now())
+
+  @@map("wa_branding")
+}
+
 model WaApiKey {
   id         String    @id
   name       String
