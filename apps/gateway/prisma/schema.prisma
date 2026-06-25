@@ -113,8 +113,34 @@ model WaSession {
   contacts  WaContact[]
   campaigns Campaign[]
   events    WaSessionEvent[]
+  metrics   SessionMetric[]
 
   @@map("wa_sessions")
+}
+
+// G4 (guard-rail/reply-rate): snapshot por sessão+janela. `replyRate` = responded/coldMature,
+// onde coldMature EXCLUI cold-sends < 72h (correção C2 — senão número novo cai em falso-positivo).
+// Lido pelo G5 (guard-rail) e pelos dashboards. Atualizado por upsert (1 snapshot atual por janela).
+model SessionMetric {
+  id           String   @id
+  sessionId    String
+  windowDays   Int // 7 = operacional, 30 = referência
+  coldTotal    Int      @default(0) // cold-sends na janela
+  coldMature   Int      @default(0) // cold-sends já maduros (>72h) = denominador do replyRate (C2)
+  responded    Int      @default(0) // cold maduros respondidos (inbound em até 72h)
+  replyRate    Float    @default(0) // responded / coldMature (0..1); 0 se coldMature=0
+  sample       Int      @default(0) // = coldMature (amostra do veredito)
+  reliable     Boolean  @default(false) // sample >= Nmin (20)
+  deliveryRate Float    @default(0) // delivered|read / coldTotal (0..1)
+  readRate     Float    @default(0) // read / coldTotal (0..1)
+  scoreSaude   Float    @default(0) // 0..100 (ponderação tunável de reply/read/delivery)
+  computedAt   DateTime @default(now())
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, windowDays])
+  @@index([sessionId, computedAt])
+  @@map("session_metrics")
 }
 
 // Timeline de eventos da sessão (F7 — Observability): conexões, reconexões, troca de proxy, erros.
