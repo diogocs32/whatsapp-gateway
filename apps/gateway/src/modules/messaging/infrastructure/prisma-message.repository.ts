@@ -64,6 +64,18 @@ export class PrismaMessageRepository implements MessageRepository {
     return row ?? null;
   }
 
+  async findByKeyId(
+    sessionId: string,
+    keyId: string,
+  ): Promise<{ chatJid: string } | null> {
+    const row = await this.prisma.waMessage.findFirst({
+      where: { sessionId, keyId },
+      select: { chatJid: true },
+      orderBy: { timestamp: 'desc' },
+    });
+    return row ?? null;
+  }
+
   // Ordem dos ACKs — usada para nunca regredir (um `read` não volta para `delivered`).
   private static readonly ACK_RANK: Record<string, number> = {
     sent: 1,

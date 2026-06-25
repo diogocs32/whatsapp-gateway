@@ -8,6 +8,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -21,6 +22,7 @@ import { LicenseService } from '../../iam/application/license.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
 import { RolesGuard } from '../../iam/interface/roles.guard';
+import { SessionConfigService } from '../application/session-config.service';
 import { SessionManager } from '../application/session-manager.service';
 import { SessionRefPipe } from './session-ref.pipe';
 import type { Session } from '../domain/session.entity';
@@ -28,7 +30,12 @@ import {
   SESSION_REPOSITORY,
   type SessionRepository,
 } from '../domain/session.repository';
-import { createSessionSchema, pairingSchema } from './dto';
+import {
+  createSessionSchema,
+  pairingSchema,
+  presenceSchema,
+  sessionConfigSchema,
+} from './dto';
 
 function toDto(s: Session) {
   return {
@@ -46,6 +53,29 @@ function toDto(s: Session) {
   };
 }
 
+// G8 — DTO da config de envio da sessão (sem id/sessionId internos).
+function configDto(c: {
+  capBase: number;
+  warmupCurve: number[];
+  regiaoDdd: string | null;
+  modo: string;
+  janelaInicio: number;
+  janelaFim: number;
+  timezone: string;
+  device: unknown;
+}) {
+  return {
+    capBase: c.capBase,
+    warmupCurve: c.warmupCurve,
+    regiaoDdd: c.regiaoDdd,
+    modo: c.modo,
+    janelaInicio: c.janelaInicio,
+    janelaFim: c.janelaFim,
+    timezone: c.timezone,
+    device: c.device ?? null,
+  };
+}
+
 @UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions')
 export class SessionsController {
@@ -54,6 +84,7 @@ export class SessionsController {
     private readonly manager: SessionManager,
     private readonly license: LicenseService,
     private readonly guardrail: GuardrailService,
+    private readonly sessionConfig: SessionConfigService,
   ) {}
 
   @Post()
@@ -119,10 +150,53 @@ export class SessionsController {
     return toDto(await this.ensure(id));
   }
 
-  // G7 — saúde da sessão (estado guard-rail + reply-rate + sinais).
+  // G7 — saúde da sessão (estado guard-rail + reply-rate + sinais). G8 preenche cap_base/cap_atual.
   @Get(':id/health')
   async health(@Param('id', SessionRefPipe) id: string) {
-    return this.guardrail.health(id);
+    const h = await this.guardrail.health(id);
+    const cfg = await this.sessionConfig.get(id);
+    const cap = this.sessionConfig.capFor(cfg, h.state);
+    return { ...h, cap_base: cap.cap_base, cap_atual: cap.cap_atual };
+  }
+
+  // G8 — config de envio da sessão (cap_atual é derivado do estado guard-rail).
+  @Get(':id/config')
+  async getConfig(@Param('id', SessionRefPipe) id: string) {
+    const cfg = await this.sessionConfig.get(id);
+    const gr = await this.guardrail.getState(id);
+    return { ...configDto(cfg), ...this.sessionConfig.capFor(cfg, gr.state) };
+  }
+
+  @Patch(':id/config')
+  async patchConfig(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = sessionConfigSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    const cfg = await this.sessionConfig.update(id, parsed.data);
+    const gr = await this.guardrail.getState(id);
+    return { ...configDto(cfg), ...this.sessionConfig.capFor(cfg, gr.state) };
+  }
+
+  // G8 — presença ("digitando…", "online", etc.) no destino.
+  @Post(':id/presence')
+  async presence(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = presenceSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    await this.manager.sendPresence(id, parsed.data.to, parsed.data.type);
+    return { ok: true };
   }
 
   // G7 — override manual do estado guard-rail (decisão explícita do Diogo).

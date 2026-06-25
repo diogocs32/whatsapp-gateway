@@ -25,6 +25,7 @@ export const fakeSessionManager = {
     jid: '5511999999999@s.whatsapp.net',
   }),
   sendPresence: async () => undefined,
+  markRead: async () => undefined,
   // F5 — grupos / contatos / canais
   listGroups: async () => [],
   groupInfo: async () => fakeGroup,

@@ -32,6 +32,7 @@ import type {
   AckStatus,
   IEngine,
   MessageSource,
+  PresenceState,
   SendMediaInput,
   SendOptions,
   SessionStatePayload,
@@ -769,11 +770,20 @@ export class BaileysEngine implements IEngine {
   }
 
   // Humanização (F6): "digitando…" antes do envio em campanhas.
-  async sendPresence(
-    to: string,
-    state: 'composing' | 'paused' | 'recording',
-  ): Promise<void> {
-    await this.sk().sendPresenceUpdate(state, toJid(to));
+  async sendPresence(to: string, state: PresenceState): Promise<void> {
+    // available/unavailable são presença GLOBAL (sem jid); os demais são por chat.
+    if (state === 'available' || state === 'unavailable') {
+      await this.sk().sendPresenceUpdate(state);
+    } else {
+      await this.sk().sendPresenceUpdate(state, toJid(to));
+    }
+  }
+
+  // G8 — marca a mensagem como lida (read receipt). Em 1:1 a key {remoteJid,id,fromMe:false} basta.
+  async markRead(chatJid: string, msgId: string): Promise<void> {
+    await this.sk().readMessages([
+      { remoteJid: toJid(chatJid), id: msgId, fromMe: false },
+    ]);
   }
 
   private cacheSent(keyId: string, message: proto.IMessage): void {

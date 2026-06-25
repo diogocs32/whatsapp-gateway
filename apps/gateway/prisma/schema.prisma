@@ -125,8 +125,29 @@ model WaSession {
   events    WaSessionEvent[]
   metrics   SessionMetric[]
   guardrail SessionGuardrail?
+  config    SessionConfig?
 
   @@map("wa_sessions")
+}
+
+// G8 — config de ENVIO por sessão, editável em runtime (PATCH /sessions/:id/config). `cap_atual`
+// NÃO é persistido: é derivado de capBase + warmupCurve + estado guard-rail (ver SessionConfigService).
+model SessionConfig {
+  id           String   @id
+  sessionId    String   @unique
+  capBase      Int      @default(20) // teto diário de cold-sends quando ativa
+  warmupCurve  Int[]    @default([5, 10, 20]) // trickle de cold/dia durante aquecimento
+  regiaoDdd    String? // DDD p/ geo-match do proxy sticky (refino)
+  modo         String   @default("cold_ok") // cold_ok | inbound_only | manual_first
+  janelaInicio Int      @default(8) // hora local de início do envio (0-23)
+  janelaFim    Int      @default(20) // hora local de fim
+  timezone     String   @default("America/Sao_Paulo")
+  device       Json? // fingerprint estável/pinado
+  updatedAt    DateTime @updatedAt @default(now())
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_config")
 }
 
 // G5 (guard-rail) — estado por sessão da máquina de saúde. Em modo OBSERVAÇÃO

@@ -27,6 +27,7 @@ import type {
   GroupParticipantAction,
   IEngine,
   MessagePayload,
+  PresenceState,
   SendMediaInput,
   SendOptions,
   SessionStatePayload,
@@ -234,9 +235,13 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   sendPresence(
     sessionId: string,
     to: string,
-    state: 'composing' | 'paused' | 'recording',
+    state: PresenceState,
   ): Promise<void> {
     return this.working(sessionId).sendPresence(to, state);
+  }
+
+  markRead(sessionId: string, chatJid: string, msgId: string): Promise<void> {
+    return this.working(sessionId).markRead(chatJid, msgId);
   }
 
   // Retorna a engine só se a sessão estiver conectada (WORKING) — usado pelas operações F5.

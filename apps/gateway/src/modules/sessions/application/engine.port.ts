@@ -138,6 +138,14 @@ export interface ChannelInfo {
   subscribers: number | null;
 }
 
+// G8 — estados de presença. composing/recording/paused são por chat; available/unavailable globais.
+export type PresenceState =
+  | 'composing'
+  | 'paused'
+  | 'recording'
+  | 'available'
+  | 'unavailable';
+
 export interface IEngine {
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -152,10 +160,9 @@ export interface IEngine {
     to: string,
     input: SendMediaInput,
   ): Promise<{ keyId: string; jid: string }>;
-  sendPresence(
-    to: string,
-    state: 'composing' | 'paused' | 'recording',
-  ): Promise<void>;
+  sendPresence(to: string, state: PresenceState): Promise<void>;
+  // G8 — marca uma mensagem recebida como lida (read receipt / "visto").
+  markRead(chatJid: string, msgId: string): Promise<void>;
   getQrBase64(): string | null;
   getStatus(): SessionStatus;
 

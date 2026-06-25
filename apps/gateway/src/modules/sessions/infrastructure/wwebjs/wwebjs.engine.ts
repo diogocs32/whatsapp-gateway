@@ -9,6 +9,7 @@ import type {
   GroupInfo,
   IEngine,
   MessageSource,
+  PresenceState,
   SendMediaInput,
   SendOptions,
 } from '../../application/engine.port';
@@ -218,14 +219,18 @@ export class WWebJSEngine implements IEngine {
     return { keyId, jid };
   }
 
-  async sendPresence(
-    to: string,
-    state: 'composing' | 'paused' | 'recording',
-  ): Promise<void> {
+  async sendPresence(to: string, state: PresenceState): Promise<void> {
     const chat = await this.req().getChatById(this.toChatId(to));
     if (state === 'composing') await chat.sendStateTyping();
     else if (state === 'recording') await chat.sendStateRecording();
+    // paused/available/unavailable: o wwebjs não tem presença global por chat → limpa o estado.
     else await chat.clearState();
+  }
+
+  // G8 — wwebjs marca o CHAT como visto (não há read por msgId); msgId é ignorado.
+  async markRead(chatJid: string, _msgId: string): Promise<void> {
+    const chat = await this.req().getChatById(this.toChatId(chatJid));
+    await chat.sendSeen();
   }
 
   // Handler do message_create: capta recebidas E enviadas de qualquer device. As enviadas pelo painel

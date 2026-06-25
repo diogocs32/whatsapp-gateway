@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Inject,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -172,6 +173,18 @@ export class MessagesController {
         ),
       ),
     );
+  }
+
+  // G8 — marca uma mensagem recebida como lida (read receipt). Resolve o chatJid pela WaMessage.
+  @Post(':msgId/read')
+  async markRead(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('msgId') msgId: string,
+  ) {
+    const msg = await this.repo.findByKeyId(id, msgId);
+    if (!msg) throw new NotFoundException('Mensagem não encontrada');
+    await this.manager.markRead(id, msg.chatJid, msgId);
+    return { ok: true };
   }
 
   // G1: dedup forte. Se já houve um envio com a mesma idempotencyKey nesta sessão, devolve o
