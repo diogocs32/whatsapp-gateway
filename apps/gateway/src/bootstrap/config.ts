@@ -37,6 +37,16 @@ const base = z.object({
   MAX_SEATS: z.coerce.number().int().positive().default(1), // assentos no MODO COMUNIDADE (sem licença); a licença F9.5 sobrepõe
   MAX_SESSIONS: z.coerce.number().int().positive().default(1), // sessões no modo comunidade; a licença sobrepõe
   LICENSE_KEY: z.string().optional(), // licença Ed25519 (CZL1...) — bootstrap; o normal é instalar pelo painel
+
+  // ---- Guard-rail (G5) ----
+  // enforce=false => modo OBSERVAÇÃO: mede/registra o estado mas NÃO bloqueia envios nem aplica
+  // quarentena automática. Ligar (true) só depois de ter a mediana real da frota (trava do §G5).
+  GUARDRAIL_ENFORCE: z.coerce.boolean().default(false),
+  GUARDRAIL_NMIN: z.coerce.number().int().positive().default(20), // amostra mínima p/ veredito
+  GUARDRAIL_THROTTLE_MULT: z.coerce.number().positive().default(0.75), // < mediana×0,75 => throttled
+  GUARDRAIL_QUARANTINE_MULT: z.coerce.number().positive().default(0.6), // < mediana×0,6 => quarentena
+  GUARDRAIL_TARGET_REPLY_RATE: z.coerce.number().positive().default(0.35), // alvo/fallback se frota pequena
+  GUARDRAIL_COOLDOWN_HOURS: z.coerce.number().int().positive().default(48), // cooldown base da quarentena
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   WA_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])

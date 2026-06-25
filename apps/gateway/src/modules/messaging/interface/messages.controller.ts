@@ -13,6 +13,8 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { MediaStorage } from '../../../infra/storage/media-storage.service';
+import { GuardrailService } from '../../guardrail/guardrail.service';
+import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
 import type { MediaSendType } from '../../sessions/application/engine.port';
@@ -123,7 +125,20 @@ export class MessagesController {
     @Inject(MESSAGE_REPOSITORY) private readonly repo: MessageRepository,
     private readonly manager: SessionManager,
     private readonly mediaStorage: MediaStorage,
+    private readonly guardrail: GuardrailService,
   ) {}
+
+  // G5 hard-gate: só envios COLD passam pelo guard-rail; cold=false (chat aberto) sempre passa.
+  // Em modo observação (enforce=false) canSendCold só bloqueia estados aplicados por override
+  // manual; a quarentena automática não atua. Bloqueado → 423 SESSION_QUARANTINED (fora do try
+  // dos handlers, para não virar 400).
+  private async assertColdAllowed(id: string, cold?: boolean): Promise<void> {
+    if (!cold) return;
+    const gate = await this.guardrail.canSendCold(id);
+    if (!gate.allowed) {
+      throw new SessionQuarantinedException(gate.state, gate.reason);
+    }
+  }
 
   // Lista de conversas (chatJid distintos) p/ a inbox — última msg, nome/foto, ordenada por recência.
   @Get('conversations')
@@ -183,6 +198,7 @@ export class MessagesController {
     const { to, text, cold, idempotencyKey } = parsed.data;
     const dup = await this.deduped(id, idempotencyKey);
     if (dup) return dup;
+    await this.assertColdAllowed(id, cold);
     try {
       const res = await this.manager.sendText(id, to, text, {
         cold,
@@ -220,8 +236,10 @@ export class MessagesController {
         : inferType(data.mimetype);
     // multipart: cold e idempotencyKey chegam como campos de texto (envie-os antes do arquivo).
     const idempotencyKey = fields.idempotencyKey?.value || undefined;
+    const cold = fields.cold?.value === 'true';
     const dup = await this.deduped(id, idempotencyKey);
     if (dup) return dup;
+    await this.assertColdAllowed(id, cold);
     try {
       const res = await this.manager.sendMedia(id, to, {
         buffer,
@@ -230,7 +248,7 @@ export class MessagesController {
         fileName: data.filename ?? fields.fileName?.value ?? null,
         caption: fields.caption?.value ?? null,
         ptt: fields.ptt?.value === 'true',
-        cold: fields.cold?.value === 'true',
+        cold,
         idempotencyKey,
       });
       return { id: res.keyId, to: res.jid, deduped: false };
@@ -251,6 +269,7 @@ export class MessagesController {
     const d = parsed.data;
     const dup = await this.deduped(id, d.idempotencyKey);
     if (dup) return dup;
+    await this.assertColdAllowed(id, d.cold);
     let buffer: Buffer;
     let mimetype: string;
     try {

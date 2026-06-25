@@ -18,6 +18,7 @@ import { GroupsModule } from './modules/groups/groups.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
+import { GuardrailModule } from './modules/guardrail/guardrail.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
     ContactsModule,
     ChannelsModule,
     CampaignsModule,
+    GuardrailModule,
   ],
 })
 export class AppModule {}

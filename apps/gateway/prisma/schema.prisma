@@ -91,6 +91,16 @@ enum SessionStatus {
   DEGRADED
 }
 
+// G5 (guard-rail) — estado de SAÚDE da sessão (distinto do SessionStatus de conexão).
+enum GuardrailState {
+  ativa
+  throttled
+  quarentena
+  aquecimento
+  banida
+  pausa_manual
+}
+
 // Instância/sessão de WhatsApp. `creds` guarda o AuthenticationCreds (BufferJSON-encoded);
 // as Signal keys ficam em WaAuthKey (custom auth store — blueprint §8.4).
 model WaSession {
@@ -114,8 +124,28 @@ model WaSession {
   campaigns Campaign[]
   events    WaSessionEvent[]
   metrics   SessionMetric[]
+  guardrail SessionGuardrail?
 
   @@map("wa_sessions")
+}
+
+// G5 (guard-rail) — estado por sessão da máquina de saúde. Em modo OBSERVAÇÃO
+// (GUARDRAIL_ENFORCE=false) o estado é calculado/registrado mas NÃO bloqueia envios; o hard-gate
+// HTTP 423 só atua com enforce=true. `eventTs` dá idempotência das transições (C10).
+model SessionGuardrail {
+  id              String         @id
+  sessionId       String         @unique
+  state           GuardrailState @default(ativa)
+  reason          String? // motivo da última transição
+  quarentenaDesde DateTime?
+  cooldownAte     DateTime?
+  ultimoSinal     String? // último sinal duro (463, close não-recuperável, restrição)
+  eventTs         DateTime       @default(now()) // C10: só aplica transição se eventTs < novo evento
+  updatedAt       DateTime       @updatedAt
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_guardrail")
 }
 
 // G4 (guard-rail/reply-rate): snapshot por sessão+janela. `replyRate` = responded/coldMature,
