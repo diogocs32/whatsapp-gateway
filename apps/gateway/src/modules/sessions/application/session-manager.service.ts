@@ -28,6 +28,7 @@ import type {
   IEngine,
   MessagePayload,
   SendMediaInput,
+  SendOptions,
   SessionStatePayload,
   WaEventEnvelope,
 } from './engine.port';
@@ -212,13 +213,14 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     sessionId: string,
     to: string,
     text: string,
+    opts?: SendOptions,
   ): Promise<{ keyId: string; jid: string }> {
     const engine = this.engines.get(sessionId);
     if (!engine) throw new Error('Sessão não iniciada');
     if (engine.getStatus() !== 'WORKING') {
       throw new Error('Sessão não está conectada');
     }
-    return engine.sendText(to, text);
+    return engine.sendText(to, text, opts);
   }
 
   async sendMedia(

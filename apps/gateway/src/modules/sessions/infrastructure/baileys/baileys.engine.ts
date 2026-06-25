@@ -12,6 +12,7 @@ import makeWASocket, {
   type Contact,
   type MessageUpsertType,
   type WAMessage,
+  type WAMessageUpdate,
   type WASocket,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
@@ -28,8 +29,11 @@ import type {
   EngineEventHandler,
   GroupInfo,
   GroupParticipantAction,
+  AckStatus,
   IEngine,
+  MessageSource,
   SendMediaInput,
+  SendOptions,
   SessionStatePayload,
 } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
@@ -167,6 +171,25 @@ function extOf(mimetype: string | null, fileName: string | null): string {
     if (sub) return sub.toLowerCase();
   }
   return 'bin';
+}
+
+// G3: mapeia o enum de status do WhatsApp (proto.WebMessageInfo.Status) para o ACK público.
+// PENDING/ERROR não viram evento; PLAYED (áudio ouvido) conta como leitura.
+function mapAckStatus(
+  status: proto.WebMessageInfo.Status | null | undefined,
+): AckStatus | null {
+  const S = proto.WebMessageInfo.Status;
+  switch (status) {
+    case S.SERVER_ACK:
+      return 'sent';
+    case S.DELIVERY_ACK:
+      return 'delivered';
+    case S.READ:
+    case S.PLAYED:
+      return 'read';
+    default:
+      return null;
+  }
 }
 
 // Monta o content do sendMessage conforme o tipo de mídia (§ F4 / AnyMediaMessageContent).
@@ -391,6 +414,10 @@ export class BaileysEngine implements IEngine {
     sock.ev.on('messages.upsert', (u) =>
       this.safe(() => this.onMessagesUpsert(u), 'messages.upsert'),
     );
+    // G3 — ACK de entrega/leitura (receipts das mensagens que enviamos).
+    sock.ev.on('messages.update', (u) =>
+      this.safe(() => this.onMessagesUpdate(u), 'messages.update'),
+    );
     // Sync de contatos do WhatsApp → diretório persistente (a fonte mais rica de LID↔telefone).
     sock.ev.on('contacts.upsert', (cs) =>
       this.safe(() => this.onContacts(cs), 'contacts.upsert'),
@@ -515,6 +542,9 @@ export class BaileysEngine implements IEngine {
         chatJid,
         senderJid: m.key.fromMe ? (this.sock?.user?.id ?? null) : chatJid,
         fromMe: !!m.key.fromMe,
+        // G2: já filtramos o que saiu pela API (sentMessages, acima). Um fromMe que chega aqui
+        // foi digitado em outro device = celular. Inbound (fromMe=false) não tem origem nossa.
+        source: (m.key.fromMe ? 'phone' : null) as MessageSource | null,
         timestamp: typeof ts === 'number' ? ts : Number(ts ?? 0),
       };
 
@@ -552,6 +582,34 @@ export class BaileysEngine implements IEngine {
     }
   }
 
+  // G3 — receipts: o Baileys emite messages.update com `update.status` quando uma mensagem que
+  // enviamos é entregue/lida. Traduzimos para um evento `message.ack` first-class.
+  private onMessagesUpdate(updates: WAMessageUpdate[]): void {
+    for (const { key, update } of updates) {
+      const status = mapAckStatus(update.status);
+      if (!status) continue;
+      const keyId = key.id ?? '';
+      if (!keyId) continue;
+      let chatJid = key.remoteJid ?? '';
+      if (!chatJid || chatJid === 'status@broadcast') continue;
+      // Mesma normalização do upsert: @lid → telefone (quando conhecido) e @s.whatsapp.net canônico.
+      if (chatJid.endsWith('@lid')) {
+        const pn = this.lidToPn.get(chatJid);
+        if (pn) chatJid = pn;
+      }
+      if (chatJid.endsWith('@s.whatsapp.net')) {
+        chatJid = jidNormalizedUser(chatJid);
+      }
+      this.deps.onEvent('message.ack', {
+        keyId,
+        chatJid,
+        fromMe: !!key.fromMe,
+        status,
+        timestamp: Math.floor(Date.now() / 1000),
+      });
+    }
+  }
+
   // Baixa o binário da mídia recebida, sobe para o S3 e emite o evento com a chave (§ F4).
   private async handleIncomingMedia(
     m: WAMessage,
@@ -560,6 +618,7 @@ export class BaileysEngine implements IEngine {
       chatJid: string;
       senderJid: string | null;
       fromMe: boolean;
+      source: MessageSource | null;
       timestamp: number;
     },
     media: MediaInfo,
@@ -616,6 +675,7 @@ export class BaileysEngine implements IEngine {
   async sendText(
     to: string,
     text: string,
+    opts?: SendOptions,
   ): Promise<{ keyId: string; jid: string }> {
     if (!this.sock) throw new Error('Sessão não conectada');
     const jid = await this.resolveJid(to);
@@ -630,6 +690,9 @@ export class BaileysEngine implements IEngine {
       fromMe: true,
       type: 'text',
       text,
+      isCold: opts?.cold ?? false,
+      idempotencyKey: opts?.idempotencyKey ?? null,
+      source: 'api',
       raw: sent?.message ? encodeProto(sent.message) : null,
       timestamp: Math.floor(Date.now() / 1000),
     });
@@ -669,6 +732,9 @@ export class BaileysEngine implements IEngine {
       fromMe: true,
       type: input.type,
       text: input.caption ?? null,
+      isCold: input.cold ?? false,
+      idempotencyKey: input.idempotencyKey ?? null,
+      source: 'api',
       mediaType: input.type,
       mimetype: input.mimetype,
       fileName: input.fileName ?? null,

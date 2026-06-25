@@ -7,6 +7,11 @@ export interface SaveMessageInput {
   type: string;
   text: string | null;
   timestamp: Date;
+  // G1: marcação de 1º contato + chave de dedup (só em outbound).
+  isCold?: boolean;
+  idempotencyKey?: string | null;
+  // G2: origem do fromMe ("api"|"phone"); null em inbound.
+  source?: string | null;
   mediaType?: string | null;
   mimetype?: string | null;
   fileName?: string | null;
@@ -25,6 +30,8 @@ export interface StoredMessage {
   type: string;
   text: string | null;
   status: string | null;
+  isCold: boolean;
+  source: string | null;
   timestamp: Date;
   mediaType: string | null;
   mimetype: string | null;
@@ -46,8 +53,25 @@ export interface ConversationSummary {
   lastTimestamp: Date;
 }
 
+// Resultado da dedup idempotente: o que devolver ao cliente quando o envio já foi feito.
+export interface IdempotentHit {
+  keyId: string;
+  chatJid: string;
+}
+
 export interface MessageRepository {
   save(input: SaveMessageInput): Promise<void>;
+  // G1: localiza um envio anterior com a mesma idempotencyKey nesta sessão (dedup forte).
+  findByIdempotencyKey(
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<IdempotentHit | null>;
+  // G3: grava o último ACK (sent→delivered→read) da mensagem identificada por keyId. Não regride.
+  updateStatusByKey(
+    sessionId: string,
+    keyId: string,
+    status: string,
+  ): Promise<void>;
   listByChat(
     sessionId: string,
     chatJids: string[],

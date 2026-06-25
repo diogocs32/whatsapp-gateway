@@ -7,6 +7,11 @@ export interface SessionStatePayload {
   error?: string | null;
 }
 
+// G2: origem de uma mensagem fromMe. `api` = saiu pela nossa API (engine.sendText/sendMedia);
+// `phone` = digitada em outro device (o celular do Diogo). Em inbound (fromMe=false) fica null.
+// Sustenta o handoff IA×celular: a IA pausa quando vê um fromMe com source=phone.
+export type MessageSource = 'api' | 'phone';
+
 export interface MessagePayload {
   keyId: string;
   chatJid: string;
@@ -15,6 +20,12 @@ export interface MessagePayload {
   type: string;
   text: string | null;
   timestamp: number; // unix seconds
+  // G1: presentes no eco de outbound (fromMe). `isCold` = 1º contato permissionado;
+  // `idempotencyKey` = chave de dedup do envio (persistida em wa_messages p/ retry seguro).
+  isCold?: boolean;
+  idempotencyKey?: string | null;
+  // G2: api|phone para fromMe; null em inbound.
+  source?: MessageSource | null;
   // Mídia (F4) — presentes quando type é image|video|audio|document|sticker.
   mediaType?: string | null;
   mimetype?: string | null;
@@ -28,7 +39,19 @@ export interface MessagePayload {
   raw?: unknown;
 }
 
-export type EngineEventName = 'session.status' | 'message';
+// G3: ACK de entrega/leitura de uma mensagem (sent→delivered→read). Resolve "enviado ≠ entregue"
+// e alimenta o ACK ratio do score_saude (G4). Persistido em WaMessage.status (último vence, sem regredir).
+export type AckStatus = 'sent' | 'delivered' | 'read';
+
+export interface MessageAckPayload {
+  keyId: string; // msg_id
+  chatJid: string;
+  fromMe: boolean;
+  status: AckStatus;
+  timestamp: number; // unix seconds (momento do receipt)
+}
+
+export type EngineEventName = 'session.status' | 'message' | 'message.ack';
 export type EngineEventHandler = (
   name: EngineEventName,
   payload: unknown,
@@ -52,7 +75,14 @@ export type MediaSendType =
   | 'document'
   | 'sticker';
 
-export interface SendMediaInput {
+// G1: opções de envio comuns a texto e mídia. `cold` é repassado ao eco; `idempotencyKey`
+// dá dedup forte (o gateway é o juiz — ver MessagesController).
+export interface SendOptions {
+  cold?: boolean;
+  idempotencyKey?: string | null;
+}
+
+export interface SendMediaInput extends SendOptions {
   buffer: Buffer;
   type: MediaSendType;
   mimetype: string;
@@ -98,7 +128,11 @@ export interface IEngine {
   stop(): Promise<void>;
   logout(): Promise<void>;
   requestPairingCode(phoneNumber: string): Promise<string>;
-  sendText(to: string, text: string): Promise<{ keyId: string; jid: string }>;
+  sendText(
+    to: string,
+    text: string,
+    opts?: SendOptions,
+  ): Promise<{ keyId: string; jid: string }>;
   sendMedia(
     to: string,
     input: SendMediaInput,

@@ -5,9 +5,12 @@ import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import type {
   ChannelInfo,
   ContactCheck,
+  AckStatus,
   GroupInfo,
   IEngine,
+  MessageSource,
   SendMediaInput,
+  SendOptions,
 } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 
@@ -115,6 +118,10 @@ export class WWebJSEngine implements IEngine {
     // pelo painel já são emitidas no sendText/sendMedia (com telefone + metadados) e deduplicadas aqui
     // via sentByPanel; resta capturar as enviadas pelo celular. O @lid é resolvido para telefone (merge).
     client.on('message_create', (msg: Message) => void this.onMessageCreate(msg));
+    // G3 — ACK de entrega/leitura. O wwebjs entrega o ack como número (MessageAck).
+    client.on('message_ack', (msg: Message, ack: number) =>
+      this.onMessageAck(msg, ack),
+    );
 
     await client.initialize();
   }
@@ -153,6 +160,7 @@ export class WWebJSEngine implements IEngine {
   async sendText(
     to: string,
     text: string,
+    opts?: SendOptions,
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
     const jid = this.toChatId(to);
@@ -166,6 +174,9 @@ export class WWebJSEngine implements IEngine {
       fromMe: true,
       type: 'text',
       text,
+      isCold: opts?.cold ?? false,
+      idempotencyKey: opts?.idempotencyKey ?? null,
+      source: 'api',
       timestamp: Math.floor(Date.now() / 1000),
     });
     return { keyId, jid };
@@ -195,6 +206,9 @@ export class WWebJSEngine implements IEngine {
       fromMe: true,
       type: input.type,
       text: input.caption ?? null,
+      isCold: input.cold ?? false,
+      idempotencyKey: input.idempotencyKey ?? null,
+      source: 'api',
       mediaType: input.type,
       mimetype: input.mimetype,
       fileName: input.fileName ?? null,
@@ -235,6 +249,9 @@ export class WWebJSEngine implements IEngine {
           ? (this.client?.info?.wid?._serialized ?? null)
           : chatJid,
         fromMe: !!msg.fromMe,
+        // G2: as enviadas pelo painel já saíram filtradas (sentByPanel, acima). Um fromMe aqui
+        // foi digitado no celular = phone; recebida do contato = sem origem nossa (null).
+        source: (msg.fromMe ? 'phone' : null) as MessageSource | null,
         type: msg.hasMedia ? 'other' : 'text',
         text: msg.body || null,
         timestamp:
@@ -244,6 +261,42 @@ export class WWebJSEngine implements IEngine {
       });
     } catch (e) {
       this.deps.logger.error({ e }, 'wwebjs: onMessageCreate falhou');
+    }
+  }
+
+  // G3 — traduz o ack numérico do wwebjs (MessageAck) para o ACK público.
+  // ACK_SERVER=1, ACK_DEVICE=2, ACK_READ=3, ACK_PLAYED=4 (ACK_ERROR=-1/ACK_PENDING=0 → ignora).
+  private mapAck(ack: number): AckStatus | null {
+    switch (ack) {
+      case 1:
+        return 'sent';
+      case 2:
+        return 'delivered';
+      case 3:
+      case 4:
+        return 'read';
+      default:
+        return null;
+    }
+  }
+
+  private onMessageAck(msg: Message, ack: number): void {
+    try {
+      const status = this.mapAck(ack);
+      if (!status) return;
+      const keyId = msg.id?._serialized ?? '';
+      if (!keyId) return;
+      const chatJid = (msg.fromMe ? msg.to : msg.from) ?? '';
+      if (!chatJid || chatJid === 'status@broadcast') return;
+      this.deps.onEvent('message.ack', {
+        keyId,
+        chatJid, // wwebjs usa <num>@c.us; o casamento no banco é por keyId, não por chatJid
+        fromMe: !!msg.fromMe,
+        status,
+        timestamp: Math.floor(Date.now() / 1000),
+      });
+    } catch (e) {
+      this.deps.logger.error({ e }, 'wwebjs: onMessageAck falhou');
     }
   }
 

@@ -3,6 +3,7 @@ import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import { newId } from '../../../shared-kernel/ulid';
 import type {
   ConversationSummary,
+  IdempotentHit,
   MessageRepository,
   SaveMessageInput,
   StoredMessage,
@@ -13,27 +14,80 @@ export class PrismaMessageRepository implements MessageRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async save(input: SaveMessageInput): Promise<void> {
-    await this.prisma.waMessage.create({
-      data: {
-        id: newId(),
-        sessionId: input.sessionId,
-        keyId: input.keyId,
-        chatJid: input.chatJid,
-        senderJid: input.senderJid,
-        fromMe: input.fromMe,
-        type: input.type,
-        text: input.text,
-        timestamp: input.timestamp,
-        mediaType: input.mediaType ?? null,
-        mimetype: input.mimetype ?? null,
-        fileName: input.fileName ?? null,
-        mediaKey: input.mediaKey ?? null,
-        fileSize: input.fileSize ?? null,
-        raw:
-          input.raw != null
-            ? (input.raw as Prisma.InputJsonValue)
-            : undefined,
-      },
+    try {
+      await this.prisma.waMessage.create({
+        data: {
+          id: newId(),
+          sessionId: input.sessionId,
+          keyId: input.keyId,
+          chatJid: input.chatJid,
+          senderJid: input.senderJid,
+          fromMe: input.fromMe,
+          type: input.type,
+          text: input.text,
+          isCold: input.isCold ?? false,
+          idempotencyKey: input.idempotencyKey ?? null,
+          source: input.source ?? null,
+          timestamp: input.timestamp,
+          mediaType: input.mediaType ?? null,
+          mimetype: input.mimetype ?? null,
+          fileName: input.fileName ?? null,
+          mediaKey: input.mediaKey ?? null,
+          fileSize: input.fileSize ?? null,
+          raw:
+            input.raw != null
+              ? (input.raw as Prisma.InputJsonValue)
+              : undefined,
+        },
+      });
+    } catch (e) {
+      // P2002 = violação do unique (sessionId, idempotencyKey): o envio já foi persistido
+      // por uma chamada anterior com a mesma idempotencyKey. Dedup — ignora em silêncio.
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async findByIdempotencyKey(
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<IdempotentHit | null> {
+    const row = await this.prisma.waMessage.findUnique({
+      where: { sessionId_idempotencyKey: { sessionId, idempotencyKey } },
+      select: { keyId: true, chatJid: true },
+    });
+    return row ?? null;
+  }
+
+  // Ordem dos ACKs — usada para nunca regredir (um `read` não volta para `delivered`).
+  private static readonly ACK_RANK: Record<string, number> = {
+    sent: 1,
+    delivered: 2,
+    read: 3,
+  };
+
+  async updateStatusByKey(
+    sessionId: string,
+    keyId: string,
+    status: string,
+  ): Promise<void> {
+    const current = await this.prisma.waMessage.findFirst({
+      where: { sessionId, keyId },
+      select: { id: true, status: true },
+      orderBy: { timestamp: 'desc' },
+    });
+    if (!current) return; // ACK de mensagem que ainda não persistimos (eco pode chegar depois)
+    const rank = PrismaMessageRepository.ACK_RANK;
+    const cur = current.status ? (rank[current.status] ?? 0) : 0;
+    if ((rank[status] ?? 0) <= cur) return; // mesmo nível ou regressão → ignora
+    await this.prisma.waMessage.update({
+      where: { id: current.id },
+      data: { status },
     });
   }
 
@@ -56,6 +110,8 @@ export class PrismaMessageRepository implements MessageRepository {
       type: r.type,
       text: r.text,
       status: r.status,
+      isCold: r.isCold,
+      source: r.source,
       timestamp: r.timestamp,
       mediaType: r.mediaType,
       mimetype: r.mimetype,

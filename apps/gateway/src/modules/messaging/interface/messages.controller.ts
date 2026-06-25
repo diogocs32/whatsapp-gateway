@@ -25,9 +25,16 @@ import {
   type StoredMessage,
 } from '../domain/message.repository';
 
+// G1: `cold` marca o 1º contato permissionado; `idempotencyKey` dá dedup forte (retry do n8n
+// não duplica). Comuns a texto e mídia.
+const coldField = z.boolean().optional();
+const idempotencyKeyField = z.string().min(1).max(200).optional();
+
 const sendTextSchema = z.object({
   to: z.string().min(5).max(40),
   text: z.string().min(1).max(4096),
+  cold: coldField,
+  idempotencyKey: idempotencyKeyField,
 });
 
 const MEDIA_TYPES = ['image', 'video', 'audio', 'document', 'sticker'] as const;
@@ -39,6 +46,8 @@ const sendMediaUrlSchema = z.object({
   caption: z.string().max(4096).optional(),
   fileName: z.string().max(255).optional(),
   mimetype: z.string().max(120).optional(),
+  cold: coldField,
+  idempotencyKey: idempotencyKeyField,
 });
 
 // Infere o tipo de mídia a partir do mimetype quando o cliente não informa.
@@ -96,6 +105,8 @@ function toDto(m: StoredMessage, mediaUrl: string | null) {
     type: m.type,
     text: m.text,
     status: m.status,
+    isCold: m.isCold,
+    source: m.source,
     timestamp: m.timestamp.toISOString(),
     mediaType: m.mediaType,
     mimetype: m.mimetype,
@@ -148,6 +159,19 @@ export class MessagesController {
     );
   }
 
+  // G1: dedup forte. Se já houve um envio com a mesma idempotencyKey nesta sessão, devolve o
+  // resultado anterior SEM reenviar (crítico p/ o retry do n8n não duplicar). O índice único
+  // (sessionId, idempotencyKey) é a rede de segurança contra corrida; aqui é a pré-checagem.
+  private async deduped(
+    id: string,
+    idempotencyKey?: string,
+  ): Promise<{ id: string; to: string; deduped: true } | null> {
+    if (!idempotencyKey) return null;
+    const hit = await this.repo.findByIdempotencyKey(id, idempotencyKey);
+    if (!hit) return null;
+    return { id: hit.keyId, to: hit.chatJid, deduped: true };
+  }
+
   @Post('text')
   async sendText(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
     const parsed = sendTextSchema.safeParse(body);
@@ -156,13 +180,15 @@ export class MessagesController {
         parsed.error.issues[0]?.message ?? 'Dados inválidos',
       );
     }
+    const { to, text, cold, idempotencyKey } = parsed.data;
+    const dup = await this.deduped(id, idempotencyKey);
+    if (dup) return dup;
     try {
-      const res = await this.manager.sendText(
-        id,
-        parsed.data.to,
-        parsed.data.text,
-      );
-      return { id: res.keyId, to: res.jid };
+      const res = await this.manager.sendText(id, to, text, {
+        cold,
+        idempotencyKey,
+      });
+      return { id: res.keyId, to: res.jid, deduped: false };
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
@@ -192,6 +218,10 @@ export class MessagesController {
       typeField && (MEDIA_TYPES as readonly string[]).includes(typeField)
         ? typeField
         : inferType(data.mimetype);
+    // multipart: cold e idempotencyKey chegam como campos de texto (envie-os antes do arquivo).
+    const idempotencyKey = fields.idempotencyKey?.value || undefined;
+    const dup = await this.deduped(id, idempotencyKey);
+    if (dup) return dup;
     try {
       const res = await this.manager.sendMedia(id, to, {
         buffer,
@@ -200,8 +230,10 @@ export class MessagesController {
         fileName: data.filename ?? fields.fileName?.value ?? null,
         caption: fields.caption?.value ?? null,
         ptt: fields.ptt?.value === 'true',
+        cold: fields.cold?.value === 'true',
+        idempotencyKey,
       });
-      return { id: res.keyId, to: res.jid };
+      return { id: res.keyId, to: res.jid, deduped: false };
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
@@ -217,6 +249,8 @@ export class MessagesController {
       );
     }
     const d = parsed.data;
+    const dup = await this.deduped(id, d.idempotencyKey);
+    if (dup) return dup;
     let buffer: Buffer;
     let mimetype: string;
     try {
@@ -242,8 +276,10 @@ export class MessagesController {
         mimetype,
         fileName: d.fileName ?? null,
         caption: d.caption ?? null,
+        cold: d.cold,
+        idempotencyKey: d.idempotencyKey,
       });
-      return { id: res.keyId, to: res.jid };
+      return { id: res.keyId, to: res.jid, deduped: false };
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }

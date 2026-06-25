@@ -140,6 +140,12 @@ model WaMessage {
   chatJid   String
   senderJid String?
   fromMe    Boolean  @default(false)
+  // G1 (guard-rail/reply-rate): `isCold` marca o 1º contato permissionado; `idempotencyKey`
+  // dá dedup forte de envio (retry do n8n não duplica). Só fazem sentido em outbound (fromMe).
+  isCold         Boolean @default(false)
+  idempotencyKey String?
+  // G2: origem de um fromMe — "api" (nossa API) | "phone" (celular/outro device). null em inbound.
+  source         String?
   type      String   @default("text")
   text      String?
   status    String?
@@ -157,6 +163,10 @@ model WaMessage {
 
   @@index([sessionId, chatJid, timestamp])
   @@index([sessionId, keyId])
+  // Dedup idempotente por sessão. No Postgres o default é NULLS DISTINCT, então só restringe
+  // quando idempotencyKey ≠ null (inbound e envios sem key continuam livres). Se o volume crescer,
+  // trocar por índice parcial (WHERE idempotencyKey IS NOT NULL) via migration custom.
+  @@unique([sessionId, idempotencyKey])
   @@map("wa_messages")
 }
 
