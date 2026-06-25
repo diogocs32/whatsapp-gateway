@@ -9,9 +9,14 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { newId } from '../../../shared-kernel/ulid';
+import {
+  GuardrailService,
+  type ManualAction,
+} from '../../guardrail/guardrail.service';
 import { LicenseService } from '../../iam/application/license.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
@@ -48,6 +53,7 @@ export class SessionsController {
     @Inject(SESSION_REPOSITORY) private readonly repo: SessionRepository,
     private readonly manager: SessionManager,
     private readonly license: LicenseService,
+    private readonly guardrail: GuardrailService,
   ) {}
 
   @Post()
@@ -87,15 +93,62 @@ export class SessionsController {
     return toDto(fresh);
   }
 
+  // G7: lista enriquecida com o estado guard-rail; ?state=ativa,aquecimento filtra por estado.
   @Get()
-  async list() {
+  async list(@Query('state') state?: string) {
     const sessions = await this.repo.list();
-    return sessions.map(toDto);
+    const states = await this.guardrail.statesFor(sessions.map((s) => s.id));
+    let dtos = sessions.map((s) => ({
+      ...toDto(s),
+      guardrailState: states.get(s.id) ?? 'ativa',
+    }));
+    if (state) {
+      const wanted = new Set(
+        state
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean),
+      );
+      dtos = dtos.filter((d) => wanted.has(d.guardrailState));
+    }
+    return dtos;
   }
 
   @Get(':id')
   async get(@Param('id', SessionRefPipe) id: string) {
     return toDto(await this.ensure(id));
+  }
+
+  // G7 — saúde da sessão (estado guard-rail + reply-rate + sinais).
+  @Get(':id/health')
+  async health(@Param('id', SessionRefPipe) id: string) {
+    return this.guardrail.health(id);
+  }
+
+  // G7 — override manual do estado guard-rail (decisão explícita do Diogo).
+  @Post(':id/quarantine')
+  quarantine(@Param('id', SessionRefPipe) id: string) {
+    return this.override(id, 'quarantine');
+  }
+
+  @Post(':id/warmup')
+  warmup(@Param('id', SessionRefPipe) id: string) {
+    return this.override(id, 'warmup');
+  }
+
+  @Post(':id/activate')
+  activate(@Param('id', SessionRefPipe) id: string) {
+    return this.override(id, 'activate');
+  }
+
+  @Post(':id/pause')
+  pause(@Param('id', SessionRefPipe) id: string) {
+    return this.override(id, 'pause');
+  }
+
+  private async override(id: string, action: ManualAction) {
+    const gr = await this.guardrail.setManualState(id, action);
+    return { state: gr.state, reason: gr.reason };
   }
 
   @Post(':id/start')

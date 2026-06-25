@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { GuardrailModule } from '../guardrail/guardrail.module';
 import { IamModule } from '../iam/iam.module';
 import { ProxiesModule } from '../proxies/proxies.module';
 import { SessionManager } from './application/session-manager.service';
@@ -9,7 +10,7 @@ import { SessionRefPipe } from './interface/session-ref.pipe';
 import { SessionsController } from './interface/sessions.controller';
 
 @Module({
-  imports: [IamModule, ProxiesModule], // JwtAuthGuard / JwtModule + ProxyResolver (agent do Baileys)
+  imports: [IamModule, ProxiesModule, GuardrailModule], // + GuardrailService (health/override/filtro G7)
   controllers: [SessionsController],
   providers: [
     SessionManager,

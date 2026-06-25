@@ -166,6 +166,20 @@ model WebhookDeadLetter {
   @@map("webhook_dead_letters")
 }
 
+// G7 — config GLOBAL do guard-rail, tunável em runtime (PATCH /guardrail/config) SEM redeploy.
+// Singleton (id="singleton"). Campo null = usa o default do env (GUARDRAIL_*).
+model GuardrailConfig {
+  id              String   @id @default("singleton")
+  nmin            Int?
+  throttleMult    Float?
+  quarantineMult  Float?
+  targetReplyRate Float?
+  cooldownHours   Int?
+  updatedAt       DateTime @updatedAt @default(now())
+
+  @@map("guardrail_config")
+}
+
 // G4 (guard-rail/reply-rate): snapshot por sessão+janela. `replyRate` = responded/coldMature,
 // onde coldMature EXCLUI cold-sends < 72h (correção C2 — senão número novo cai em falso-positivo).
 // Lido pelo G5 (guard-rail) e pelos dashboards. Atualizado por upsert (1 snapshot atual por janela).

@@ -71,14 +71,38 @@ export interface ColdGate {
   reason?: string | null;
 }
 
+// G7 — objeto de saúde por sessão (GET /sessions/:id/health). cap_* virão do G8.
+export interface SessionHealth {
+  sessionId: string;
+  state: GuardrailState;
+  reply_rate: number;
+  amostra: number;
+  reliable: boolean;
+  delivery_rate: number;
+  read_rate: number;
+  score: number;
+  cap_base: number | null;
+  cap_atual: number | null;
+  quarentena_desde: string | null;
+  cooldown_ate: string | null;
+  ultimos_sinais: string[];
+  enforce: boolean;
+}
+
+// G7 — limiares tunáveis em runtime (PATCH /guardrail/config). Default vem do env (GUARDRAIL_*).
+export interface GuardrailTunables {
+  nmin: number;
+  throttleMult: number;
+  quarantineMult: number;
+  targetReplyRate: number;
+  cooldownHours: number;
+}
+
 @Injectable()
 export class GuardrailService {
   private readonly enforce: boolean;
-  private readonly nmin: number;
-  private readonly throttleMult: number;
-  private readonly quarantineMult: number;
-  private readonly target: number;
-  private readonly cooldownHours: number;
+  private readonly envDefaults: GuardrailTunables;
+  private cfgCache: GuardrailTunables | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -87,17 +111,53 @@ export class GuardrailService {
     config: ConfigService<Env, true>,
   ) {
     this.enforce = config.get('GUARDRAIL_ENFORCE', { infer: true });
-    this.nmin = config.get('GUARDRAIL_NMIN', { infer: true });
-    this.throttleMult = config.get('GUARDRAIL_THROTTLE_MULT', { infer: true });
-    this.quarantineMult = config.get('GUARDRAIL_QUARANTINE_MULT', {
-      infer: true,
-    });
-    this.target = config.get('GUARDRAIL_TARGET_REPLY_RATE', { infer: true });
-    this.cooldownHours = config.get('GUARDRAIL_COOLDOWN_HOURS', { infer: true });
+    this.envDefaults = {
+      nmin: config.get('GUARDRAIL_NMIN', { infer: true }),
+      throttleMult: config.get('GUARDRAIL_THROTTLE_MULT', { infer: true }),
+      quarantineMult: config.get('GUARDRAIL_QUARANTINE_MULT', { infer: true }),
+      targetReplyRate: config.get('GUARDRAIL_TARGET_REPLY_RATE', {
+        infer: true,
+      }),
+      cooldownHours: config.get('GUARDRAIL_COOLDOWN_HOURS', { infer: true }),
+    };
   }
 
   isEnforcing(): boolean {
     return this.enforce;
+  }
+
+  // G7 — limiares efetivos: o que está no DB (PATCH) sobrepõe o default do env. Cache invalidado
+  // no updateConfig (sem redeploy).
+  private async cfg(): Promise<GuardrailTunables> {
+    if (this.cfgCache) return this.cfgCache;
+    const row = await this.prisma.guardrailConfig.findUnique({
+      where: { id: 'singleton' },
+    });
+    const d = this.envDefaults;
+    this.cfgCache = {
+      nmin: row?.nmin ?? d.nmin,
+      throttleMult: row?.throttleMult ?? d.throttleMult,
+      quarantineMult: row?.quarantineMult ?? d.quarantineMult,
+      targetReplyRate: row?.targetReplyRate ?? d.targetReplyRate,
+      cooldownHours: row?.cooldownHours ?? d.cooldownHours,
+    };
+    return this.cfgCache;
+  }
+
+  async getConfig(): Promise<GuardrailTunables & { enforce: boolean }> {
+    return { ...(await this.cfg()), enforce: this.enforce };
+  }
+
+  async updateConfig(
+    patch: Partial<GuardrailTunables>,
+  ): Promise<GuardrailTunables & { enforce: boolean }> {
+    await this.prisma.guardrailConfig.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', ...patch },
+      update: patch,
+    });
+    this.cfgCache = null; // invalida o cache → próxima leitura pega os novos limiares
+    return this.getConfig();
   }
 
   // G6 — publica um evento OUT do guard-rail no EventBus (o WebhookDispatcher entrega ao n8n).
@@ -154,8 +214,9 @@ export class GuardrailService {
     const sessionId = rr.sessionId;
     const gr = await this.getState(sessionId);
     const current = gr.state as GuardrailState;
+    const c = await this.cfg();
     const fleetMedian = await this.fleetMedianReplyRate();
-    const baseline = fleetMedian ?? this.target;
+    const baseline = fleetMedian ?? c.targetReplyRate;
 
     const pct = (x: number) => `${Math.round(x * 100)}%`;
     let target: GuardrailState = current;
@@ -163,15 +224,15 @@ export class GuardrailService {
 
     if (STICKY.has(current)) {
       reason = `estado fixo (${current}) — avaliação automática não sobrescreve`;
-    } else if (!rr.reliable) {
+    } else if (rr.sample < c.nmin) {
       target = 'aquecimento';
-      reason = `amostra ${rr.sample} < Nmin ${this.nmin} — sem veredito (aquecimento)`;
-    } else if (rr.replyRate < baseline * this.quarantineMult) {
+      reason = `amostra ${rr.sample} < Nmin ${c.nmin} — sem veredito (aquecimento)`;
+    } else if (rr.replyRate < baseline * c.quarantineMult) {
       target = 'quarentena';
-      reason = `reply ${pct(rr.replyRate)} < ${pct(baseline * this.quarantineMult)} (mediana×${this.quarantineMult})`;
-    } else if (rr.replyRate < baseline * this.throttleMult) {
+      reason = `reply ${pct(rr.replyRate)} < ${pct(baseline * c.quarantineMult)} (mediana×${c.quarantineMult})`;
+    } else if (rr.replyRate < baseline * c.throttleMult) {
       target = 'throttled';
-      reason = `reply ${pct(rr.replyRate)} < ${pct(baseline * this.throttleMult)} (mediana×${this.throttleMult})`;
+      reason = `reply ${pct(rr.replyRate)} < ${pct(baseline * c.throttleMult)} (mediana×${c.throttleMult})`;
     } else if (rr.replyRate >= baseline) {
       target = 'ativa';
       reason = `reply ${pct(rr.replyRate)} >= mediana ${pct(baseline)}`;
@@ -226,9 +287,10 @@ export class GuardrailService {
         : state === 'ativa'
           ? null
           : (existing?.quarentenaDesde ?? null);
+    const cooldownHours = (await this.cfg()).cooldownHours;
     const cooldownAte =
       state === 'quarentena'
-        ? new Date(eventTs.getTime() + this.cooldownHours * 3_600_000)
+        ? new Date(eventTs.getTime() + cooldownHours * 3_600_000)
         : state === 'ativa'
           ? null
           : (existing?.cooldownAte ?? null);
@@ -325,5 +387,38 @@ export class GuardrailService {
       MANUAL_TO_STATE[action],
       `override manual: ${action}`,
     );
+  }
+
+  // G7 — objeto de saúde por sessão: estado guard-rail + reply-rate (G4) + sinais. cap_* = G8.
+  async health(ref: string): Promise<SessionHealth> {
+    const rr = await this.replyRate.compute(ref, 7);
+    const gr = await this.getState(rr.sessionId);
+    return {
+      sessionId: rr.sessionId,
+      state: gr.state as GuardrailState,
+      reply_rate: rr.replyRate,
+      amostra: rr.sample,
+      reliable: rr.reliable,
+      delivery_rate: rr.deliveryRate,
+      read_rate: rr.readRate,
+      score: rr.scoreSaude,
+      cap_base: null,
+      cap_atual: null,
+      quarentena_desde: gr.quarentenaDesde?.toISOString() ?? null,
+      cooldown_ate: gr.cooldownAte?.toISOString() ?? null,
+      ultimos_sinais: gr.ultimoSinal ? [gr.ultimoSinal] : [],
+      enforce: this.enforce,
+    };
+  }
+
+  // G7 — estados guard-rail de várias sessões (p/ o filtro ?state= da listagem). Sem registro = ativa.
+  async statesFor(sessionIds: string[]): Promise<Map<string, GuardrailState>> {
+    const rows = await this.prisma.sessionGuardrail.findMany({
+      where: { sessionId: { in: sessionIds } },
+      select: { sessionId: true, state: true },
+    });
+    const map = new Map<string, GuardrailState>();
+    for (const r of rows) map.set(r.sessionId, r.state as GuardrailState);
+    return map;
   }
 }
