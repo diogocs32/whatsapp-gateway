@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { createTestApp, inject, login } from './setup-app';
+import {
+  createTestApp,
+  inject,
+  login,
+  removeSession,
+  seedSession,
+} from './setup-app';
 
 describe('Mídia (e2e)', () => {
   let app: NestFastifyApplication;
@@ -9,8 +15,10 @@ describe('Mídia (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     token = await login(app);
+    await seedSession(app, 's1');
   });
   afterAll(async () => {
+    await removeSession(app, 's1');
     await app.close();
   });
 

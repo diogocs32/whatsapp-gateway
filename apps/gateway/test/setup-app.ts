@@ -3,6 +3,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { buildFastifyAdapter } from '../src/bootstrap/fastify-adapter';
+import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { SessionManager } from '../src/modules/sessions/application/session-manager.service';
 
 // Stub do SessionManager — evita conexão real com o WhatsApp (Baileys) nos testes
@@ -114,4 +115,24 @@ export async function login(app: NestFastifyApplication): Promise<string> {
     payload: { username: 'admin', password: 'admin123' },
   });
   return res.json().token as string;
+}
+
+// Cria (idempotente) uma sessão de teste DIRETO no DB. Bypassa o limite de licença do POST
+// /sessions — os specs que exercem rotas /sessions/:id/... com o SessionManager mockado precisam
+// de uma sessão real existente (o SessionRefPipe resolve por id OU nome, senão 404).
+export async function seedSession(
+  app: NestFastifyApplication,
+  name: string,
+): Promise<void> {
+  const prisma = app.get(PrismaService);
+  await prisma.waSession.deleteMany({ where: { name } });
+  await prisma.waSession.create({ data: { id: name, name } });
+}
+
+export async function removeSession(
+  app: NestFastifyApplication,
+  name: string,
+): Promise<void> {
+  const prisma = app.get(PrismaService);
+  await prisma.waSession.deleteMany({ where: { name } });
 }

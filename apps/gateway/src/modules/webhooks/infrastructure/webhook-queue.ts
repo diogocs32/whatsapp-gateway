@@ -34,6 +34,10 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
     // o BullMQ usa o ioredis dele, evitando conflito de tipos.
     const connection: ConnectionOptions = redisConnection(this.config);
     this.queue = new Queue(QUEUE_NAME, { connection });
+    // Em testes (NODE_ENV=test) NÃO subimos o Worker: ele abre uma conexão bloqueante no Redis que
+    // rejeita "Connection is closed" no teardown rápido do app (sobe/derruba a cada spec). O enqueue
+    // (Queue) continua funcionando; só não processamos a entrega assíncrona.
+    if (this.config.get('NODE_ENV', { infer: true }) === 'test') return;
     this.worker = new Worker(
       QUEUE_NAME,
       (job) => this.deliver(job.data as WebhookJob),

@@ -12,7 +12,9 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     fileParallelism: false, // testes e2e compartilham o mesmo Postgres/Redis
-    env: { NODE_ENV: 'test' }, // não sobe os Workers BullMQ (evita ruído de conexão no teardown)
+    // NODE_ENV=test não sobe os Workers BullMQ. MAX_SESSIONS/SEATS altos: o modo comunidade limita
+    // a 1 sessão e os testes (e o DB de dev, que pode ter sessões reais) precisam criar várias.
+    env: { NODE_ENV: 'test', MAX_SESSIONS: '50', MAX_SEATS: '50' },
   },
   plugins: [swc.vite()],
 });

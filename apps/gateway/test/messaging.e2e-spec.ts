@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { createTestApp, inject, login } from './setup-app';
+import {
+  createTestApp,
+  inject,
+  login,
+  removeSession,
+  seedSession,
+} from './setup-app';
 
 describe('Messaging (e2e)', () => {
   let app: NestFastifyApplication;
@@ -9,8 +15,10 @@ describe('Messaging (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     token = await login(app);
+    await seedSession(app, 'x');
   });
   afterAll(async () => {
+    await removeSession(app, 'x');
     await app.close();
   });
 
@@ -54,6 +62,35 @@ describe('Messaging (e2e)', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.json())).toBe(true);
+  });
+
+  // G1 — cold + idempotencyKey. Manager mockado (não persiste), então não há hit de dedup:
+  // valida só que o contrato novo é aceito e que a resposta traz `deduped: false`.
+  it('send-text com cold e idempotencyKey → 201, deduped:false', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/text',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: {
+        to: '5511999999999',
+        text: 'primeiro contato',
+        cold: true,
+        idempotencyKey: 'g1-contract-check-key',
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().id).toBe('fake-key');
+    expect(res.json().deduped).toBe(false);
+  });
+
+  it('send-text com idempotencyKey vazio → 400 (validação)', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/text',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { to: '5511999999999', text: 'oi', idempotencyKey: '' },
+    });
+    expect(res.statusCode).toBe(400);
   });
 
   it('send-text sem auth → 401', async () => {
