@@ -8,7 +8,9 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, type ConnectionOptions } from 'bullmq';
 import { createHmac } from 'node:crypto';
 import type { Env } from '../../../bootstrap/config';
+import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import { redisConnection } from '../../../infra/redis/redis-connection';
+import { newId } from '../../../shared-kernel/ulid';
 
 export interface WebhookJob {
   webhookId: string;
@@ -27,7 +29,10 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
   private queue!: Queue;
   private worker!: Worker;
 
-  constructor(private readonly config: ConfigService<Env, true>) {}
+  constructor(
+    private readonly config: ConfigService<Env, true>,
+    private readonly prisma: PrismaService,
+  ) {}
 
   onModuleInit(): void {
     // Conexão (URL ou partes, com senha) via helper compartilhado. Passamos OPÇÕES (não instância):
@@ -45,11 +50,18 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
         connection,
       },
     );
-    this.worker.on('failed', (job, err) =>
+    this.worker.on('failed', (job, err) => {
+      const data = job?.data as WebhookJob | undefined;
       this.logger.warn(
-        `webhook ${(job?.data as WebhookJob | undefined)?.webhookId} falhou (tentativa ${job?.attemptsMade}): ${err.message}`,
-      ),
-    );
+        `webhook ${data?.webhookId} falhou (tentativa ${job?.attemptsMade}): ${err.message}`,
+      );
+      // C4: esgotou TODAS as tentativas → dead-letter (não some; reentregável depois).
+      if (job && data && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+        void this.toDeadLetter(data, err.message, job.attemptsMade).catch((e) =>
+          this.logger.error(`falha ao gravar dead-letter: ${(e as Error).message}`),
+        );
+      }
+    });
   }
 
   async enqueue(data: WebhookJob, attempts: number): Promise<void> {
@@ -80,6 +92,73 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
     if (!res.ok) {
       throw new Error(`destino respondeu HTTP ${res.status}`);
     }
+  }
+
+  // C4 — grava um evento que esgotou os retries na dead-letter (sem secret/headers: a reentrega
+  // assina com o secret ATUAL do webhook).
+  private async toDeadLetter(
+    data: WebhookJob,
+    error: string,
+    attempts: number,
+  ): Promise<void> {
+    await this.prisma.webhookDeadLetter.create({
+      data: {
+        id: newId(),
+        webhookId: data.webhookId,
+        url: data.url,
+        body: (data.body ?? {}) as Prisma.InputJsonValue,
+        error,
+        attempts,
+      },
+    });
+  }
+
+  // Lista os eventos na dead-letter (pendentes por padrão).
+  async listDeadLetters(includeRedelivered = false) {
+    return this.prisma.webhookDeadLetter.findMany({
+      where: includeRedelivered ? {} : { redeliveredAt: null },
+      orderBy: { failedAt: 'desc' },
+      take: 200,
+    });
+  }
+
+  // Reconciliação: reenfileira os eventos pendentes usando a config ATUAL do webhook (url/secret/
+  // headers/maxAttempts). Pula webhooks removidos ou desabilitados. Marca redeliveredAt.
+  async redeliverDeadLetters(
+    limit = 100,
+  ): Promise<{ redelivered: number; skipped: number }> {
+    const items = await this.prisma.webhookDeadLetter.findMany({
+      where: { redeliveredAt: null },
+      orderBy: { failedAt: 'asc' },
+      take: limit,
+    });
+    let redelivered = 0;
+    let skipped = 0;
+    for (const it of items) {
+      const wh = await this.prisma.webhook.findUnique({
+        where: { id: it.webhookId },
+      });
+      if (!wh || !wh.enabled) {
+        skipped++;
+        continue;
+      }
+      await this.enqueue(
+        {
+          webhookId: wh.id,
+          url: wh.url,
+          secret: wh.secret,
+          headers: (wh.headers as Record<string, string> | null) ?? null,
+          body: it.body,
+        },
+        wh.maxAttempts,
+      );
+      await this.prisma.webhookDeadLetter.update({
+        where: { id: it.id },
+        data: { redeliveredAt: new Date() },
+      });
+      redelivered++;
+    }
+    return { redelivered, skipped };
   }
 
   async onModuleDestroy(): Promise<void> {

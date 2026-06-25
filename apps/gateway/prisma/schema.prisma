@@ -148,6 +148,24 @@ model SessionGuardrail {
   @@map("session_guardrail")
 }
 
+// G6 (C4) — dead-letter de webhooks: quando a entrega ESGOTA os retries (ex.: n8n fora do ar), o
+// evento é preservado aqui em vez de sumir. A reconciliação (POST /webhooks/dead-letters/redeliver)
+// reenfileira usando a config ATUAL do webhook quando o n8n volta. Sem secret/headers persistidos
+// (segurança — a reentrega assina com o secret atual do webhook).
+model WebhookDeadLetter {
+  id            String    @id
+  webhookId     String
+  url           String // url no momento da falha (informativo)
+  body          Json
+  error         String?
+  attempts      Int       @default(0)
+  failedAt      DateTime  @default(now())
+  redeliveredAt DateTime?
+
+  @@index([redeliveredAt, failedAt])
+  @@map("webhook_dead_letters")
+}
+
 // G4 (guard-rail/reply-rate): snapshot por sessão+janela. `replyRate` = responded/coldMature,
 // onde coldMature EXCLUI cold-sends < 72h (correção C2 — senão número novo cai em falso-positivo).
 // Lido pelo G5 (guard-rail) e pelos dashboards. Atualizado por upsert (1 snapshot atual por janela).

@@ -74,6 +74,18 @@ export class WebhooksController {
     return toDto(w);
   }
 
+  // G6 (C4) — dead-letter: eventos que esgotaram os retries (ex.: n8n fora do ar).
+  @Get('dead-letters')
+  async deadLetters() {
+    return this.queue.listDeadLetters();
+  }
+
+  // Reconciliação: reenfileira os pendentes com a config atual dos webhooks (n8n voltou).
+  @Post('dead-letters/redeliver')
+  async redeliver() {
+    return this.queue.redeliverDeadLetters();
+  }
+
   @Post(':id/enable')
   async enable(@Param('id') id: string) {
     await this.ensure(id);

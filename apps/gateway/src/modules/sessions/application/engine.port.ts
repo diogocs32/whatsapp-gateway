@@ -57,11 +57,26 @@ export type EngineEventHandler = (
   payload: unknown,
 ) => void;
 
+// G6 — eventos OUT do guard-rail (catálogo consumido pelo n8n via webhook). C5: NÃO existe evento
+// de block/report (impossível detectar no Baileys) — não prometer o que o protocolo não dá.
+export type GuardrailEventName =
+  | 'session.throttled'
+  | 'session.quarantined'
+  | 'session.warming'
+  | 'session.recovered'
+  | 'session.banned'
+  | 'signal.463'
+  | 'signal.restriction'
+  | 'send.blocked';
+
+// Qualquer evento que trafega no EventBus → webhook OUT.
+export type WaEventName = EngineEventName | GuardrailEventName;
+
 // Envelope publicado no EventBus (consumido por SSE e pela persistência de mensagens).
 export interface WaEventEnvelope {
   id: string;
   timestamp: number;
-  event: EngineEventName;
+  event: WaEventName;
   sessionId: string;
   session: string; // nome da sessão
   payload: unknown;
