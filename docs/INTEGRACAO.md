@@ -77,3 +77,20 @@ POST /api/sessions/{sessao}/messages/{msgId}/read   # read receipt
 2. **Rodar em OBSERVAÇÃO** (`GUARDRAIL_ENFORCE=false`) medindo `reply-rate`/`/health` por dias.
 3. Quando a mediana da frota estabilizar, **ligar o enforce** (e tunar via `PATCH /guardrail/config`).
 4. No n8n: tratar `423` (re-enfileirar) e os eventos `session.*`/`send.blocked` (notificar/realocar).
+
+## 9. Grupos — extração de leads (nome + número)
+Lê os membros de um grupo como leads, para alimentar CRM/banco. No node: resource **Group**.
+```
+GET /api/sessions/{sessao}/groups                       # lista os grupos (id, subject, size)
+GET /api/sessions/{sessao}/groups/{groupId}             # grupo + participantes (phone, name, role)
+GET /api/sessions/{sessao}/groups/{groupId}/leads       # só leads: { phone, name, role }
+GET …/groups/{groupId}/leads?all=true                   # inclui membros sem número (LID anônimo)
+```
+- **`/leads`** devolve `{ groupId, subject, total, withNumber, withoutNumber, leads: [{ phone, name, role }] }`.
+  Por padrão lista só quem **tem número** (lead utilizável); `?all=true` inclui os anônimos.
+- **Nome:** o número sempre vem; o **nome** = salvo na agenda → senão pushname → senão `null`.
+- **Engine:** resolução de nome/número mais completa em sessões **WWEBJS** (whatsapp-web.js — catálogo
+  oficial do WhatsApp Web). No **Baileys**, os nomes vêm do cruzamento com o diretório
+  (`GET /api/sessions/{sessao}/contacts/directory`) — quanto mais a sessão sincroniza, mais resolve.
+- **Custo:** resolver os membros consulta o WhatsApp por participante (sequencial) — grupo grande leva
+  alguns segundos. É extração pontual, não hot path. Os leads resolvidos ficam no diretório de contatos.

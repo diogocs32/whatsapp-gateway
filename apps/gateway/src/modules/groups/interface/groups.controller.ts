@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
@@ -47,6 +48,32 @@ export class GroupsController {
   @Get(':groupId')
   info(@Param('id', SessionRefPipe) id: string, @Param('groupId') groupId: string) {
     return this.run(() => this.manager.groupInfo(id, groupId));
+  }
+
+  // Filtro de leads: membros do grupo com número + nome (se disponível). Por padrão só os que
+  // têm número (lead utilizável); ?all=true inclui os sem número resolvido (LID anônimo).
+  @Get(':groupId/leads')
+  async leads(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+    @Query('all') all?: string,
+  ) {
+    const info = await this.run(() => this.manager.groupInfo(id, groupId));
+    const includeWithout = all === 'true' || all === '1';
+    const withNumber = info.participants.filter((p) => p.phone);
+    const rows = includeWithout ? info.participants : withNumber;
+    return {
+      groupId: info.id,
+      subject: info.subject,
+      total: info.participants.length,
+      withNumber: withNumber.length,
+      withoutNumber: info.participants.length - withNumber.length,
+      leads: rows.map((p) => ({
+        phone: p.phone,
+        name: p.name,
+        role: p.role,
+      })),
+    };
   }
 
   @Post(':groupId/participants')

@@ -92,6 +92,8 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
               .recordMany(sessionId, list)
               .catch(() => {}),
           loadLidMap: () => this.contactDirectory.lidMap(sessionId),
+          resolveNames: (keys) =>
+            this.contactDirectory.namesFor(sessionId, keys),
         },
       });
       this.engines.set(sessionId, engine);

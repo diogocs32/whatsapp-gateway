@@ -1,5 +1,5 @@
 import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
-import type { Message } from 'whatsapp-web.js';
+import type { Message, GroupChat, GroupParticipant } from 'whatsapp-web.js';
 import * as QRCode from 'qrcode';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import type {
@@ -7,6 +7,8 @@ import type {
   ContactCheck,
   AckStatus,
   GroupInfo,
+  GroupParticipantInfo,
+  GroupParticipantRole,
   IEngine,
   MessageSource,
   PresenceState,
@@ -443,12 +445,97 @@ export class WWebJSEngine implements IEngine {
     throw new Error(`${op} ainda não suportado na engine WWEBJS (use BAILEYS)`);
   }
 
-  // ---- Recursos avançados (F5): ainda não implementados nesta engine ----
-  listGroups(): Promise<GroupInfo[]> {
-    return this.nope('listGroups');
+  // ---- Grupos: extração de leads (nome + número via Store oficial do WhatsApp Web) ----
+  // Lista os grupos da conta (só metadados; os participantes são resolvidos sob demanda no
+  // groupInfo, porque resolver nome/número de cada membro custa uma consulta ao Store).
+  async listGroups(): Promise<GroupInfo[]> {
+    const chats = await this.req().getChats();
+    return chats
+      .filter((c) => c.isGroup)
+      .map((c) => {
+        const g = c as unknown as GroupChat;
+        return {
+          id: g.id._serialized,
+          subject: g.name ?? '',
+          owner: g.owner?._serialized ?? null,
+          desc: g.description || null,
+          size: g.participants?.length ?? 0,
+          announce: false,
+          restrict: false,
+          participants: [],
+        };
+      });
   }
-  groupInfo(): Promise<GroupInfo> {
-    return this.nope('groupInfo');
+
+  // Detalha um grupo com os participantes já resolvidos (telefone + nome salvo na agenda).
+  async groupInfo(jid: string): Promise<GroupInfo> {
+    const chat = await this.req().getChatById(this.toGroupId(jid));
+    if (!chat.isGroup) throw new Error('O id informado não é um grupo');
+    const g = chat as unknown as GroupChat;
+    const participants: GroupParticipantInfo[] = [];
+    // Sequencial de propósito: paralelizar dezenas de consultas ao Puppeteer trava o Chromium.
+    for (const p of g.participants ?? []) {
+      participants.push(await this.resolveGroupParticipant(p));
+    }
+    return {
+      id: g.id._serialized,
+      subject: g.name ?? '',
+      owner: g.owner?._serialized ?? null,
+      desc: g.description || null,
+      size: g.participants?.length ?? participants.length,
+      announce: false,
+      restrict: false,
+      participants,
+    };
+  }
+
+  // Resolve número + nome de um participante via Store oficial — a força do motor browser.
+  // `Contact.name` é o nome salvo na SUA agenda; `pushname` é o nome público. O @lid é
+  // resolvido para telefone (mesmo mecanismo do merge). Acumula no diretório como lead.
+  private async resolveGroupParticipant(
+    p: GroupParticipant,
+  ): Promise<GroupParticipantInfo> {
+    const id = p.id._serialized;
+    const role: GroupParticipantRole = p.isSuperAdmin
+      ? 'superadmin'
+      : p.isAdmin
+        ? 'admin'
+        : 'member';
+    const lid = p.id.server === 'lid' || id.endsWith('@lid') ? id : null;
+    let phone = p.id.server === 'c.us' ? p.id.user : null;
+    let savedName: string | null = null;
+    let pushName: string | null = null;
+    try {
+      const contact = await this.req().getContactById(id);
+      savedName = (contact.name || '').trim() || null;
+      pushName = (contact.pushname || '').trim() || null;
+      if (!phone) {
+        const num = (contact.number || '').replace(/\D/g, '');
+        const idNum = p.id.user.replace(/\D/g, '');
+        // contact.number de um @lid às vezes devolve o próprio LID — só aceita se diferir.
+        if (num && num !== idNum) phone = num;
+      }
+    } catch {
+      /* contato pode não ser resolvível pelo Store — segue com o que já temos */
+    }
+    if (!phone && lid) phone = await this.resolveLidToPhone(lid);
+    const name = savedName ?? pushName;
+    if (phone || name) {
+      this.deps.contacts?.record({
+        waId: id,
+        jid: phone ? `${phone}@s.whatsapp.net` : null,
+        lid,
+        phone,
+        name: savedName,
+        pushName,
+        source: 'wwebjs-group',
+      });
+    }
+    return { id, role, phone, name };
+  }
+
+  private toGroupId(jid: string): string {
+    return jid.includes('@') ? jid : `${jid}@g.us`;
   }
   createGroup(): Promise<GroupInfo> {
     return this.nope('createGroup');

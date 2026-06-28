@@ -59,6 +59,10 @@ export interface BaileysEngineDeps {
     record: (c: ContactRecord) => void;
     recordMany: (list: ContactRecord[]) => void;
     loadLidMap: () => Promise<Array<{ lid: string; jid: string }>>;
+    // Nomes salvos (agenda/pushName) para um conjunto de chaves — cruza membros de grupo × contatos.
+    resolveNames: (
+      keys: string[],
+    ) => Promise<Map<string, { name: string | null; pushName: string | null }>>;
   };
 }
 
@@ -267,7 +271,26 @@ type RawNewsletter = {
   };
 };
 
-function toGroupInfo(md: RawGroup, lidToPn: Map<string, string>): GroupInfo {
+// Nome do diretório para um participante, testando todas as chaves que ele pode ter.
+function dirNameFor(
+  p: RawParticipant,
+  phone: string | null,
+  names?: Map<string, { name: string | null; pushName: string | null }>,
+): { name: string | null; pushName: string | null } | undefined {
+  if (!names) return undefined;
+  return (
+    names.get(p.id) ??
+    (p.lid ? names.get(p.lid) : undefined) ??
+    (p.jid ? names.get(p.jid) : undefined) ??
+    (phone ? names.get(phone) : undefined)
+  );
+}
+
+function toGroupInfo(
+  md: RawGroup,
+  lidToPn: Map<string, string>,
+  names?: Map<string, { name: string | null; pushName: string | null }>,
+): GroupInfo {
   return {
     id: md.id,
     subject: md.subject ?? '',
@@ -276,17 +299,23 @@ function toGroupInfo(md: RawGroup, lidToPn: Map<string, string>): GroupInfo {
     size: md.size ?? md.participants?.length ?? 0,
     announce: !!md.announce,
     restrict: !!md.restrict,
-    participants: (md.participants ?? []).map((p) => ({
-      id: p.id,
-      role:
-        p.admin === 'superadmin'
-          ? 'superadmin'
-          : p.admin === 'admin'
-            ? 'admin'
-            : 'member',
-      phone: resolveParticipantPhone(p, lidToPn),
-      name: p.name ?? p.notify ?? null,
-    })),
+    participants: (md.participants ?? []).map((p) => {
+      const phone = resolveParticipantPhone(p, lidToPn);
+      const dir = dirNameFor(p, phone, names);
+      return {
+        id: p.id,
+        role:
+          p.admin === 'superadmin'
+            ? 'superadmin'
+            : p.admin === 'admin'
+              ? 'admin'
+              : 'member',
+        phone,
+        // Prioridade: nome da agenda (metadado → diretório) > pushName (metadado → diretório).
+        // O fallback no diretório resolve o caso LID, em que o metadado do grupo vem sem nome.
+        name: p.name ?? dir?.name ?? p.notify ?? dir?.pushName ?? null,
+      };
+    }),
   };
 }
 
@@ -898,18 +927,43 @@ export class BaileysEngine implements IEngine {
   }
 
   // ---- Grupos (§ F5) ----
+  // Busca em lote (1 query) os nomes salvos no diretório para todos os participantes dos grupos.
+  private async resolveParticipantNames(
+    groups: RawGroup[],
+  ): Promise<Map<string, { name: string | null; pushName: string | null }>> {
+    if (!this.deps.contacts?.resolveNames) return new Map();
+    const keys = new Set<string>();
+    for (const g of groups) {
+      for (const p of g.participants ?? []) {
+        if (p.id) keys.add(p.id);
+        if (p.lid) keys.add(p.lid);
+        if (p.jid) keys.add(p.jid);
+        const phone = resolveParticipantPhone(p, this.lidToPn);
+        if (phone) keys.add(phone);
+      }
+    }
+    if (!keys.size) return new Map();
+    try {
+      return await this.deps.contacts.resolveNames([...keys]);
+    } catch {
+      return new Map();
+    }
+  }
+
   async listGroups(): Promise<GroupInfo[]> {
     const map = await this.sk().groupFetchAllParticipating();
     const raws = Object.values(map) as unknown as RawGroup[];
     for (const g of raws) this.recordGroupParticipants(g);
-    return raws.map((g) => toGroupInfo(g, this.lidToPn));
+    const names = await this.resolveParticipantNames(raws);
+    return raws.map((g) => toGroupInfo(g, this.lidToPn, names));
   }
   async groupInfo(jid: string): Promise<GroupInfo> {
     const md = (await this.sk().groupMetadata(
       toGroupJid(jid),
     )) as unknown as RawGroup;
     this.recordGroupParticipants(md);
-    return toGroupInfo(md, this.lidToPn);
+    const names = await this.resolveParticipantNames([md]);
+    return toGroupInfo(md, this.lidToPn, names);
   }
   async createGroup(
     subject: string,
