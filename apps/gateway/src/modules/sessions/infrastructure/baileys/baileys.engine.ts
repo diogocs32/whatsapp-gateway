@@ -48,6 +48,13 @@ export interface BaileysEngineDeps {
   onEvent: EngineEventHandler;
   // Resolve o proxy (agent) a cada conexão. null/ausente => conexão direta, sem proxy (§7.4).
   resolveAgent?: () => Promise<Agent | null>;
+  // Dados crus do proxy (server + auth) para engines que aplicam proxy no browser (wwebjs:
+  // --proxy-server + proxyAuthentication). null => conexão direta.
+  resolveProxyConfig?: () => Promise<{
+    server: string;
+    username?: string;
+    password?: string;
+  } | null>;
   // Persiste o binário da mídia (S3). Recebe a chave do objeto, o buffer e o content-type (F4).
   storeMedia?: (
     key: string,

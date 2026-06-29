@@ -82,6 +82,8 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
         onEvent: (name, payload) =>
           void this.handleEngineEvent(sessionId, name, payload),
         resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
+        resolveProxyConfig: () =>
+          this.proxyResolver.resolveProxyConfig(sessionId),
         storeMedia: (key, body, contentType) =>
           this.mediaStorage.put(key, body, contentType),
         contacts: {

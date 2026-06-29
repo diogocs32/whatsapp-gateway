@@ -93,6 +93,25 @@ export class ProxyResolver {
     return chosen;
   }
 
+  // Dados crus do proxy para o Chromium/Puppeteer (wwebjs): o `server` vai em --proxy-server (sem
+  // credenciais), e username/password vão separados em proxyAuthentication. null => conexão direta.
+  async resolveProxyConfig(
+    sessionId: string,
+  ): Promise<{ server: string; username?: string; password?: string } | null> {
+    const proxy = await this.resolve(sessionId);
+    if (!proxy) {
+      return null;
+    }
+    this.logger.log(
+      `Sessão ${sessionId} (browser) → proxy #${proxy.position} ${proxy.protocol}://${proxy.host}:${proxy.port}`,
+    );
+    return {
+      server: `${proxy.protocol.toLowerCase()}://${proxy.host}:${proxy.port}`,
+      username: proxy.username ?? undefined,
+      password: proxy.password ?? undefined,
+    };
+  }
+
   // Resolve já como Agent pronto para o Baileys (agent + fetchAgent). null => conexão direta (sem proxy).
   async resolveAgent(sessionId: string): Promise<Agent | null> {
     const proxy = await this.resolve(sessionId);

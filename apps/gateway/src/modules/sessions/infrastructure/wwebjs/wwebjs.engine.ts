@@ -22,6 +22,21 @@ const CHROME_PATH =
   process.env.WWEBJS_CHROME_PATH ?? '/usr/bin/google-chrome-stable';
 const AUTH_PATH = process.env.WWEBJS_DATA_PATH ?? 'auth/wwebjs';
 
+// Versão do WhatsApp Web a FIXAR. Sem fixar, o wwebjs baixa a versão "ao vivo" do web.whatsapp.com a
+// cada conexão e a renegocia (é o "fica atualizando muito tempo") — e uma build ruim do WhatsApp Web
+// quebra getChats/getContacts (o wwebjs depende do Store interno). Fixar acelera e estabiliza.
+// Fonte: wppconnect-team/wa-version. ATENÇÃO: a Meta expira versões antigas (~2 meses) → revisar o
+// default periodicamente, ou setar WWEBJS_WEB_VERSION. Use 'live' para não fixar (comportamento antigo).
+const WEB_VERSION = process.env.WWEBJS_WEB_VERSION ?? '2.3000.1042271047-alpha';
+const PIN_WEB_VERSION = !!WEB_VERSION && WEB_VERSION !== 'live';
+const WEB_VERSION_REMOTE =
+  'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html';
+// UA alinhado ao Chromium real (Linux/146). O default do wwebjs é Chrome/101 (2022), que pode disparar
+// o aviso de "navegador desatualizado" do WhatsApp Web. Configurável por env.
+const USER_AGENT =
+  process.env.WWEBJS_USER_AGENT ??
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
+
 // Engine alternativa (F8) usando whatsapp-web.js (Puppeteer + Chrome do sistema). Mesmo contrato
 // IEngine do BaileysEngine, escolhida por sessão via EngineFactory. NÚCLEO: conexão/QR, status,
 // enviar/receber texto e mídia. Recursos avançados (grupos/contatos/canais) ainda não suportados.
@@ -58,28 +73,68 @@ export class WWebJSEngine implements IEngine {
     if (this.client) return;
     this.stopped = false;
 
+    // Proxy atribuído à sessão (se houver): aplicado ao Chromium via --proxy-server, com a auth nativa
+    // do wwebjs (proxyAuthentication). Sem isto, a engine browser ignorava o proxy (só o Baileys usava).
+    const proxy = (await this.deps.resolveProxyConfig?.()) ?? null;
+    if (proxy) {
+      this.deps.logger.info(
+        { server: proxy.server, auth: !!proxy.username },
+        'wwebjs: usando proxy',
+      );
+    }
+
     const client = new Client({
       authStrategy: new LocalAuth({
         clientId: this.deps.sessionId,
         dataPath: AUTH_PATH,
       }),
+      // Fixa a versão do WhatsApp Web (acelera/estabiliza o carregamento e evita quebra do Store).
+      ...(PIN_WEB_VERSION
+        ? {
+            webVersion: WEB_VERSION,
+            webVersionCache: {
+              type: 'remote' as const,
+              remotePath: WEB_VERSION_REMOTE,
+            },
+          }
+        : {}),
+      userAgent: USER_AGENT,
+      // Credenciais do proxy (o Chromium não aceita user:pass na URL do --proxy-server; o wwebjs faz
+      // o page.authenticate por baixo).
+      ...(proxy?.username && proxy.password
+        ? {
+            proxyAuthentication: {
+              username: proxy.username,
+              password: proxy.password,
+            },
+          }
+        : {}),
       puppeteer: {
         headless: true,
         executablePath: CHROME_PATH,
+        // Sobe o teto de timeout das chamadas CDP (host carregado / sync lenta não derruba à toa).
+        protocolTimeout: 240_000,
+        defaultViewport: { width: 1024, height: 768 },
         args: [
+          ...(proxy ? [`--proxy-server=${proxy.server}`] : []),
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          // Reduzem RAM/processos do Chromium em servidor headless, sem afetar o WhatsApp Web.
+          // Reduzem RAM/CPU do Chromium em servidor headless, sem afetar o WhatsApp Web.
           // Evita-se --single-process/--no-zygote de propósito (instabilizam o whatsapp-web.js).
           '--disable-gpu',
+          '--disable-software-rasterizer',
           '--disable-accelerated-2d-canvas',
+          // Cap do heap V8 por renderer: RAM previsível por sessão (multi-tenant).
+          '--js-flags=--max-old-space-size=512,--max-semi-space-size=64',
           '--disable-extensions',
+          '--disable-component-update',
+          '--disable-sync',
           '--disable-background-networking',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
-          '--disable-features=Translate,BackForwardCache,MediaRouter,OptimizationHints',
+          '--disable-features=Translate,BackForwardCache,MediaRouter,OptimizationHints,AcceptCHFrame,CalculateNativeWinOcclusion',
           '--mute-audio',
           '--no-first-run',
           '--no-default-browser-check',
@@ -90,6 +145,15 @@ export class WWebJSEngine implements IEngine {
     });
     this.client = client;
     this.setStatus('STARTING');
+
+    // Progresso da sincronização offline — torna visível o "demora muito" (em vez de ficar cego no
+    // STARTING). Útil para diagnosticar carregamento lento (ex.: via proxy).
+    client.on('loading_screen', (percent: number, message: string) => {
+      this.deps.logger.info(
+        { percent, message },
+        'wwebjs: carregando WhatsApp Web',
+      );
+    });
 
     client.on('qr', (qr: string) => {
       void QRCode.toDataURL(qr, { margin: 1, width: 320 })
