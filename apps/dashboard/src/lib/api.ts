@@ -340,9 +340,9 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ numbers }),
       }),
-    directory: (sid: string, search?: string, limit = 200) =>
+    directory: (sid: string, search?: string, limit = 1000, offset = 0) =>
       request<ContactDirectoryDto[]>(
-        `/api/sessions/${sid}/contacts/directory?limit=${limit}${
+        `/api/sessions/${sid}/contacts/directory?limit=${limit}&offset=${offset}${
           search ? `&search=${encodeURIComponent(search)}` : ''
         }`,
       ),

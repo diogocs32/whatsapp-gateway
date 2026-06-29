@@ -116,7 +116,7 @@ export class ContactDirectory {
       .map((r) => ({ lid: r.lid, jid: r.jid }));
   }
 
-  list(sessionId: string, limit: number, search?: string) {
+  list(sessionId: string, limit: number, search?: string, offset = 0) {
     return this.prisma.waContact.findMany({
       where: {
         sessionId,
@@ -131,6 +131,7 @@ export class ContactDirectory {
           : {}),
       },
       orderBy: { updatedAt: 'desc' },
+      skip: offset,
       take: limit,
     });
   }

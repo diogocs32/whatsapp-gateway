@@ -28,12 +28,24 @@ export function Contacts() {
 
   const [directory, setDirectory] = useState<ContactDirectoryDto[]>([]);
   const [dirSearch, setDirSearch] = useState('');
+  const [dirHasMore, setDirHasMore] = useState(false);
 
-  async function loadDirectory() {
+  const DIR_PAGE = 1000;
+  // reset=true: nova busca (substitui). reset=false: próxima página (concatena pelo offset = total atual).
+  async function loadDirectory(reset = true) {
+    const offset = reset ? 0 : directory.length;
     const r = await guard(() =>
-      api.contacts.directory(sessionId, dirSearch.trim() || undefined),
+      api.contacts.directory(
+        sessionId,
+        dirSearch.trim() || undefined,
+        DIR_PAGE,
+        offset,
+      ),
     );
-    if (r) setDirectory(r);
+    if (r) {
+      setDirectory(reset ? r : [...directory, ...r]);
+      setDirHasMore(r.length === DIR_PAGE); // página cheia ⇒ provavelmente há mais
+    }
   }
 
   useEffect(() => {
@@ -336,13 +348,16 @@ export function Contacts() {
                 className="ml-auto rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm outline-none focus:border-emerald-500"
               />
               <button
-                onClick={() => void loadDirectory()}
+                onClick={() => void loadDirectory(true)}
                 disabled={busy || !sessionId}
                 className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-40"
               >
                 Carregar
               </button>
-              <span className="text-xs text-zinc-500">{directory.length}</span>
+              <span className="text-xs text-zinc-500">
+                {directory.length}
+                {dirHasMore ? '+' : ''} carregados
+              </span>
             </div>
             <div className="overflow-x-auto rounded-lg border border-zinc-800">
               <table className="w-full text-sm">
@@ -385,6 +400,17 @@ export function Contacts() {
                 </tbody>
               </table>
             </div>
+            {dirHasMore && (
+              <div className="mt-3 text-center">
+                <button
+                  onClick={() => void loadDirectory(false)}
+                  disabled={busy}
+                  className="rounded-lg border border-zinc-700 px-4 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-40"
+                >
+                  Carregar mais {DIR_PAGE}
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </main>

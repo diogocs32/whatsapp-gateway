@@ -37,12 +37,15 @@ export class ContactsController {
     @Param('id', SessionRefPipe) id: string,
     @Query('search') search?: string,
     @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    const take = Math.min(Number(limit) || 200, 1000);
+    const take = Math.min(Number(limit) || 1000, 1000);
+    const skip = Math.max(Number(offset) || 0, 0);
     const rows = await this.directory.list(
       id,
       take,
       search?.trim() || undefined,
+      skip,
     );
     return rows.map((r) => ({
       waId: r.waId,
