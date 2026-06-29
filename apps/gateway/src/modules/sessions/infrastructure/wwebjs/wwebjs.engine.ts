@@ -509,11 +509,44 @@ export class WWebJSEngine implements IEngine {
     throw new Error(`${op} ainda não suportado na engine WWEBJS (use BAILEYS)`);
   }
 
+  // Executa uma operação que depende do Store interno do WhatsApp Web, tolerando o RACE do wwebjs
+  // 1.34.7: logo após o `ready` o Store (window.WWebJS) pode ainda não estar injetado, e getChats/
+  // getChatById estouram "Cannot read properties of undefined (reading 'getChats')". Em vez de falhar,
+  // aguarda e tenta de novo (o Store fica pronto em segundos). Ver issue wwebjs #3505.
+  private async withStoreReady<T>(
+    fn: () => Promise<T>,
+    attempts = 8,
+    delayMs = 1500,
+  ): Promise<T> {
+    let lastErr: unknown;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (e) {
+        const msg = (e as Error)?.message ?? '';
+        const storeNotReady =
+          /undefined|getChats|getContact|Evaluation failed|Cannot read/i.test(
+            msg,
+          );
+        if (!storeNotReady) throw e;
+        lastErr = e;
+        this.deps.logger.warn(
+          { attempt: i + 1, attempts },
+          'wwebjs: Store ainda sincronizando, aguardando…',
+        );
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+    throw new Error(
+      `WhatsApp Web ainda sincronizando (Store indisponível após ${attempts} tentativas) — tente em alguns segundos. Causa: ${(lastErr as Error)?.message ?? 'desconhecida'}`,
+    );
+  }
+
   // ---- Grupos: extração de leads (nome + número via Store oficial do WhatsApp Web) ----
   // Lista os grupos da conta (só metadados; os participantes são resolvidos sob demanda no
   // groupInfo, porque resolver nome/número de cada membro custa uma consulta ao Store).
   async listGroups(): Promise<GroupInfo[]> {
-    const chats = await this.req().getChats();
+    const chats = await this.withStoreReady(() => this.req().getChats());
     return chats
       .filter((c) => c.isGroup)
       .map((c) => {
@@ -533,7 +566,9 @@ export class WWebJSEngine implements IEngine {
 
   // Detalha um grupo com os participantes já resolvidos (telefone + nome salvo na agenda).
   async groupInfo(jid: string): Promise<GroupInfo> {
-    const chat = await this.req().getChatById(this.toGroupId(jid));
+    const chat = await this.withStoreReady(() =>
+      this.req().getChatById(this.toGroupId(jid)),
+    );
     if (!chat.isGroup) throw new Error('O id informado não é um grupo');
     const g = chat as unknown as GroupChat;
     const participants: GroupParticipantInfo[] = [];
