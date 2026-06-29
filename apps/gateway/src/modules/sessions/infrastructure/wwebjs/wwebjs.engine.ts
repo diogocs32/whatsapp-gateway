@@ -1,7 +1,13 @@
 import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
-import type { Message, GroupChat, GroupParticipant } from 'whatsapp-web.js';
+import type {
+  Message,
+  GroupChat,
+  GroupParticipant,
+  Contact,
+} from 'whatsapp-web.js';
 import * as QRCode from 'qrcode';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
+import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import type {
   ChannelInfo,
   ContactCheck,
@@ -172,6 +178,8 @@ export class WWebJSEngine implements IEngine {
       });
       // Merge: funde conversas antigas divididas em @lid (após o Store sincronizar).
       setTimeout(() => void this.mergeExistingLids(), 4000);
+      // Puxa a agenda (nomes salvos) para o diretório. withStoreReady cobre o Store ainda injetando.
+      setTimeout(() => void this.syncAddressBook(), 3000);
     });
     client.on('auth_failure', (m: string) =>
       this.setStatus('FAILED', { error: `auth_failure: ${m}` }),
@@ -492,6 +500,45 @@ export class WWebJSEngine implements IEngine {
       }
     } catch (e) {
       this.deps.logger.error({ e }, 'wwebjs: mergeExistingLids falhou');
+    }
+  }
+
+  // Sincroniza a AGENDA do WhatsApp Web para o diretório: getContacts() traz o nome SALVO (name) e o
+  // público (pushname) de cada contato — é o que faltava para o diretório mostrar nomes (antes só vinham
+  // telefones de mensagens recebidas, sem nome). Roda no 'ready' (fire-and-forget).
+  private async syncAddressBook(): Promise<void> {
+    try {
+      const contacts = await this.withStoreReady(() => this.req().getContacts());
+      const recs: ContactRecord[] = [];
+      for (const c of contacts as Contact[]) {
+        if (c.isGroup || c.isMe) continue;
+        const id = c.id?._serialized;
+        if (!id) continue;
+        const isPhone = c.id.server === 'c.us' || id.endsWith('@c.us');
+        const phone = isPhone ? c.id.user.replace(/\D/g, '') : null;
+        const name = (c.name || '').trim() || null;
+        const pushName = (c.pushname || '').trim() || null;
+        // Só guarda quem tem algo útil (nome, pushname ou telefone). Ignora ruído.
+        if (!name && !pushName && !phone) continue;
+        recs.push({
+          waId: id,
+          jid: phone ? `${phone}@s.whatsapp.net` : null,
+          lid: id.endsWith('@lid') ? id : null,
+          phone,
+          name,
+          pushName,
+          source: 'wwebjs-contacts',
+        });
+      }
+      if (recs.length) {
+        this.deps.contacts?.recordMany(recs);
+        this.deps.logger.info(
+          { count: recs.length },
+          'wwebjs: agenda sincronizada para o diretório',
+        );
+      }
+    } catch (e) {
+      this.deps.logger.error({ e }, 'wwebjs: syncAddressBook falhou');
     }
   }
 
