@@ -33,6 +33,7 @@ import type {
   IEngine,
   MessageSource,
   PresenceState,
+  SaveContactInput,
   SendMediaInput,
   SendOptions,
   SessionStatePayload,
@@ -1032,6 +1033,22 @@ export class BaileysEngine implements IEngine {
   }
   async setBlock(jid: string, action: 'block' | 'unblock'): Promise<void> {
     await this.sk().updateBlockStatus(toContactJid(jid), action);
+  }
+  async saveContact(jid: string, input: SaveContactInput): Promise<void> {
+    const fullName =
+      [input.firstName, input.lastName]
+        .map((s) => s?.trim())
+        .filter(Boolean)
+        .join(' ') || input.firstName;
+    // addOrEditContact = chatModify({ contact }) → app-state sync (propaga p/ todos os devices).
+    await this.sk().addOrEditContact(toContactJid(jid), {
+      firstName: input.firstName,
+      fullName,
+      saveOnPrimaryAddressbook: input.syncToPhone ?? false,
+    });
+  }
+  async removeContact(jid: string): Promise<void> {
+    await this.sk().removeContact(toContactJid(jid));
   }
 
   // ---- Canais / newsletter (§ F5 — beta) ----

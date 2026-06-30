@@ -18,6 +18,7 @@ import type {
   IEngine,
   MessageSource,
   PresenceState,
+  SaveContactInput,
   SendMediaInput,
   SendOptions,
 } from '../../application/engine.port';
@@ -712,6 +713,22 @@ export class WWebJSEngine implements IEngine {
   }
   setBlock(): Promise<void> {
     return this.nope('setBlock');
+  }
+  // wwebjs suporta a agenda nativamente (WAWebSaveContactAction). phoneNumber = só dígitos (país+DDD).
+  async saveContact(jid: string, input: SaveContactInput): Promise<void> {
+    const phone = jid.replace(/[^0-9]/g, '');
+    await this.withStoreReady(() =>
+      this.req().saveOrEditAddressbookContact(
+        phone,
+        input.firstName,
+        input.lastName ?? '',
+        input.syncToPhone ?? false,
+      ),
+    );
+  }
+  async removeContact(jid: string): Promise<void> {
+    const phone = jid.replace(/[^0-9]/g, '');
+    await this.withStoreReady(() => this.req().deleteAddressbookContact(phone));
   }
   createChannel(): Promise<ChannelInfo> {
     return this.nope('createChannel');

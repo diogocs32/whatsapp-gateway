@@ -44,6 +44,8 @@ export const fakeSessionManager = {
     })),
   profilePicture: async () => null,
   setBlock: async () => undefined,
+  saveContact: async () => undefined,
+  removeContact: async () => undefined,
   createChannel: async () => fakeChannel,
   channelInfo: async () => fakeChannel,
   followChannel: async () => undefined,

@@ -131,6 +131,15 @@ export interface ContactCheck {
   exists: boolean;
   jid: string | null;
 }
+
+// Dados para salvar/editar um contato na agenda da conta. `syncToPhone` pede ao WhatsApp para
+// propagar também para a agenda do aparelho (saveOnPrimaryAddressbook no Baileys /
+// syncToAddressbook no wwebjs). Sem ele, o contato fica só na agenda da conta WhatsApp.
+export interface SaveContactInput {
+  firstName: string;
+  lastName?: string | null;
+  syncToPhone?: boolean;
+}
 export interface ChannelInfo {
   id: string;
   name: string;
@@ -185,6 +194,10 @@ export interface IEngine {
   checkNumbers(numbers: string[]): Promise<ContactCheck[]>;
   profilePicture(jid: string): Promise<string | null>;
   setBlock(jid: string, action: 'block' | 'unblock'): Promise<void>;
+  // Salva/edita um contato na agenda da conta (opcionalmente sincroniza com o aparelho).
+  saveContact(jid: string, input: SaveContactInput): Promise<void>;
+  // Remove o contato da agenda da conta.
+  removeContact(jid: string): Promise<void>;
 
   // Canais (newsletter) — beta
   createChannel(name: string, description?: string): Promise<ChannelInfo>;

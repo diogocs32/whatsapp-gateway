@@ -28,6 +28,7 @@ import type {
   IEngine,
   MessagePayload,
   PresenceState,
+  SaveContactInput,
   SendMediaInput,
   SendOptions,
   SessionStatePayload,
@@ -321,6 +322,16 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     action: 'block' | 'unblock',
   ): Promise<void> {
     return this.working(sessionId).setBlock(jid, action);
+  }
+  saveContact(
+    sessionId: string,
+    jid: string,
+    input: SaveContactInput,
+  ): Promise<void> {
+    return this.working(sessionId).saveContact(jid, input);
+  }
+  removeContact(sessionId: string, jid: string): Promise<void> {
+    return this.working(sessionId).removeContact(jid);
   }
 
   // ---- Canais (F5 — beta) ----

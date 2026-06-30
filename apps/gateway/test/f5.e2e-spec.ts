@@ -105,6 +105,48 @@ describe('F5 grupos/contatos/canais (e2e)', () => {
     expect(res.json()[0].exists).toBe(true);
   });
 
+  it('contacts save sem firstName → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/contacts/save',
+      headers: jsonAuth(),
+      payload: { number: '5511999999999' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('contacts save sem jid nem number → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/contacts/save',
+      headers: jsonAuth(),
+      payload: { firstName: 'João' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('contacts save válido → 201', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/contacts/save',
+      headers: jsonAuth(),
+      payload: { number: '5511999999999', firstName: 'João', syncToPhone: true },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().ok).toBe(true);
+  });
+
+  it('contacts remove válido → 201', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/contacts/remove',
+      headers: jsonAuth(),
+      payload: { number: '5511999999999' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().ok).toBe(true);
+  });
+
   it('criar canal válido → 201', async () => {
     const res = await inject(app, {
       method: 'POST',
