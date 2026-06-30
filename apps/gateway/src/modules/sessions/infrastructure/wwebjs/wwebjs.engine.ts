@@ -199,7 +199,40 @@ export class WWebJSEngine implements IEngine {
       this.onMessageAck(msg, ack),
     );
 
-    await client.initialize();
+    // NÃO bloqueia a chamada (start/restart) no carregamento do WhatsApp Web. Antes, um erro do
+    // initialize (tipicamente proxy com credencial inválida → ERR_TUNNEL_CONNECTION_FAILED /
+    // ERR_INVALID_AUTH_CREDENTIALS) subia até o controller e virava HTTP 500 cru, deixando a sessão
+    // presa. Agora a falha vira status FAILED com mensagem acionável; o painel acompanha via status/QR.
+    void client.initialize().catch((e) => void this.onInitError(e));
+  }
+
+  // Trata falha do client.initialize() (Puppeteer/WhatsApp Web). Em vez de propagar (500), registra,
+  // limpa o client e marca a sessão como FAILED com um diagnóstico — com destaque para erros de proxy,
+  // que são a causa mais comum (credencial do proxy rejeitada no CONNECT do Chromium).
+  private async onInitError(e: unknown): Promise<void> {
+    if (this.stopped) return; // stop()/logout() durante a inicialização — ignora
+    const msg = (e as Error)?.message ?? String(e);
+    const isProxyAuth = /ERR_INVALID_AUTH_CREDENTIALS/i.test(msg);
+    const isProxyTunnel =
+      /ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY_CONNECTION_FAILED|ERR_NO_SUPPORTED_PROXIES|ERR_SOCKS_CONNECTION_FAILED/i.test(
+        msg,
+      );
+    this.deps.logger.error(
+      { err: msg, proxyAuth: isProxyAuth, proxyTunnel: isProxyTunnel },
+      'wwebjs: falha ao inicializar',
+    );
+    try {
+      await this.client?.destroy();
+    } catch {
+      /* noop */
+    }
+    this.client = null;
+    const error = isProxyAuth
+      ? `Proxy rejeitou a autenticação (ERR_INVALID_AUTH_CREDENTIALS): credencial do proxy desta sessão está incorreta. Sincronize o pool (Webshare) ou troque/remova o proxy.`
+      : isProxyTunnel
+        ? `Não foi possível conectar pelo proxy (${msg.split(' at ')[0]}): proxy indisponível ou exigindo auth. Troque/remova o proxy desta sessão.`
+        : `Falha ao iniciar a sessão: ${msg}`;
+    this.setStatus('FAILED', { error });
   }
 
   async stop(): Promise<void> {
