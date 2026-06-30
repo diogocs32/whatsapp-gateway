@@ -94,3 +94,21 @@ GET …/groups/{groupId}/leads?all=true                   # inclui membros sem n
   (`GET /api/sessions/{sessao}/contacts/directory`) — quanto mais a sessão sincroniza, mais resolve.
 - **Custo:** resolver os membros consulta o WhatsApp por participante (sequencial) — grupo grande leva
   alguns segundos. É extração pontual, não hot path. Os leads resolvidos ficam no diretório de contatos.
+
+## 10. Contatos — agenda da conta (salvar / remover / bloquear)
+Salva, edita, remove ou bloqueia um contato na **agenda da conta** do WhatsApp. As duas engines
+suportam: Baileys via `addOrEditContact` (app-state sync) e whatsapp-web.js via
+`saveOrEditAddressbookContact`. Requer a sessão **conectada** (`WORKING`). No node: resource **Contact**.
+```
+POST /api/sessions/{sessao}/contacts/save     { "number": "5511999999999", "firstName": "João",
+                                                "lastName": "Silva", "syncToPhone": true }
+POST /api/sessions/{sessao}/contacts/remove   { "number": "5511999999999" }
+POST /api/sessions/{sessao}/contacts/block     { "jid": "5511999999999", "action": "block" }   # ou "unblock"
+```
+- **`number`** — dígitos com país + DDD (ex.: `5511999999999`); `save`/`remove` também aceitam `jid` canônico.
+- **`firstName`** obrigatório no `save`; **`lastName`** opcional.
+- **`syncToPhone`** (default `false`): se `true`, propaga o contato também para a **agenda do aparelho**
+  (`saveOnPrimaryAddressbook` no Baileys / `syncToAddressbook` no wwebjs). Sem ele, fica só na conta WhatsApp.
+- Resposta: `{ "ok": true }`.
+- **Não confundir** com o diretório (`GET …/contacts/directory`), que é o índice interno acumulado pelo
+  gateway. Salvar contato escreve na **agenda real** da conta (recurso de contatos-na-conta do WhatsApp).
