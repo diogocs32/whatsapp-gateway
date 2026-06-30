@@ -58,8 +58,26 @@ export class WWebJSEngine implements IEngine {
   // keyId das mensagens enviadas PELO painel (sendText/sendMedia) — para o handler message_create
   // não duplicá-las (já são emitidas no envio). Sobra capturar as enviadas pelo próprio celular.
   private readonly sentByPanel = new Set<string>();
+  // Mutex de ciclo de vida: serializa start/stop/logout da MESMA sessão. Sem isto, um restart
+  // (stop→start) ou cliques/polling repetidos podem lançar 2 Chromium no mesmo userDataDir — entre o
+  // `puppeteer.launch` (whatsapp-web.js Client.js:462) e o `this.pupBrowser = browser` (Client.js:477)
+  // há uma janela em que `destroy()` (Client.js:1277, olha `this.pupBrowser`) NÃO enxerga o browser, que
+  // fica órfão segurando o ProcessSingleton do perfil → "browser already running" (puppeteer
+  // BrowserLauncher.js:175). Serializar fecha essa janela: nunca há dois ciclos concorrentes.
+  private lifecycle: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly deps: BaileysEngineDeps) {}
+
+  // Encadeia `fn` após a última operação de ciclo de vida (resolvendo ou rejeitando), garantindo
+  // execução serializada por instância (1 sessão = 1 engine).
+  private serialize<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.lifecycle.then(fn, fn);
+    this.lifecycle = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
 
   getStatus(): SessionStatus {
     return this.status;
@@ -76,7 +94,11 @@ export class WWebJSEngine implements IEngine {
     this.deps.onEvent('session.status', { status, ...extra });
   }
 
-  async start(): Promise<void> {
+  start(): Promise<void> {
+    return this.serialize(() => this.doStart());
+  }
+
+  private async doStart(): Promise<void> {
     if (this.client) return;
     this.stopped = false;
 
@@ -199,43 +221,60 @@ export class WWebJSEngine implements IEngine {
       this.onMessageAck(msg, ack),
     );
 
-    // NÃO bloqueia a chamada (start/restart) no carregamento do WhatsApp Web. Antes, um erro do
-    // initialize (tipicamente proxy com credencial inválida → ERR_TUNNEL_CONNECTION_FAILED /
-    // ERR_INVALID_AUTH_CREDENTIALS) subia até o controller e virava HTTP 500 cru, deixando a sessão
-    // presa. Agora a falha vira status FAILED com mensagem acionável; o painel acompanha via status/QR.
-    void client.initialize().catch((e) => void this.onInitError(e));
+    // Aguarda o initialize (já serializado pelo mutex de ciclo de vida) para garantir cleanup
+    // determinístico: quando o `goto` falha (proxy), `this.pupBrowser` já foi setado (Client.js:477)
+    // e o `destroy()` fecha o Chromium — não fica órfão. A falha NÃO propaga como HTTP 500: vira
+    // status FAILED com mensagem acionável; o painel acompanha via status/QR.
+    try {
+      await client.initialize();
+    } catch (e) {
+      await this.handleInitFailure(e);
+    }
   }
 
   // Trata falha do client.initialize() (Puppeteer/WhatsApp Web). Em vez de propagar (500), registra,
-  // limpa o client e marca a sessão como FAILED com um diagnóstico — com destaque para erros de proxy,
-  // que são a causa mais comum (credencial do proxy rejeitada no CONNECT do Chromium).
-  private async onInitError(e: unknown): Promise<void> {
-    if (this.stopped) return; // stop()/logout() durante a inicialização — ignora
+  // limpa o client e marca a sessão como FAILED com um diagnóstico — com destaque para erros de proxy
+  // (credencial rejeitada no CONNECT do Chromium) e para o lock de perfil órfão.
+  private async handleInitFailure(e: unknown): Promise<void> {
     const msg = (e as Error)?.message ?? String(e);
     const isProxyAuth = /ERR_INVALID_AUTH_CREDENTIALS/i.test(msg);
     const isProxyTunnel =
       /ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY_CONNECTION_FAILED|ERR_NO_SUPPORTED_PROXIES|ERR_SOCKS_CONNECTION_FAILED/i.test(
         msg,
       );
+    const isBrowserLock = /already running for|ProcessSingleton/i.test(msg);
     this.deps.logger.error(
-      { err: msg, proxyAuth: isProxyAuth, proxyTunnel: isProxyTunnel },
+      {
+        err: msg,
+        proxyAuth: isProxyAuth,
+        proxyTunnel: isProxyTunnel,
+        browserLock: isBrowserLock,
+      },
       'wwebjs: falha ao inicializar',
     );
+    // Limpa SEMPRE (mesmo se houve stop concorrente) para não deixar o Chromium órfão.
     try {
       await this.client?.destroy();
     } catch {
       /* noop */
     }
     this.client = null;
+    if (this.stopped) return; // stop()/logout() pediu parada — não sobrescreve o STOPPED
     const error = isProxyAuth
       ? `Proxy rejeitou a autenticação (ERR_INVALID_AUTH_CREDENTIALS): credencial do proxy desta sessão está incorreta. Sincronize o pool (Webshare) ou troque/remova o proxy.`
       : isProxyTunnel
         ? `Não foi possível conectar pelo proxy (${msg.split(' at ')[0]}): proxy indisponível ou exigindo auth. Troque/remova o proxy desta sessão.`
-        : `Falha ao iniciar a sessão: ${msg}`;
+        : isBrowserLock
+          ? `Instância anterior do navegador ainda ativa para esta sessão (perfil bloqueado). Pare a sessão e tente novamente; se persistir, reinicie o serviço.`
+          : `Falha ao iniciar a sessão: ${msg}`;
     this.setStatus('FAILED', { error });
   }
 
-  async stop(): Promise<void> {
+  stop(): Promise<void> {
+    return this.serialize(() => this.doStop());
+  }
+
+  private async doStop(): Promise<void> {
     this.stopped = true;
     try {
       await this.client?.destroy();
@@ -246,7 +285,11 @@ export class WWebJSEngine implements IEngine {
     this.setStatus('STOPPED');
   }
 
-  async logout(): Promise<void> {
+  logout(): Promise<void> {
+    return this.serialize(() => this.doLogout());
+  }
+
+  private async doLogout(): Promise<void> {
     this.stopped = true;
     try {
       await this.client?.logout();
