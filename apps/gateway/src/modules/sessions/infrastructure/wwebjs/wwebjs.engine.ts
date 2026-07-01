@@ -6,6 +6,8 @@ import type {
   Contact,
 } from 'whatsapp-web.js';
 import * as QRCode from 'qrcode';
+import { rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import type {
@@ -94,6 +96,22 @@ export class WWebJSEngine implements IEngine {
     this.deps.onEvent('session.status', { status, ...extra });
   }
 
+  // Remove locks de perfil órfãos do Chromium (SingletonLock/Socket/Cookie) no userDataDir desta
+  // sessão. O userDataDir (LocalAuth.js:35 → `${dataPath}/session-${clientId}`) fica em volume
+  // PERSISTENTE (/data/wwebjs); o SingletonLock é um symlink `<hostname>-<pid>` e o hostname do
+  // container MUDA a cada deploy/restart, então o Chromium vê o lock com hostname alheio, não valida o
+  // dono e RECUSA ("Failed to create a ProcessSingleton" → puppeteer BrowserLauncher.js:175). Seguro:
+  // o ciclo é serializado (mutex) e só chegamos aqui com client==null; 1 container por volume → o lock
+  // remanescente é sempre de processo morto.
+  private async clearStaleSingletonLocks(): Promise<void> {
+    const dir = join(resolve(AUTH_PATH), `session-${this.deps.sessionId}`);
+    await Promise.all(
+      ['SingletonLock', 'SingletonSocket', 'SingletonCookie'].map((f) =>
+        rm(join(dir, f), { force: true }).catch(() => {}),
+      ),
+    );
+  }
+
   start(): Promise<void> {
     return this.serialize(() => this.doStart());
   }
@@ -101,6 +119,11 @@ export class WWebJSEngine implements IEngine {
   private async doStart(): Promise<void> {
     if (this.client) return;
     this.stopped = false;
+
+    // Remove locks de perfil órfãos (Singleton*) ANTES de lançar o Chromium — sem isto, um SingletonLock
+    // stale no volume persistente (hostname do container mudou) faz o Chromium recusar com
+    // "browser already running" indefinidamente. Ver clearStaleSingletonLocks.
+    await this.clearStaleSingletonLocks();
 
     // Proxy atribuído à sessão (se houver): aplicado ao Chromium via --proxy-server, com a auth nativa
     // do wwebjs (proxyAuthentication). Sem isto, a engine browser ignorava o proxy (só o Baileys usava).

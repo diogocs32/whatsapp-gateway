@@ -272,11 +272,24 @@ export class SessionsController {
     await this.ensure(id);
     const parsed = pairingSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('phoneNumber inválido');
-    const code = await this.manager.requestPairingCode(
-      id,
-      parsed.data.phoneNumber,
-    );
-    return { code };
+    try {
+      const code = await this.manager.requestPairingCode(
+        id,
+        parsed.data.phoneNumber,
+      );
+      return { code };
+    } catch (e) {
+      // Sessão não iniciada/carregada ainda não permite parear (ex.: proxy falhou ou o WhatsApp Web
+      // não abriu). Devolve 409 com o motivo em vez de 500 (Internal server error) cru.
+      const msg = (e as Error)?.message ?? 'Falha ao gerar código de pareamento';
+      throw new ConflictException(
+        /não conectada|not connected|Session closed|Evaluation failed|pupPage|undefined/i.test(
+          msg,
+        )
+          ? 'A sessão não está pronta para parear. Inicie a sessão e aguarde carregar; se houver proxy com erro, corrija o proxy antes.'
+          : msg,
+      );
+    }
   }
 
   private async ensure(id: string): Promise<Session> {
