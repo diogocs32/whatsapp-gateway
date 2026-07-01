@@ -1080,6 +1080,10 @@ export class BaileysEngine implements IEngine {
 
   async stop(): Promise<void> {
     this.stopped = true;
+    // Remove os listeners ANTES de encerrar o socket. Sem isto, o `end()` dispara um
+    // connection.update 'close' tardio que reentra em onConnectionUpdate e re-emite status
+    // (status fantasma após a parada). Espelha a limpeza feita no início de connect().
+    this.detachSocketListeners();
     try {
       this.sock?.end(undefined);
     } catch {
@@ -1090,6 +1094,19 @@ export class BaileysEngine implements IEngine {
     this.setStatus('STOPPED');
   }
 
+  private detachSocketListeners(): void {
+    try {
+      const ev = this.sock?.ev as unknown as {
+        removeAllListeners?: (event?: string) => void;
+      };
+      ev?.removeAllListeners?.('connection.update');
+      ev?.removeAllListeners?.('creds.update');
+      ev?.removeAllListeners?.('messages.upsert');
+    } catch {
+      /* noop */
+    }
+  }
+
   async logout(): Promise<void> {
     this.stopped = true;
     try {
@@ -1097,6 +1114,7 @@ export class BaileysEngine implements IEngine {
     } catch {
       /* noop */
     }
+    this.detachSocketListeners();
     try {
       this.sock?.end(undefined);
     } catch {
@@ -1108,7 +1126,8 @@ export class BaileysEngine implements IEngine {
     await this.deps.prisma.waAuthKey.deleteMany({
       where: { sessionId: this.deps.sessionId },
     });
-    await this.deps.prisma.waSession.update({
+    // updateMany: se a sessão já foi removida, não lança P2025 (segue como no-op).
+    await this.deps.prisma.waSession.updateMany({
       where: { id: this.deps.sessionId },
       data: { creds: Prisma.DbNull },
     });

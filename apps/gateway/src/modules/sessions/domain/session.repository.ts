@@ -20,11 +20,13 @@ export interface SessionRepository {
   findById(id: string): Promise<Session | null>;
   findByName(name: string): Promise<Session | null>;
   list(): Promise<Session[]>;
+  // Retorna `true` se a sessão existia e foi atualizada; `false` se não há registro
+  // (sessão removida). Não lança quando o registro sumiu — o chamador decide o que fazer.
   updateStatus(
     id: string,
     status: SessionStatus,
     patch?: StatusPatch,
-  ): Promise<void>;
+  ): Promise<boolean>;
   delete(id: string): Promise<void>;
   findAutostart(): Promise<Session[]>;
 }

@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { DomainEvent } from '../../shared-kernel/domain-event';
 import { EventBus } from '../../shared-kernel/event-bus/event-bus';
 import { newId } from '../../shared-kernel/ulid';
-import { PrismaService } from '../../infra/prisma/prisma.service';
+import { PrismaService, Prisma } from '../../infra/prisma/prisma.service';
 import type {
   SessionStatePayload,
   WaEventEnvelope,
@@ -34,11 +34,19 @@ export class SessionEventLogger implements OnModuleInit {
             detail: p.error ?? null,
           },
         })
-        .catch((err) =>
+        .catch((err) => {
+          // P2003 = violação de FK: a sessão-pai já foi removida e a engine emitiu um status
+          // tardio. É esperado (não é falha real) — ignora em silêncio em vez de poluir o log.
+          if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === 'P2003'
+          ) {
+            return;
+          }
           this.logger.error(
             `falha ao persistir evento de timeline: ${(err as Error).message}`,
-          ),
-        );
+          );
+        });
     });
   }
 }

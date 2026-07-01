@@ -71,17 +71,23 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private getOrCreateEngine(sessionId: string, engineType: string): IEngine {
-    let engine = this.engines.get(sessionId);
-    if (!engine) {
-      engine = this.engineFactory.create(engineType, {
+    const existing = this.engines.get(sessionId);
+    if (existing) return existing;
+    const created = this.engineFactory.create(engineType, {
         sessionId,
         deviceName: 'WhatsApp Gateway',
         prisma: this.prisma,
         logger: pino({
           level: this.config.get('WA_LOG_LEVEL', { infer: true }),
         }),
-        onEvent: (name, payload) =>
-          void this.handleEngineEvent(sessionId, name, payload),
+        // Guard: só processa eventos enquanto ESTA engine for a registrada para a sessão. Se ela
+        // foi descartada (remove/discardOrphan) ou substituída, seus eventos tardios são ignorados
+        // — sem isto, uma engine órfã reconectando persistiria status de sessão já removida (loop
+        // de P2025 no update + violação de FK no insert da timeline).
+        onEvent: (name, payload) => {
+          if (this.engines.get(sessionId) !== created) return;
+          void this.handleEngineEvent(sessionId, name, payload);
+        },
         resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
         resolveProxyConfig: () =>
           this.proxyResolver.resolveProxyConfig(sessionId),
@@ -99,9 +105,8 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
             this.contactDirectory.namesFor(sessionId, keys),
         },
       });
-      this.engines.set(sessionId, engine);
-    }
-    return engine;
+    this.engines.set(sessionId, created);
+    return created;
   }
 
   private async handleEngineEvent(
@@ -146,13 +151,40 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     p: SessionStatePayload,
   ): Promise<void> {
     try {
-      await this.repo.updateStatus(sessionId, p.status, {
+      const found = await this.repo.updateStatus(sessionId, p.status, {
         meJid: p.meJid,
         mePushName: p.mePushName,
         lastError: p.error,
       });
+      // A sessão não existe mais no banco, mas a engine seguiu viva emitindo status (órfã de um
+      // ciclo anterior, ou exclusão feita por fora). Encerra e descarta a engine — corta o loop
+      // de reconexão na raiz em vez de só engolir o erro a cada backoff.
+      if (!found) await this.discardOrphan(sessionId);
     } catch (e) {
       this.logger.error(`persist status ${sessionId}: ${(e as Error).message}`);
+    }
+  }
+
+  // Fila de descartes em andamento — evita reentrância (o stop() abaixo emite STOPPED, que o guard
+  // de onEvent já ignora porque a engine saiu do mapa; este set cobre o resto).
+  private readonly discarding = new Set<string>();
+
+  // Encerra uma engine que perdeu seu registro no banco: para o socket/Chromium e a remove do mapa.
+  private async discardOrphan(sessionId: string): Promise<void> {
+    if (this.discarding.has(sessionId)) return;
+    this.discarding.add(sessionId);
+    const engine = this.engines.get(sessionId);
+    this.engines.delete(sessionId);
+    this.names.delete(sessionId);
+    this.logger.warn(
+      `Sessão ${sessionId} não existe mais no banco — encerrando engine órfã.`,
+    );
+    try {
+      await engine?.stop();
+    } catch {
+      /* noop */
+    } finally {
+      this.discarding.delete(sessionId);
     }
   }
 
@@ -163,24 +195,53 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     await this.getOrCreateEngine(sessionId, session.engine).start();
   }
 
+  // Teto de tempo para operações de ciclo de vida da engine. Fechar o Chromium (wwebjs) ou o
+  // round-trip de rede com o WhatsApp (logout Baileys) pode levar de segundos a minutos — ou travar.
+  // Sem teto, a rota HTTP fica pendurada até o proxy (Traefik/Nginx) desistir (499/504) e o botão
+  // parece "travado". Com o teto, a rota responde rápido; se a operação não terminou, ela segue em
+  // background e o estado real aparece no polling de status (o guard de onEvent + as escritas
+  // tolerantes garantem que isso não gere loop de erro).
+  private async withTimeout(
+    op: Promise<unknown> | undefined,
+    ms: number,
+  ): Promise<void> {
+    if (!op) return;
+    // Engole a rejeição (a engine já loga por dentro) para não virar unhandledRejection se o
+    // timeout vencer a corrida.
+    const guarded = Promise.resolve(op).then(
+      () => undefined,
+      () => undefined,
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, ms);
+    });
+    try {
+      await Promise.race([guarded, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   async stop(sessionId: string): Promise<void> {
-    await this.engines.get(sessionId)?.stop();
+    await this.withTimeout(this.engines.get(sessionId)?.stop(), 10_000);
   }
 
   async restart(sessionId: string): Promise<void> {
     await this.stop(sessionId);
-    await this.start(sessionId);
+    await this.withTimeout(this.start(sessionId), 20_000);
   }
 
   async logout(sessionId: string): Promise<void> {
     const engine = this.engines.get(sessionId);
     if (engine) {
-      await engine.logout();
+      await this.withTimeout(engine.logout(), 12_000);
       this.engines.delete(sessionId);
       return;
     }
     await this.prisma.waAuthKey.deleteMany({ where: { sessionId } });
-    await this.prisma.waSession.update({
+    // updateMany: se a sessão já foi removida, não lança P2025 (segue como no-op).
+    await this.prisma.waSession.updateMany({
       where: { id: sessionId },
       data: { creds: Prisma.DbNull },
     });
@@ -191,9 +252,13 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   async remove(sessionId: string): Promise<void> {
-    await this.engines.get(sessionId)?.stop();
+    const engine = this.engines.get(sessionId);
+    // Remove do mapa ANTES de deletar/parar: a partir daqui o guard de onEvent ignora qualquer
+    // evento tardio desta engine (a sessão vai deixar de existir).
     this.engines.delete(sessionId);
     this.names.delete(sessionId);
+    // Para a engine com teto de tempo — não deixa um Chromium/socket travado pendurar a exclusão.
+    await this.withTimeout(engine?.stop(), 8_000);
     await this.repo.delete(sessionId);
   }
 

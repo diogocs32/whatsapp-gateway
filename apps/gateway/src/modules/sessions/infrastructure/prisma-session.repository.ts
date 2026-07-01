@@ -77,8 +77,12 @@ export class PrismaSessionRepository implements SessionRepository {
     id: string,
     status: SessionStatus,
     patch: StatusPatch = {},
-  ): Promise<void> {
-    await this.prisma.waSession.update({
+  ): Promise<boolean> {
+    // updateMany (não update): quando o registro não existe, retorna count 0 em vez de lançar
+    // P2025 ("No record was found for an update"). Uma engine órfã (socket/Chromium ainda vivo
+    // após a sessão ser removida) emite status tardios — aqui isso vira count 0, não uma exceção
+    // em loop. O `id` é unique, então atualiza no máximo 1 linha.
+    const { count } = await this.prisma.waSession.updateMany({
       where: { id },
       data: {
         status,
@@ -91,6 +95,7 @@ export class PrismaSessionRepository implements SessionRepository {
           : {}),
       },
     });
+    return count > 0;
   }
 
   async delete(id: string): Promise<void> {
