@@ -18,6 +18,7 @@ import {
   SESSION_REPOSITORY,
   type SessionRepository,
 } from '../domain/session.repository';
+import type { Session } from '../domain/session.entity';
 import { EngineFactory } from '../infrastructure/engine.factory';
 import type {
   ChannelInfo,
@@ -54,14 +55,28 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
 
   async onApplicationBootstrap(): Promise<void> {
     const candidates = await this.repo.findAutostart();
-    for (const s of candidates) {
-      this.logger.log(`Reidratando sessão "${s.name}"`);
-      void this.start(s.id).catch((e) =>
-        this.logger.error(
-          `Falha ao reidratar ${s.name}: ${(e as Error).message}`,
-        ),
-      );
-    }
+    if (candidates.length === 0) return;
+    // Reidratação ESCALONADA e fora do bootstrap do Nest. Antes era tudo em paralelo: N sessões
+    // wwebjs = N Chromium subindo de uma vez no boot (pico de CPU/RAM → swap/OOM do host = "trava
+    // tudo") + N fetchLatestBaileysVersion simultâneos. Agora inicia UMA por vez — cada start já
+    // tem teto próprio (START_TIMEOUT_MS), então uma sessão lenta não segura a fila por mais que
+    // isso; ordena as leves primeiro (Baileys antes de WWEBJS) e as cronicamente quebradas
+    // (DEGRADED — esgotaram as reconexões) por último, para não atrasarem as saudáveis.
+    const weight = (s: Session) =>
+      (s.status === 'DEGRADED' ? 2 : 0) + (s.engine === 'WWEBJS' ? 1 : 0);
+    const ordered = [...candidates].sort((a, b) => weight(a) - weight(b));
+    void (async () => {
+      for (const s of ordered) {
+        this.logger.log(`Reidratando sessão "${s.name}" (${s.engine})`);
+        try {
+          await this.start(s.id);
+        } catch (e) {
+          this.logger.error(
+            `Falha ao reidratar ${s.name}: ${(e as Error).message}`,
+          );
+        }
+      }
+    })();
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -74,37 +89,36 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     const existing = this.engines.get(sessionId);
     if (existing) return existing;
     const created = this.engineFactory.create(engineType, {
-        sessionId,
-        deviceName: 'WhatsApp Gateway',
-        prisma: this.prisma,
-        logger: pino({
-          level: this.config.get('WA_LOG_LEVEL', { infer: true }),
-        }),
-        // Guard: só processa eventos enquanto ESTA engine for a registrada para a sessão. Se ela
-        // foi descartada (remove/discardOrphan) ou substituída, seus eventos tardios são ignorados
-        // — sem isto, uma engine órfã reconectando persistiria status de sessão já removida (loop
-        // de P2025 no update + violação de FK no insert da timeline).
-        onEvent: (name, payload) => {
-          if (this.engines.get(sessionId) !== created) return;
-          void this.handleEngineEvent(sessionId, name, payload);
-        },
-        resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
-        resolveProxyConfig: () =>
-          this.proxyResolver.resolveProxyConfig(sessionId),
-        storeMedia: (key, body, contentType) =>
-          this.mediaStorage.put(key, body, contentType),
-        contacts: {
-          record: (c) =>
-            void this.contactDirectory.record(sessionId, c).catch(() => {}),
-          recordMany: (list) =>
-            void this.contactDirectory
-              .recordMany(sessionId, list)
-              .catch(() => {}),
-          loadLidMap: () => this.contactDirectory.lidMap(sessionId),
-          resolveNames: (keys) =>
-            this.contactDirectory.namesFor(sessionId, keys),
-        },
-      });
+      sessionId,
+      deviceName: 'WhatsApp Gateway',
+      prisma: this.prisma,
+      logger: pino({
+        level: this.config.get('WA_LOG_LEVEL', { infer: true }),
+      }),
+      // Guard: só processa eventos enquanto ESTA engine for a registrada para a sessão. Se ela
+      // foi descartada (remove/discardOrphan) ou substituída, seus eventos tardios são ignorados
+      // — sem isto, uma engine órfã reconectando persistiria status de sessão já removida (loop
+      // de P2025 no update + violação de FK no insert da timeline).
+      onEvent: (name, payload) => {
+        if (this.engines.get(sessionId) !== created) return;
+        void this.handleEngineEvent(sessionId, name, payload);
+      },
+      resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
+      resolveProxyConfig: () =>
+        this.proxyResolver.resolveProxyConfig(sessionId),
+      storeMedia: (key, body, contentType) =>
+        this.mediaStorage.put(key, body, contentType),
+      contacts: {
+        record: (c) =>
+          void this.contactDirectory.record(sessionId, c).catch(() => {}),
+        recordMany: (list) =>
+          void this.contactDirectory
+            .recordMany(sessionId, list)
+            .catch(() => {}),
+        loadLidMap: () => this.contactDirectory.lidMap(sessionId),
+        resolveNames: (keys) => this.contactDirectory.namesFor(sessionId, keys),
+      },
+    });
     this.engines.set(sessionId, created);
     return created;
   }
@@ -188,11 +202,52 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  // Teto do start: subir o Chromium do wwebjs pode levar minutos em cenário ruim (proxy lento,
+  // webVersion expirada — protocolTimeout interno é 240s). Sem teto, POST /start, /pairing-code e
+  // o create ficavam pendurados até o Traefik cortar (499/504). 15s cobre o caminho feliz
+  // observado (Baileys ~2s; wwebjs até o QR ~8s); passou disso, a rota responde e o start segue
+  // em background com o estado real chegando via polling de status/QR.
+  private static readonly START_TIMEOUT_MS = 15_000;
+
   async start(sessionId: string): Promise<void> {
     const session = await this.repo.findById(sessionId);
     if (!session) throw new Error('Sessão não encontrada');
     this.names.set(sessionId, session.name);
-    await this.getOrCreateEngine(sessionId, session.engine).start();
+    const engine = this.getOrCreateEngine(sessionId, session.engine);
+    await this.startWithTimeout(sessionId, engine.start());
+  }
+
+  // Diferente do withTimeout (que engole tudo): erro DENTRO da janela propaga — o cliente recebe
+  // o motivo real na hora; erro DEPOIS do teto vira status FAILED persistido com lastError (o
+  // polling mostra), nunca um unhandledRejection nem uma falha silenciosa.
+  private async startWithTimeout(
+    sessionId: string,
+    op: Promise<unknown>,
+  ): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(() => {
+        timedOut = true;
+        resolve();
+      }, SessionManager.START_TIMEOUT_MS);
+    });
+    const tail = op.then(
+      () => undefined,
+      (e: unknown) => {
+        if (!timedOut) throw e; // ainda na janela: repropaga para a rota
+        const msg = (e as Error)?.message ?? String(e);
+        this.logger.error(`start em background falhou (${sessionId}): ${msg}`);
+        this.repo
+          .updateStatus(sessionId, 'FAILED', { lastError: msg })
+          .catch(() => undefined);
+      },
+    );
+    try {
+      await Promise.race([tail, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   // Teto de tempo para operações de ciclo de vida da engine. Fechar o Chromium (wwebjs) ou o
@@ -229,7 +284,8 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
 
   async restart(sessionId: string): Promise<void> {
     await this.stop(sessionId);
-    await this.withTimeout(this.start(sessionId), 20_000);
+    // start() já se auto-limita (START_TIMEOUT_MS) e propaga erro rápido — sem wrap extra.
+    await this.start(sessionId);
   }
 
   async logout(sessionId: string): Promise<void> {
@@ -274,7 +330,8 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     if (!session) throw new Error('Sessão não encontrada');
     const engine = this.getOrCreateEngine(sessionId, session.engine);
     if (engine.getStatus() === 'STOPPED') {
-      await engine.start();
+      // Mesmo teto do start normal — sem ele, um wwebjs preso no initialize pendurava a rota.
+      await this.startWithTimeout(sessionId, engine.start());
       await new Promise((r) => setTimeout(r, 1500));
     }
     return engine.requestPairingCode(phoneNumber);
