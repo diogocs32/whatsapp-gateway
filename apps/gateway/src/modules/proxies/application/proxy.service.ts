@@ -26,6 +26,9 @@ export interface TestResult {
   status: 'ALIVE' | 'DEAD';
   latencyMs: number | null;
   exitIp: string | null;
+  // Motivo quando DEAD (ex.: PROXY_AUTH = credencial recusada com 407) — ajuda a diferenciar
+  // "proxy fora do ar" de "senha errada" sem precisar olhar o log do Chromium.
+  reason: string | null;
 }
 
 export interface SetAssignmentData {
@@ -147,6 +150,11 @@ export class ProxyService {
     }
     const r = await this.tester.test(proxy);
     await this.repo.updateTest(id, r);
+    if (r.status === 'DEAD') {
+      this.logger.warn(
+        `Proxy ${proxy.host}:${proxy.port} DEAD no teste (${r.reason ?? 'sem motivo'})`,
+      );
+    }
     return { id, ...r };
   }
 
