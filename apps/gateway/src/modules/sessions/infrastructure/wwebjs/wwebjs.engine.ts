@@ -34,12 +34,23 @@ const AUTH_PATH = process.env.WWEBJS_DATA_PATH ?? 'auth/wwebjs';
 // Versão do WhatsApp Web a FIXAR. Sem fixar, o wwebjs baixa a versão "ao vivo" do web.whatsapp.com a
 // cada conexão e a renegocia (é o "fica atualizando muito tempo") — e uma build ruim do WhatsApp Web
 // quebra getChats/getContacts (o wwebjs depende do Store interno). Fixar acelera e estabiliza.
-// Fonte: wppconnect-team/wa-version. ATENÇÃO: a Meta expira versões antigas (~2 meses) → revisar o
-// default periodicamente, ou setar WWEBJS_WEB_VERSION. Use 'live' para não fixar (comportamento antigo).
-const WEB_VERSION = process.env.WWEBJS_WEB_VERSION ?? '2.3000.1042271047-alpha';
-const PIN_WEB_VERSION = !!WEB_VERSION && WEB_VERSION !== 'live';
+// WWEBJS_WEB_VERSION aceita (item 10 da auditoria 07/2026):
+//   'auto' (default) — resolve a currentVersion publicada pelo wa-version (cache de 6h por processo);
+//   'live'           — não fixa (comportamento antigo);
+//   versão explícita — ex.: 2.3000.1042271047-alpha (a Meta EXPIRA versões antigas em ~2 meses).
+// Se o init falhar com versão fixada (compatível com versão expirada), há retry único com 'live'.
+const WEB_VERSION_MODE = process.env.WWEBJS_WEB_VERSION ?? 'auto';
+// Fallback quando o modo 'auto' não consegue consultar o wa-version (fixar uma versão possivelmente
+// velha ainda carrega mais rápido/estável que 'live'; se ela tiver expirado, o retry 'live' cobre).
+const DEFAULT_WEB_VERSION = '2.3000.1042271047-alpha';
 const WEB_VERSION_REMOTE =
   'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html';
+// versions.json do wa-version: { currentVersion, versions: [{ version, expire, ... }] }.
+const WA_VERSIONS_JSON =
+  'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/versions.json';
+// Cache de processo do modo 'auto' — 1 fetch por TTL atende todas as sessões/starts.
+let autoWebVersion: { version: string; fetchedAt: number } | null = null;
+const AUTO_WEB_VERSION_TTL_MS = 6 * 60 * 60 * 1000;
 // UA alinhado ao Chromium real (Linux/146). O default do wwebjs é Chrome/101 (2022), que pode disparar
 // o aviso de "navegador desatualizado" do WhatsApp Web. Configurável por env.
 const USER_AGENT =
@@ -90,7 +101,11 @@ export class WWebJSEngine implements IEngine {
 
   private setStatus(
     status: SessionStatus,
-    extra?: { meJid?: string | null; mePushName?: string | null; error?: string | null },
+    extra?: {
+      meJid?: string | null;
+      mePushName?: string | null;
+      error?: string | null;
+    },
   ): void {
     this.status = status;
     this.deps.onEvent('session.status', { status, ...extra });
@@ -116,7 +131,9 @@ export class WWebJSEngine implements IEngine {
     return this.serialize(() => this.doStart());
   }
 
-  private async doStart(): Promise<void> {
+  // attempt limita os retries internos (fallback de proxy / de webVersion) — nunca recursão infinita.
+  // forceLive=true refaz o start SEM fixar a webVersion (retry pós-falha com versão fixa).
+  private async doStart(attempt = 0, forceLive = false): Promise<void> {
     if (this.client) return;
     this.stopped = false;
 
@@ -135,15 +152,17 @@ export class WWebJSEngine implements IEngine {
       );
     }
 
+    // Fixa a versão do WhatsApp Web (acelera/estabiliza o carregamento e evita quebra do Store).
+    const webVersion = await this.resolveWebVersion(forceLive);
+
     const client = new Client({
       authStrategy: new LocalAuth({
         clientId: this.deps.sessionId,
         dataPath: AUTH_PATH,
       }),
-      // Fixa a versão do WhatsApp Web (acelera/estabiliza o carregamento e evita quebra do Store).
-      ...(PIN_WEB_VERSION
+      ...(webVersion
         ? {
-            webVersion: WEB_VERSION,
+            webVersion,
             webVersionCache: {
               type: 'remote' as const,
               remotePath: WEB_VERSION_REMOTE,
@@ -213,7 +232,9 @@ export class WWebJSEngine implements IEngine {
           this.qrBase64 = url;
           this.setStatus('SCAN_QR_CODE');
         })
-        .catch((e) => this.deps.logger.error({ e }, 'wwebjs: falha ao gerar QR'));
+        .catch((e) =>
+          this.deps.logger.error({ e }, 'wwebjs: falha ao gerar QR'),
+        );
     });
     client.on('ready', () => {
       this.qrBase64 = null;
@@ -238,7 +259,10 @@ export class WWebJSEngine implements IEngine {
     // message_create capta recebidas E enviadas de QUALQUER device (inclusive do celular). As enviadas
     // pelo painel já são emitidas no sendText/sendMedia (com telefone + metadados) e deduplicadas aqui
     // via sentByPanel; resta capturar as enviadas pelo celular. O @lid é resolvido para telefone (merge).
-    client.on('message_create', (msg: Message) => void this.onMessageCreate(msg));
+    client.on(
+      'message_create',
+      (msg: Message) => void this.onMessageCreate(msg),
+    );
     // G3 — ACK de entrega/leitura. O wwebjs entrega o ack como número (MessageAck).
     client.on('message_ack', (msg: Message, ack: number) =>
       this.onMessageAck(msg, ack),
@@ -251,14 +275,55 @@ export class WWebJSEngine implements IEngine {
     try {
       await client.initialize();
     } catch (e) {
-      await this.handleInitFailure(e);
+      await this.handleInitFailure(e, attempt, webVersion);
+    }
+  }
+
+  // Resolve a versão do WhatsApp Web a fixar NESTE start. null = não fixa ('live'/forceLive).
+  // No modo 'auto', consulta a currentVersion do wa-version com cache de processo; se o fetch
+  // falhar, cai no DEFAULT_WEB_VERSION.
+  private async resolveWebVersion(forceLive: boolean): Promise<string | null> {
+    if (forceLive || WEB_VERSION_MODE === 'live') return null;
+    if (WEB_VERSION_MODE !== 'auto') return WEB_VERSION_MODE;
+    if (
+      autoWebVersion &&
+      Date.now() - autoWebVersion.fetchedAt < AUTO_WEB_VERSION_TTL_MS
+    ) {
+      return autoWebVersion.version;
+    }
+    try {
+      const res = await fetch(WA_VERSIONS_JSON, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = (await res.json()) as { currentVersion?: string };
+      if (!j.currentVersion) {
+        throw new Error('versions.json sem currentVersion');
+      }
+      autoWebVersion = { version: j.currentVersion, fetchedAt: Date.now() };
+      this.deps.logger.info(
+        { version: j.currentVersion },
+        'wwebjs: webVersion corrente resolvida (auto)',
+      );
+      return j.currentVersion;
+    } catch (e) {
+      this.deps.logger.warn(
+        { err: (e as Error).message, fallback: DEFAULT_WEB_VERSION },
+        'wwebjs: não consegui resolver a webVersion corrente — usando o default fixo',
+      );
+      return DEFAULT_WEB_VERSION;
     }
   }
 
   // Trata falha do client.initialize() (Puppeteer/WhatsApp Web). Em vez de propagar (500), registra,
   // limpa o client e marca a sessão como FAILED com um diagnóstico — com destaque para erros de proxy
-  // (credencial rejeitada no CONNECT do Chromium) e para o lock de perfil órfão.
-  private async handleInitFailure(e: unknown): Promise<void> {
+  // (credencial rejeitada no CONNECT do Chromium) e para o lock de perfil órfão. Antes de desistir,
+  // tenta os fallbacks (proxy seguinte / webVersion live) limitados por `attempt`.
+  private async handleInitFailure(
+    e: unknown,
+    attempt: number,
+    pinnedVersion: string | null,
+  ): Promise<void> {
     const msg = (e as Error)?.message ?? String(e);
     const isProxyAuth = /ERR_INVALID_AUTH_CREDENTIALS/i.test(msg);
     const isProxyTunnel =
@@ -283,6 +348,49 @@ export class WWebJSEngine implements IEngine {
     }
     this.client = null;
     if (this.stopped) return; // stop()/logout() pediu parada — não sobrescreve o STOPPED
+    // Item 8 — fallback de proxy: o proxy atual falhou em uso real. Marca-o DEAD e, nos modos
+    // rotativos, tenta de novo UMA vez — o resolve() do retry pula os DEAD e entrega o próximo
+    // candidato (ou null = conexão direta, o mesmo que um start sem proxy disponível). No SINGLE
+    // o proxy foi pinado de propósito: não se rotaciona nem se conecta direto por conta própria —
+    // a sessão fica FAILED com o motivo acionável.
+    if (
+      (isProxyAuth || isProxyTunnel) &&
+      attempt === 0 &&
+      this.deps.reportProxyFailure
+    ) {
+      try {
+        const r = await this.deps.reportProxyFailure(
+          isProxyAuth ? 'PROXY_AUTH' : 'PROXY_TUNNEL',
+        );
+        if (r.mode === 'RANGE' || r.mode === 'GLOBAL_ROUND_ROBIN') {
+          this.deps.logger.warn(
+            { mode: r.mode },
+            'wwebjs: proxy marcado DEAD — tentando o próximo candidato',
+          );
+          return this.doStart(attempt + 1, false);
+        }
+      } catch (err) {
+        this.deps.logger.error(
+          { err },
+          'wwebjs: falha ao reportar proxy morto',
+        );
+      }
+    }
+    // Item 10 — fallback da webVersion fixa: falha de init que NÃO é proxy nem lock de perfil, com
+    // versão fixada, é compatível com versão EXPIRADA pela Meta. Tenta UMA vez sem fixar ('live').
+    if (
+      !isProxyAuth &&
+      !isProxyTunnel &&
+      !isBrowserLock &&
+      pinnedVersion &&
+      attempt < 2
+    ) {
+      this.deps.logger.warn(
+        { pinnedVersion },
+        'wwebjs: init falhou com a webVersion fixa — possível versão expirada; tentando com a versão live. Atualize WWEBJS_WEB_VERSION (use "auto" ou a currentVersion de github.com/wppconnect-team/wa-version).',
+      );
+      return this.doStart(attempt + 1, true);
+    }
     const error = isProxyAuth
       ? `Proxy rejeitou a autenticação (ERR_INVALID_AUTH_CREDENTIALS): credencial do proxy desta sessão está incorreta. Sincronize o pool (Webshare) ou troque/remova o proxy.`
       : isProxyTunnel
@@ -608,7 +716,9 @@ export class WWebJSEngine implements IEngine {
   // telefones de mensagens recebidas, sem nome). Roda no 'ready' (fire-and-forget).
   private async syncAddressBook(): Promise<void> {
     try {
-      const contacts = await this.withStoreReady(() => this.req().getContacts());
+      const contacts = await this.withStoreReady(() =>
+        this.req().getContacts(),
+      );
       const recs: ContactRecord[] = [];
       for (const c of contacts as Contact[]) {
         if (c.isGroup || c.isMe) continue;

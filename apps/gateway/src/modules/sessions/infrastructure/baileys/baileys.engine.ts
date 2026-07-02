@@ -56,6 +56,12 @@ export interface BaileysEngineDeps {
     username?: string;
     password?: string;
   } | null>;
+  // Notifica que o proxy ATUAL da sessão falhou em uso real (auth/tunnel rejeitados). O resolver
+  // marca-o DEAD e devolve o modo do assignment — nos modos rotativos o chamador pode re-resolver
+  // e tentar o próximo candidato (item 8 da auditoria 07/2026).
+  reportProxyFailure?: (
+    reason: string,
+  ) => Promise<{ mode: string | null; marked: boolean }>;
   // Persiste o binário da mídia (S3). Recebe a chave do objeto, o buffer e o content-type (F4).
   storeMedia?: (
     key: string,
@@ -99,7 +105,10 @@ function encodeProto(msg: proto.IMessage): unknown {
   return JSON.parse(JSON.stringify(msg, BufferJSON.replacer));
 }
 function decodeProto(value: unknown): proto.IMessage {
-  return JSON.parse(JSON.stringify(value), BufferJSON.reviver) as proto.IMessage;
+  return JSON.parse(
+    JSON.stringify(value),
+    BufferJSON.reviver,
+  ) as proto.IMessage;
 }
 
 interface MediaInfo {
@@ -421,7 +430,10 @@ export class BaileysEngine implements IEngine {
       // descriptografa ("Aguardando mensagem"). Recomendado pelo Baileys p/ qualquer auth store de DB.
       auth: {
         creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, this.deps.logger as never),
+        keys: makeCacheableSignalKeyStore(
+          state.keys,
+          this.deps.logger as never,
+        ),
       },
       logger: this.deps.logger as never,
       browser: [this.deps.deviceName, 'Chrome', '1.0.0'],

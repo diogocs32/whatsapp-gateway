@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Agent } from 'node:http';
 import { RedisService } from '../../../infra/redis/redis.service';
 import type { Proxy } from '../domain/proxy.entity';
+import type { ProxyMode } from '../domain/proxy-types';
 import {
   PROXY_REPOSITORY,
   type ProxyRepository,
@@ -91,6 +92,31 @@ export class ProxyResolver {
 
     await this.repo.setCurrent(sessionId, chosen.id);
     return chosen;
+  }
+
+  // Marca o proxy ATUAL da sessão como DEAD (falhou em uso real — ex.: CONNECT recusado no
+  // Chromium) e devolve o modo do assignment para o chamador decidir a reação: nos modos rotativos
+  // (RANGE/GLOBAL_ROUND_ROBIN) um novo resolve() pula os DEAD e entrega o próximo candidato; no
+  // SINGLE o proxy é pinado de propósito — marcar DEAD dá visibilidade, mas não se rotaciona.
+  async reportFailure(
+    sessionId: string,
+    reason: string,
+  ): Promise<{ mode: ProxyMode | null; marked: boolean }> {
+    const a = await this.repo.getAssignment(sessionId);
+    if (!a || a.mode === 'NONE' || !a.currentProxyId) {
+      return { mode: a?.mode ?? null, marked: false };
+    }
+    const proxy = await this.repo.findById(a.currentProxyId);
+    if (!proxy) return { mode: a.mode, marked: false };
+    await this.repo.updateTest(proxy.id, {
+      status: 'DEAD',
+      latencyMs: null,
+      exitIp: null,
+    });
+    this.logger.warn(
+      `Sessão ${sessionId}: proxy #${proxy.position} ${proxy.host}:${proxy.port} marcado DEAD em uso real (${reason})`,
+    );
+    return { mode: a.mode, marked: true };
   }
 
   // Dados crus do proxy para o Chromium/Puppeteer (wwebjs): o `server` vai em --proxy-server (sem
