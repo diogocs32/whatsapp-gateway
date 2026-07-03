@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { LoggerModule } from 'nestjs-pino';
 import { validateEnv } from './bootstrap/config';
 import { SharedKernelModule } from './shared-kernel/shared-kernel.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
@@ -23,6 +24,35 @@ import { GuardrailModule } from './modules/guardrail/guardrail.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    // Logs estruturados da app inteira (item 18 da auditoria 07/2026): JSON em produção
+    // (grep/Loki-ready — a engine Baileys já logava JSON via pino; isto unifica), pretty em dev,
+    // silencioso nos e2e. Request-log só para mutações e erros — GET 2xx é silencioso (o polling
+    // do dashboard inundaria o console); /health e /metrics nunca logam. Nível via LOG_LEVEL.
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level:
+          process.env.LOG_LEVEL ??
+          (process.env.NODE_ENV === 'test'
+            ? 'silent'
+            : process.env.NODE_ENV === 'production'
+              ? 'info'
+              : 'debug'),
+        redact: ['req.headers.authorization', 'req.headers["x-api-key"]'],
+        transport:
+          process.env.NODE_ENV === 'development'
+            ? { target: 'pino-pretty', options: { singleLine: true } }
+            : undefined,
+        autoLogging: {
+          ignore: (req) =>
+            req.url === '/health' || (req.url ?? '').startsWith('/metrics'),
+        },
+        customLogLevel: (req, res, err) => {
+          if (err || res.statusCode >= 500) return 'error';
+          if (res.statusCode >= 400) return 'warn';
+          return req.method === 'GET' ? 'silent' : 'info';
+        },
+      },
+    }),
     SharedKernelModule,
     PrismaModule,
     RedisModule,

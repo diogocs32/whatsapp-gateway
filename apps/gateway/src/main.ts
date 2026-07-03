@@ -5,6 +5,7 @@ import { Logger, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { buildFastifyAdapter } from './bootstrap/fastify-adapter';
 import type { Env } from './bootstrap/config';
@@ -32,8 +33,13 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     buildFastifyAdapter(),
-    { bodyParser: false }, // usamos nosso parser tolerante (ver fastify-adapter.ts)
+    // bodyParser: false — usamos nosso parser tolerante (ver fastify-adapter.ts).
+    // bufferLogs — segura os logs do boot até o pino assumir (item 18), nada sai fora do formato.
+    { bodyParser: false, bufferLogs: true },
   );
+
+  // Toda a app (inclusive Logger estático do Nest) passa a logar via pino estruturado.
+  app.useLogger(app.get(PinoLogger));
 
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
