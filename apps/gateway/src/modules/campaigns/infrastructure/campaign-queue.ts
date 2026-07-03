@@ -54,12 +54,14 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
     private readonly manager: SessionManager,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     // Em testes não subimos a fila/worker (as conexões do BullMQ geram ruído no teardown
     // e nenhum job é enfileirado nos e2e).
     if (this.config.get('NODE_ENV', { infer: true }) === 'test') return;
     const connection: ConnectionOptions = redisConnection(this.config);
     this.queue = new Queue(QUEUE_NAME, { connection });
+    // Handshake concluído antes de seguir (mesma razão do WebhookQueue — item 22).
+    await this.queue.waitUntilReady();
     this.worker = new Worker(
       QUEUE_NAME,
       (job) => this.process(job.data as CampaignJob),
