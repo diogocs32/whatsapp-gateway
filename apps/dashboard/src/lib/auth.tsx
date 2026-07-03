@@ -22,26 +22,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    // Sessão em cookie httpOnly (item 19): o front não enxerga o token — pergunta ao servidor
+    // se há sessão válida. 401 = deslogado.
     api
       .me()
       .then(setUser)
-      .catch(() => localStorage.removeItem('token'))
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
   const signIn = async (username: string, password: string) => {
-    const res = await api.login(username, password);
-    localStorage.setItem('token', res.token);
+    const res = await api.login(username, password); // o servidor seta o cookie httpOnly
     setUser(res.user);
   };
 
   const signOut = () => {
-    localStorage.removeItem('token');
+    void api.logout().catch(() => undefined); // limpa o cookie no servidor
     setUser(null);
   };
 

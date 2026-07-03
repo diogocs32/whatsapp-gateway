@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BASE, getToken } from '../lib/api';
+import { BASE } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
 interface EventItem {
@@ -18,11 +18,11 @@ export function Monitor() {
   const [filter, setFilter] = useState('');
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    const es = new EventSource(
-      `${BASE}/api/events/stream?token=${encodeURIComponent(token)}`,
-    );
+    // Autentica pelo cookie httpOnly (withCredentials) — sem token na URL (item 19; antes o
+    // token aparecia em logs de proxy/access log).
+    const es = new EventSource(`${BASE}/api/events/stream`, {
+      withCredentials: true,
+    });
     es.onopen = () => setConnected(true);
     es.onerror = () => setConnected(false);
     es.onmessage = (ev) => {

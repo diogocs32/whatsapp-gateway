@@ -45,8 +45,6 @@ import type {
 
 export const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
-export const getToken = (): string | null => localStorage.getItem('token');
-
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -56,20 +54,16 @@ export class ApiError extends Error {
   }
 }
 
-function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // Só envia Content-Type: application/json quando HÁ body — o Fastify rejeita
   // (400) um POST com esse content-type e body vazio (start/stop/restart/logout).
   const hasBody = init?.body !== undefined && init?.body !== null;
   const res = await fetch(`${BASE}${path}`, {
     ...init,
+    // Sessão do painel via cookie httpOnly (item 19) — nada de token no localStorage.
+    credentials: 'include',
     headers: {
       ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
-      ...authHeaders(),
       ...(init?.headers ?? {}),
     },
   });
@@ -92,7 +86,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 async function requestForm<T>(path: string, form: FormData): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { ...authHeaders() },
+    credentials: 'include',
     body: form,
   });
   if (!res.ok) {
@@ -117,6 +111,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
+  logout: () => request<Ok>('/api/auth/logout', { method: 'POST' }),
   me: () => request<AuthUser>('/api/auth/me'),
 
   apiKeys: {
@@ -404,8 +399,7 @@ export const api = {
   },
 
   observability: {
-    summary: () =>
-      request<ObservabilitySummary>('/api/observability/summary'),
+    summary: () => request<ObservabilitySummary>('/api/observability/summary'),
     timeline: (sessionId: string, limit = 50) =>
       request<TimelineEvent[]>(
         `/api/observability/timeline/${sessionId}?limit=${limit}`,

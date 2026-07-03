@@ -1,3 +1,4 @@
+import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 
@@ -16,6 +17,9 @@ export function buildFastifyAdapter(
   void fastify.register(multipart, {
     limits: { fileSize: maxFileBytes, files: 1 },
   });
+  // Cookies (item 19): o JWT do painel vai num cookie httpOnly (o dashboard não guarda mais nada
+  // no localStorage). Registrado no adapter (e não no main) para os e2e terem o mesmo comportamento.
+  void fastify.register(cookie);
   fastify.removeContentTypeParser('application/json');
   fastify.addContentTypeParser(
     'application/json',

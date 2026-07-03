@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { FastifyRequest } from 'fastify';
 import { ApiKeyService } from '../application/api-key.service';
-import type { JwtPayload } from './auth.guard';
+import { bearerOrCookieToken, type JwtPayload } from './auth.guard';
 
 // Guard dos endpoints de API: aceita header X-Api-Key (integrações: n8n etc.) OU Bearer JWT (painel).
 // Compatível com o padrão WAHA/Evolution (X-Api-Key).
@@ -38,9 +38,9 @@ export class ApiKeyAuthGuard implements CanActivate {
       return true;
     }
 
-    // 2) Bearer JWT (mesma lógica do JwtAuthGuard)
-    const [type, token] = req.headers.authorization?.split(' ') ?? [];
-    if (type === 'Bearer' && token) {
+    // 2) JWT do painel: Bearer OU cookie httpOnly (mesma lógica do JwtAuthGuard — item 19)
+    const token = bearerOrCookieToken(req);
+    if (token) {
       try {
         req.user = await this.jwt.verifyAsync<JwtPayload>(token);
         return true;

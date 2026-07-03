@@ -13,6 +13,18 @@ export interface JwtPayload {
   role: string;
 }
 
+// Extrai o JWT do painel: header Authorization Bearer (integrações/e2e/consumidores de API) OU
+// cookie httpOnly `token` (item 19 — o dashboard não guarda mais o token no localStorage; o
+// cookie é setado no login e o EventSource o envia com withCredentials, então o SSE autentica
+// sem expor token na URL).
+export function bearerOrCookieToken(
+  req: FastifyRequest & { cookies?: Record<string, string | undefined> },
+): string | null {
+  const [type, token] = req.headers.authorization?.split(' ') ?? [];
+  if (type === 'Bearer' && token) return token;
+  return req.cookies?.token ?? null;
+}
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwt: JwtService) {}
@@ -22,9 +34,8 @@ export class JwtAuthGuard implements CanActivate {
       .switchToHttp()
       .getRequest<FastifyRequest & { user?: JwtPayload }>();
 
-    const header = req.headers.authorization;
-    const [type, token] = header?.split(' ') ?? [];
-    if (type !== 'Bearer' || !token) {
+    const token = bearerOrCookieToken(req);
+    if (!token) {
       throw new UnauthorizedException('Token ausente');
     }
 
