@@ -27,6 +27,14 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Env de teste
+        run: cp apps/gateway/env.example apps/gateway/.env
+
+      # O typecheck e o build dependem do client gerado (generator prisma-client) — no runner
+      # ele não existe até rodar o generate (localmente já está no working tree/node_modules).
+      - name: Prisma generate
+        run: npm run prisma:generate -w apps/gateway
+
       - name: Lint
         run: npm run lint
 
@@ -40,9 +48,6 @@ jobs:
         run: |
           docker run --rm --network host --entrypoint sh minio/mc -c \
             "mc alias set local http://localhost:9000 minio minio12345 && mc mb -p local/wa-media"
-
-      - name: Env de teste
-        run: cp apps/gateway/env.example apps/gateway/.env
 
       - name: Migrations
         run: npm run prisma:deploy -w apps/gateway
