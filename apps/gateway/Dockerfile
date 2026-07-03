@@ -28,6 +28,11 @@ RUN npm ci
 COPY . .
 RUN npm run gateway:generate && npm run gateway:build
 
+# Item 17 (prune): derruba as devDependencies antes da cópia para o runtime. O que o boot ainda
+# precisa (Prisma CLI + dotenv, usados pelo migrate deploy via prisma.config.ts) virou dependency
+# no package.json do gateway. Corta @nestjs/cli, @swc/core, typescript, vitest etc. da imagem.
+RUN npm prune --omit=dev
+
 # ============================ Stage 2: runtime ==============================
 FROM node:26-bookworm-slim AS production
 ENV NODE_ENV=production
@@ -46,7 +51,8 @@ ENV WWEBJS_DATA_PATH=/data/wwebjs
 RUN mkdir -p /data/wwebjs
 
 WORKDIR /app/apps/gateway
-# node_modules completo (inclui o Prisma CLI + typescript para ler o prisma.config.ts no deploy)
+# node_modules já SEM devDependencies (prune no build). Prisma CLI + dotenv são dependencies —
+# o entrypoint precisa deles no `migrate deploy` (prisma.config.ts).
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/package.json /app/package.json
 COPY --from=build /app/apps/gateway/dist ./dist
