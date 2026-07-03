@@ -73,8 +73,10 @@ export class WebhookDispatcher implements OnModuleInit {
             body,
           },
           w.maxAttempts,
-          // Dedup multi-réplica (item 20): o id do envelope é único por evento.
-          `${env.id}:${w.id}`,
+          // Dedup multi-réplica (item 20): o id do envelope é único por evento. Separador '-'
+          // OBRIGATÓRIO: o BullMQ REJEITA jobId com ':' (job.js: "Custom Id cannot contain :") —
+          // com ':' todo enqueue lançava e NENHUM webhook saía (regressão item 25).
+          `${env.id}-${w.id}`,
         )
         .catch((e) =>
           this.logger.error(`enqueue webhook: ${(e as Error).message}`),
