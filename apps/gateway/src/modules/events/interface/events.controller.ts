@@ -34,7 +34,13 @@ export class EventsController {
         subscriber.next({ data } as MessageEvent);
       };
       this.eventBus.subscribe('wa.event', handler);
-      return () => this.eventBus.unsubscribe('wa.event', handler);
+      // Item 20: eventos de OUTRAS réplicas (via fan-out Redis) — o Monitor vê tudo,
+      // independente de qual réplica hospeda a sessão.
+      this.eventBus.subscribe('wa.event.remote', handler);
+      return () => {
+        this.eventBus.unsubscribe('wa.event', handler);
+        this.eventBus.unsubscribe('wa.event.remote', handler);
+      };
     });
   }
 }

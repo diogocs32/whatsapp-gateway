@@ -30,9 +30,12 @@ export class WebhookDispatcher implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.refresh();
-    this.eventBus.subscribe('wa.event', (e: DomainEvent) =>
-      this.handle(e.payload as WaEventEnvelope),
-    );
+    const onEvent = (e: DomainEvent) =>
+      this.handle(e.payload as WaEventEnvelope);
+    this.eventBus.subscribe('wa.event', onEvent);
+    // Item 20: eventos de OUTRAS réplicas (fan-out Redis) também disparam webhooks — o jobId
+    // determinístico (envelope.id + webhook.id) dedupa quando 2+ réplicas enfileiram o mesmo.
+    this.eventBus.subscribe('wa.event.remote', onEvent);
   }
 
   // Recarrega o cache de webhooks (chamado no boot e após CRUD).
@@ -70,6 +73,8 @@ export class WebhookDispatcher implements OnModuleInit {
             body,
           },
           w.maxAttempts,
+          // Dedup multi-réplica (item 20): o id do envelope é único por evento.
+          `${env.id}:${w.id}`,
         )
         .catch((e) =>
           this.logger.error(`enqueue webhook: ${(e as Error).message}`),

@@ -34,11 +34,16 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
     // Conexão (URL ou partes, com senha) via helper compartilhado. Passamos OPÇÕES (não instância):
     // o BullMQ usa o ioredis dele, evitando conflito de tipos.
     const connection: ConnectionOptions = redisConnection(this.config);
     this.queue = new Queue(QUEUE_NAME, { connection });
+    // Aguarda o handshake do ioredis INTERNO do BullMQ concluir (item 22 da auditoria 07/2026):
+    // sem isto, o teardown rápido dos e2e (um app sobe/derruba por spec) fechava o socket com o
+    // handshake em voo → unhandled "Connection is closed." dentro do BullMQ (flake intermitente
+    // no sumário do vitest). Em produção é um await de milissegundos no boot.
+    await this.queue.waitUntilReady();
     // Em testes (NODE_ENV=test) NÃO subimos o Worker: ele abre uma conexão bloqueante no Redis que
     // rejeita "Connection is closed" no teardown rápido do app (sobe/derruba a cada spec). O enqueue
     // (Queue) continua funcionando; só não processamos a entrega assíncrona.
@@ -58,18 +63,27 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
       // C4: esgotou TODAS as tentativas → dead-letter (não some; reentregável depois).
       if (job && data && job.attemptsMade >= (job.opts.attempts ?? 1)) {
         void this.toDeadLetter(data, err.message, job.attemptsMade).catch((e) =>
-          this.logger.error(`falha ao gravar dead-letter: ${(e as Error).message}`),
+          this.logger.error(
+            `falha ao gravar dead-letter: ${(e as Error).message}`,
+          ),
         );
       }
     });
   }
 
-  async enqueue(data: WebhookJob, attempts: number): Promise<void> {
+  async enqueue(
+    data: WebhookJob,
+    attempts: number,
+    jobId?: string,
+  ): Promise<void> {
     await this.queue.add('deliver', data, {
       attempts: Math.max(1, attempts),
       backoff: { type: 'exponential', delay: 2000 },
       removeOnComplete: 1000,
       removeOnFail: 1000,
+      // Dedup multi-réplica (item 20): o mesmo evento enfileirado por 2+ réplicas (fan-out) com o
+      // mesmo jobId vira UM job — sem webhook duplicado.
+      ...(jobId ? { jobId } : {}),
     });
   }
 
