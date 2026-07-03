@@ -238,6 +238,8 @@ model WaSessionEvent {
   session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
+  // Retenção (item 13): purge por idade varre createdAt sem sessionId — precisa do índice próprio.
+  @@index([createdAt])
   @@map("wa_session_events")
 }
 
@@ -272,6 +274,8 @@ model WaMessage {
 
   @@index([sessionId, chatJid, timestamp])
   @@index([sessionId, keyId])
+  // Retenção (item 13): purge/strip do raw por idade varre createdAt — precisa do índice próprio.
+  @@index([createdAt])
   // Dedup idempotente por sessão. No Postgres o default é NULLS DISTINCT, então só restringe
   // quando idempotencyKey ≠ null (inbound e envios sem key continuam livres). Se o volume crescer,
   // trocar por índice parcial (WHERE idempotencyKey IS NOT NULL) via migration custom.

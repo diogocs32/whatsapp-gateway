@@ -1,17 +1,38 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { RedisService } from '../../infra/redis/redis.service';
 import { memoryStats } from '../../shared-kernel/memory';
+
+// Contadores caros (groupBy de sessões + counts full-table de wa_messages) compartilhados entre o
+// scrape do Prometheus e o summary da UI.
+interface Counters {
+  sessions: Record<string, number>;
+  out: number;
+  inbound: number;
+}
 
 // Exporta métricas no formato Prometheus (F7 — Observability, blueprint §14).
 // Usa um Registry próprio (não o global) para não conflitar com nada.
 @Injectable()
 export class MetricsService implements OnModuleInit {
   readonly registry = new Registry();
+  private readonly logger = new Logger(MetricsService.name);
   private sessions!: Gauge<string>;
   private messages!: Gauge<string>;
 
-  constructor(private readonly prisma: PrismaService) {}
+  // Item 16 (auditoria 07/2026): os counts de wa_messages são full-table e eram disparados a CADA
+  // scrape do Prometheus e a CADA polling do dashboard (5s em 2 telas) — com a tabela crescendo,
+  // vira gargalo permanente de Postgres. Cache curto no Redis (compartilhado entre os caminhos)
+  // limita a 1 rodada de queries por TTL; se o Redis falhar, degrada para a query direta.
+  private static readonly COUNTERS_TTL_S = 10;
+  private static readonly COUNTERS_KEY = 'obs:counters';
+  private countersInFlight: Promise<Counters> | null = null;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   onModuleInit(): void {
     // Runtime: heap, event loop lag (p50/p90/p99), GC, CPU — nomes padrão nodejs_/process_.
@@ -39,17 +60,7 @@ export class MetricsService implements OnModuleInit {
 
   // Resumo JSON para a UI (tela "Logs & saúde").
   async summary() {
-    const rows = await this.prisma.waSession.groupBy({
-      by: ['status'],
-      _count: { _all: true },
-    });
-    const sessions: Record<string, number> = {};
-    for (const r of rows) sessions[r.status] = r._count._all;
-
-    const [out, inbound] = await Promise.all([
-      this.prisma.waMessage.count({ where: { fromMe: true } }),
-      this.prisma.waMessage.count({ where: { fromMe: false } }),
-    ]);
+    const c = await this.counters();
     const mem = memoryStats();
     return {
       uptimeSeconds: Math.round(process.uptime()),
@@ -59,8 +70,8 @@ export class MetricsService implements OnModuleInit {
       heapLimitBytes: mem.heapLimitBytes,
       memoryUsedPct: mem.memoryUsedPct,
       containerLimitBytes: mem.containerLimitBytes,
-      sessions,
-      messages: { out, in: inbound },
+      sessions: c.sessions,
+      messages: { out: c.out, in: c.inbound },
     };
   }
 
@@ -81,20 +92,49 @@ export class MetricsService implements OnModuleInit {
   }
 
   private async refresh(): Promise<void> {
-    const rows = await this.prisma.waSession.groupBy({
-      by: ['status'],
-      _count: { _all: true },
-    });
+    const c = await this.counters();
     this.sessions.reset();
-    for (const r of rows) {
-      this.sessions.set({ status: r.status }, r._count._all);
+    for (const [status, n] of Object.entries(c.sessions)) {
+      this.sessions.set({ status }, n);
     }
+    this.messages.set({ direction: 'out' }, c.out);
+    this.messages.set({ direction: 'in' }, c.inbound);
+  }
 
-    const [out, inbound] = await Promise.all([
-      this.prisma.waMessage.count({ where: { fromMe: true } }),
-      this.prisma.waMessage.count({ where: { fromMe: false } }),
-    ]);
-    this.messages.set({ direction: 'out' }, out);
-    this.messages.set({ direction: 'in' }, inbound);
+  private async counters(): Promise<Counters> {
+    try {
+      const cached = await this.redis.client.get(MetricsService.COUNTERS_KEY);
+      if (cached) return JSON.parse(cached) as Counters;
+    } catch {
+      /* Redis fora: segue para a query direta */
+    }
+    // Dedup em memória: pollings simultâneos (Prometheus + 2 telas) não disparam 3 rodadas.
+    if (this.countersInFlight) return this.countersInFlight;
+    this.countersInFlight = (async () => {
+      const rows = await this.prisma.waSession.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      });
+      const sessions: Record<string, number> = {};
+      for (const r of rows) sessions[r.status] = r._count._all;
+      const [out, inbound] = await Promise.all([
+        this.prisma.waMessage.count({ where: { fromMe: true } }),
+        this.prisma.waMessage.count({ where: { fromMe: false } }),
+      ]);
+      const counters: Counters = { sessions, out, inbound };
+      try {
+        await this.redis.client.setex(
+          MetricsService.COUNTERS_KEY,
+          MetricsService.COUNTERS_TTL_S,
+          JSON.stringify(counters),
+        );
+      } catch (e) {
+        this.logger.warn(`cache de contadores: ${(e as Error).message}`);
+      }
+      return counters;
+    })().finally(() => {
+      this.countersInFlight = null;
+    });
+    return this.countersInFlight;
   }
 }
