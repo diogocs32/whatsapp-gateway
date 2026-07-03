@@ -6,7 +6,7 @@ import type {
   Contact,
 } from 'whatsapp-web.js';
 import * as QRCode from 'qrcode';
-import { rm } from 'node:fs/promises';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
@@ -51,6 +51,10 @@ const WA_VERSIONS_JSON =
 // Cache de processo do modo 'auto' — 1 fetch por TTL atende todas as sessões/starts.
 let autoWebVersion: { version: string; fetchedAt: number } | null = null;
 const AUTO_WEB_VERSION_TTL_MS = 6 * 60 * 60 * 1000;
+// Item 6 — cache LOCAL do HTML da versão (no volume persistente): o RemoteWebCache do wwebjs
+// baixa o HTML do GitHub a CADA initialize (persist() é no-op); com o arquivo pré-baixado aqui,
+// o LocalWebCache lê do disco e o start não depende de rede para a versão.
+const WEB_CACHE_DIR = join(resolve(AUTH_PATH), '.webcache');
 // UA alinhado ao Chromium real (Linux/146). O default do wwebjs é Chrome/101 (2022), que pode disparar
 // o aviso de "navegador desatualizado" do WhatsApp Web. Configurável por env.
 const USER_AGENT =
@@ -150,10 +154,21 @@ export class WWebJSEngine implements IEngine {
         { server: proxy.server, auth: !!proxy.username },
         'wwebjs: usando proxy',
       );
+      // Item 11 — username sem password: a auth NÃO será enviada → 407 "inexplicável".
+      if (proxy.username && !proxy.password) {
+        this.deps.logger.warn(
+          { server: proxy.server },
+          'wwebjs: proxy tem username sem password — conectando SEM auth (provável 407). Corrija a credencial do proxy.',
+        );
+      }
     }
 
     // Fixa a versão do WhatsApp Web (acelera/estabiliza o carregamento e evita quebra do Store).
     const webVersion = await this.resolveWebVersion(forceLive);
+    // Item 6 — garante o HTML da versão no cache local: 1 download por versão, não por initialize.
+    const hasLocalHtml = webVersion
+      ? await this.ensureWebVersionHtml(webVersion)
+      : false;
 
     const client = new Client({
       authStrategy: new LocalAuth({
@@ -163,10 +178,11 @@ export class WWebJSEngine implements IEngine {
       ...(webVersion
         ? {
             webVersion,
-            webVersionCache: {
-              type: 'remote' as const,
-              remotePath: WEB_VERSION_REMOTE,
-            },
+            // Preferência: cache LOCAL (HTML pré-baixado no volume — zero rede por start);
+            // fallback: cache remoto do wa-version (comportamento anterior).
+            webVersionCache: hasLocalHtml
+              ? { type: 'local' as const, path: WEB_CACHE_DIR }
+              : { type: 'remote' as const, remotePath: WEB_VERSION_REMOTE },
           }
         : {}),
       userAgent: USER_AGENT,
@@ -276,6 +292,39 @@ export class WWebJSEngine implements IEngine {
       await client.initialize();
     } catch (e) {
       await this.handleInitFailure(e, attempt, webVersion);
+    }
+  }
+
+  // Item 6 — garante o HTML da versão no cache LOCAL (volume persistente): baixa do wa-version
+  // só quando o arquivo ainda não existe. true = dá para usar o LocalWebCache (lê do disco).
+  private async ensureWebVersionHtml(version: string): Promise<boolean> {
+    const file = join(WEB_CACHE_DIR, `${version}.html`);
+    try {
+      await access(file);
+      return true;
+    } catch {
+      /* ainda não baixado */
+    }
+    try {
+      const res = await fetch(
+        WEB_VERSION_REMOTE.replace('{version}', version),
+        { signal: AbortSignal.timeout(30_000) },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const html = await res.text();
+      await mkdir(WEB_CACHE_DIR, { recursive: true });
+      await writeFile(file, html);
+      this.deps.logger.info(
+        { version },
+        'wwebjs: HTML da webVersion baixado para o cache local',
+      );
+      return true;
+    } catch (e) {
+      this.deps.logger.warn(
+        { version, err: (e as Error).message },
+        'wwebjs: falha ao pré-baixar o HTML da webVersion — usando cache remoto',
+      );
+      return false;
     }
   }
 

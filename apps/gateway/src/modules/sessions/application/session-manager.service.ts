@@ -80,9 +80,21 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await Promise.all(
+    // Teto no shutdown (item 12 da auditoria 07/2026): um Chromium/socket travado não pode
+    // pendurar o redeploy — o orquestrador mata o container após o grace period de qualquer
+    // forma; melhor liberar o processo de forma controlada.
+    const stopAll = Promise.all(
       [...this.engines.values()].map((e) => e.stop().catch(() => undefined)),
     );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, 15_000);
+    });
+    try {
+      await Promise.race([stopAll, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   private getOrCreateEngine(sessionId: string, engineType: string): IEngine {

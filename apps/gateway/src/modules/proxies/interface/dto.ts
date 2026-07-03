@@ -2,14 +2,20 @@ import { z } from 'zod';
 
 const protocolSchema = z.enum(['HTTP', 'HTTPS', 'SOCKS4', 'SOCKS5']);
 
-export const createProxySchema = z.object({
-  label: z.string().max(120).optional(),
-  protocol: protocolSchema.default('HTTP'),
-  host: z.string().min(1).max(255),
-  port: z.number().int().min(1).max(65535),
-  username: z.string().max(255).optional(),
-  password: z.string().max(255).optional(),
-});
+export const createProxySchema = z
+  .object({
+    label: z.string().max(120).optional(),
+    protocol: protocolSchema.default('HTTP'),
+    host: z.string().min(1).max(255),
+    port: z.number().int().min(1).max(65535),
+    username: z.string().max(255).optional(),
+    password: z.string().max(255).optional(),
+  })
+  // Item 11 — username sem password conecta SEM auth e dá 407 "inexplicável" em uso real.
+  .refine((d) => !d.username || !!d.password, {
+    message: 'Proxy autenticado exige username E password',
+    path: ['password'],
+  });
 
 export const bulkImportSchema = z.object({
   text: z.string().min(1),

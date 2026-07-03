@@ -1,4 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import type { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import {
   PROXY_REPOSITORY,
@@ -61,7 +66,7 @@ async function mapLimit<T, R>(
 }
 
 @Injectable()
-export class ProxyService {
+export class ProxyService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ProxyService.name);
 
   constructor(
@@ -69,6 +74,27 @@ export class ProxyService {
     private readonly tester: ProxyHealthTester,
     private readonly webshare: WebshareClient,
   ) {}
+
+  // Item 9 (auditoria 07/2026) — re-teste periódico do pool: revive proxies marcados DEAD que
+  // voltaram a funcionar (inclusive falso-positivos do fallback em uso real) e derruba os que
+  // morreram desde o último teste. Sem isto, DEAD é para sempre até alguém clicar "Testar todos".
+  // Desligado nos e2e (NODE_ENV=test) e com PROXY_RETEST_INTERVAL_MIN=0.
+  onApplicationBootstrap(): void {
+    if (process.env.NODE_ENV === 'test') return;
+    const minutes = Number(process.env.PROXY_RETEST_INTERVAL_MIN ?? 30);
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
+    const timer = setInterval(
+      () =>
+        void this.testAll().catch((e) =>
+          this.logger.error(
+            `re-teste periódico falhou: ${(e as Error).message}`,
+          ),
+        ),
+      minutes * 60_000,
+    );
+    timer.unref(); // não segura o shutdown do processo
+    this.logger.log(`Re-teste periódico de proxies a cada ${minutes} min`);
+  }
 
   list(): Promise<Proxy[]> {
     return this.repo.list();
@@ -110,6 +136,12 @@ export class ProxyService {
       if (!parsed) {
         failed++;
         errors.push(`Linha inválida: ${line}`);
+        continue;
+      }
+      // Item 11 — username sem password conectaria SEM auth e daria 407 "inexplicável" em uso.
+      if (parsed.username && !parsed.password) {
+        failed++;
+        errors.push(`Linha com username sem password: ${line}`);
         continue;
       }
       try {

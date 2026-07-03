@@ -80,6 +80,42 @@ export interface BaileysEngineDeps {
   };
 }
 
+// Cache de processo da versão do WhatsApp Web usada pelo Baileys (item 7 da auditoria 07/2026):
+// fetchLatestBaileysVersion é uma chamada HTTP externa que ficava no hot path de TODO connect e
+// de CADA tentativa de reconexão (numa tempestade de reconexão, N chamadas em paralelo). TTL de
+// 12h; em falha, reusa a última versão conhecida (stale) ou deixa o makeWASocket usar a default
+// embutida do Baileys (retorno undefined).
+type BaileysVersion = Awaited<
+  ReturnType<typeof fetchLatestBaileysVersion>
+>['version'];
+let baileysVersionCache: {
+  version: BaileysVersion;
+  fetchedAt: number;
+} | null = null;
+const BAILEYS_VERSION_TTL_MS = 12 * 60 * 60 * 1000;
+
+async function latestBaileysVersion(
+  logger: Logger,
+): Promise<BaileysVersion | undefined> {
+  if (
+    baileysVersionCache &&
+    Date.now() - baileysVersionCache.fetchedAt < BAILEYS_VERSION_TTL_MS
+  ) {
+    return baileysVersionCache.version;
+  }
+  try {
+    const { version } = await fetchLatestBaileysVersion();
+    baileysVersionCache = { version, fetchedAt: Date.now() };
+    return version;
+  } catch (e) {
+    logger.warn(
+      { err: (e as Error).message },
+      'fetchLatestBaileysVersion falhou — usando versão em cache/default',
+    );
+    return baileysVersionCache?.version;
+  }
+}
+
 // Converte um Contact do Baileys (contacts.upsert/update) em ContactRecord do diretório.
 function contactToRecord(c: Partial<Contact>, source: string): ContactRecord {
   const id = c.id ?? '';
@@ -417,13 +453,16 @@ export class BaileysEngine implements IEngine {
       this.deps.prisma,
       this.deps.sessionId,
     );
-    const { version } = await fetchLatestBaileysVersion();
+    // Item 7 — versão com cache de processo (TTL 12h) em vez de HTTP a cada connect/reconnect.
+    const version = await latestBaileysVersion(this.deps.logger);
 
     // Proxy (§7.4): o mesmo Agent serve para o WebSocket (`agent`) e para o download de mídia (`fetchAgent`).
     const agent = (await this.deps.resolveAgent?.()) ?? undefined;
 
     const sock = makeWASocket({
-      version,
+      // Espalha condicionalmente: `version: undefined` sobrescreveria a default embutida do
+      // Baileys no merge de config (spread), quebrando o handshake.
+      ...(version ? { version } : {}),
       // Envolve o key store do Postgres num cache em memória (write-through). Sem isso, cada
       // leitura/escrita de chave Signal bate direto no banco de forma assíncrona e leituras
       // concorrentes podem ver estado obsoleto → o ratchet dessincroniza e o destinatário não
@@ -517,6 +556,29 @@ export class BaileysEngine implements IEngine {
       if (this.stopped) {
         this.setStatus('STOPPED');
         return;
+      }
+
+      // Item 8b — se a sessão usa proxy, um close com assinatura de erro de rede/túnel implica o
+      // proxy (todo o tráfego passa por ele). Marca-o DEAD antes de reagendar: o connect() da
+      // reconexão re-resolve o proxy e, nos modos rotativos, pula os DEAD e pega o próximo
+      // candidato. Sem proxy atribuído, reportFailure é no-op. Padrões conservadores de propósito
+      // (quedas rotineiras do stream — restartRequired/connectionReplaced — NÃO casam); um
+      // falso-positivo é revertido pelo re-teste periódico (item 9), que revive o proxy.
+      const closeMsg =
+        (lastDisconnect?.error as Error | undefined)?.message ?? '';
+      if (
+        this.deps.reportProxyFailure &&
+        /407|ERR_TUNNEL|tunneling socket|proxy|connect ECONNREFUSED|connect ETIMEDOUT|getaddrinfo ENOTFOUND|EHOSTUNREACH/i.test(
+          closeMsg,
+        )
+      ) {
+        try {
+          await this.deps.reportProxyFailure(
+            `baileys close: ${closeMsg.slice(0, 100)}`,
+          );
+        } catch (err) {
+          this.deps.logger.warn({ err }, 'reportProxyFailure falhou');
+        }
       }
 
       this.reconnectAttempts += 1;
