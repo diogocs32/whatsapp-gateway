@@ -1,0 +1,57 @@
+# CI (item 15 da auditoria 07/2026): lint + typecheck + e2e (contra a MESMA infra do dev, via
+# docker compose) + builds. O deploy continua no Dokploy (webhook); quando houver registry, o
+# passo de build de imagem entra aqui e o Dokploy passa a só puxar.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # O Chrome do puppeteer não é usado nos testes (wwebjs usa o Chrome do sistema em runtime).
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck (gateway)
+        run: npx tsc --noEmit -p apps/gateway/tsconfig.json
+
+      - name: Infra (Postgres + Redis + MinIO)
+        run: docker compose up -d --wait
+
+      - name: Bucket de mídia (MinIO)
+        run: |
+          docker run --rm --network host --entrypoint sh minio/mc -c \
+            "mc alias set local http://localhost:9000 minio minio12345 && mc mb -p local/wa-media"
+
+      - name: Env de teste
+        run: cp apps/gateway/env.example apps/gateway/.env
+
+      - name: Migrations
+        run: npm run prisma:deploy -w apps/gateway
+
+      - name: Testes e2e
+        run: npm test
+
+      - name: Build (gateway)
+        run: npm run gateway:build
+
+      - name: Build (dashboard)
+        run: npm run dashboard:build
