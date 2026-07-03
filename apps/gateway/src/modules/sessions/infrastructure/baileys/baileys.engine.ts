@@ -622,7 +622,13 @@ export class BaileysEngine implements IEngine {
       // formato @lid, o número (PN) fica em `remoteJidAlt` (antes era `senderPn`).
       if (chatJid.endsWith('@lid') && m.key.remoteJidAlt) {
         const pn = jidNormalizedUser(m.key.remoteJidAlt);
-        this.lidToPn.set(chatJid, pn);
+        // Mapeamento NOVO → funde retroativamente a conversa que ficou dividida em @lid no banco
+        // (mensagens gravadas ANTES de o par LID↔PN ser aprendido "somem" do Inbox — ficam num
+        // chat @lid separado). Paridade com o merge da engine wwebjs.
+        if (this.lidToPn.get(chatJid) !== pn) {
+          this.lidToPn.set(chatJid, pn);
+          void this.mergeLidMessages(chatJid, pn);
+        }
         this.deps.contacts?.record({
           waId: pn,
           jid: pn,
@@ -983,8 +989,50 @@ export class BaileysEngine implements IEngine {
     try {
       const pairs = (await this.deps.contacts?.loadLidMap()) ?? [];
       for (const p of pairs) this.lidToPn.set(p.lid, p.jid);
+      // Passada única de merge: funde conversas que ficaram divididas em @lid ANTES de o par ser
+      // aprendido (Inbox "sem todas as conversas"). Roda no open, fora do hot path de mensagens.
+      void this.mergeKnownLids();
     } catch {
       /* noop */
+    }
+  }
+
+  // Merge retroativo: reescreve para o telefone as mensagens gravadas com este @lid (funde a
+  // conversa dividida no Inbox). Idempotente — mesmo mecanismo da engine wwebjs.
+  private async mergeLidMessages(lid: string, phoneJid: string): Promise<void> {
+    try {
+      const r = await this.deps.prisma.waMessage.updateMany({
+        where: { sessionId: this.deps.sessionId, chatJid: lid },
+        data: { chatJid: phoneJid },
+      });
+      if (r.count > 0) {
+        this.deps.logger.info(
+          { lid, phoneJid, count: r.count },
+          'merge LID->telefone (retroativo)',
+        );
+      }
+    } catch (e) {
+      this.deps.logger.error({ e }, 'mergeLidMessages falhou');
+    }
+  }
+
+  // Funde no banco todas as conversas @lid cujo telefone já é conhecido (diretório/cache).
+  private async mergeKnownLids(): Promise<void> {
+    try {
+      const rows = await this.deps.prisma.waMessage.findMany({
+        where: {
+          sessionId: this.deps.sessionId,
+          chatJid: { endsWith: '@lid' },
+        },
+        distinct: ['chatJid'],
+        select: { chatJid: true },
+      });
+      for (const r of rows) {
+        const pn = this.lidToPn.get(r.chatJid);
+        if (pn) await this.mergeLidMessages(r.chatJid, pn);
+      }
+    } catch (e) {
+      this.deps.logger.error({ e }, 'mergeKnownLids falhou');
     }
   }
 
