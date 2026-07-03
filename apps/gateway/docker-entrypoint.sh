@@ -3,6 +3,21 @@
 # Roda a partir de WORKDIR /app/apps/gateway (onde estão prisma.config.ts e dist/).
 set -e
 
+# Não-root (item 17 da auditoria 07/2026): o container inicia como root APENAS para corrigir o
+# dono do volume persistente (deploys antigos escreveram o perfil do Chromium como root) e então
+# re-executa este script como o usuário `node` via gosu — mesmo padrão da imagem oficial do
+# Postgres. O chown -R só roda quando o dono do diretório ainda não é o node (1º deploy após esta
+# mudança); depois vira no-op barato.
+if [ "$(id -u)" = '0' ]; then
+  DATA_DIR="${WWEBJS_DATA_PATH:-/data/wwebjs}"
+  mkdir -p "$DATA_DIR"
+  if [ "$(stat -c %u "$DATA_DIR")" != "1000" ]; then
+    echo "[entrypoint] corrigindo dono de $DATA_DIR para node (uid 1000)..."
+    chown -R node:node "$DATA_DIR"
+  fi
+  exec gosu node:node "$0" "$@"
+fi
+
 # Auto-tune do heap do V8 conforme o limite de memória do container (cgroup v2).
 # O Node NÃO ajusta --max-old-space-size pelo cgroup automaticamente; sem isso, o heap pode crescer
 # até o container ser morto por OOM. Damos ~50% do limite ao heap do Node (mínimo 256 MB), deixando

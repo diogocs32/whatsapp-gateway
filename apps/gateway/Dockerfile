@@ -35,8 +35,11 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # curl = healthcheck (sempre). chromium/fonts/tini = engine WWEBJS (remova se só Baileys).
 # openssl = libssl p/ o `prisma migrate deploy` no entrypoint (schema engine nativo).
+# gosu = queda de privilégio no entrypoint (item 17): o container inicia como root SÓ para
+# corrigir o dono do volume persistente e desce para o usuário `node` antes de rodar qualquer
+# coisa (Node, Prisma e Chromium NÃO rodam como root). Por isso não há diretiva USER aqui.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl ca-certificates tini chromium fonts-liberation openssl \
+      curl ca-certificates tini chromium fonts-liberation openssl gosu \
     && rm -rf /var/lib/apt/lists/*
 ENV WWEBJS_CHROME_PATH=/usr/bin/chromium
 ENV WWEBJS_DATA_PATH=/data/wwebjs
