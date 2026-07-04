@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
+import { MediaStorage } from '../../infra/storage/media-storage.service';
 import { memoryStats } from '../../shared-kernel/memory';
 
 export interface HealthReport {
@@ -9,6 +10,9 @@ export interface HealthReport {
   checks: {
     database: boolean;
     redis: boolean;
+    // Escrita no S3 (probe com cache de 5 min). INFORMATIVO: não muda o `status` — storage fora
+    // não pode derrubar o container via healthcheck do Swarm (o app funciona sem mídia).
+    storage: boolean;
     heapUsedPct: number;
     memoryUsedPct: number;
     rssBytes: number;
@@ -22,12 +26,14 @@ export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly media: MediaStorage,
   ) {}
 
   async check(): Promise<HealthReport> {
-    const [database, redis] = await Promise.all([
+    const [database, redis, storage] = await Promise.all([
       this.checkDatabase(),
       this.redis.ping(),
+      this.media.probeWrite(),
     ]);
 
     // Pressão de memória: usa a RAM REAL do container (cgroup — inclui os Chromium do wwebjs)
@@ -49,6 +55,7 @@ export class HealthService {
       checks: {
         database,
         redis,
+        storage,
         heapUsedPct: mem.heapUsedPct,
         memoryUsedPct: mem.memoryUsedPct,
         rssBytes: mem.rssBytes,

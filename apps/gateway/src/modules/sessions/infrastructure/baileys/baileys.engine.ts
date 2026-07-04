@@ -776,7 +776,12 @@ export class BaileysEngine implements IEngine {
         mediaKey: key,
       });
     } catch (e) {
-      this.deps.logger.error({ e }, 'falha ao baixar/armazenar mídia');
+      // `err` (não `e`): o pino só aplica o serializer de Error na chave `err` — com `e` o log
+      // saía como objeto vazio e a causa real (ex.: NoSuchBucket) ficava invisível (CP-149).
+      this.deps.logger.error(
+        { err: e, reason: (e as Error)?.message },
+        'falha ao baixar/armazenar mídia — a mensagem seguirá SEM mediaKey/mediaUrl',
+      );
       // Emite os metadados mesmo sem o binário, para a conversa não “sumir”.
       this.deps.onEvent('message', {
         ...base,
@@ -839,7 +844,10 @@ export class BaileysEngine implements IEngine {
       mediaKey = `media/${this.deps.sessionId}/${safeId}.${ext}`;
       await this.deps.storeMedia?.(mediaKey, input.buffer, input.mimetype);
     } catch (e) {
-      this.deps.logger.error({ e }, 'falha ao armazenar mídia enviada');
+      this.deps.logger.error(
+        { err: e, reason: (e as Error)?.message },
+        'falha ao armazenar mídia enviada',
+      );
       mediaKey = null;
     }
 

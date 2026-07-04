@@ -51,6 +51,35 @@ export class MediaStorage implements OnModuleInit {
     }
   }
 
+  // Prova de ESCRITA no S3, com cache de 5 min (diagnóstico do CP-149: o write-on-receive
+  // falhava em prod sem causa visível). O /health expõe `checks.storage` com este resultado e
+  // o erro REAL do SDK vai para o log. Cache: o health é consultado a cada poucos segundos
+  // (healthcheck do Docker + polling do dashboard) — não dá para fazer um PUT por consulta.
+  private probeCache: { ok: boolean; at: number } | null = null;
+
+  async probeWrite(): Promise<boolean> {
+    const TTL = 5 * 60_000;
+    if (this.probeCache && Date.now() - this.probeCache.at < TTL) {
+      return this.probeCache.ok;
+    }
+    let ok = false;
+    try {
+      await this.put(
+        'health/.probe',
+        Buffer.from(new Date().toISOString()),
+        'text/plain',
+      );
+      ok = true;
+    } catch (e) {
+      const err = e as Error & { name?: string };
+      this.logger.error(
+        `S3 write-probe FALHOU (${err.name ?? 'Erro'}): ${err.message} — mídia recebida NÃO está sendo armazenada; confira S3_ENDPOINT, S3_BUCKET (o bucket precisa EXISTIR — token escopado não cria) e as credenciais`,
+      );
+    }
+    this.probeCache = { ok, at: Date.now() };
+    return ok;
+  }
+
   async put(key: string, body: Buffer, contentType: string): Promise<void> {
     await this.s3.send(
       new PutObjectCommand({
