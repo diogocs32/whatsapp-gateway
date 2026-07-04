@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Readable } from 'node:stream';
 import {
   CreateBucketCommand,
   GetObjectCommand,
@@ -59,6 +60,29 @@ export class MediaStorage implements OnModuleInit {
         ContentType: contentType,
       }),
     );
+  }
+
+  // Bytes da mídia direto do S3 (streaming) — base do download via gateway (GAP 2, contrato
+  // CP-149): o consumidor (n8n) baixa pelo próprio gateway com X-Api-Key, sem depender de o
+  // S3_ENDPOINT ser público nem de URL pré-assinada dentro da validade. null = não existe/expirou.
+  async getObject(key: string): Promise<{
+    body: Readable;
+    contentType: string | null;
+    contentLength: number | null;
+  } | null> {
+    try {
+      const out = await this.s3.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      if (!out.Body) return null;
+      return {
+        body: out.Body as Readable,
+        contentType: out.ContentType ?? null,
+        contentLength: out.ContentLength ?? null,
+      };
+    } catch {
+      return null;
+    }
   }
 
   // URL pré-assinada de GET (válida por MEDIA_URL_TTL). Assinada contra o S3_ENDPOINT

@@ -22,11 +22,12 @@ Auditoria completa de 02/07/2026 (base: commit `2d4256a`) motivada por três que
 
 ### Ações operacionais (sem código — fazer no Dokploy/dashboard de produção)
 
-| #   | Item                                                                                                                                 | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| O1  | Re-sync Webshare no dashboard de prod + restart da sessão (corrige credencial divergente no banco; alternativa rápida: proxy = NONE) | 🔧 ⬜  |
-| O2  | Memory Limit ~1.5–2 GB no gateway (Dokploy → Advanced → Resources) + Redeploy — sem isso o auto-tune de heap do entrypoint não age   | 🔧 ⬜  |
-| O3  | Resolver "Validate DNS" amarelo do domínio no Dokploy                                                                                | 🔧 ⬜  |
+| #   | Item                                                                                                                                                                                                                                                                              | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| O1  | Re-sync Webshare no dashboard de prod + restart da sessão (corrige credencial divergente no banco; alternativa rápida: proxy = NONE)                                                                                                                                              | 🔧 ⬜  |
+| O2  | Memory Limit ~1.5–2 GB no gateway (Dokploy → Advanced → Resources) + Redeploy — sem isso o auto-tune de heap do entrypoint não age                                                                                                                                                | 🔧 ⬜  |
+| O3  | Resolver "Validate DNS" amarelo do domínio no Dokploy                                                                                                                                                                                                                             | 🔧 ⬜  |
+| O4  | **Configurar S3 em prod** (MinIO template no Dokploy OU Cloudflare R2) + envs `S3_*` no gateway — SEM isso nenhuma mídia recebida é armazenada (payloads reais de 03/07 vieram sem `mediaKey`; o boot loga `Não foi possível garantir o bucket`) e o GAP 2 (item 26) responde 404 | 🔧 ⬜  |
 
 ### P0 — ataca as queixas diretamente
 
@@ -71,6 +72,8 @@ Auditoria completa de 02/07/2026 (base: commit `2d4256a`) motivada por três que
 | 23  | Reporte 03/07 (Baileys): "contatos só com LID, sem telefone" + "Inbox não mostra todas as conversas". Diagnóstico: rollout progressivo do LID da Meta (server-side — em grupos `addressingMode: lid` o número é ESCONDIDO por privacidade; nada das mudanças da auditoria toca esses fluxos). Fixes: (a) merge retroativo LID→telefone no BAILEYS (paridade c/ wwebjs) — ao aprender um par, funde as mensagens gravadas no `@lid` + passada única no connect (`mergeKnownLids`) → conserta o Inbox dividido; (b) default da `WWEBJS_WEB_VERSION` revertido p/ a versão VALIDADA (builds novas do `auto` escondem PN) — a extração de leads em massa COM número é papel do wwebjs (Store oficial); no Baileys, número só de quem já conversou/está no diretório (limite da Meta). | ✅ 03/07/2026 |
 
 | 25 | Reporte 03/07: "n8n não recebe webhooks de novas mensagens". REGRESSÃO DO ITEM 20 (confirmada na fonte da lib): o jobId de dedup usava `envelope.id:webhook.id` e o BullMQ REJEITA jobId com `:` (`job.js`: "Custom Id cannot contain :") — TODO enqueue lançava (o catch do dispatcher engolia com log `enqueue webhook: ...`) e nenhum webhook saía desde o deploy do fan-out. Fix: separador `-`. Blindagem: teste e2e novo exercitando EventBus → dispatcher → fila (falha se o job não entrar) — suíte agora 66 testes. | ✅ 03/07/2026 |
+
+| 26 | GAP 2 do contrato CP-149 (campanha-whatsapp-merabe): expor os BYTES da mídia recebida. Implementado o endpoint `GET /api/sessions/{s}/messages/{msgId}/media` (Opção B — streaming do S3 pelo gateway, Content-Type original, aceita keyId do WhatsApp OU ULID interno, 404 com motivo claro) + `keyId` exposto no `GET /messages` + a Opção A (mediaUrl pré-assinada) já existia e segue quando há `mediaKey`. Docs: INTEGRACAO.md §3.1. DEPENDE do item O4 (S3 em prod) para funcionar de ponta a ponta — o pipeline de download/armazenamento de mídia inbound (F4) já existia no Baileys e falha silenciosa sem S3. Testes: +3 e2e (suíte 69). | ✅ 03/07/2026 |
 
 ## Detalhe do que foi implementado em 02/07/2026 (itens 3, 4, 5)
 

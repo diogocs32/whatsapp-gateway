@@ -103,19 +103,29 @@ export class PrismaMessageRepository implements MessageRepository {
     });
   }
 
-  async listByChat(
-    sessionId: string,
-    chatJids: string[],
-    limit: number,
-  ): Promise<StoredMessage[]> {
-    const rows = await this.prisma.waMessage.findMany({
-      where: { sessionId, chatJid: { in: chatJids } },
-      orderBy: { timestamp: 'desc' },
-      take: limit,
-    });
-    return rows.reverse().map((r) => ({
+  private toStored(r: {
+    id: string;
+    sessionId: string;
+    keyId: string;
+    chatJid: string;
+    senderJid: string | null;
+    fromMe: boolean;
+    type: string;
+    text: string | null;
+    status: string | null;
+    isCold: boolean;
+    source: string | null;
+    timestamp: Date;
+    mediaType: string | null;
+    mimetype: string | null;
+    fileName: string | null;
+    mediaKey: string | null;
+    fileSize: number | null;
+  }): StoredMessage {
+    return {
       id: r.id,
       sessionId: r.sessionId,
+      keyId: r.keyId,
       chatJid: r.chatJid,
       senderJid: r.senderJid,
       fromMe: r.fromMe,
@@ -130,7 +140,33 @@ export class PrismaMessageRepository implements MessageRepository {
       fileName: r.fileName,
       mediaKey: r.mediaKey,
       fileSize: r.fileSize,
-    }));
+    };
+  }
+
+  async listByChat(
+    sessionId: string,
+    chatJids: string[],
+    limit: number,
+  ): Promise<StoredMessage[]> {
+    const rows = await this.prisma.waMessage.findMany({
+      where: { sessionId, chatJid: { in: chatJids } },
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+    });
+    return rows.reverse().map((r) => this.toStored(r));
+  }
+
+  // GAP 2 (CP-149): aceita o ULID interno OU o keyId do WhatsApp. Em colisão improvável,
+  // a mensagem mais recente vence (mesmo critério do findByKeyId).
+  async findByRef(
+    sessionId: string,
+    ref: string,
+  ): Promise<StoredMessage | null> {
+    const row = await this.prisma.waMessage.findFirst({
+      where: { sessionId, OR: [{ id: ref }, { keyId: ref }] },
+      orderBy: { timestamp: 'desc' },
+    });
+    return row ? this.toStored(row) : null;
   }
 
   // Conversas = chatJid distintos. DISTINCT ON pega a última mensagem de cada conversa

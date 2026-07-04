@@ -24,6 +24,9 @@ export interface SaveMessageInput {
 export interface StoredMessage {
   id: string;
   sessionId: string;
+  // Chave real do WhatsApp — exposta no GET /messages (contrato CP-149: markRead e download de
+  // mídia aceitam keyId; antes o pull só via o ULID interno).
+  keyId: string;
   chatJid: string;
   senderJid: string | null;
   fromMe: boolean;
@@ -82,6 +85,9 @@ export interface MessageRepository {
     chatJids: string[],
     limit: number,
   ): Promise<StoredMessage[]>;
+  // GAP 2 (CP-149): localiza uma mensagem pelo id interno (ULID do GET /messages) OU pelo keyId
+  // do WhatsApp (do webhook) — o download de mídia aceita os dois identificadores.
+  findByRef(sessionId: string, ref: string): Promise<StoredMessage | null>;
   // Lista as conversas (chatJid distintos) ordenadas pela última mensagem (mais recente primeiro).
   listConversations(
     sessionId: string,

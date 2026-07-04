@@ -9,6 +9,7 @@ import {
   Query,
   Body,
   Req,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
@@ -101,6 +102,9 @@ function toConversationDto(c: ConversationSummary) {
 function toDto(m: StoredMessage, mediaUrl: string | null) {
   return {
     id: m.id,
+    // keyId = chave real do WhatsApp (CP-149): é o id que markRead e o download de mídia aceitam;
+    // o webhook já o entrega, agora o pull (GET /messages) também.
+    keyId: m.keyId,
     sessionId: m.sessionId,
     chatJid: m.chatJid,
     senderJid: m.senderJid,
@@ -175,6 +179,36 @@ export class MessagesController {
     );
   }
 
+  // GAP 2 (contrato CP-149) — download dos BYTES da mídia pelo próprio gateway. Aceita o id
+  // interno (ULID do GET /messages) OU o keyId do WhatsApp (o mesmo do webhook). Streaming do
+  // S3 com o Content-Type original — o consumidor (n8n) não depende de o S3 ser público nem do
+  // TTL da URL pré-assinada; dá para re-obter a mídia a qualquer momento enquanto ela existir.
+  @Get(':msgId/media')
+  async downloadMedia(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('msgId') msgId: string,
+  ): Promise<StreamableFile> {
+    const msg = await this.repo.findByRef(id, msgId);
+    if (!msg) throw new NotFoundException('Mensagem não encontrada');
+    if (!msg.mediaKey) {
+      throw new NotFoundException(
+        'Mídia não disponível: a mensagem não tem mídia ou o binário não foi armazenado (S3 indisponível quando ela chegou).',
+      );
+    }
+    const obj = await this.mediaStorage.getObject(msg.mediaKey);
+    if (!obj) {
+      throw new NotFoundException(
+        'Mídia expirada ou removida do armazenamento.',
+      );
+    }
+    const fileName = msg.fileName?.replace(/["\r\n]/g, '') || null;
+    return new StreamableFile(obj.body, {
+      type: msg.mimetype ?? obj.contentType ?? 'application/octet-stream',
+      length: obj.contentLength ?? undefined,
+      disposition: fileName ? `inline; filename="${fileName}"` : undefined,
+    });
+  }
+
   // G8 — marca uma mensagem recebida como lida (read receipt). Resolve o chatJid pela WaMessage.
   @Post(':msgId/read')
   async markRead(
@@ -201,7 +235,10 @@ export class MessagesController {
   }
 
   @Post('text')
-  async sendText(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
+  async sendText(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
     const parsed = sendTextSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(
@@ -226,7 +263,10 @@ export class MessagesController {
   // Envio por upload (multipart/form-data). Envie os campos de texto ANTES do arquivo
   // (campo "file"); @fastify/multipart só expõe em data.fields o que vem antes do arquivo.
   @Post('media')
-  async sendMedia(@Param('id', SessionRefPipe) id: string, @Req() req: FastifyRequest) {
+  async sendMedia(
+    @Param('id', SessionRefPipe) id: string,
+    @Req() req: FastifyRequest,
+  ) {
     const data = await req.file();
     if (!data) {
       throw new BadRequestException('arquivo é obrigatório (campo "file")');
@@ -272,7 +312,10 @@ export class MessagesController {
 
   // Envio por URL (JSON): o gateway baixa o arquivo e envia (uso programático/integrações).
   @Post('media-url')
-  async sendMediaUrl(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
+  async sendMediaUrl(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
     const parsed = sendMediaUrlSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(

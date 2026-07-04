@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { PrismaService } from '../src/infra/prisma/prisma.service';
+import { MediaStorage } from '../src/infra/storage/media-storage.service';
 import {
   createTestApp,
   inject,
@@ -91,5 +93,91 @@ describe('Mídia (e2e)', () => {
       payload: { to: '5511999999999' },
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  // GAP 2 (contrato CP-149): download dos bytes da mídia pelo gateway, por keyId OU ULID interno.
+  describe('GET /messages/:msgId/media (GAP 2)', () => {
+    const msgId = 'e2e-msg-media-1';
+    const keyId = 'E2EMEDIAKEY1';
+    const mediaKey = 'media/s1/e2emedia-download.png';
+    const bytes = 'PNGFAKEDATA-DOWNLOAD';
+
+    beforeAll(async () => {
+      await app
+        .get(MediaStorage)
+        .put(mediaKey, Buffer.from(bytes), 'image/png');
+      const prisma = app.get(PrismaService);
+      await prisma.waMessage.deleteMany({ where: { id: msgId } });
+      await prisma.waMessage.create({
+        data: {
+          id: msgId,
+          sessionId: 's1',
+          keyId,
+          chatJid: '5511999999999@s.whatsapp.net',
+          fromMe: false,
+          type: 'image',
+          mediaType: 'image',
+          mimetype: 'image/png',
+          fileName: 'foto.png',
+          mediaKey,
+          fileSize: bytes.length,
+          timestamp: new Date(),
+        },
+      });
+    });
+    afterAll(async () => {
+      await app
+        .get(PrismaService)
+        .waMessage.deleteMany({ where: { id: msgId } });
+    });
+
+    it('baixa os bytes pelo keyId do WhatsApp (o mesmo do webhook)', async () => {
+      const res = await inject(app, {
+        method: 'GET',
+        url: `/api/sessions/s1/messages/${keyId}/media`,
+        headers: auth(),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(
+        (res as unknown as { headers: Record<string, string> }).headers[
+          'content-type'
+        ],
+      ).toContain('image/png');
+      expect(res.body).toBe(bytes);
+    });
+
+    it('baixa os bytes pelo ULID interno (id do GET /messages)', async () => {
+      const res = await inject(app, {
+        method: 'GET',
+        url: `/api/sessions/s1/messages/${msgId}/media`,
+        headers: auth(),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toBe(bytes);
+    });
+
+    it('mensagem sem mídia → 404 com motivo claro', async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.waMessage.create({
+        data: {
+          id: 'e2e-msg-semmidia',
+          sessionId: 's1',
+          keyId: 'E2ESEMMIDIA',
+          chatJid: '5511999999999@s.whatsapp.net',
+          fromMe: false,
+          type: 'text',
+          text: 'oi',
+          timestamp: new Date(),
+        },
+      });
+      const res = await inject(app, {
+        method: 'GET',
+        url: '/api/sessions/s1/messages/E2ESEMMIDIA/media',
+        headers: auth(),
+      });
+      expect(res.statusCode).toBe(404);
+      expect(res.body).toContain('não tem mídia');
+      await prisma.waMessage.deleteMany({ where: { id: 'e2e-msg-semmidia' } });
+    });
   });
 });
