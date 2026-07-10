@@ -41,11 +41,14 @@ GATEWAY_API_KEY=<chave X-Api-Key> node scripts/guardrail-observe.mjs
    mesmo em observação): aplicar quarentena manual numa sessão de teste (G7), disparar um envio
    cold pelo fluxo n8n, confirmar que o node ramifica no `423 SESSION_QUARANTINED` e re-enfileira
    (N7), e desfazer o override (voltar `ativa`).
-5. **Rollback conhecido**: `GUARDRAIL_ENFORCE=false` no Dokploy + Redeploy (reversível em minutos).
+5. **Rollback conhecido**: **REMOVER a variável `GUARDRAIL_ENFORCE`** no Dokploy + Redeploy
+   (reversível em minutos). ⚠️ NUNCA usar `=false`: o código atual converte com `Boolean(texto)`
+   e qualquer valor não-vazio — inclusive `"false"` — LIGA o enforce.
 
 ## Ligar o enforce (ação operacional — usuário, R0)
 
-1. Dokploy → aplicação do gateway → Environment → `GUARDRAIL_ENFORCE=true` → Save → **Redeploy**
+1. Dokploy → aplicação do gateway → Environment → adicionar a linha `GUARDRAIL_ENFORCE=true` →
+   Save → **Redeploy** (para desligar depois: REMOVER a linha, não trocar para false)
 2. Validar: `GET /api/guardrail/config` → `"enforce": true`
 3. Monitorar por 48–72h: coletas diárias continuam; atenção a `applied: true`, sessões entrando em
    `quarentena`/`throttled`, HTTP 423 nos fluxos n8n e eventos G6 (`session.quarantined` etc.)
