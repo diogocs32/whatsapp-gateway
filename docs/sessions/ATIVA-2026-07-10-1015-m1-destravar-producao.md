@@ -27,6 +27,7 @@
 - [10/07 10:15] Sessão aberta; branch criada; estado de produção coletado (health ok, ~6 dias de uptime).
 - [10/07 10:20] Push da main autorizado e executado (`40f6132..808c175`); monitor de redeploy via /health ativo.
 - [10/07 10:25] Pedido do usuário registrado no ESTADO.md (Backlog de produto): auto-atribuição de proxy exclusivo (1 proxy = 1 sessão) na criação de sessão — FORA do escopo da M1; vira sessão própria quando priorizado.
+- [10/07 10:30] Requisito REFINADO pelo usuário: em vez de atribuição automática, a criação de sessão deve OFERECER a lista de proxies livres para o usuário escolher (ou "sem proxy") — a sessão nasce com ou sem proxy por escolha. ESTADO.md atualizado.
 
 ## Encerramento (preencher ao concluir)
 

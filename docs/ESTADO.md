@@ -44,14 +44,15 @@
 
 ## Backlog de produto (fora das ondas — vira sessão R9 própria quando priorizado)
 
-- **Auto-atribuição de proxy exclusivo na criação de sessão** (pedido do usuário, 10/07/2026):
-  toda sessão NOVA deve conectar automaticamente com um proxy ALIVE que **não esteja em uso**
-  por outra sessão (1 proxy = 1 sessão), sem configuração manual. Hoje a atribuição é manual por
-  sessão (`session_proxy_assignments`: NONE/SINGLE/RANGE/GLOBAL_ROUND_ROBIN). Implementação deve
-  ser ADITIVA (R0) — ex.: novo `ProxyMode` `AUTO_EXCLUSIVE` como default de sessões novas, resolvido
-  no create/start via `ProxyResolverService`, com fallback documentado quando o pool esgotar
-  (sem proxy livre: conectar direto? recusar? — decidir em DECISOES.md na implementação).
-  Módulos: proxies (dono) + sessions (consome). Contrato: campo novo opcional na criação = aditivo.
+- **Escolha de proxy livre na criação de sessão** (pedido do usuário, 10/07/2026):
+  no formulário/API de criação de sessão, oferecer a opção de conectar com proxy: exibir a LISTA
+  dos proxies que NÃO estão em uso por nenhuma sessão (livres — de preferência ALIVE) para escolher
+  UM, ou optar por **sem proxy**. A sessão já NASCE com o proxy atribuído (ou sem), sem passo manual
+  posterior. Implementação ADITIVA (R0): listagem de proxies livres (filtro de não-atribuídos sobre
+  o GET /proxies existente), campo OPCIONAL novo no POST /sessions (ex.: `proxyId`), dropdown no
+  painel; exclusividade na listagem (1 proxy = 1 sessão). Módulos: proxies (dono da
+  listagem/atribuição) + sessions (aceita a escolha no create). Node n8n: parâmetro novo opcional
+  (aditivo) — registrar a dependência em DECISOES.md na implementação.
 
 ## Próximos passos
 
