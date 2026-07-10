@@ -4,7 +4,7 @@
 > Ordem de leitura de toda conversa: 1º este arquivo → 2º [SESSOES.md](SESSOES.md) → 3º o arquivo da sessão ativa em [sessions/](sessions/).
 
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
-- **Onda atual:** M0 · Doc viva — **CONCLUÍDA, aguardando OK do usuário para merge** (sessão `2026-07-10-1000-m0-doc-viva`)
+- **Onda atual:** M0 · Doc viva — **CONCLUÍDA e mergeada na main em 10/07/2026** (sessão `2026-07-10-1000-m0-doc-viva`) — **push pendente**
 - **Próxima onda:** M1 · Destravar produção (itens operacionais O1–O3 da [auditoria](auditoria-2026-07.md))
 
 ## Roadmap (R2)
@@ -30,10 +30,10 @@
 
 ## Divergência dev × produção
 
-| Onde                         | O quê                                                              |
-| ---------------------------- | ------------------------------------------------------------------ |
-| branch `feature/m0-doc-viva` | Documentação viva da M0 (este commit) — não mergeada na main ainda |
-| main = origin/main = prod    | Sem divergência de código: `40f6132` pushado e deployado           |
+| Onde               | O quê                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| main local         | À FRENTE de origin/main: commits da M0 (só docs) mergeados e **não pushados** — o push dispara redeploy no Dokploy |
+| origin/main = prod | `40f6132` pushado e deployado (04/07, storage ok)                                                                  |
 
 ## Pendências operacionais (M1 — fazer no Dokploy/dashboard de prod)
 
@@ -44,5 +44,5 @@
 
 ## Próximos passos
 
-1. Usuário dá OK no checkpoint da M0 → merge `feature/m0-doc-viva` na main + push
+1. Push da main quando o usuário decidir (efeito: redeploy automático via webhook do Dokploy — sessões reconectam)
 2. Abrir sessão da M1 (operacional, guiada — ações no Dokploy são do usuário, R0)

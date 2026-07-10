@@ -8,11 +8,11 @@
 
 ## 🟢 Sessões ativas
 
-| ID                          | Início      | Objetivo                     | Escopo                                      | Branch              |
-| --------------------------- | ----------- | ---------------------------- | ------------------------------------------- | ------------------- |
-| 2026-07-10-1000-m0-doc-viva | 10/07 10:00 | M0 — criar documentação viva | docs/, CLAUDE.md, CHANGELOG.md (sem código) | feature/m0-doc-viva |
+| ID  | Início | Objetivo | Escopo | Branch |
+| --- | ------ | -------- | ------ | ------ |
 
 ## ✅ Histórico (mais recente primeiro)
 
-| ID  | Período | Entregue | Branch/PR |
-| --- | ------- | -------- | --------- |
+| ID                          | Período | Entregue                                                             | Branch/PR                            |
+| --------------------------- | ------- | -------------------------------------------------------------------- | ------------------------------------ |
+| 2026-07-10-1000-m0-doc-viva | 10/07   | M0 — doc viva completa (tabelas donas validadas; D-001–D-004; O4 ✅) | feature/m0-doc-viva (merge sem push) |
