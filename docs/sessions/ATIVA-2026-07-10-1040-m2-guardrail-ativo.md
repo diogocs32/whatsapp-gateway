@@ -12,7 +12,7 @@
 1. ≥ 7 dias de janela com ≥ 5 coletas
 2. Zero falso-positivo de quarentena em sessão saudável
 3. Amostras conscientes (reliable ou aquecimento aceito)
-4. Teste 423 no n8n executado e aprovado (override manual → envio cold → 423 → N7 re-enfileira → desfazer)
+4. ✅ Teste 423 no n8n executado e aprovado em 10/07 (ver progresso — achado: `continueOnQuarantine`)
 5. Rollback conhecido (REMOVER a env `GUARDRAIL_ENFORCE` + redeploy — nunca `=false`, ver pegadinha do coerce.boolean)
 
 ## Progresso
@@ -25,6 +25,12 @@
 - [10/07 11:20] Merge intermediário AUTORIZADO pelo usuário: branch mergeada na main e pushada (fix D-007 + coletor + docs vão para produção antes do fechamento da onda — a sessão CONTINUA na branch para a janela de observação). Deploy monitorado via /health.
 - [10/07 14:18 UTC] Deploy do fix D-007 confirmado em prod (`80b1670`): boot limpo com o parser fail-fast, checks verdes, memoryUsedPct 0.26.
 - [10/07 14:22 UTC] **COLETA 1/≥5** (commit `6f81f61`): config efetiva ok (enforce=false, defaults). Sessão "Diogo" (Baileys, WORKING): reply 68,4%, amostra 19/20 → aquecimento (a 1 cold maduro do veredito; com 68% ≥ baseline 35%, alvo virará ativa). Sessão "DIOGO" (wwebjs): SCAN_QR_CODE, amostra 0 → aquecimento correto. fleetMedian null → baseline fallback 35%. **Zero falso-positivo.** Pendente na janela: coletas diárias até ~17/07 + teste do 423 no n8n (critério 4).
+- [10/07 15:48–15:54 UTC] **TESTE DO 423 NO N8N (critério 4) — APROVADO, com achado importante**:
+  1. Override manual `POST /sessions/Diogo/quarantine` aplicado pelo usuário → estado `quarentena` (bloqueia mesmo em observação, como documentado).
+  2. Execução 124909 do workflow "Campanha v2 - Envio (Conexozenvo cold)" (via MCP): gateway respondeu **423 SESSION_QUARANTINED** ANTES da engine (nenhuma mensagem saiu) — **MAS o node lançou NodeApiError porque `continueOnQuarantine: false`** → "Registrar Resultado" não rodou → lead fila_id=5 ficou `enviado` SEM envio real (lead seria perdido). **O tratamento N7 do node é OPT-IN por instância do node.**
+  3. Fix: usuário ligou `continueOnQuarantine` no node "Enviar (cold)" + SQL de resgate do lead 5.
+  4. Execução 124922 (re-teste): **verde ponta a ponta** — "Enviar (cold)" success com `{blocked:true, code:SESSION_QUARANTINED}`, "Registrar Resultado" devolveu o lead 7 a `pendente` +30min. N7 completo provado.
+  5. Pendências do episódio: usuário rodar `POST /sessions/Diogo/activate` (destravar) e conferir lead 5 re-pendente; backlog do repo do node n8n: avaliar `continueOnQuarantine` default true (ou destacar na doc do node) — anotado no how-to.
 
 ## Encerramento (preencher ao concluir)
 
