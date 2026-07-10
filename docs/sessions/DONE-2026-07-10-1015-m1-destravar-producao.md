@@ -1,6 +1,6 @@
 # Sessão: m1-destravar-producao
 
-- **Status:** 🟢 ATIVA
+- **Status:** ✅ CONCLUÍDA
 - **Início:** 10/07/2026 10:15
 - **Objetivo:** Onda M1 — destravar produção: O1 (re-sync Webshare), O2 (Memory Limit no Dokploy), O3 (Validate DNS) + push da main pendente e confirmação de que produção roda o código mais recente (O4 já resolvido em 04/07). Ações no Dokploy/painel são OPERACIONAIS: executadas pelo usuário com runbook desta sessão (R0).
 - **Escopo (pode tocar):** `docs/` (ESTADO.md no encerramento, SESSOES.md, este arquivo, linhas O1–O3 da auditoria-2026-07.md), push da main (com autorização explícita do usuário)
@@ -32,9 +32,10 @@
 - [10/07 13:29 UTC] **O2 CONCLUÍDO ✅**: usuário salvou o Memory Limit e redeployou (restart ~13:28:42 UTC); `/health` confirma `memoryUsedPct: 0.27` (limite ativo no cgroup — antes 0), checks todos true. Auditoria atualizada. Restam O1 e O3.
 - [10/07 ~13:40 UTC] **O1 quase fechado**: usuário rodou Sync Webshare + Test All no painel de prod — **todos os proxies ALIVE** (com o health-tester corrigido, 407 viraria DEAD/PROXY_AUTH → a credencial divergente foi corrigida pelo sync). Falta só confirmar que as sessões com proxy estão WORKING (restart se alguma estiver FAILED/DEGRADED).
 - [10/07 ~13:50 UTC] **O1 CONCLUÍDO ✅**: usuário confirmou sessões WORKING. Auditoria atualizada. Resta apenas O3 (Validate DNS).
+- [10/07 ~14:00 UTC] **O3 CONCLUÍDO ✅**: usuário clicou Validate DNS no Dokploy e ficou VERDE. **M1 completa — auditoria 07/2026 100% encerrada (código + operacional).**
 
-## Encerramento (preencher ao concluir)
+## Encerramento
 
-- **Fim:** — · **Entregue:** — · **Commits:** —
-- **Efeito de deploy:** —
-- **Pendências para próxima sessão:** —
+- **Fim:** 10/07/2026 ~14:00 UTC · **Entregue:** M1 completa — push+deploy da main confirmado (webhook ok, ~4,5 min), O1 (Sync Webshare, todos ALIVE, sessões WORKING), O2 (Memory Limit ativo, `memoryUsedPct` 0→0.27), O3 (Validate DNS verde) → **auditoria 07/2026 100% encerrada**; + backlog de produto registrado (escolha de proxy livre na criação de sessão) · **Commits:** `a62104a`, `98e55a4`, `d5edb92`, `95b2fb6`, `b86b31e` + encerramento
+- **Efeito de deploy:** já aplicado durante a onda (2 restarts em 10/07: push 13:24 UTC e Redeploy 13:28 UTC com Memory Limit); o push dos commits de docs da M1 causará mais 1 redeploy docs-only
+- **Pendências para próxima sessão:** push da main (docs M1); M2 = janela de observação G1–G8 → ligar GUARDRAIL_ENFORCE + registrar dependência node n8n N1–N8 em DECISOES.md

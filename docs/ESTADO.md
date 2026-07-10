@@ -4,15 +4,15 @@
 > Ordem de leitura de toda conversa: 1º este arquivo → 2º [SESSOES.md](SESSOES.md) → 3º o arquivo da sessão ativa em [sessions/](sessions/).
 
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
-- **Onda atual:** M0 · Doc viva — **CONCLUÍDA e mergeada na main em 10/07/2026** (sessão `2026-07-10-1000-m0-doc-viva`) — **push pendente**
-- **Próxima onda:** M1 · Destravar produção (itens operacionais O1–O3 da [auditoria](auditoria-2026-07.md))
+- **Onda atual:** M1 · Destravar produção — **CONCLUÍDA em 10/07/2026** (sessão `2026-07-10-1015-m1-destravar-producao`) — auditoria O1–O4 100% ✅
+- **Próxima onda:** M2 · Guard-rail ativo (janela de observação G1–G8 → ligar `GUARDRAIL_ENFORCE`)
 
 ## Roadmap (R2)
 
 | Onda | Objetivo                                                                             | Status        |
 | ---- | ------------------------------------------------------------------------------------ | ------------- |
 | M0   | Doc viva (ESTADO, SESSOES, DECISOES, ARQUITETURA, PROJETO, CHANGELOG, CLAUDE.md)     | ✅ 10/07/2026 |
-| M1   | Destravar produção: O1–O3 operacionais + confirmar prod = código mais recente        | ⬜            |
+| M1   | Destravar produção: O1–O3 operacionais + confirmar prod = código mais recente        | ✅ 10/07/2026 |
 | M2   | Guard-rail ativo: observação G1–G8 → ligar `GUARDRAIL_ENFORCE`                       | ⬜            |
 | M3   | Qualidade: testes unitários de domínio + coverage + boundaries no CI                 | ⬜            |
 | M4   | Segurança: backup testado, rotação de secrets, npm audit no CI                       | ⬜            |
@@ -22,25 +22,24 @@
 ## Estado de produção
 
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
-- **Último deploy confirmado:** 04/07/2026 (~10:31 UTC) — commit `40f6132` (HEAD da main), `storage: true` no `/health`
-- **Auditoria 07/2026:** backlog de CÓDIGO 100% concluído (itens 3–26); detalhes em [auditoria-2026-07.md](auditoria-2026-07.md)
-- **O4 (S3 em prod):** ✅ resolvido 04/07 — Cloudflare R2, bucket `conexozenvo-wa-media`
+- **Último deploy confirmado:** 10/07/2026 13:28 UTC — imagem de `808c175`, restart com **Memory Limit ativo** (`memoryUsedPct: 0.27` no `/health`), checks database/redis/storage true
+- **Auditoria 07/2026: 100% ENCERRADA** — código (itens 3–26) e operacionais (O1–O4) todos ✅; detalhes em [auditoria-2026-07.md](auditoria-2026-07.md)
+- **Proxies:** pool Webshare re-sincronizado (10/07), todos ALIVE de verdade (health-tester só aceita 2xx), sessões WORKING
+- **DNS:** validado verde no Dokploy (10/07)
 - **Guard-rail G1–G8:** implementado e em produção em modo OBSERVAÇÃO (`GUARDRAIL_ENFORCE=false`) — ligar é a M2
 - **Node n8n** `n8n-nodes-conexozenvo-gateway`: publicado no npm (v0.4.1) — repo separado; o contrato `/api` atual é a v1 de fato (R0/R4)
+- **Webhook de deploy do Dokploy:** intermitente no histórico (2 falhas em 03/07), mas disparou normal nos 2 pushes de 10/07 (~4,5 min de ciclo) — seguir observando
 
 ## Divergência dev × produção
 
-| Onde               | O quê                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| main local         | À FRENTE de origin/main: commits da M0 (só docs) mergeados e **não pushados** — o push dispara redeploy no Dokploy |
-| origin/main = prod | `40f6132` pushado e deployado (04/07, storage ok)                                                                  |
+| Onde               | O quê                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| main local         | À FRENTE de origin/main: commits DOCS da M1 (abertura, backlog, O1–O3, encerramento) — push pendente |
+| origin/main = prod | `808c175` pushado e deployado (10/07 13:28 UTC, Memory Limit ativo)                                  |
 
-## Pendências operacionais (M1 — fazer no Dokploy/dashboard de prod)
+## Pendências operacionais
 
-1. **O1** — Re-sync Webshare + restart de sessão (credencial de proxy divergente no banco)
-2. **O2** — Memory Limit ~1.5–2 GB no gateway (Dokploy → Advanced → Resources) + Redeploy
-3. **O3** — Resolver "Validate DNS" amarelo do domínio no Dokploy
-4. Investigar webhook de deploy intermitente do Dokploy (2 ocorrências de push sem disparo — GitHub → Webhooks → Recent Deliveries)
+Nenhuma — O1–O4 concluídos. Observação contínua: intermitência do webhook de deploy do Dokploy (se um push não deployar em ~5 min: GitHub → Settings → Webhooks → Recent Deliveries + Deploy manual).
 
 ## Backlog de produto (fora das ondas — vira sessão R9 própria quando priorizado)
 
@@ -56,5 +55,6 @@
 
 ## Próximos passos
 
-1. Push da main quando o usuário decidir (efeito: redeploy automático via webhook do Dokploy — sessões reconectam)
-2. Abrir sessão da M1 (operacional, guiada — ações no Dokploy são do usuário, R0)
+1. Push da main com os commits de docs da M1 (dispara redeploy — docs-only, sessões reconectam)
+2. Abrir sessão da M2: definir a janela de observação do guard-rail (métricas G4/G5 por alguns dias), critérios de aceite para ligar `GUARDRAIL_ENFORCE=true`, e registrar a dependência do node n8n N1–N8 em DECISOES.md
+3. Aproveitar a M3 para: fix do lint local (`apps/gateway/auth/` nos ignores do eslint), normalizar 25 arquivos no prettier e adicionar `format:check` ao CI
