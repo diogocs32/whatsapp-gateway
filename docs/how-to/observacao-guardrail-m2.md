@@ -46,6 +46,9 @@ GATEWAY_API_KEY=<chave X-Api-Key> node scripts/guardrail-observe.mjs
    lança erro no 423, o requeue não roda e o lead fica marcado como enviado SEM envio (lead
    perdido). Conferir o toggle em todos os fluxos antes de ligar o enforce.
    Override por API: `POST /api/sessions/:id/quarantine` · desfazer: `POST /api/sessions/:id/activate`.
+   💡 **Hardening recomendado (aplicado em 10/07)**: a query de requeue do fluxo deve terminar com
+   `RETURNING id` — UPDATE de 0 linhas passa como `success: true` no node Postgres e esconderia
+   lead perdido; com RETURNING, a linha tocada aparece no output da execução.
 5. **Rollback conhecido**: `GUARDRAIL_ENFORCE=false` (ou remover a variável) + Redeploy —
    reversível em minutos. Semântica dos booleans corrigida no D-007: `true/1/yes/on` liga ·
    `false/0/no/off` desliga · valor inválido derruba o boot com erro claro.

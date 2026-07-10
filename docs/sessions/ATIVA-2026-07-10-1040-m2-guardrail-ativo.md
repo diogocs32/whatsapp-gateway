@@ -31,7 +31,11 @@
   3. Fix: usuário ligou `continueOnQuarantine` no node "Enviar (cold)" + SQL de resgate do lead 5.
   4. Execução 124922 (re-teste): **verde ponta a ponta** — "Enviar (cold)" success com `{blocked:true, code:SESSION_QUARANTINED}`, "Registrar Resultado" devolveu o lead 7 a `pendente` +30min. N7 completo provado.
   5. Pendências do episódio: usuário rodar `POST /sessions/Diogo/activate` (destravar) e conferir lead 5 re-pendente; backlog do repo do node n8n: avaliar `continueOnQuarantine` default true (ou destacar na doc do node) — anotado no how-to.
-  6. [16:05 UTC] Override desfeito pelo usuário: `{"state":"ativa","reason":"override manual: activate"}` — sessão destravada. Episódio encerrado. Pendência residual: conferir lead 5 (`SELECT ... WHERE id IN (5,7)`).
+  6. [16:05 UTC] Override desfeito pelo usuário: `{"state":"ativa","reason":"override manual: activate"}` — sessão destravada. Pendência residual: conferir lead 5 (`SELECT ... WHERE id IN (5,7)`).
+- [10/07 16:00–16:20 UTC] **ANOMALIA INVESTIGADA E RESOLVIDA**: usuário reportou lead 7 `enviado` após o re-teste 124922 (requeue deveria tê-lo devolvido a `pendente`). Causa provável: SQLs manuais de resgate rodados fora de ordem durante o teste contaminaram a leitura (o próprio usuário confirmou ter rodado o UPDATE para os 2 ids). Prova definitiva via re-teste controlado:
+  1. Hardening aplicado pelo usuário: `RETURNING id` na query do "Registrar Resultado" (0-linhas deixa de passar em silêncio — melhoria PERMANENTE do fluxo).
+  2. Quarentena manual → execução 124966 (verde): picker pegou lead 5 → `blocked:true SESSION_QUARANTINED` → "Registrar Resultado" devolveu **`{id:"5"}`** = UPDATE comprovadamente tocou a linha (pendente +30min). **Requeue N7 provado com evidência dentro da execução.**
+  3. Override desfeito (`state: ativa`). **CRITÉRIO 4 FECHADO EM DEFINITIVO.** Lição de processo: durante teste com fila, ZERO SQL manual — evidência primeiro, resgate depois.
 
 ## Encerramento (preencher ao concluir)
 
