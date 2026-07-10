@@ -31,6 +31,7 @@
   3. Fix: usuário ligou `continueOnQuarantine` no node "Enviar (cold)" + SQL de resgate do lead 5.
   4. Execução 124922 (re-teste): **verde ponta a ponta** — "Enviar (cold)" success com `{blocked:true, code:SESSION_QUARANTINED}`, "Registrar Resultado" devolveu o lead 7 a `pendente` +30min. N7 completo provado.
   5. Pendências do episódio: usuário rodar `POST /sessions/Diogo/activate` (destravar) e conferir lead 5 re-pendente; backlog do repo do node n8n: avaliar `continueOnQuarantine` default true (ou destacar na doc do node) — anotado no how-to.
+  6. [16:05 UTC] Override desfeito pelo usuário: `{"state":"ativa","reason":"override manual: activate"}` — sessão destravada. Episódio encerrado. Pendência residual: conferir lead 5 (`SELECT ... WHERE id IN (5,7)`).
 
 ## Encerramento (preencher ao concluir)
 
