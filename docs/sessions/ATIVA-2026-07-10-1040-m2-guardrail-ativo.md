@@ -3,8 +3,8 @@
 - **Status:** 🟢 ATIVA
 - **Início:** 10/07/2026 10:40
 - **Objetivo:** Onda M2 — guard-rail ativo: (1) instrumentar e conduzir a janela de observação G1–G8 (≥7 dias, coleta diária de targetState vs estado real), (2) testar o 423 nos fluxos n8n via override manual, (3) ligar `GUARDRAIL_ENFORCE=true` no Dokploy (ação do usuário, R0) e monitorar 48–72h. Dependência do node n8n N1–N8 registrada (D-006).
-- **Escopo (pode tocar):** `docs/**` (how-to, DECISOES, observacao/, este arquivo, SESSOES, ESTADO no encerramento), `scripts/guardrail-observe.mjs` (novo, read-only sobre a API) — **nenhuma linha do gateway/dashboard/contracts**
-- **Fora do escopo (não tocar):** `apps/**`, `packages/**`, `schema.prisma`, migrations, `ci.yml`
+- **Escopo (pode tocar):** `docs/**` (how-to, DECISOES, observacao/, este arquivo, SESSOES, ESTADO no encerramento), `scripts/guardrail-observe.mjs` (novo, read-only sobre a API), `apps/gateway/env.production.example` e — **ampliação autorizada pelo usuário em 10/07 (fix D-007)** — `apps/gateway/src/bootstrap/config.ts` + `apps/gateway/test/config.e2e-spec.ts`
+- **Fora do escopo (não tocar):** resto de `apps/**`, `packages/**`, `schema.prisma`, migrations, `ci.yml`
 - **Branch:** feature/m2-guardrail-ativo
 
 ## Critérios de aceite (espelho do how-to)
@@ -21,6 +21,7 @@
 - [10/07 10:50] Criados: `scripts/guardrail-observe.mjs` (coletor JSONL + tabela resumo), `docs/how-to/observacao-guardrail-m2.md` (procedimento + critérios + flip + rollback), D-005 e D-006 no DECISOES.md.
 - [10/07 10:50] **Aguardando**: 1ª coleta pelo usuário (precisa de API key ADMIN/OPERATOR: `GATEWAY_API_KEY=... node scripts/guardrail-observe.mjs`). Janela alvo: 10/07 → 17/07/2026.
 - [10/07 11:05] **BUG LATENTE ENCONTRADO** (a pedido do usuário, documentando envs no env.production.example): `GUARDRAIL_ENFORCE`, `DB_SSL` e `S3_FORCE_PATH_STYLE` usam `z.coerce.boolean()` (`config.ts:22,44,62`) = `Boolean(texto)` → **"false"/"0" viram TRUE**. Consequências: (a) `GUARDRAIL_ENFORCE=false` no Dokploy LIGARIA o enforce; (b) o rollback documentado como "=false" NÃO funcionaria (corrigido no how-to: REMOVER a env); (c) o exemplo antigo `DB_SSL=false` era armadilha; (d) impossível desligar `S3_FORCE_PATH_STYLE` por env (AWS S3 inviável). env.production.example e how-to corrigidos (docs). **Fix de código proposto** (parser de boolean de env: true/1/yes/on): fora do escopo declarado desta sessão — aguardando decisão do usuário (recomendado ANTES do flip da M2).
+- [10/07 11:10] **FIX D-007 APLICADO** (autorizado pelo usuário): helper `envBool` no `config.ts` (true/1/yes/on · false/0/no/off · inválido = boot falha) nas 3 envs; teste de regressão `test/config.e2e-spec.ts` (5 casos). Validação: tsc ok, spec 5/5, **suíte completa 74/74** (infra docker local). env.production.example e how-to atualizados para a semântica nova.
 
 ## Encerramento (preencher ao concluir)
 

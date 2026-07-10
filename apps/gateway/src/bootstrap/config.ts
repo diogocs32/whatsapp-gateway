@@ -8,8 +8,27 @@ import { z } from 'zod';
 //  - Redis:    REDIS_URL     OU  REDIS_HOST + REDIS_PORT + REDIS_PASSWORD (+ REDIS_USERNAME/REDIS_DB)
 // Se a URL estiver presente, ela tem prioridade; senão monta-se a partir das partes (evita ter de
 // fazer URL-encode de senhas com caracteres especiais).
+// Boolean de env com semântica explícita: ligado = true/1/yes/on · desligado = false/0/no/off
+// (case-insensitive; ausente/vazio = default). NUNCA usar z.coerce.boolean() aqui: no zod 3 ele
+// faz Boolean(input) e QUALQUER string não-vazia vira true — inclusive "false" e "0"
+// (https://zod.dev/?id=coercion-for-primitives; quase ligou o GUARDRAIL_ENFORCE por engano — D-007).
+// Valor não reconhecido derruba o boot com erro claro (fail-fast > default silencioso).
+const TRUE_WORDS = new Set(['true', '1', 'yes', 'on']);
+const FALSE_WORDS = new Set(['false', '0', 'no', 'off']);
+const envBool = (def: boolean) =>
+  z.preprocess((v) => {
+    if (v === undefined || v === null || v === '') return def;
+    if (typeof v === 'boolean') return v;
+    const s = String(v).trim().toLowerCase();
+    if (TRUE_WORDS.has(s)) return true;
+    if (FALSE_WORDS.has(s)) return false;
+    return v; // inválido → z.boolean() acusa no validateEnv com o nome da variável
+  }, z.boolean());
+
 const base = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'production', 'test'])
+    .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
 
   // ---- PostgreSQL ----
@@ -19,7 +38,7 @@ const base = z.object({
   DB_USER: z.string().optional(),
   DB_PASSWORD: z.string().optional(),
   DB_NAME: z.string().optional(),
-  DB_SSL: z.coerce.boolean().default(false),
+  DB_SSL: envBool(false),
 
   // ---- Redis ----
   REDIS_URL: z.string().min(1).optional(),
@@ -41,7 +60,7 @@ const base = z.object({
   // ---- Guard-rail (G5) ----
   // enforce=false => modo OBSERVAÇÃO: mede/registra o estado mas NÃO bloqueia envios nem aplica
   // quarentena automática. Ligar (true) só depois de ter a mediana real da frota (trava do §G5).
-  GUARDRAIL_ENFORCE: z.coerce.boolean().default(false),
+  GUARDRAIL_ENFORCE: envBool(false),
   GUARDRAIL_NMIN: z.coerce.number().int().positive().default(20), // amostra mínima p/ veredito
   GUARDRAIL_THROTTLE_MULT: z.coerce.number().positive().default(0.75), // < mediana×0,75 => throttled
   GUARDRAIL_QUARANTINE_MULT: z.coerce.number().positive().default(0.6), // < mediana×0,6 => quarentena
@@ -59,7 +78,7 @@ const base = z.object({
   S3_BUCKET: z.string().default('wa-media'),
   S3_ACCESS_KEY: z.string().default('minio'),
   S3_SECRET_KEY: z.string().default('minio12345'),
-  S3_FORCE_PATH_STYLE: z.coerce.boolean().default(true), // true p/ MinIO; false p/ AWS S3
+  S3_FORCE_PATH_STYLE: envBool(true), // true p/ MinIO/R2/B2; false p/ AWS S3
   MEDIA_URL_TTL: z.coerce.number().int().positive().default(3600), // validade do URL pré-assinado (s)
   MEDIA_MAX_BYTES: z.coerce.number().int().positive().default(67108864), // 64 MB
 });
@@ -70,7 +89,8 @@ export const envSchema = base.superRefine((env, ctx) => {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['DATABASE_URL'],
-      message: 'defina DATABASE_URL ou DB_HOST + DB_USER + DB_NAME (+ DB_PASSWORD)',
+      message:
+        'defina DATABASE_URL ou DB_HOST + DB_USER + DB_NAME (+ DB_PASSWORD)',
     });
   }
   if (!env.REDIS_URL && !env.REDIS_HOST) {

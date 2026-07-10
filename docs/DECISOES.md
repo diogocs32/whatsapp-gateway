@@ -57,3 +57,19 @@
 - **Motivo:** M2 liga o comportamento que esse contrato promete; a dependência cruza repositórios e
   precisa estar visível para quem mexer no guard-rail ou no node.
 - **Alternativas:** — (registro de dependência, exigido pela definição da onda M2).
+
+## D-007 — 2026-07-10 — Booleans de env com parser explícito (fim da pegadinha do coerce.boolean)
+
+- **Decisão:** `DB_SSL`, `GUARDRAIL_ENFORCE` e `S3_FORCE_PATH_STYLE` deixam de usar
+  `z.coerce.boolean()` e passam a usar o helper `envBool` (`config.ts`): `true/1/yes/on` liga ·
+  `false/0/no/off` desliga · ausente/vazio = default · **valor não reconhecido derruba o boot**
+  citando a variável (fail-fast). Regressão travada por `test/config.e2e-spec.ts` (5 testes).
+- **Motivo (EP+DO):** no zod 3 (`zod@^3.23.8`), `z.coerce.boolean()` faz `Boolean(input)` —
+  QUALQUER string não-vazia vira `true`, inclusive `"false"` e `"0"` (doc oficial:
+  https://zod.dev/?id=coercion-for-primitives). Descoberto na M2 ao documentar o
+  `env.production.example`: escrever `GUARDRAIL_ENFORCE=false` no Dokploy LIGARIA o enforce, e o
+  rollback "=false" não funcionaria; o exemplo antigo `DB_SSL=false` era a mesma armadilha; e era
+  impossível desligar `S3_FORCE_PATH_STYLE` por env (AWS S3 inviável).
+- **Alternativas:** documentar a pegadinha sem mudar código (rejeitado: rollback contra-intuitivo
+  em incidente é risco real); aceitar qualquer valor desconhecido como false (rejeitado: erro de
+  digitação silencioso em produção é pior que boot falhando com mensagem clara).
