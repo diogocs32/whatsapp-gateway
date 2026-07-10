@@ -8,8 +8,9 @@
 
 ## 🟢 Sessões ativas
 
-| ID  | Início | Objetivo | Escopo | Branch |
-| --- | ------ | -------- | ------ | ------ |
+| ID                                 | Início      | Objetivo                                            | Escopo                                                        | Branch                     |
+| ---------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------- | -------------------------- |
+| 2026-07-10-1040-m2-guardrail-ativo | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway) | feature/m2-guardrail-ativo |
 
 ## ✅ Histórico (mais recente primeiro)
 

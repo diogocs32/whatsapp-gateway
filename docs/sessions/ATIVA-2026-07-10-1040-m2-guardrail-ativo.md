@@ -1,0 +1,28 @@
+# Sessão: m2-guardrail-ativo
+
+- **Status:** 🟢 ATIVA
+- **Início:** 10/07/2026 10:40
+- **Objetivo:** Onda M2 — guard-rail ativo: (1) instrumentar e conduzir a janela de observação G1–G8 (≥7 dias, coleta diária de targetState vs estado real), (2) testar o 423 nos fluxos n8n via override manual, (3) ligar `GUARDRAIL_ENFORCE=true` no Dokploy (ação do usuário, R0) e monitorar 48–72h. Dependência do node n8n N1–N8 registrada (D-006).
+- **Escopo (pode tocar):** `docs/**` (how-to, DECISOES, observacao/, este arquivo, SESSOES, ESTADO no encerramento), `scripts/guardrail-observe.mjs` (novo, read-only sobre a API) — **nenhuma linha do gateway/dashboard/contracts**
+- **Fora do escopo (não tocar):** `apps/**`, `packages/**`, `schema.prisma`, migrations, `ci.yml`
+- **Branch:** feature/m2-guardrail-ativo
+
+## Critérios de aceite (espelho do how-to)
+
+1. ≥ 7 dias de janela com ≥ 5 coletas
+2. Zero falso-positivo de quarentena em sessão saudável
+3. Amostras conscientes (reliable ou aquecimento aceito)
+4. Teste 423 no n8n executado e aprovado (override manual → envio cold → 423 → N7 re-enfileira → desfazer)
+5. Rollback conhecido (env false + redeploy)
+
+## Progresso
+
+- [10/07 10:40] Sessão aberta; branch criada. Leitura do guardrail real: `evaluate()` devolve `currentState`/`targetState`/`applied`/`replyRate`/`sample`/`reliable`/`fleetMedian`/`baseline`/`reason`; em observação nada é aplicado (só override manual bloqueia); limiares tunáveis em runtime via `PATCH /guardrail/config` (enforce é ENV, exige redeploy).
+- [10/07 10:50] Criados: `scripts/guardrail-observe.mjs` (coletor JSONL + tabela resumo), `docs/how-to/observacao-guardrail-m2.md` (procedimento + critérios + flip + rollback), D-005 e D-006 no DECISOES.md.
+- [10/07 10:50] **Aguardando**: 1ª coleta pelo usuário (precisa de API key ADMIN/OPERATOR: `GATEWAY_API_KEY=... node scripts/guardrail-observe.mjs`). Janela alvo: 10/07 → 17/07/2026.
+
+## Encerramento (preencher ao concluir)
+
+- **Fim:** — · **Entregue:** — · **Commits:** —
+- **Efeito de deploy:** —
+- **Pendências para próxima sessão:** —

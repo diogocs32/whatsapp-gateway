@@ -33,3 +33,27 @@
 - **Decisão:** [INTEGRACAO.md](INTEGRACAO.md) (contrato da API), [auditoria-2026-07.md](auditoria-2026-07.md) (backlog/histórico), [deploy-dokploy.md](deploy-dokploy.md) (deploy), [agent-whatzapp_api.md](agent-whatzapp_api.md) (gargalos/operação) e [motores-whatsapp.md](motores-whatsapp.md) (comparativo de engines) permanecem como estão; os arquivos novos da M0 os REFERENCIAM.
 - **Motivo:** duplicação = duas fontes que divergem; a auditoria já provou ser um bom documento de acompanhamento.
 - **Alternativas:** consolidar tudo em ARQUITETURA/PROJETO (rejeitado: perderia histórico e quebraria links externos já usados).
+
+## D-005 — 2026-07-10 — Janela de observação do guard-rail antes de ligar o enforce (M2)
+
+- **Decisão:** observar o guard-rail por **≥ 7 dias** (coleta 1×/dia via `scripts/guardrail-observe.mjs`,
+  acumulando `targetState` vs estado real por sessão em `docs/observacao/guardrail-m2.jsonl`) e SÓ
+  ligar `GUARDRAIL_ENFORCE=true` quando os 5 critérios de aceite do
+  [how-to/observacao-guardrail-m2.md](how-to/observacao-guardrail-m2.md) forem cumpridos — incluindo
+  o teste prévio do HTTP 423 nos fluxos n8n via override manual (que bloqueia mesmo em observação).
+- **Motivo:** o hard-gate 423 afeta consumidores externos (contrato público, R0); 7 dias cobrem 2+
+  ciclos de maturação do reply-rate (cold-sends só contam no denominador após 72h — C2) e a janela
+  operacional de 7d do G4. Falso-positivo de quarentena bloquearia envio legítimo de cliente.
+- **Alternativas:** ligar direto (rejeitado: sem evidência de que os limiares não geram falso-positivo
+  com a frota real); observação sem prazo (rejeitado: vira nunca — critérios objetivos + data).
+
+## D-006 — 2026-07-10 — Dependência do node n8n (N1–N8) para o enforce do guard-rail
+
+- **Decisão:** registrar que o community node `n8n-nodes-conexozenvo-gateway` (repo separado,
+  publicado no npm — v0.2.0 introduziu N1–N8, atual 0.4.1) é o principal consumidor do contrato do
+  guard-rail: HTTP **423** com payload `{ code: "SESSION_QUARANTINED", state, message }` (N7
+  ramifica e re-enfileira o lead). Qualquer mudança nesse shape é BREAKING (R0) e exige plano de
+  versão. Integradores em HTTP puro ou node < 0.2.0 precisam tratar 423 antes do enforce.
+- **Motivo:** M2 liga o comportamento que esse contrato promete; a dependência cruza repositórios e
+  precisa estar visível para quem mexer no guard-rail ou no node.
+- **Alternativas:** — (registro de dependência, exigido pela definição da onda M2).
