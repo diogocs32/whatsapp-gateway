@@ -42,6 +42,17 @@
 3. **O3** — Resolver "Validate DNS" amarelo do domínio no Dokploy
 4. Investigar webhook de deploy intermitente do Dokploy (2 ocorrências de push sem disparo — GitHub → Webhooks → Recent Deliveries)
 
+## Backlog de produto (fora das ondas — vira sessão R9 própria quando priorizado)
+
+- **Auto-atribuição de proxy exclusivo na criação de sessão** (pedido do usuário, 10/07/2026):
+  toda sessão NOVA deve conectar automaticamente com um proxy ALIVE que **não esteja em uso**
+  por outra sessão (1 proxy = 1 sessão), sem configuração manual. Hoje a atribuição é manual por
+  sessão (`session_proxy_assignments`: NONE/SINGLE/RANGE/GLOBAL_ROUND_ROBIN). Implementação deve
+  ser ADITIVA (R0) — ex.: novo `ProxyMode` `AUTO_EXCLUSIVE` como default de sessões novas, resolvido
+  no create/start via `ProxyResolverService`, com fallback documentado quando o pool esgotar
+  (sem proxy livre: conectar direto? recusar? — decidir em DECISOES.md na implementação).
+  Módulos: proxies (dono) + sessions (consome). Contrato: campo novo opcional na criação = aditivo.
+
 ## Próximos passos
 
 1. Push da main quando o usuário decidir (efeito: redeploy automático via webhook do Dokploy — sessões reconectam)
