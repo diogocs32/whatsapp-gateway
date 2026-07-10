@@ -30,6 +30,8 @@
 - [10/07 10:30] Requisito REFINADO pelo usuário: em vez de atribuição automática, a criação de sessão deve OFERECER a lista de proxies livres para o usuário escolher (ou "sem proxy") — a sessão nasce com ou sem proxy por escolha. ESTADO.md atualizado.
 - [10/07 10:25 UTC-3 / 13:24 UTC] **DEPLOY CONFIRMADO**: push 13:20:15 UTC → uptime resetado 13:24:57 UTC (~4,5 min, webhook do Dokploy FUNCIONOU desta vez). /health pós-deploy: database/redis/storage true. Prod agora roda `808c175`. Ressalva: `memoryUsedPct: 0` no /health sugere que o Memory Limit (O2) ainda NÃO está aplicado no container (com limite de 2 GB e rss ~297 MB o esperado seria ~0.14) — confirmar com o usuário se salvou antes do deploy; se não, salvar e Redeploy.
 - [10/07 13:29 UTC] **O2 CONCLUÍDO ✅**: usuário salvou o Memory Limit e redeployou (restart ~13:28:42 UTC); `/health` confirma `memoryUsedPct: 0.27` (limite ativo no cgroup — antes 0), checks todos true. Auditoria atualizada. Restam O1 e O3.
+- [10/07 ~13:40 UTC] **O1 quase fechado**: usuário rodou Sync Webshare + Test All no painel de prod — **todos os proxies ALIVE** (com o health-tester corrigido, 407 viraria DEAD/PROXY_AUTH → a credencial divergente foi corrigida pelo sync). Falta só confirmar que as sessões com proxy estão WORKING (restart se alguma estiver FAILED/DEGRADED).
+- [10/07 ~13:50 UTC] **O1 CONCLUÍDO ✅**: usuário confirmou sessões WORKING. Auditoria atualizada. Resta apenas O3 (Validate DNS).
 
 ## Encerramento (preencher ao concluir)
 
