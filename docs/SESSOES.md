@@ -8,8 +8,9 @@
 
 ## 🟢 Sessões ativas
 
-| ID  | Início | Objetivo | Escopo | Branch |
-| --- | ------ | -------- | ------ | ------ |
+| ID                                    | Início      | Objetivo                                      | Escopo                                  | Branch                        |
+| ------------------------------------- | ----------- | --------------------------------------------- | --------------------------------------- | ----------------------------- |
+| 2026-07-10-1015-m1-destravar-producao | 10/07 10:15 | M1 — O1–O3 operacionais + push/deploy da main | docs/ (runbook; sem código) + push main | feature/m1-destravar-producao |
 
 ## ✅ Histórico (mais recente primeiro)
 
