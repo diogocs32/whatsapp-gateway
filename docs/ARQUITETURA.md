@@ -1,0 +1,76 @@
+# 🧱 ARQUITETURA — ConexoZenvo
+
+> Monolito modular + DDD pragmático (R10). Documento vivo — validado contra o
+> `schema.prisma` e o código real em 10/07/2026 (M0). Divergências do esboço original
+> registradas em [DECISOES.md](DECISOES.md) (D-002, D-003).
+
+## Visão
+
+- Monorepo npm workspaces: `apps/gateway` (NestJS 11 + Fastify) · `apps/dashboard` (React 19) · `packages/contracts` (tipos compartilhados)
+- Cada módulo em `apps/gateway/src/modules/` é um bounded context NestJS
+- Layout de referência (módulos novos/tocados migram para ele): `domain/ · application/ · infrastructure/ · interface/` — exemplo real: `proxies`
+- Módulos mais antigos ainda são flat (controller + service + module) — padronização INCREMENTAL, nunca big-bang
+
+## Mapa de módulos (apps/gateway/src/modules/) — donos por tabela VALIDADOS
+
+| Módulo        | Responsabilidade                                                                                                                                                                             | Tabelas donas (escreve)                                                                       | Expõe                                                                       | Consome                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
+| sessions      | ciclo de vida das sessões (start/stop/restart, QR/pairing, autostart escalonado, teto 15s), **engines Baileys/wwebjs + EngineFactory em `infrastructure/`**, config de envio por sessão (G8) | `wa_sessions`, `wa_auth_keys`, `session_config`                                               | `SessionManager`, `SessionConfigService`, `SessionRefPipe`                  | proxies (ProxyResolver), EventBus                       |
+| channels      | **Canais/newsletter do WhatsApp** (beta — cria/lista canais da sessão). NÃO é a abstração de engine (D-003)                                                                                  | —                                                                                             | REST `sessions/:id/channels`                                                | sessions (SessionManager)                               |
+| messaging     | envio/recepção, ack, ritmo humano, mídia S3 (upload/download), persistência de mensagens                                                                                                     | `wa_messages` (engines em sessions/infrastructure fazem `updateMany` de ack — mesmo agregado) | API de envio, `MessagePersister`                                            | sessions, guardrail (veredito), infra/storage           |
+| webhooks      | dispatcher BullMQ, HMAC, dedup por jobId (**sem `:`!**), dead-letter + reentrega                                                                                                             | `webhooks`, `webhook_dead_letters`                                                            | REST `/webhooks`                                                            | EventBus (`wa.event`), infra/redis                      |
+| events        | timeline REST + SSE (ponte EventBus → clientes)                                                                                                                                              | —                                                                                             | REST `/events`, stream SSE                                                  | EventBus, fan-out Redis                                 |
+| guardrail     | G1–G8: máquina de estados de saúde, quarentena, HTTP 423, veredito de envio                                                                                                                  | `session_guardrail`, `guardrail_config`                                                       | veredito de envio, REST `/guardrail`                                        | `session_metrics` (lê — dono é observability), EventBus |
+| contacts      | REST de contatos (save/remove/block/unblock)                                                                                                                                                 | — (a ESCRITA de `wa_contacts` é do `infra/directory` — exceção registrada em D-002.3)         | REST `/contacts`                                                            | sessions, infra/directory                               |
+| groups        | grupos e extração de leads (em massa = wwebjs/Store)                                                                                                                                         | — (sem tabela própria; ver D-002.4)                                                           | REST `/groups`                                                              | sessions (SessionManager)                               |
+| campaigns     | campanhas em massa com anti-ban (espaçamento, cap diário, agendamento)                                                                                                                       | `campaigns`, `campaign_recipients`                                                            | REST `/campaigns`                                                           | messaging, BullMQ                                       |
+| proxies       | pool Webshare, health-tester (só 2xx = ALIVE), re-teste periódico, atribuição por sessão                                                                                                     | `proxies`, `session_proxy_assignments`                                                        | `ProxyResolverService`                                                      | infra externa (Webshare)                                |
+| iam           | F9: API keys, RBAC, usuários/seats, licença Ed25519, white-label, audit log, guards                                                                                                          | `users`, `wa_api_keys`, `wa_licenses`, `wa_branding`, `wa_audit_logs`                         | guards (`ApiKeyAuthGuard`, `RolesGuard`, `AuthGuard`), REST auth/users/keys | —                                                       |
+| health        | `/health` (db, redis, storage com probe PUT cacheado 5min)                                                                                                                                   | —                                                                                             | REST `/health`                                                              | infra                                                   |
+| observability | `/metrics` (prom-client, METRICS_TOKEN), contadores (cache Redis TTL 10s), **timeline de eventos de sessão, snapshots de reply-rate (G4), retenção/purge**                                   | `wa_session_events`, `session_metrics` (D-002.1/2)                                            | `SessionEventLogger`, `ReplyRateService`                                    | Redis, EventBus                                         |
+
+Fora de modules/:
+
+| Camada                | Conteúdo                                                                     | Regra                                                       |
+| --------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `shared-kernel/`      | event-bus, domain-event, result, ulid, clock, crypto                         | não importa modules/\*\* — cresce por último                |
+| `infra/`              | prisma, redis, storage (S3), **directory (escreve `wa_contacts` — D-002.3)** | adapters de mundo externo; exceção do directory a revisitar |
+| `packages/contracts/` | tipos compartilhados gateway ↔ dashboard ↔ integrações                       | mudou payload → mudou contracts no MESMO commit (R4)        |
+
+## Regras de dependência (enforcement chega na M3 — dependency-cruiser no CI)
+
+- Permitido: módulo → shared-kernel · módulo → infra · qualquer → contracts
+- Proibido: módulo → internals de outro módulo (só o público do `.module.ts`) · shared-kernel → módulo · infra → módulo (exceção conhecida: directory, D-002.3)
+- Comunicação entre módulos: (1) provider público exportado no `.module.ts` (síncrono) · (2) EventBus + listener/consumer (assíncrono)
+- Efeito crítico (webhook, evento, job) → fila BullMQ com jobId SEM `:` + teste e2e de efeito (R6)
+- Escrita em tabela de outro módulo: PROIBIDA · JOIN de leitura em query dedicada: permitido
+- Transação que cruza módulos = sinal de fronteira errada → registrar em DECISOES.md
+
+## Linguagem ubíqua (glossário)
+
+| Termo           | Significado no domínio                                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| LID             | id anônimo da Meta (rollout de privacidade) que esconde o telefone; merge LID→PN é responsabilidade das engines não-oficiais |
+| PN              | phone number — jid tradicional `@s.whatsapp.net` com número                                                                  |
+| engine          | motor de conexão WhatsApp: Baileys 7 (principal) ou whatsapp-web.js (Store/leads); META_CLOUD planejado (M6)                 |
+| canal (channel) | newsletter do WhatsApp (módulo channels) — não confundir com engine                                                          |
+| guard-rail      | G1–G8: regras anti-ban — cold-send, reply-rate, quarentena, HTTP 423 (`GUARDRAIL_ENFORCE=false` = só observa)                |
+| cold-send       | 1º contato sem conversa prévia (`isCold` em `wa_messages`) — numerador do risco de ban                                       |
+| reply-rate      | responded/coldMature (só cold-sends >72h contam no denominador — correção C2)                                                |
+| quarentena      | estado do guard-rail que suspende cold-sends da sessão (423 quando enforce=true)                                             |
+| fan-out         | replicação de `wa.event` entre réplicas via canal Redis `wa:events`                                                          |
+| seat            | assento de usuário dentro da licença (IAM F9)                                                                                |
+| dead-letter     | webhook cujas entregas esgotaram retries — preservado p/ reentrega manual                                                    |
+| sticky          | estratégia de proxy que mantém a mesma saída por sessão                                                                      |
+
+## Decisões de fronteira
+
+- [D-002] tabelas donas reais ≠ esboço (observability é dona de eventos+métricas; directory escreve contatos)
+- [D-003] engines vivem em `sessions/infrastructure/`; módulo channels = newsletter — META_CLOUD (M6) nasce atrás da IEngine existente
+
+## Referências
+
+- Fluxos críticos, gargalos e operação: [agent-whatzapp_api.md](agent-whatzapp_api.md)
+- Contrato da API (consumidores externos): [INTEGRACAO.md](INTEGRACAO.md)
+- Backlog/histórico da auditoria: [auditoria-2026-07.md](auditoria-2026-07.md)
+- Comparativo de engines: [motores-whatsapp.md](motores-whatsapp.md)
