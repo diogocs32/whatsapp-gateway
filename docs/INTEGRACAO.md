@@ -154,3 +154,18 @@ POST /api/sessions/{sessao}/contacts/block     { "jid": "5511999999999", "action
 - Resposta: `{ "ok": true }`.
 - **Não confundir** com o diretório (`GET …/contacts/directory`), que é o índice interno acumulado pelo
   gateway. Salvar contato escreve na **agenda real** da conta (recurso de contatos-na-conta do WhatsApp).
+
+## 11. Sessões — criar já com proxy livre (opcional, D-008)
+
+```
+GET  /api/proxies/available     # proxies LIVRES: enabled, não-DEAD e sem sessão usando
+POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "proxyId": "<id de um livre>" }
+```
+
+- **`proxyId` é OPCIONAL e aditivo** — sem ele, o comportamento é o de sempre (sessão sem proxy).
+- Com `proxyId`, a sessão **nasce** com atribuição `SINGLE`/`STICKY` àquele proxy (1 proxy = 1 sessão);
+  o proxy some imediatamente de `/proxies/available`.
+- Erros (HTTP 400, mensagem clara): proxy inexistente, desabilitado, `DEAD` ou **já em uso** — nesse
+  caso a sessão NÃO é criada (sem sessão órfã).
+- A exclusividade vale para o fluxo `SINGLE`; os modos `RANGE`/`GLOBAL_ROUND_ROBIN` (configurados via
+  `PUT /api/sessions/{sessao}/proxy`) seguem podendo usar qualquer proxy do pool em runtime.

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import type { SessionDto, SessionStatus } from '@contracts';
+import type { ProxyDto, SessionDto, SessionStatus } from '@contracts';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
@@ -180,6 +180,9 @@ export function Sessions() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [engine, setEngine] = useState<'BAILEYS' | 'WWEBJS'>('BAILEYS');
+  // D-008 — proxy opcional na criação: '' = sem proxy; senão, id de um proxy LIVRE.
+  const [proxyId, setProxyId] = useState('');
+  const [availableProxies, setAvailableProxies] = useState<ProxyDto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [connect, setConnect] = useState<SessionDto | null>(null);
 
@@ -197,6 +200,15 @@ export function Sessions() {
     return () => clearInterval(id);
   }, []);
 
+  // Carrega os proxies livres ao abrir o formulário (a lista muda conforme sessões usam proxies).
+  useEffect(() => {
+    if (!creating) return;
+    api.proxies
+      .listAvailable()
+      .then(setAvailableProxies)
+      .catch(() => setAvailableProxies([]));
+  }, [creating]);
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -204,8 +216,10 @@ export function Sessions() {
       const s = await api.sessions.create({
         name: name.trim(),
         engine,
+        ...(proxyId ? { proxyId } : {}),
       });
       setName('');
+      setProxyId('');
       setCreating(false);
       await refresh();
       setConnect(s);
@@ -280,6 +294,24 @@ export function Sessions() {
               >
                 <option value="BAILEYS">Baileys (recomendado)</option>
                 <option value="WWEBJS">WhatsApp Web.js</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-zinc-400">
+                Proxy (só os livres aparecem)
+              </span>
+              <select
+                value={proxyId}
+                onChange={(e) => setProxyId(e.target.value)}
+                className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              >
+                <option value="">Sem proxy (padrão)</option>
+                {availableProxies.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    #{p.position} · {p.label ?? `${p.host}:${p.port}`}
+                    {p.country ? ` · ${p.country}` : ''} · {p.status}
+                  </option>
+                ))}
               </select>
             </label>
             <button className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">

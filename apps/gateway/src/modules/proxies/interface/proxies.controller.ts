@@ -61,6 +61,13 @@ export class ProxiesController {
     return (await this.service.list()).map(toDto);
   }
 
+  // Proxies LIVRES (enabled, não-DEAD, sem sessão usando) — alimenta o dropdown da criação de
+  // sessão (D-008). Rota estática declarada antes das rotas com :id.
+  @Get('proxies/available')
+  async listAvailable() {
+    return (await this.service.listAvailable()).map(toDto);
+  }
+
   @Get('proxies/webshare/status')
   webshareStatus() {
     return { configured: this.service.webshareConfigured() };

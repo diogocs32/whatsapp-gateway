@@ -19,6 +19,7 @@ import {
   type ManualAction,
 } from '../../guardrail/guardrail.service';
 import { LicenseService } from '../../iam/application/license.service';
+import { ProxyService } from '../../proxies/application/proxy.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
 import { RolesGuard } from '../../iam/interface/roles.guard';
@@ -85,6 +86,7 @@ export class SessionsController {
     private readonly license: LicenseService,
     private readonly guardrail: GuardrailService,
     private readonly sessionConfig: SessionConfigService,
+    private readonly proxies: ProxyService,
   ) {}
 
   @Post()
@@ -96,7 +98,7 @@ export class SessionsController {
         parsed.error.issues[0]?.message ?? 'Dados inválidos',
       );
     }
-    const { name, engine, mode, phoneNumber, autostart } = parsed.data;
+    const { name, engine, mode, phoneNumber, autostart, proxyId } = parsed.data;
     if (mode === 'pairing' && !phoneNumber) {
       throw new BadRequestException(
         'phoneNumber é obrigatório no modo pairing',
@@ -111,6 +113,14 @@ export class SessionsController {
         `Limite de ${maxSessions} sessão(ões) atingido — instale uma licença com mais sessões.`,
       );
     }
+    // D-008 — valida ANTES de criar (proxy inválido não deixa sessão órfã pra trás).
+    if (proxyId) {
+      try {
+        await this.proxies.ensureAvailable(proxyId);
+      } catch (e) {
+        throw new BadRequestException((e as Error).message);
+      }
+    }
 
     const created = await this.repo.create({
       id: newId(),
@@ -119,6 +129,17 @@ export class SessionsController {
       phoneNumber: phoneNumber ?? null,
       autostart,
     });
+    // A atribuição precisa existir ANTES do start (a engine resolve o proxy na conexão).
+    // assignExclusive re-valida a exclusividade; se outro create levou o proxy no meio tempo,
+    // desfaz a sessão recém-criada e devolve o erro (sem sessão órfã, sem proxy duplicado).
+    if (proxyId) {
+      try {
+        await this.proxies.assignExclusive(created.id, proxyId);
+      } catch (e) {
+        await this.repo.delete(created.id);
+        throw new BadRequestException((e as Error).message);
+      }
+    }
     await this.manager.start(created.id);
     const fresh = (await this.repo.findById(created.id)) ?? created;
     return toDto(fresh);
@@ -268,7 +289,10 @@ export class SessionsController {
   }
 
   @Post(':id/pairing-code')
-  async pairingCode(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
+  async pairingCode(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
     await this.ensure(id);
     const parsed = pairingSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('phoneNumber inválido');
@@ -281,7 +305,8 @@ export class SessionsController {
     } catch (e) {
       // Sessão não iniciada/carregada ainda não permite parear (ex.: proxy falhou ou o WhatsApp Web
       // não abriu). Devolve 409 com o motivo em vez de 500 (Internal server error) cru.
-      const msg = (e as Error)?.message ?? 'Falha ao gerar código de pareamento';
+      const msg =
+        (e as Error)?.message ?? 'Falha ao gerar código de pareamento';
       throw new ConflictException(
         /não conectada|not connected|Session closed|Evaluation failed|pupPage|undefined/i.test(
           msg,

@@ -10,6 +10,9 @@ export const createSessionSchema = z.object({
   mode: z.enum(['qr', 'pairing']).default('qr'),
   phoneNumber: z.string().min(8).max(20).optional(),
   autostart: z.boolean().default(true),
+  // D-008 — opcional/ADITIVO: id de um proxy LIVRE (GET /proxies/available) p/ a sessão já
+  // nascer com atribuição SINGLE/STICKY. Ausente = sem proxy (comportamento de sempre).
+  proxyId: z.string().min(1).optional(),
 });
 
 export const pairingSchema = z.object({
@@ -33,5 +36,11 @@ export const sessionConfigSchema = z
 // G8 — presença ("digitando…"). available/unavailable = presença global; demais = por chat.
 export const presenceSchema = z.object({
   to: z.string().min(5).max(40),
-  type: z.enum(['composing', 'paused', 'available', 'unavailable', 'recording']),
+  type: z.enum([
+    'composing',
+    'paused',
+    'available',
+    'unavailable',
+    'recording',
+  ]),
 });

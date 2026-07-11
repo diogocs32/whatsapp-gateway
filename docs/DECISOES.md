@@ -73,3 +73,23 @@
 - **Alternativas:** documentar a pegadinha sem mudar código (rejeitado: rollback contra-intuitivo
   em incidente é risco real); aceitar qualquer valor desconhecido como false (rejeitado: erro de
   digitação silencioso em produção é pior que boot falhando com mensagem clara).
+
+## D-008 — 2026-07-11 — Escolha de proxy livre na criação de sessão (SEM migration)
+
+- **Decisão:** a criação de sessão ganha `proxyId` OPCIONAL (aditivo — R0/R4) e o endpoint
+  `GET /api/proxies/available` lista os proxies LIVRES (enabled, não-DEAD e que não são o
+  `currentProxyId` de nenhuma sessão existente). Com `proxyId`, a sessão nasce com atribuição
+  `SINGLE`/`STICKY` — reusando `session_proxy_assignments`, **sem migration**. Fronteira R10
+  preservada: `ProxyService` (exportado pelo ProxiesModule) faz a validação/atribuição; o create
+  de sessions valida ANTES de criar e desfaz a sessão se a atribuição falhar (corrida de dois
+  creates pelo mesmo proxy → 400, sem sessão órfã nem proxy duplicado).
+- **Limitações conscientes:** (1) exclusividade vale para o fluxo SINGLE — RANGE/GLOBAL_ROUND_ROBIN
+  podem usar qualquer proxy em runtime; (2) a checagem de "livre" é em nível de aplicação (sem
+  constraint no banco — `currentProxyId` único quebraria os modos de pool); (3) assignments órfãos
+  (a tabela não tem FK p/ wa_sessions) NÃO seguram proxy — `usedProxyIds()` cruza com sessões vivas.
+- **Dependência node n8n** (repo separado): a operação de criar sessão do
+  `n8n-nodes-conexozenvo-gateway` pode ganhar o parâmetro opcional `proxyId` + um picker de
+  `/proxies/available` (aditivo; publicar versão minor). Registrado como backlog do node.
+- **Alternativas:** atribuição automática de proxy livre (1ª versão do pedido — o usuário refinou
+  para ESCOLHA explícita em 10/07); modo novo `AUTO_EXCLUSIVE` no enum (rejeitado: migration +
+  complexidade sem necessidade — SINGLE já expressa o resultado).

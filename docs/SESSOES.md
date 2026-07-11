@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID                                 | Início      | Objetivo                                            | Escopo                                                        | Branch                     |
-| ---------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------- | -------------------------- |
-| 2026-07-10-1040-m2-guardrail-ativo | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway) | feature/m2-guardrail-ativo |
+| ID                                 | Início      | Objetivo                                                   | Escopo                                                                                    | Branch                              |
+| ---------------------------------- | ----------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------- |
+| 2026-07-10-1040-m2-guardrail-ativo | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE        | docs/ + scripts/guardrail-observe.mjs (sem código do gateway)                             | feature/m2-guardrail-ativo          |
+| 2026-07-11-1753-proxy-na-criacao   | 11/07 17:53 | Feature: proxy livre opcional na criação de sessão (D-008) | modules/proxies + sessions/interface + **packages/contracts** + dashboard (SEM guardrail) | feature/proxy-na-criacao (worktree) |
 
 ## ✅ Histórico (mais recente primeiro)
 

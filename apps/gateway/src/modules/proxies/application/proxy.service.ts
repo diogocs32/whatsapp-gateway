@@ -199,6 +199,50 @@ export class ProxyService implements OnApplicationBootstrap {
     return this.repo.getAssignment(sessionId);
   }
 
+  // Proxies LIVRES p/ a criação de sessão (backlog 10/07, D-008): enabled, não-DEAD e que não são
+  // o proxy atual de nenhuma sessão existente. Exclusividade vale p/ o fluxo SINGLE — modos
+  // RANGE/GLOBAL_ROUND_ROBIN podem usar qualquer proxy em runtime (limitação consciente, D-008).
+  async listAvailable(): Promise<Proxy[]> {
+    const [all, used] = await Promise.all([
+      this.repo.list(),
+      this.repo.usedProxyIds(),
+    ]);
+    const usedSet = new Set(used);
+    return all.filter(
+      (p) => p.enabled && p.status !== 'DEAD' && !usedSet.has(p.id),
+    );
+  }
+
+  // Valida que o proxy pode ser atribuído com exclusividade. Lança Error com mensagem clara —
+  // o controller que chamar mapeia para o HTTP adequado.
+  async ensureAvailable(proxyId: string): Promise<Proxy> {
+    const proxy = await this.repo.findById(proxyId);
+    if (!proxy) throw new Error('Proxy não encontrado');
+    if (!proxy.enabled) throw new Error('Proxy está desabilitado');
+    if (proxy.status === 'DEAD')
+      throw new Error('Proxy está DEAD — teste-o ou escolha outro');
+    const used = new Set(await this.repo.usedProxyIds());
+    if (used.has(proxyId))
+      throw new Error('Proxy já está em uso por outra sessão');
+    return proxy;
+  }
+
+  // Atribui o proxy à sessão em SINGLE/STICKY re-validando a exclusividade (fecha a corrida de
+  // duas criações simultâneas escolhendo o mesmo proxy).
+  async assignExclusive(
+    sessionId: string,
+    proxyId: string,
+  ): Promise<ProxyAssignment> {
+    await this.ensureAvailable(proxyId);
+    return this.setAssignment(sessionId, {
+      mode: 'SINGLE',
+      rangeStart: null,
+      rangeEnd: null,
+      strategy: 'STICKY',
+      proxyId,
+    });
+  }
+
   async setAssignment(
     sessionId: string,
     data: SetAssignmentData,
