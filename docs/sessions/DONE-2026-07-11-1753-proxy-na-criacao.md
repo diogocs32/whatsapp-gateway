@@ -1,6 +1,6 @@
 # Sessão: proxy-na-criacao
 
-- **Status:** 🟢 ATIVA
+- **Status:** ✅ CONCLUÍDA
 - **Início:** 11/07/2026 17:53
 - **Objetivo:** Feature do backlog (pedido do usuário em 10/07): na criação de sessão, oferecer a lista de proxies LIVRES (não usados por nenhuma sessão) para escolher um, ou "sem proxy" — a sessão nasce com atribuição SINGLE/STICKY exclusiva (D-008).
 - **Escopo (pode tocar):** `apps/gateway/src/modules/proxies/**`, `apps/gateway/src/modules/sessions/interface/**` (dto + controller create), `apps/gateway/test/proxy-create-session.e2e-spec.ts`, **`packages/contracts`** (ponto de contato global — declarado; nenhuma outra sessão ativa o declara), `apps/dashboard/src/routes/Sessions.tsx`, `apps/dashboard/src/lib/api.ts`, docs (DECISOES, INTEGRACAO §11, CHANGELOG, SESSOES, este arquivo)
@@ -18,8 +18,8 @@
   - e2e: `proxy-create-session.e2e-spec.ts` (5 testes: available filtra; nasce SINGLE/STICKY e some dos livres; proxy em uso → 400 sem órfã; proxy inexistente → 400; sem proxyId = comportamento antigo).
 - [11/07 18:01] Gates: tsc ok · **suíte 79/79** · gateway:build ok · dashboard:build ok · eslint ok (arquivos tocados).
 
-## Encerramento (preencher ao concluir)
+## Encerramento
 
-- **Fim:** — · **Entregue:** — · **Commits:** —
-- **Efeito de deploy:** —
-- **Pendências para próxima sessão:** —
+- **Fim:** 11/07/2026 · **Entregue:** feature completa (API `GET /proxies/available` + `proxyId` opcional no create com atribuição SINGLE/STICKY exclusiva e rollback anti-órfã; dropdown no painel; contrato + INTEGRACAO §11; 5 e2e novos — suíte 79/79; sem migration) · **Commits:** `d9c4b41` + encerramento (merge na main autorizado pelo usuário)
+- **Efeito de deploy:** aditivo (zero breaking); redeploy reinicia gateway (sessões reconectam) e painel ganha o dropdown
+- **Pendências para próxima sessão:** node n8n — parâmetro `proxyId` opcional na operação de criar sessão (backlog do repo do node, D-008); worktree `whatzapp_api-proxy` pode ser removido após o merge

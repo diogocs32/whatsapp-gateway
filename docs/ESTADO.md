@@ -32,10 +32,10 @@
 
 ## Divergência dev × produção
 
-| Onde               | O quê                                                                                                |
-| ------------------ | ---------------------------------------------------------------------------------------------------- |
-| main local         | À FRENTE de origin/main: commits DOCS da M1 (abertura, backlog, O1–O3, encerramento) — push pendente |
-| origin/main = prod | `808c175` pushado e deployado (10/07 13:28 UTC, Memory Limit ativo)                                  |
+| Onde                       | O quê                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| main = origin/main = prod  | Feature D-008 (proxy na criação) mergeada e pushada em 11/07 — deploy automático via webhook |
+| feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda              |
 
 ## Pendências operacionais
 
@@ -43,18 +43,13 @@ Nenhuma — O1–O4 concluídos. Observação contínua: intermitência do webho
 
 ## Backlog de produto (fora das ondas — vira sessão R9 própria quando priorizado)
 
-- **Escolha de proxy livre na criação de sessão** (pedido do usuário, 10/07/2026):
-  no formulário/API de criação de sessão, oferecer a opção de conectar com proxy: exibir a LISTA
-  dos proxies que NÃO estão em uso por nenhuma sessão (livres — de preferência ALIVE) para escolher
-  UM, ou optar por **sem proxy**. A sessão já NASCE com o proxy atribuído (ou sem), sem passo manual
-  posterior. Implementação ADITIVA (R0): listagem de proxies livres (filtro de não-atribuídos sobre
-  o GET /proxies existente), campo OPCIONAL novo no POST /sessions (ex.: `proxyId`), dropdown no
-  painel; exclusividade na listagem (1 proxy = 1 sessão). Módulos: proxies (dono da
-  listagem/atribuição) + sessions (aceita a escolha no create). Node n8n: parâmetro novo opcional
-  (aditivo) — registrar a dependência em DECISOES.md na implementação.
+- ✅ **ENTREGUE 11/07/2026 — Escolha de proxy livre na criação de sessão** (D-008, sessão
+  `2026-07-11-1753-proxy-na-criacao`): `GET /api/proxies/available` + `proxyId` opcional no
+  `POST /sessions` (SINGLE/STICKY exclusivo, 1 proxy = 1 sessão) + dropdown no painel. Pendência
+  residual (repo do node n8n): parâmetro `proxyId` opcional na operação de criar sessão.
 
 ## Próximos passos
 
-1. Push da main com os commits de docs da M1 (dispara redeploy — docs-only, sessões reconectam)
-2. Abrir sessão da M2: definir a janela de observação do guard-rail (métricas G4/G5 por alguns dias), critérios de aceite para ligar `GUARDRAIL_ENFORCE=true`, e registrar a dependência do node n8n N1–N8 em DECISOES.md
-3. Aproveitar a M3 para: fix do lint local (`apps/gateway/auth/` nos ignores do eslint), normalizar 25 arquivos no prettier e adicionar `format:check` ao CI
+1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
+2. M3 · Qualidade: testes unitários de domínio, coverage, dependency-cruiser no CI + fix do lint local (`apps/gateway/auth/` nos ignores), normalizar prettier e adicionar `format:check` ao CI
+3. Node n8n (repo separado): parâmetro `proxyId` na criação de sessão (D-008)
