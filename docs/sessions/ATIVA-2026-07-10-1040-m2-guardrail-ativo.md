@@ -36,6 +36,11 @@
   1. Hardening aplicado pelo usuário: `RETURNING id` na query do "Registrar Resultado" (0-linhas deixa de passar em silêncio — melhoria PERMANENTE do fluxo).
   2. Quarentena manual → execução 124966 (verde): picker pegou lead 5 → `blocked:true SESSION_QUARANTINED` → "Registrar Resultado" devolveu **`{id:"5"}`** = UPDATE comprovadamente tocou a linha (pendente +30min). **Requeue N7 provado com evidência dentro da execução.**
   3. Override desfeito (`state: ativa`). **CRITÉRIO 4 FECHADO EM DEFINITIVO.** Lição de processo: durante teste com fila, ZERO SQL manual — evidência primeiro, resgate depois.
+- [10/07 16:19 UTC] **COLETA 2/≥5** (a que rodou durante o teste do 423): Diogo (Baileys) → `currentState=ativa`, `targetState=**ativa**`, reply **71,4%**, amostra **21**, `reliable=true`, "reply 71% >= mediana 35%" — 1ª vez com veredito confiável e alvo=ativa. wwebjs (SCAN_QR) amostra 0 → aquecimento. Zero divergência real.
+- [11/07 20:41 UTC] **COLETA 3/≥5**: Diogo (Baileys, WORKING) → `ativa` / alvo `aquecimento`, reply **50%**, amostra **14** (< Nmin 20) → sem veredito. wwebjs (SCAN_QR) amostra 0 → aquecimento. Zero falso-positivo. **Observação:** amostra da Diogo CAIU de 21 → 14 (janela desliza; só conta cold-send maduro >72h dentro de 7d).
+- [12/07 10:28 UTC] **COLETA 4/≥5** (usuário rodou o coletor — "coleta do dia"): Diogo (Baileys, WORKING) → `ativa` / alvo `aquecimento`, reply **50%**, amostra **14**, `reliable=false` → sem veredito (aquecimento por amostra < Nmin). wwebjs **reconectou**: agora `WORKING` com **id novo** `01KX9GZXGZVBZ5NY7JH3F7K1JX` (a antiga `01KWJXX4…` em SCAN_QR saiu da lista) · amostra 0 → aquecimento correto. Config estável (enforce=false, nmin=20, 0.75/0.6/0.35, cooldown 48h). **Zero falso-positivo.**
+  - **Estado da janela:** 4 coletas / ≥5 · dia 3 de ≥7 (10/07 → ~17/07). Falta ≥1 coleta e chegar a 17/07.
+  - **Risco para o flip:** amostra da Diogo oscila em torno do Nmin (19→21→14→14). Se ficar < 20 no dia do flip, a Diogo entra como `aquecimento` (sem veredito) e o enforce não protege de fato. **Ação recomendada ao usuário:** manter/retomar volume de cold-sends na Diogo durante a janela para consolidar amostra ≥ 20 `reliable`.
 
 ## Encerramento (preencher ao concluir)
 
