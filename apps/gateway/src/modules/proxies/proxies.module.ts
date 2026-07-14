@@ -19,6 +19,8 @@ import { ProxiesController } from './interface/proxies.controller';
     { provide: PROXY_REPOSITORY, useClass: PrismaProxyRepository },
   ],
   // ProxyResolver é exportado para o SessionsModule resolver o agent na conexão do Baileys (§7.4).
-  exports: [ProxyResolver],
+  // ProxyService é exportado para o create de sessão atribuir proxy exclusivo (D-008) —
+  // sessions NÃO escreve em session_proxy_assignments direto (tabela do módulo proxies, R10).
+  exports: [ProxyResolver, ProxyService],
 })
 export class ProxiesModule {}

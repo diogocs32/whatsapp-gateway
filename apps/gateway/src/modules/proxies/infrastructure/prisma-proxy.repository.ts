@@ -206,4 +206,18 @@ export class PrismaProxyRepository implements ProxyRepository {
       data: { currentProxyId: proxyId },
     });
   }
+
+  async usedProxyIds(): Promise<string[]> {
+    const [assignments, sessions] = await Promise.all([
+      this.prisma.sessionProxyAssignment.findMany({
+        where: { currentProxyId: { not: null }, mode: { not: 'NONE' } },
+        select: { sessionId: true, currentProxyId: true },
+      }),
+      this.prisma.waSession.findMany({ select: { id: true } }),
+    ]);
+    const alive = new Set(sessions.map((s) => s.id));
+    return assignments
+      .filter((a) => alive.has(a.sessionId))
+      .map((a) => a.currentProxyId as string);
+  }
 }

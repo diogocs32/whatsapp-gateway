@@ -245,6 +245,8 @@ export const api = {
 
   proxies: {
     list: () => request<ProxyDto[]>('/api/proxies'),
+    // Proxies livres p/ o dropdown da criação de sessão (D-008).
+    listAvailable: () => request<ProxyDto[]>('/api/proxies/available'),
     create: (body: CreateProxyRequest) =>
       request<ProxyDto>('/api/proxies', {
         method: 'POST',

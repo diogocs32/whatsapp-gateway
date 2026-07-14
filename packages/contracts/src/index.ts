@@ -96,6 +96,9 @@ export interface CreateSessionRequest {
   mode?: ConnectionMode;
   phoneNumber?: string;
   autostart?: boolean;
+  // D-008 (ADITIVO): id de um proxy LIVRE (GET /api/proxies/available) — a sessão nasce com
+  // atribuição SINGLE/STICKY a ele. Ausente/undefined = sem proxy (comportamento anterior).
+  proxyId?: string;
 }
 
 export interface QrResponse {

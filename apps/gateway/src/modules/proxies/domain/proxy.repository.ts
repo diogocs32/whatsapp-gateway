@@ -55,6 +55,9 @@ export interface ProxyRepository {
   getAssignment(sessionId: string): Promise<ProxyAssignment | null>;
   setAssignment(input: SetAssignmentInput): Promise<ProxyAssignment>;
   setCurrent(sessionId: string, proxyId: string | null): Promise<void>;
+  // Ids de proxies "em uso" = currentProxyId de assignment de sessão EXISTENTE (mode ≠ NONE).
+  // session_proxy_assignments não tem FK p/ wa_sessions — assignments órfãos não contam.
+  usedProxyIds(): Promise<string[]>;
 }
 
 export const PROXY_REPOSITORY = Symbol('PROXY_REPOSITORY');

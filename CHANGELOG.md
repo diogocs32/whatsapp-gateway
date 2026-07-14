@@ -12,6 +12,11 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
   (tabelas donas validadas contra o schema.prisma — divergências em D-002/D-003), `docs/PROJETO.md`,
   `docs/sessions/`, `CLAUDE.md` (raiz) e este `CHANGELOG.md`.
 - `DOCUMENTO_CONEXOZENVO_NESTJS.md` (processo de ondas M0–M6) adicionado ao versionamento.
+- **Proxy livre na criação de sessão (D-008)**: `GET /api/proxies/available` (proxies enabled,
+  não-DEAD e sem sessão usando) e campo OPCIONAL `proxyId` no `POST /api/sessions` — a sessão
+  nasce com atribuição `SINGLE`/`STICKY` exclusiva (1 proxy = 1 sessão), ou sem proxy se omitido.
+  Dropdown "Proxy (só os livres aparecem)" no formulário de nova sessão do painel; contrato em
+  `packages/contracts` (`CreateSessionRequest.proxyId?`) e docs/INTEGRACAO.md §11. Sem migration.
 
 ### Alterado
 
