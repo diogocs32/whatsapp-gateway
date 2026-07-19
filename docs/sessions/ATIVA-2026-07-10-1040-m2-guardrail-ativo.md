@@ -97,6 +97,8 @@
 
 - [19/07 22:33 UTC] **COLETA 12 (verificação do cofre local)**: teste do fluxo seguro de chave — `scripts/coleta.secret.local` (gitignored) guarda a `GATEWAY_API_KEY`, carregada sem ser impressa. Resultado: `enforce:true`, Diogo `aquecimento`/`aquecimento` (**transição da coleta 11 PERSISTIDA — zero divergência**), reply 13%, amostra **15** (13→15); DIOGO_OWEN aquecimento, amostra 0. Zero quarentena/throttle/falso-positivo. **Fluxo de coleta seguro validado** — a partir de agora a chave nunca transita pelo chat nem pelo git. Amostra da Diogo ainda < Nmin 20, reply 13% < limiar de quarentena (risco armado mantido).
 
+- [19/07] **Automação de coleta + lembrete criados:** (a) `scripts/coleta.sh` — carrega a chave do cofre `scripts/coleta.secret.local` (gitignored) sem imprimir e roda o coletor; avisa se estiver fora da branch. (b) Workflow n8n **"Lembrete Coleta M2 (guard-rail)"** (`gIa8HbBmCDB56kg6`, ATIVO, activeVersion `9d64f21c`): Schedule Trigger `0 0 12 * * *` (12:00 UTC = 9h BRT) → `Session Get DIOGO_OWEN` → `sendText` self (cold:false) lembrando de rodar a coleta + revalidar o canal de alerta. **Desligar/arquivar ao fechar a M2** (adicionar ao passo de fechamento).
+
 ## Textos prontos para o fechamento (aplicar em 20–21/07 — trocar `<DATA>` pela data real)
 
 ### 1. `docs/ESTADO.md`
@@ -141,5 +143,6 @@ por:
 2. Revalidar o canal de alerta (override quarantine→activate → 2 self-messages).
 3. Preencher o bloco **Encerramento** acima com Fim/Commits reais e marcar Status 🔴 ENCERRADA.
 4. Aplicar as edições (1) e (2) acima.
-5. `git checkout main && git merge feature/m2-guardrail-ativo && git push` (merge da onda — R9).
-6. Renomear/arquivar este arquivo conforme convenção de `sessions/` encerradas.
+5. Desligar/arquivar o workflow n8n "Lembrete Coleta M2" (`gIa8HbBmCDB56kg6`) — não faz mais sentido após o fecho.
+6. `git checkout main && git merge feature/m2-guardrail-ativo && git push` (merge da onda — R9).
+7. Renomear/arquivar este arquivo conforme convenção de `sessions/` encerradas.
