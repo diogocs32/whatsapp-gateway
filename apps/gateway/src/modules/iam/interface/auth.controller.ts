@@ -12,7 +12,10 @@ import { ConfigService } from '@nestjs/config';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Env } from '../../../bootstrap/config';
-import { LoginUseCase } from '../application/login.usecase';
+import {
+  AuthSessionService,
+  type IssuedSession,
+} from '../application/auth-session.service';
 import { JwtAuthGuard, type JwtPayload } from './auth.guard';
 
 const loginSchema = z.object({
@@ -20,44 +23,75 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// Cookie do access (JWT curto). Nome MANTIDO como `token`: o JwtAuthGuard e o SseAuthGuard leem
+// `req.cookies.token` — renomear quebraria o SSE (R0).
+const ACCESS_COOKIE = 'token';
+// Cookie do refresh (opaco, longo). Path restrito a /api/auth → o browser só o envia nas rotas de
+// auth (login/refresh/logout), nunca no resto da API. `clearCookie` precisa do MESMO path.
+const REFRESH_COOKIE = 'refresh_token';
+const REFRESH_COOKIE_PATH = '/api/auth';
+
+type CookieReq = FastifyRequest & {
+  cookies?: Record<string, string | undefined>;
+};
+
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly login: LoginUseCase,
+    private readonly auth: AuthSessionService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
   @Post('login')
   async signIn(
     @Body() body: unknown,
+    @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
     const parsed = loginSchema.safeParse(body);
     if (!parsed.success)
       throw new UnauthorizedException('Credenciais inválidas');
 
-    const result = await this.login.execute(
+    const session = await this.auth.login(
       parsed.data.username,
       parsed.data.password,
+      this.ctx(req),
     );
-    if (!result) throw new UnauthorizedException('Credenciais inválidas');
+    if (!session) throw new UnauthorizedException('Credenciais inválidas');
 
-    // Item 19: além do body (integrações/e2e continuam usando o token), o JWT vai num cookie
-    // httpOnly — o dashboard não guarda mais nada no localStorage (XSS não alcança o token).
-    // SameSite=Lax cobre o cross-subdomínio painel↔api (mesmo site registrável); Secure em prod.
-    reply.setCookie('token', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: this.config.get('JWT_EXPIRES_IN', { infer: true }),
-    });
-    return result;
+    this.setAuthCookies(reply, session);
+    // Body mantém { token, user } (compat: e2e/integrações leem o token). `token` agora é o access curto.
+    return { token: session.accessToken, user: session.user };
+  }
+
+  // Renovação silenciosa: o front chama isto ao levar 401. Rotaciona o refresh (detecção de reuso no
+  // repositório) e reemite o par. Falha → limpa cookies + 401 (o front redireciona para o login).
+  @Post('refresh')
+  async refresh(
+    @Req() req: CookieReq,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const raw = req.cookies?.[REFRESH_COOKIE];
+    if (!raw) {
+      this.clearAuthCookies(reply);
+      throw new UnauthorizedException('Sessão expirada');
+    }
+    const result = await this.auth.refresh(raw, this.ctx(req));
+    if ('error' in result) {
+      this.clearAuthCookies(reply);
+      throw new UnauthorizedException('Sessão expirada');
+    }
+    this.setAuthCookies(reply, result);
+    return { token: result.accessToken, user: result.user };
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) reply: FastifyReply) {
-    reply.clearCookie('token', { path: '/' });
+  async logout(
+    @Req() req: CookieReq,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    await this.auth.logout(req.cookies?.[REFRESH_COOKIE]);
+    this.clearAuthCookies(reply);
     return { ok: true };
   }
 
@@ -70,5 +104,35 @@ export class AuthController {
       username: payload?.username,
       role: payload?.role,
     };
+  }
+
+  private ctx(req: FastifyRequest) {
+    return {
+      userAgent: req.headers['user-agent'] ?? null,
+      ip: req.ip ?? null,
+    };
+  }
+
+  private setAuthCookies(reply: FastifyReply, session: IssuedSession): void {
+    const secure = process.env.NODE_ENV === 'production';
+    reply.setCookie(ACCESS_COOKIE, session.accessToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: this.config.get('JWT_ACCESS_TTL', { infer: true }),
+    });
+    reply.setCookie(REFRESH_COOKIE, session.refreshToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: REFRESH_COOKIE_PATH,
+      maxAge: this.config.get('JWT_REFRESH_TTL', { infer: true }),
+    });
+  }
+
+  private clearAuthCookies(reply: FastifyReply): void {
+    reply.clearCookie(ACCESS_COOKIE, { path: '/' });
+    reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
   }
 }

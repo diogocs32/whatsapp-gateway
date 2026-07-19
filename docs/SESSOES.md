@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID                                 | Início      | Objetivo                                            | Escopo                                                        | Branch                     |
-| ---------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------- | -------------------------- |
-| 2026-07-10-1040-m2-guardrail-ativo | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway) | feature/m2-guardrail-ativo |
+| ID                                    | Início      | Objetivo                                            | Escopo                                                                                                              | Branch                        |
+| ------------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| 2026-07-10-1040-m2-guardrail-ativo    | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway)                                                       | feature/m2-guardrail-ativo    |
+| 2026-07-19-0332-auth-refresh-rotation | 19/07 03:32 | Fix 401 `/auth/me`: refresh-token rotation (sessão não expira no meio do trabalho) | módulo `iam` (auth) + `apps/dashboard` (auth/api) + **`schema.prisma`** (refresh_tokens) + **`packages/contracts`** + config.ts + docs | feature/auth-refresh-rotation |
 
 ## ✅ Histórico (mais recente primeiro)
 

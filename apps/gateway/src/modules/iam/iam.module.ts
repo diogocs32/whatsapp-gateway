@@ -5,20 +5,23 @@ import { JwtModule } from '@nestjs/jwt';
 import type { Env } from '../../bootstrap/config';
 import { ApiKeyService } from './application/api-key.service';
 import { AuditService } from './application/audit.service';
+import { AuthSessionService } from './application/auth-session.service';
 import { BrandingService } from './application/branding.service';
 import { LicenseService } from './application/license.service';
-import { LoginUseCase } from './application/login.usecase';
+import { TokenService } from './application/token.service';
 import { UserService } from './application/user.service';
 import { API_KEY_REPOSITORY } from './domain/api-key.repository';
 import { AUDIT_REPOSITORY } from './domain/audit.repository';
 import { BRANDING_REPOSITORY } from './domain/branding.repository';
 import { LICENSE_REPOSITORY } from './domain/license.repository';
+import { REFRESH_TOKEN_REPOSITORY } from './domain/refresh-token.repository';
 import { USER_REPOSITORY } from './domain/user.repository';
 import { AdminSeeder } from './infrastructure/admin-seeder';
 import { PrismaApiKeyRepository } from './infrastructure/prisma-api-key.repository';
 import { PrismaAuditRepository } from './infrastructure/prisma-audit.repository';
 import { PrismaBrandingRepository } from './infrastructure/prisma-branding.repository';
 import { PrismaLicenseRepository } from './infrastructure/prisma-license.repository';
+import { PrismaRefreshTokenRepository } from './infrastructure/prisma-refresh-token.repository';
 import { PrismaUserRepository } from './infrastructure/prisma-user.repository';
 import { ApiKeyAuthGuard } from './interface/api-key-auth.guard';
 import { ApiKeysController } from './interface/api-keys.controller';
@@ -52,7 +55,8 @@ import { UsersController } from './interface/users.controller';
     AuditController,
   ],
   providers: [
-    LoginUseCase,
+    AuthSessionService,
+    TokenService,
     UserService,
     LicenseService,
     BrandingService,
@@ -63,6 +67,10 @@ import { UsersController } from './interface/users.controller';
     ApiKeyService,
     AdminSeeder,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
+    {
+      provide: REFRESH_TOKEN_REPOSITORY,
+      useClass: PrismaRefreshTokenRepository,
+    },
     { provide: API_KEY_REPOSITORY, useClass: PrismaApiKeyRepository },
     { provide: LICENSE_REPOSITORY, useClass: PrismaLicenseRepository },
     { provide: BRANDING_REPOSITORY, useClass: PrismaBrandingRepository },

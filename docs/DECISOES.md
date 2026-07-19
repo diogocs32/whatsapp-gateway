@@ -93,3 +93,26 @@
 - **Alternativas:** atribuição automática de proxy livre (1ª versão do pedido — o usuário refinou
   para ESCOLHA explícita em 10/07); modo novo `AUTO_EXCLUSIVE` no enum (rejeitado: migration +
   complexidade sem necessidade — SINGLE já expressa o resultado).
+
+## D-009 — 2026-07-19 — Sessão do painel: refresh-token rotation (fim do 401 de 12h)
+
+- **Decisão:** trocar o JWT único de 12h (cookie httpOnly `token`) por **access curto (JWT, 15min,
+  mesmo secret/guard) + refresh opaco longo (30d) rotacionado a cada uso com detecção de reuso**
+  (revoga a família = `sessionId`), + **silent refresh** no dashboard (interceptor de 401 anti-corrida
+  que renova e refaz o request; falha → redirect limpo pro login). Nova tabela `refresh_tokens`
+  (guarda só `sha512`), endpoint `POST /api/auth/refresh`. Baseado em OWASP Session/JWT Cheat Sheets
+  + RFC 9700 §4.14. Parâmetros aprovados pelo usuário: access 15min, refresh 30d.
+- **Motivo:** o 401 em `/api/auth/me` derrubava o usuário no meio do trabalho a cada 12h (sem refresh,
+  sem tratamento gracioso). Ganho de segurança de brinde: janela de token vazado cai de 12h → 15min +
+  revogação real de sessão (que não existia com JWT stateless).
+- **Compat/R0:** cookie de access MANTÉM o nome `token` (SSE/JwtAuthGuard dependem); `X-Api-Key` e
+  `Authorization: Bearer` intocados; `LoginResponse { token, user }` mantém o shape (`token` = access);
+  migration forward-only aditiva; `JWT_EXPIRES_IN` vira DEPRECATED (ignorado). Suíte e2e 84/84
+  (5 casos novos: 2 cookies, rotação, reuso→revoga família, access-expirado+refresh, logout).
+- **Refresh opaco vs JWT:** escolhido OPACO (casa com WaApiKey; a força é o hash no banco, não a
+  assinatura; dispensa 2º secret). **Path do refresh = `/api/auth`** (não `/api/auth/refresh`) para o
+  logout também receber o cookie e revogar a família.
+- **Alternativas:** sliding session (reemitir o cookie de 12h — rejeitado: não dá revogação nem
+  detecção de roubo, é paliativo); refresh JWT com 2º secret (rejeitado: secret extra sem ganho real).
+- **Backlog:** job de purge de `refresh_tokens` expirados (índice em `expiresAt` já criado); revisar
+  se o node n8n precisa de algo (não — usa X-Api-Key). Detalhes: [how-to](how-to/auth-sessao-refresh-rotation.md).

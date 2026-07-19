@@ -28,7 +28,33 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  refreshTokens RefreshToken[]
+
   @@map("users")
+}
+
+// Sessão do painel (refresh-token rotation). Cada LOGIN abre uma "família" (`sessionId`); cada uso do
+// refresh ROTACIONA (revoga a linha atual, cria a próxima com o mesmo sessionId). Se um refresh já
+// revogado for reapresentado (reuso = token roubado), revoga-se a família inteira e exige novo login
+// (RFC 9700 §4.14 / OWASP). O texto do token NÃO é guardado — só `sha512(raw)` (mesmo padrão do WaApiKey).
+model RefreshToken {
+  id         String    @id // ULID via newId()
+  userId     String
+  tokenHash  String    @unique // SHA-512 (hex) do refresh token — o texto NÃO é persistido
+  sessionId  String // "família": todos os tokens rotacionados a partir do mesmo login
+  expiresAt  DateTime
+  revokedAt  DateTime? // != null => rotacionado ou invalidado (logout/reuso)
+  replacedBy String? // id do token que substituiu este (trilha de rotação)
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId]) // revogar a família inteira
+  @@index([expiresAt]) // purge de expirados
+  @@map("refresh_tokens")
 }
 
 model WaLicense {
