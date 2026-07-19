@@ -94,3 +94,50 @@
 - **Antes de finalizar (20–21/07):** +1–2 coletas limpas → marcar **M2 ✅** no ESTADO.md · mover a sessão para o Histórico no SESSOES.md · merge `feature/m2-guardrail-ativo` → main · **revalidar** o canal de alerta corrigido (override quarantine→activate → 2 self-messages via `DIOGO_OWEN`).
 - **Pendências para próxima sessão (M3 · Qualidade):** testes unitários de domínio + coverage + dependency-cruiser no CI; fix do lint local (`apps/gateway/auth/` nos ignores) + `format:check` no CI. Backlog: adicionar `session.warming` aos eventos do trigger do Notificador (opcional); job de purge de refresh tokens (D-009). Node n8n (repo separado): `continueOnQuarantine` default true / destaque na doc + parâmetro `proxyId` na criação de sessão (D-008).
 - **Watch pós-flip:** reply da Diogo abaixo do limiar de quarentena — 1º veredito `reliable` ao atingir Nmin 20 tende a quarentena legítima (não é bug); alerta chega via Notificador→self.
+
+## Textos prontos para o fechamento (aplicar em 20–21/07 — trocar `<DATA>` pela data real)
+
+### 1. `docs/ESTADO.md`
+
+**(a) Linha "Onda atual" / "Próxima onda"** — trocar:
+```
+- **Onda atual:** M1 · Destravar produção — **CONCLUÍDA em 10/07/2026** ...
+- **Próxima onda:** M2 · Guard-rail ativo ...
+```
+por:
+```
+- **Onda atual:** M2 · Guard-rail ativo — **CONCLUÍDA em <DATA>** (sessão `2026-07-10-1040-m2-guardrail-ativo`) — enforce ligado 18/07, janela de observação completa (8 coletas/7d, zero falso-positivo), 423 no n8n aprovado, monitoramento 48–72h sem incidente
+- **Próxima onda:** M3 · Qualidade (testes de domínio + coverage + boundaries no CI)
+```
+
+**(b) Tabela Roadmap** — na linha M2, trocar o Status `⬜` por `✅ <DATA>`.
+
+**(c) Estado de produção** — trocar a linha do guard-rail:
+```
+- **Guard-rail G1–G8:** implementado e em produção em modo OBSERVAÇÃO (`GUARDRAIL_ENFORCE=false`) — ligar é a M2
+```
+por:
+```
+- **Guard-rail G1–G8:** EM ENFORCE (`GUARDRAIL_ENFORCE=true`, flip 18/07, coleta 9 confirmou `applied:true`). Canal de alerta (Notificador n8n → WhatsApp self `DIOGO_OWEN`) corrigido em 19/07 e validado. Watch: 1º veredito `reliable` da Diogo tende a quarentena legítima (reply < limiar) ao atingir Nmin 20.
+```
+
+**(d) Tabela "Divergência dev × produção"** — REMOVER a linha `feature/m2-guardrail-ativo` (mergeada); a linha `main = origin/main = prod` continua.
+
+**(e) "Próximos passos"** — remover o item 1 (M2 em curso); promover M3 a item 1 e o node n8n a item 2.
+
+### 2. `docs/SESSOES.md`
+
+**(a) "🟢 Sessões ativas"** — REMOVER a linha da sessão `2026-07-10-1040-m2-guardrail-ativo` (a tabela fica só com o cabeçalho, sem sessões ativas).
+
+**(b) "✅ Histórico (mais recente primeiro)"** — inserir no TOPO:
+```
+| 2026-07-10-1040-m2-guardrail-ativo | 10–<DD>/07 | M2 — enforce ligado (18/07) + janela obs. completa (8 coletas/7d, 0 falso-positivo) + 423 no n8n + fix D-007 (`envBool`) + fix canal de alerta (`DIOGO_OWEN`); monitorado 48–72h | feature/m2-guardrail-ativo→main |
+```
+
+### 3. Passos operacionais do fechamento (na ordem)
+1. Rodar as coletas 12–13 (dias 20 e 21) NESTA branch e commitar cada JSONL.
+2. Revalidar o canal de alerta (override quarantine→activate → 2 self-messages).
+3. Preencher o bloco **Encerramento** acima com Fim/Commits reais e marcar Status 🔴 ENCERRADA.
+4. Aplicar as edições (1) e (2) acima.
+5. `git checkout main && git merge feature/m2-guardrail-ativo && git push` (merge da onda — R9).
+6. Renomear/arquivar este arquivo conforme convenção de `sessions/` encerradas.
