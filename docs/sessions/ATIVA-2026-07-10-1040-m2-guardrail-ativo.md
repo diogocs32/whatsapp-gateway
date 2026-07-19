@@ -74,8 +74,21 @@
 
 - [18/07] **CASO DA WWEBJS ENCERRADO**: o próprio usuário deletou a sessão DIOGO (wwebjs) — "não vou usar wwebjs por enquanto". Sem incidente, sem consulta ao audit log necessária. Impacto aceito e intencional: leads/Store via wwebjs indisponível até recriar. Frota atual do gateway: **Diogo** (Baileys, disparos/campanha) + **DIOGO_OWNER** (número pessoal, canal de notificações — sem disparos). A partir da coleta 11 o coletor deve listar as DUAS sessões (DIOGO_OWNER entra com amostra 0 → aquecimento, esperado e inofensivo).
 
-## Encerramento (preencher ao concluir)
+- [19/07 14:48 UTC] **COLETA 11** (3ª pós-flip, 1ª após remoção da wwebjs): config estável (`enforce:true`, defaults). Lista as **duas** sessões esperadas: **Diogo** (Baileys, WORKING) → `currentState=ativa` / alvo `aquecimento`, `applied:true`, reply **15,4%**, amostra **13** (10→13, coorte ~13–14/07 ainda amadurecendo), `reliable:false` → sem veredito; **DIOGO_OWEN** (Baileys, WORKING, canal de notificações) → aquecimento, amostra 0 → esperado e inofensivo. **Zero quarentena/throttle, zero falso-positivo.** Divergências (`ativa→aquecimento`) só por amostra < Nmin, `reason` coerente.
+  - **⚠️ Observação a conferir:** a sessão pessoal aparece no `GET /api/sessions` como **`DIOGO_OWEN`** (sem "R"), enquanto o Notificador no n8n resolve o número via `GET /api/sessions/DIOGO_OWNER`. O canal foi validado ponta a ponta em 18/07, então confirmar se o nome real é `DIOGO_OWNER` (e "DIOGO_OWEN" foi grafia de uma coleta) ou se há divergência de nome que quebraria o `Session→Get` do alerta.
+  - **Risco mantido (armado):** reply da Diogo 15% < limiar de quarentena 21% (0.6×0.35); ao a amostra cheia atingir Nmin 20, o 1º veredito `reliable` tende a `quarentena` legítima (com enforce, bloqueia cold via 423). Canal de alerta (Notificador→self) OPERACIONAL desde 18/07.
+  - **Coleta versionada** (correção de processo): as coletas 1–10 já estavam commitadas nesta branch; a coleta 11 foi rodada por engano na `main` (onde o JSONL não existe versionado, gerando arquivo órfão só com a linha de hoje) e reintegrada aqui na ordem cronológica. Lição: rodar o coletor SEMPRE nesta branch e commitar cada coleta.
 
-- **Fim:** — · **Entregue:** — · **Commits:** —
-- **Efeito de deploy:** —
-- **Pendências para próxima sessão:** —
+## Encerramento (RASCUNHO — finalizar em 20–21/07 ao fechar as 48–72h pós-flip)
+
+> Flip efetivo 18/07 02:11 UTC → 48h = 20/07 02:11 · 72h = 21/07 02:11. Hoje (19/07 14:48) = ~36h.
+> Faltam **+1–2 coletas limpas** para cravar o monitoramento e então marcar M2 ✅.
+
+- **Fim:** _(preencher em 20–21/07)_
+- **Entregue:** Onda M2 — guard-rail em enforce. (1) Janela de observação G1–G8 conduzida e completa (17/07: 8 coletas / 7 dias / zero falso-positivo); (2) fix D-007 (`envBool` fail-fast, deployado `80b1670`); (3) teste do 423 no n8n aprovado (critério 4, com hardening `continueOnQuarantine` + `RETURNING id`); (4) `GUARDRAIL_ENFORCE=true` efetivo 18/07 (coleta 9, `applied:true`); (5) coletor `guardrail-observe.mjs` + how-to + Notificador n8n com alerta WhatsApp self (DIOGO_OWNER) validado ponta a ponta.
+- **Critérios de aceite:** todos ✅ — (1) ≥7d/≥5 coletas: 11 coletas, 10/07→19/07; (2) zero falso-positivo em toda a janela; (3) amostras conscientes (aquecimento aceito, `reason` coerente); (4) 423 no n8n aprovado; (5) rollback conhecido (REMOVER a env + redeploy, semântica D-007).
+- **Efeito de deploy:** flip validado em prod (`/health` uptime resetado 18/07 02:03; coletor `enforce:true`); monitoramento 48–72h sem incidente até a coleta 11.
+- **Commits:** _(listar no fecho — inclui os da branch + o commit da coleta 11)_
+- **Antes de finalizar (20–21/07):** +1–2 coletas limpas → marcar **M2 ✅** no ESTADO.md · mover a sessão para o Histórico no SESSOES.md · merge `feature/m2-guardrail-ativo` → main · confirmar grafia `DIOGO_OWNER` vs `DIOGO_OWEN`.
+- **Pendências para próxima sessão (M3 · Qualidade):** testes unitários de domínio + coverage + dependency-cruiser no CI; fix do lint local (`apps/gateway/auth/` nos ignores) + `format:check` no CI. Backlog: adicionar `session.warming` aos eventos do trigger do Notificador (opcional); job de purge de refresh tokens (D-009). Node n8n (repo separado): `continueOnQuarantine` default true / destaque na doc + parâmetro `proxyId` na criação de sessão (D-008).
+- **Watch pós-flip:** reply da Diogo abaixo do limiar de quarentena — 1º veredito `reliable` ao atingir Nmin 20 tende a quarentena legítima (não é bug); alerta chega via Notificador→self.
