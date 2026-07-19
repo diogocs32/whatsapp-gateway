@@ -49,7 +49,15 @@ const base = z.object({
   REDIS_DB: z.coerce.number().int().min(0).default(0),
 
   JWT_SECRET: z.string().min(16),
-  JWT_EXPIRES_IN: z.coerce.number().int().positive().default(43200), // segundos (12h)
+  // DEPRECATED (mantido p/ compat com env de prod): antes era a vida do JWT único de 12h. O ciclo de
+  // sessão agora é access curto (JWT_ACCESS_TTL) + refresh rotacionado (JWT_REFRESH_TTL). Não é mais
+  // usado para assinar/expirar; fica só para não quebrar boot se ainda estiver setado no Dokploy.
+  JWT_EXPIRES_IN: z.coerce.number().int().positive().default(43200),
+  // Access token (JWT em cookie httpOnly `token`): vida curta — o refresh renova silenciosamente.
+  JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900), // 15 min (segundos)
+  // Refresh token (opaco, cookie httpOnly restrito a /api/auth/refresh + linha em refresh_tokens):
+  // vida longa; rotacionado a cada uso com detecção de reuso (revoga a família).
+  JWT_REFRESH_TTL: z.coerce.number().int().positive().default(2592000), // 30 dias (segundos)
   API_KEY: z.string().min(8).optional(),
   DASHBOARD_USERNAME: z.string().min(1).default('admin'),
   DASHBOARD_PASSWORD: z.string().min(6),

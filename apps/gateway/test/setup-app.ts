@@ -98,6 +98,7 @@ interface InjectResponse {
   statusCode: number;
   body: string;
   json: () => any;
+  headers: Record<string, string | string[]>;
 }
 
 export function inject(
@@ -108,6 +109,20 @@ export function inject(
     inject: (o: InjectOpts) => Promise<InjectResponse>;
   };
   return instance.inject(opts);
+}
+
+// Extrai o VALOR de um cookie do header Set-Cookie da resposta (caminho garantido, sem depender de
+// APIs específicas do light-my-request). Ex.: readSetCookie(res, 'refresh_token') -> 'rt_...'.
+export function readSetCookie(
+  res: InjectResponse,
+  name: string,
+): string | undefined {
+  const raw = res.headers['set-cookie'];
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const hit = list.find((c) => c.startsWith(`${name}=`));
+  if (!hit) return undefined;
+  const pair = hit.split(';')[0]; // name=value
+  return pair.slice(pair.indexOf('=') + 1);
 }
 
 export async function login(app: NestFastifyApplication): Promise<string> {
