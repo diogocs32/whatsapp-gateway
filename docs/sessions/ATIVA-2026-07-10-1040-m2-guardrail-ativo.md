@@ -95,6 +95,8 @@
 - **Pendências para próxima sessão (M3 · Qualidade):** testes unitários de domínio + coverage + dependency-cruiser no CI; fix do lint local (`apps/gateway/auth/` nos ignores) + `format:check` no CI. Backlog: adicionar `session.warming` aos eventos do trigger do Notificador (opcional); job de purge de refresh tokens (D-009). Node n8n (repo separado): `continueOnQuarantine` default true / destaque na doc + parâmetro `proxyId` na criação de sessão (D-008).
 - **Watch pós-flip:** reply da Diogo abaixo do limiar de quarentena — 1º veredito `reliable` ao atingir Nmin 20 tende a quarentena legítima (não é bug); alerta chega via Notificador→self.
 
+- [19/07 22:33 UTC] **COLETA 12 (verificação do cofre local)**: teste do fluxo seguro de chave — `scripts/coleta.secret.local` (gitignored) guarda a `GATEWAY_API_KEY`, carregada sem ser impressa. Resultado: `enforce:true`, Diogo `aquecimento`/`aquecimento` (**transição da coleta 11 PERSISTIDA — zero divergência**), reply 13%, amostra **15** (13→15); DIOGO_OWEN aquecimento, amostra 0. Zero quarentena/throttle/falso-positivo. **Fluxo de coleta seguro validado** — a partir de agora a chave nunca transita pelo chat nem pelo git. Amostra da Diogo ainda < Nmin 20, reply 13% < limiar de quarentena (risco armado mantido).
+
 ## Textos prontos para o fechamento (aplicar em 20–21/07 — trocar `<DATA>` pela data real)
 
 ### 1. `docs/ESTADO.md`

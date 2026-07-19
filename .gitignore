@@ -45,3 +45,6 @@ npm-debug.log*
 auth/
 .wwebjs_auth/
 .wwebjs_cache/
+
+# Cofre local de segredos para scripts (nunca commitar)
+scripts/*.secret.local
