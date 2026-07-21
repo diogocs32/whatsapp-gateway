@@ -76,10 +76,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* corpo não-JSON */
     }
+    notifyUnauthorized(res.status, path);
     throw new ApiError(res.status, message);
   }
 
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
+// Cookie de sessão expirado/ausente (o JWT vale 12h): avisa o AuthProvider para deslogar e voltar
+// ao /login. Sem isto o painel fica "logado" (o user vem do corpo do login, não do cookie)
+// repetindo 401 no polling até o usuário recarregar na mão. Rotas de auth ficam de fora: o 401
+// delas já é tratado no lugar certo (login inválido / checagem do /me).
+export const UNAUTHORIZED_EVENT = 'api:unauthorized';
+function notifyUnauthorized(status: number, path: string): void {
+  if (status === 401 && !path.startsWith('/api/auth/')) {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
 }
 
 // Upload multipart (mídia): NÃO definir Content-Type — o browser põe o boundary.
@@ -97,6 +109,7 @@ async function requestForm<T>(path: string, form: FormData): Promise<T> {
     } catch {
       /* corpo não-JSON */
     }
+    notifyUnauthorized(res.status, path);
     throw new ApiError(res.status, message);
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
@@ -189,6 +202,9 @@ export const api = {
     remove: (id: string) =>
       request<Ok>(`/api/sessions/${id}`, { method: 'DELETE' }),
     qr: (id: string) => request<QrResponse>(`/api/sessions/${id}/qr`),
+    // Limpa credenciais + reinicia o socket (recuperação de sessão deslogada pelo celular).
+    newQr: (id: string) =>
+      request<Ok>(`/api/sessions/${id}/new-qr`, { method: 'POST' }),
     pairingCode: (id: string, phoneNumber: string) =>
       request<PairingCodeResponse>(`/api/sessions/${id}/pairing-code`, {
         method: 'POST',

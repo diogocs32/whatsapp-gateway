@@ -400,6 +400,12 @@ export class BaileysEngine implements IEngine {
   private qrBase64: string | null = null;
   private stopped = false;
   private reconnectAttempts = 0;
+  // Mutex de ciclo de vida (espelha o da WwebjsEngine): serializa start/stop/logout/reconexão da
+  // MESMA sessão. Sem isto, dois start() próximos (duplo clique, restart sobre start, create +
+  // autostart) passam ambos pelo `if (this.sock)` de connect() com sock=null e criam DOIS
+  // makeWASocket — o primeiro fica órfão com listeners vivos e os dois brigam pela sessão
+  // (connectionReplaced/440 em loop até esgotar as reconexões).
+  private lifecycle: Promise<unknown> = Promise.resolve();
   // cache de mensagens enviadas — usado pelo getMessage (retry de descriptografia, blueprint §8.6)
   private readonly sentMessages = new Map<string, proto.IMessage>();
   // cache LID→número (PN) aprendido das mensagens, para resolver conversas 1:1 (§23.1)
@@ -423,10 +429,23 @@ export class BaileysEngine implements IEngine {
     this.deps.onEvent('session.status', { status, ...extra });
   }
 
-  async start(): Promise<void> {
-    this.stopped = false;
-    this.reconnectAttempts = 0;
-    await this.connect();
+  // Encadeia `fn` após a última operação de ciclo de vida (resolvendo ou rejeitando), garantindo
+  // execução serializada por instância (1 sessão = 1 engine).
+  private serialize<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.lifecycle.then(fn, fn);
+    this.lifecycle = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  start(): Promise<void> {
+    return this.serialize(() => {
+      this.stopped = false;
+      this.reconnectAttempts = 0;
+      return this.connect();
+    });
   }
 
   private async connect(): Promise<void> {
@@ -547,9 +566,25 @@ export class BaileysEngine implements IEngine {
         ?.statusCode;
 
       if (statusCode === DisconnectReason.loggedOut) {
+        // Deslogado pelo celular: as credenciais persistidas estão MORTAS — qualquer
+        // reconexão/restart com elas volta a falhar sem nunca gerar QR. Limpa tudo e para em
+        // STOPPED: o próximo start (botão Conectar / POST /new-qr) gera QR novo direto.
+        this.stopped = true;
         this.qrBase64 = null;
-        this.setStatus('FAILED', {
-          error: 'Sessão deslogada no celular (loggedOut)',
+        this.sentMessages.clear();
+        this.detachSocketListeners();
+        try {
+          this.sock?.end(undefined);
+        } catch {
+          /* noop */
+        }
+        this.sock = null;
+        await this.clearCredentials();
+        this.setStatus('STOPPED', {
+          meJid: null,
+          mePushName: null,
+          error:
+            'Desconectada pelo celular (loggedOut) — credenciais limpas; gere um novo QR para reconectar',
         });
         return;
       }
@@ -597,9 +632,11 @@ export class BaileysEngine implements IEngine {
       );
       setTimeout(() => {
         if (!this.stopped) {
-          void this.connect().catch((e) =>
-            this.deps.logger.error({ e }, 'erro ao reconectar'),
-          );
+          // Serializada e re-checando `stopped` DENTRO da fila: um stop()/logout() que entrou
+          // entre o agendamento e a execução cancela a reconexão em vez de ressuscitar o socket.
+          void this.serialize(() =>
+            this.stopped ? Promise.resolve() : this.connect(),
+          ).catch((e) => this.deps.logger.error({ e }, 'erro ao reconectar'));
         }
       }, delay);
     }
@@ -1208,7 +1245,14 @@ export class BaileysEngine implements IEngine {
     return code;
   }
 
-  async stop(): Promise<void> {
+  stop(): Promise<void> {
+    // `stopped` marcado FORA da fila: cancela na hora reconexões agendadas e faz um start em
+    // andamento terminar sem ser seguido de reconexão — o doStop serializado fecha o resto.
+    this.stopped = true;
+    return this.serialize(() => this.doStop());
+  }
+
+  private async doStop(): Promise<void> {
     this.stopped = true;
     // Remove os listeners ANTES de encerrar o socket. Sem isto, o `end()` dispara um
     // connection.update 'close' tardio que reentra em onConnectionUpdate e re-emite status
@@ -1237,7 +1281,12 @@ export class BaileysEngine implements IEngine {
     }
   }
 
-  async logout(): Promise<void> {
+  logout(): Promise<void> {
+    this.stopped = true;
+    return this.serialize(() => this.doLogout());
+  }
+
+  private async doLogout(): Promise<void> {
     this.stopped = true;
     try {
       await this.sock?.logout();
@@ -1253,15 +1302,20 @@ export class BaileysEngine implements IEngine {
     this.sock = null;
     this.qrBase64 = null;
     this.sentMessages.clear();
+    await this.clearCredentials();
+    this.setStatus('STOPPED', { meJid: null, mePushName: null, error: null });
+  }
+
+  // Apaga as credenciais persistidas (chaves Signal + creds do handshake). Idempotente;
+  // updateMany: se a sessão já foi removida, não lança P2025 (segue como no-op).
+  private async clearCredentials(): Promise<void> {
     await this.deps.prisma.waAuthKey.deleteMany({
       where: { sessionId: this.deps.sessionId },
     });
-    // updateMany: se a sessão já foi removida, não lança P2025 (segue como no-op).
     await this.deps.prisma.waSession.updateMany({
       where: { id: this.deps.sessionId },
       data: { creds: Prisma.DbNull },
     });
-    this.setStatus('STOPPED', { meJid: null, mePushName: null, error: null });
   }
 }
 

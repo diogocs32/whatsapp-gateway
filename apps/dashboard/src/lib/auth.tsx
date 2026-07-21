@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthUser } from '@contracts';
-import { api } from './api';
+import { api, UNAUTHORIZED_EVENT } from './api';
 
 interface AuthState {
   user: AuthUser | null;
@@ -29,6 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    // Cookie expirou no meio do uso (JWT de 12h): qualquer 401 de /api/* zera o user e o
+    // <RequireAuth> redireciona ao /login — em vez de painel quebrado repetindo 401 no polling.
+    const onUnauthorized = () => setUser(null);
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
   const signIn = async (username: string, password: string) => {

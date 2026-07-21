@@ -61,6 +61,43 @@ describe('Sessions (e2e)', () => {
     );
   });
 
+  // Rota de recuperação com credencial nova (P0 estabilidade): contrato básico —
+  // exige auth, 404 para sessão inexistente, 200 {ok:true} para sessão existente.
+  it('POST /new-qr sem auth → 401', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/qualquer/new-qr',
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('POST /new-qr de sessão inexistente → 404', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/nao-existe/new-qr',
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('POST /new-qr de sessão existente → 200 {ok:true}', async () => {
+    const name = 'e2e-' + Math.random().toString(36).slice(2, 8);
+    const create = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { name, engine: 'BAILEYS' },
+    });
+    expect(create.statusCode).toBe(201);
+    const res = await inject(app, {
+      method: 'POST',
+      url: `/api/sessions/${name}/new-qr`,
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().ok).toBe(true);
+  });
+
   it('nome inválido → 400 (validação zod)', async () => {
     const res = await inject(app, {
       method: 'POST',

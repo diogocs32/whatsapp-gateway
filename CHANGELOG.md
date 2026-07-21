@@ -8,6 +8,14 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **P0 estabilidade de sessão** (sessão `2026-07-21-1730-estabilidade-sessoes`): rota
+  `POST /api/sessions/:id/new-qr` — limpa as credenciais persistidas e reinicia o socket
+  (recuperação de sessão desconectada pelo celular; aditiva — R0/R4, sem tipo novo no contracts).
+  O botão "Gerar novo QR" do painel passa a usá-la (antes fazia restart com credenciais mortas
+  e a sessão voltava a FAILED sem nunca gerar QR).
+- Base universal **v3.2** adotada (D-009): `BASE_CONEXOZENVO.md` (raiz, R0–R18), `docs/MAPA.md`,
+  `docs/AUDITORIAS.md`, `docs/ADOCAO.md` (diagnóstico com evidências + ondas A1–A7).
+
 - **M0 · Doc viva**: `docs/ESTADO.md`, `docs/SESSOES.md`, `docs/DECISOES.md`, `docs/ARQUITETURA.md`
   (tabelas donas validadas contra o schema.prisma — divergências em D-002/D-003), `docs/PROJETO.md`,
   `docs/sessions/`, `CLAUDE.md` (raiz) e este `CHANGELOG.md`.
@@ -28,6 +36,18 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
   Sem mudança de código — onda operacional; produção roda `808c175` desde 13:28 UTC.
 
 ### Corrigido
+
+- **Engine Baileys sem mutex de ciclo de vida**: dois `start()` próximos (duplo clique,
+  restart sobre start, create + autostart) criavam DOIS sockets — o primeiro ficava órfão e os
+  dois brigavam pela sessão (conflito 440 em loop até esgotar as reconexões, QR nunca
+  estabilizava). start/stop/logout/reconexão agora serializados por sessão (espelha o mutex que
+  a engine wwebjs já tinha).
+- **`loggedOut` (desconectado pelo celular) deixava credenciais mortas**: agora limpa
+  `wa_auth_keys` + `creds` e para em STOPPED com `lastError` claro — o próximo start gera QR
+  novo direto (antes ficava FAILED e todo restart reconectava com as creds inválidas).
+- **Painel "logado" após o JWT de 12h expirar**: qualquer 401 de `/api/*` agora desloga e
+  redireciona ao `/login` (antes o polling repetia 401 no console indefinidamente com a UI
+  aparentando sessão ativa).
 
 - **Booleans de env** (`DB_SSL`, `GUARDRAIL_ENFORCE`, `S3_FORCE_PATH_STYLE`): trocado o
   `z.coerce.boolean()` (que fazia `Boolean(texto)` — `"false"`/`"0"` viravam TRUE) por parser
