@@ -1,7 +1,7 @@
 # BASE DO PROJETO — CONEXOZENVO
 
 > Base universal: **v3.2** · aplicada em 2026-07-21 · modo: **upgrade** (da adaptação v2.1
-> em `DOCUMENTO_CONEXOZENVO_NESTJS.md`, que permanece como histórico — decisão D-009)
+> em `DOCUMENTO_CONEXOZENVO_NESTJS.md`, que permanece como histórico — decisão D-010)
 > Arquivo canônico: `BASE_CONEXOZENVO.md` na RAIZ — nome fixo, um por repo (R18).
 > Fonte da base genérica: `docs/DOCUMENTO_UNIVERSAL.md` (v3.2, escrita para Laravel;
 > este arquivo é a TRADUÇÃO dela para a stack real do ConexoZenvo).
@@ -195,7 +195,7 @@ Deltas v2.5→v3.2 a instalar (plano em `docs/ADOCAO.md`):
   API de lib (os piores bugs — jobId `:`, TS 6 — vieram de suposição)
 - Código production-ready: zod na borda, guards, DTOs, eventos, jobs
 - Em dúvida entre simples e complexo: simples, e registre o porquê
-- Toda sigla citada (M2, R5, D-009, G1–G8, O1–O4...) resolve em `docs/MAPA.md`;
+- Toda sigla citada (M2, R5, D-010, G1–G8, O1–O4...) resolve em `docs/MAPA.md`;
   criou tipo novo de referência = registrar no MAPA na hora
 - Sempre responder em pt-BR
 
@@ -350,7 +350,7 @@ SEMESTRAL só se "Dados sensíveis" virar "sim".
 - Arquivo canônico: `BASE_CONEXOZENVO.md` na RAIZ — porta de entrada de
   qualquer IA/humano; ao entrar no repo, procurar `BASE_*.md` ANTES de supor
 - Este arquivo nasceu em MODO UPGRADE (v2.1 adaptada → v3.2) em 2026-07-21 —
-  decisão D-009; diagnóstico e plano de ondas em `docs/ADOCAO.md`
+  decisão D-010; diagnóstico e plano de ondas em `docs/ADOCAO.md`
 - Deltas de base futuros: listar changelog entre versões → aplicar SEM
   reescrever o preenchimento do projeto → delta que exige código/infra vira
   sessão R9 própria → bump da versão no topo + D-xxx

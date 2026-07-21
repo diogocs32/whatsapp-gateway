@@ -34,7 +34,7 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main = origin/main         | Adoção base v3.2 (D-009) + P0 estabilidade de sessão pushados em 21/07 — deploy via webhook (confirmar ~5 min no /health) |
+| main = origin/main         | Adoção base v3.2 (D-010) + P0 estabilidade de sessão pushados em 21/07 — deploy via webhook (confirmar ~5 min no /health) |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda              |
 
 ## Pendências operacionais
@@ -48,7 +48,7 @@ Nenhuma — O1–O4 concluídos. Observação contínua: intermitência do webho
   `POST /sessions` (SINGLE/STICKY exclusivo, 1 proxy = 1 sessão) + dropdown no painel. Pendência
   residual (repo do node n8n): parâmetro `proxyId` opcional na operação de criar sessão.
 
-## Processo (novo em 21/07 — D-009)
+## Processo (novo em 21/07 — D-010)
 
 Base universal **v3.2** adotada: regras canônicas em `BASE_CONEXOZENVO.md` (raiz, R0–R18);
 navegação de siglas em [MAPA.md](MAPA.md); agenda de auditorias em [AUDITORIAS.md](AUDITORIAS.md);

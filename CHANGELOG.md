@@ -13,7 +13,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
   (recuperação de sessão desconectada pelo celular; aditiva — R0/R4, sem tipo novo no contracts).
   O botão "Gerar novo QR" do painel passa a usá-la (antes fazia restart com credenciais mortas
   e a sessão voltava a FAILED sem nunca gerar QR).
-- Base universal **v3.2** adotada (D-009): `BASE_CONEXOZENVO.md` (raiz, R0–R18), `docs/MAPA.md`,
+- Base universal **v3.2** adotada (D-010): `BASE_CONEXOZENVO.md` (raiz, R0–R18), `docs/MAPA.md`,
   `docs/AUDITORIAS.md`, `docs/ADOCAO.md` (diagnóstico com evidências + ondas A1–A7).
 
 - **M0 · Doc viva**: `docs/ESTADO.md`, `docs/SESSOES.md`, `docs/DECISOES.md`, `docs/ARQUITETURA.md`

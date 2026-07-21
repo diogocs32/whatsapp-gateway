@@ -54,64 +54,94 @@ export class ApiError extends Error {
   }
 }
 
+// --- Silent refresh (refresh-token rotation) ---------------------------------
+// A sessão do painel é access curto (cookie httpOnly `token`) + refresh longo (cookie restrito a
+// /api/auth). Quando o access expira, um request qualquer leva 401; aqui renovamos a sessão UMA vez
+// (POST /api/auth/refresh) e refazemos o request. Se o refresh falhar, avisamos o AuthProvider
+// (limpa o usuário → o app redireciona pro /login) — nada de console cheio de 401 nem logout no meio.
+
+let refreshInFlight: Promise<boolean> | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+// Registrado pelo AuthProvider. Chamado quando a renovação falha (sessão realmente expirada).
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
+// login/refresh não devem disparar refresh (401 no login = credencial errada; no refresh = loop).
+function isAuthEndpoint(path: string): boolean {
+  return (
+    path.startsWith('/api/auth/login') || path.startsWith('/api/auth/refresh')
+  );
+}
+
+// Uma única renovação por vez: requests concorrentes que levarem 401 compartilham a MESMA promise
+// (anti-corrida) em vez de dispararem N refreshes.
+function tryRefresh(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+      .then((r) => r.ok)
+      .catch(() => false);
+    void refreshInFlight.finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+// fetch com credenciais + retry único pós-refresh. `allowRefresh=false` na 2ª tentativa (anti-loop).
+async function coreFetch(
+  path: string,
+  init: RequestInit,
+  allowRefresh = true,
+): Promise<Response> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    credentials: 'include',
+  });
+  if (res.status === 401 && allowRefresh && !isAuthEndpoint(path)) {
+    const renewed = await tryRefresh();
+    if (renewed) return coreFetch(path, init, false); // refez a sessão → 1 retry
+    onUnauthorized?.(); // expirou de vez → AuthProvider redireciona pro login
+  }
+  return res;
+}
+
+async function parseError(res: Response): Promise<never> {
+  let message = res.statusText;
+  try {
+    const body = (await res.json()) as { message?: string };
+    if (body?.message) message = body.message;
+  } catch {
+    /* corpo não-JSON */
+  }
+  throw new ApiError(res.status, message);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // Só envia Content-Type: application/json quando HÁ body — o Fastify rejeita
   // (400) um POST com esse content-type e body vazio (start/stop/restart/logout).
   const hasBody = init?.body !== undefined && init?.body !== null;
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await coreFetch(path, {
     ...init,
-    // Sessão do painel via cookie httpOnly (item 19) — nada de token no localStorage.
-    credentials: 'include',
     headers: {
       ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...(init?.headers ?? {}),
     },
   });
 
-  if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const body = (await res.json()) as { message?: string };
-      if (body?.message) message = body.message;
-    } catch {
-      /* corpo não-JSON */
-    }
-    notifyUnauthorized(res.status, path);
-    throw new ApiError(res.status, message);
-  }
-
+  if (!res.ok) return parseError(res);
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
-// Cookie de sessão expirado/ausente (o JWT vale 12h): avisa o AuthProvider para deslogar e voltar
-// ao /login. Sem isto o painel fica "logado" (o user vem do corpo do login, não do cookie)
-// repetindo 401 no polling até o usuário recarregar na mão. Rotas de auth ficam de fora: o 401
-// delas já é tratado no lugar certo (login inválido / checagem do /me).
-export const UNAUTHORIZED_EVENT = 'api:unauthorized';
-function notifyUnauthorized(status: number, path: string): void {
-  if (status === 401 && !path.startsWith('/api/auth/')) {
-    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
-  }
-}
 
 // Upload multipart (mídia): NÃO definir Content-Type — o browser põe o boundary.
 async function requestForm<T>(path: string, form: FormData): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    credentials: 'include',
-    body: form,
-  });
-  if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const body = (await res.json()) as { message?: string };
-      if (body?.message) message = body.message;
-    } catch {
-      /* corpo não-JSON */
-    }
-    notifyUnauthorized(res.status, path);
-    throw new ApiError(res.status, message);
-  }
+  const res = await coreFetch(path, { method: 'POST', body: form });
+  if (!res.ok) return parseError(res);
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 

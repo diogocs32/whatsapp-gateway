@@ -1,7 +1,7 @@
 # 🚧 ADOÇÃO DO PADRÃO v3.2 — ConexoZenvo
 
 > Diagnóstico + plano de ondas (R18 · modo UPGRADE, sessão
-> `2026-07-21-1630-adocao-base-v32`, D-009). Arquivar quando o diagnóstico
+> `2026-07-21-1630-adocao-base-v32`, D-010). Arquivar quando o diagnóstico
 > estiver 100% ✅/➖ e registrar em DECISOES.md.
 > Evidências coletadas em 21/07/2026 por varredura do repo (arquivo:linha).
 
@@ -27,7 +27,7 @@
 | R15 Deploy           | 🔴     | Auto-deploy webhook na main + **build no servidor** (sem registry — `ci.yml:1-3`) · sem smoke de artefato · sem staging · sem promoção gated · rollback lento (rebuild) · entrypoint com migrate antes do boot (bom: `docker-entrypoint.sh:38-40`) mas **sem retry de banco** | A5          |
 | R16 Hardening        | 🟡     | Multi-stage, non-root via gosu (`docker-entrypoint.sh:11-19`), tini, HEALTHCHECK, heap auto-tune cgroup (`:25-36`) · **falta retry/backoff de banco no boot** (`set -e` derruba) · validação de env fica no Nest (ok) | A5          |
 | R17 Auditorias       | 🟡     | AUDITORIAS.md criado AGORA; auditoria 07/2026 foi 1×; nada recorrente instalado (gates contínuos entram na A2)                                                                          | A2          |
-| R18 Base             | ✅     | BASE_CONEXOZENVO.md na raiz (v3.2) + este arquivo + D-009 — esta sessão                                                                                                                | —           |
+| R18 Base             | ✅     | BASE_CONEXOZENVO.md na raiz (v3.2) + este arquivo + D-010 — esta sessão                                                                                                                | —           |
 
 Legenda: ✅ conforme · 🟡 parcial · 🔴 ausente · ➖ não se aplica
 

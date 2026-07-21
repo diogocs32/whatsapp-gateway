@@ -5,10 +5,10 @@
 - **Objetivo:** Upgrade da base de processo (R18 modo UPGRADE): traduzir o
   DOCUMENTO_UNIVERSAL v3.2 para a stack real → BASE_CONEXOZENVO.md canônico na
   raiz + MAPA.md + AUDITORIAS.md + ADOCAO.md (diagnóstico R1–R18 com evidências
-  e plano de ondas) + ponteiros (CLAUDE.md, banner no doc antigo, D-009)
+  e plano de ondas) + ponteiros (CLAUDE.md, banner no doc antigo, D-010)
 - **Escopo (pode tocar):** BASE_CONEXOZENVO.md (raiz, novo) ·
   docs/{MAPA,AUDITORIAS,ADOCAO}.md (novos) · docs/DOCUMENTO_UNIVERSAL.md
-  (commit do arquivo trazido pelo usuário) · docs/DECISOES.md (append D-009) ·
+  (commit do arquivo trazido pelo usuário) · docs/DECISOES.md (append D-010) ·
   docs/SESSOES.md (linha própria) · CLAUDE.md (ponteiro de processo) ·
   DOCUMENTO_CONEXOZENVO_NESTJS.md (só banner de superseded no topo)
 - **Fora do escopo (não tocar):** qualquer código de apps/ e packages/ ·
@@ -29,13 +29,13 @@
   env/segurança/banco/fuso/observabilidade) → ADOCAO.md criado: diagnóstico
   R0–R18 com arquivo:linha + 7 ondas A1–A7 priorizadas por risco (A1=backup,
   A2=gates, A3=fuso/Timestamptz, A4=M3, A5=deploy R15, A6=M5, A7=a11y)
-- [21/07 17:05] D-009 no DECISOES.md · CLAUDE.md apontando BASE · banner de
+- [21/07 17:05] D-010 no DECISOES.md · CLAUDE.md apontando BASE · banner de
   superseded no DOCUMENTO_CONEXOZENVO_NESTJS.md · commit da sessão
 
 ## Encerramento
 
 - **Fim:** 21/07 17:20 UTC · **Entregue:** BASE_CONEXOZENVO.md (v3.2, R0–R18) +
-  docs/{MAPA,AUDITORIAS,ADOCAO}.md + DOCUMENTO_UNIVERSAL.md versionado + D-009 +
+  docs/{MAPA,AUDITORIAS,ADOCAO}.md + DOCUMENTO_UNIVERSAL.md versionado + D-010 +
   ponteiros (CLAUDE.md, banner no doc v2.1) · **Commits:** 2363e79, ab23227
 - **Efeito de deploy:** nenhum (documentação/processo)
 - **Pendências para próxima sessão:** executar ondas A1–A7 do ADOCAO.md

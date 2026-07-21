@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthUser } from '@contracts';
-import { api, UNAUTHORIZED_EVENT } from './api';
+import { api, setUnauthorizedHandler } from './api';
 
 interface AuthState {
   user: AuthUser | null;
@@ -22,21 +22,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Sessão em cookie httpOnly (item 19): o front não enxerga o token — pergunta ao servidor
-    // se há sessão válida. 401 = deslogado.
+    // Quando a renovação silenciosa falhar (refresh expirado/revogado), o cliente HTTP chama isto:
+    // limpamos o usuário e o <Protected> redireciona pro /login — sem logout abrupto no meio do uso.
+    setUnauthorizedHandler(() => setUser(null));
+    // Sessão em cookie httpOnly: o front não enxerga o token — pergunta ao servidor se há sessão
+    // válida. Se o access expirou mas o refresh vale, o próprio /me se auto-renova (interceptor).
     api
       .me()
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    // Cookie expirou no meio do uso (JWT de 12h): qualquer 401 de /api/* zera o user e o
-    // <RequireAuth> redireciona ao /login — em vez de painel quebrado repetindo 401 no polling.
-    const onUnauthorized = () => setUser(null);
-    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const signIn = async (username: string, password: string) => {
