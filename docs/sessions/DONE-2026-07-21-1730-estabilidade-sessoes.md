@@ -1,6 +1,6 @@
 # Sessão: estabilidade-sessoes
 
-- **Status:** 🟢 ATIVA
+- **Status:** ✅ CONCLUÍDA
 - **Início:** 21/07 17:30 UTC
 - **Objetivo:** P0 de estabilidade do ciclo de vida de sessão WhatsApp:
   (1) mutex/serialização no start/stop/restart da engine Baileys (hoje 2 starts
@@ -45,8 +45,14 @@
 - [21/07 18:05] Validação: typecheck ok · lint ok · prettier ok nos arquivos
   tocados · e2e 82/82 (3 novos p/ /new-qr) · builds gateway+dashboard ok
 
-## Encerramento (preencher ao concluir)
+## Encerramento
 
-- **Fim:** — · **Entregue:** — · **Commits:** —
-- **Efeito de deploy:** —
-- **Pendências para próxima sessão:** —
+- **Fim:** 21/07 18:15 UTC · **Entregue:** P0 completo (mutex Baileys · creds
+  limpas no loggedOut · POST /:id/new-qr + botão do painel · interceptor 401)
+  — e2e 82/82, builds ok · **Commits:** cfc2c60
+- **Efeito de deploy:** restart único do gateway (sessões Baileys reconectam
+  com creds persistidas); painel: JWT vencido passa a redirecionar ao /login
+- **Pendências para próxima sessão:** P1 (DisconnectReason discriminado ·
+  watchdog liveness · auto-heal DEGRADED · reconexão wwebjs · reidratar FAILED)
+  e P2 (pairing sem sleep fixo · timeout no modal QR · LocalAuth no logout
+  remoto) — lista completa na seção Backlog acima; unit do mutex entra na M3
