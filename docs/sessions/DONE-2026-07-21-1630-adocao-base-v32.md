@@ -1,6 +1,6 @@
 # Sessão: adocao-base-v32
 
-- **Status:** 🟢 ATIVA
+- **Status:** ✅ CONCLUÍDA
 - **Início:** 21/07 16:30 UTC
 - **Objetivo:** Upgrade da base de processo (R18 modo UPGRADE): traduzir o
   DOCUMENTO_UNIVERSAL v3.2 para a stack real → BASE_CONEXOZENVO.md canônico na
@@ -32,8 +32,13 @@
 - [21/07 17:05] D-009 no DECISOES.md · CLAUDE.md apontando BASE · banner de
   superseded no DOCUMENTO_CONEXOZENVO_NESTJS.md · commit da sessão
 
-## Encerramento (preencher ao concluir)
+## Encerramento
 
-- **Fim:** — · **Entregue:** — · **Commits:** —
+- **Fim:** 21/07 17:20 UTC · **Entregue:** BASE_CONEXOZENVO.md (v3.2, R0–R18) +
+  docs/{MAPA,AUDITORIAS,ADOCAO}.md + DOCUMENTO_UNIVERSAL.md versionado + D-009 +
+  ponteiros (CLAUDE.md, banner no doc v2.1) · **Commits:** 2363e79, ab23227
 - **Efeito de deploy:** nenhum (documentação/processo)
-- **Pendências para próxima sessão:** —
+- **Pendências para próxima sessão:** executar ondas A1–A7 do ADOCAO.md
+  (ordem: A1 backup → A2 gates → A3 fuso → M3 → A5 deploy → M5); push da main
+  fica a critério do usuário (dispara redeploy no Dokploy — evitar rajada com
+  sessão WhatsApp real conectada)
