@@ -11,6 +11,7 @@
 | ID                                 | Início      | Objetivo                                            | Escopo                                                        | Branch                     |
 | ---------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------- | -------------------------- |
 | 2026-07-10-1040-m2-guardrail-ativo | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway) | feature/m2-guardrail-ativo |
+| 2026-07-21-1730-estabilidade-sessoes | 21/07 17:30 | P0 estabilidade: mutex Baileys · creds no loggedOut · "Novo QR" real · 401 no painel | modules/sessions/** + dashboard {api,auth,Sessions} + contracts (declarado) | feature/estabilidade-sessoes |
 
 ## ✅ Histórico (mais recente primeiro)
 

@@ -288,6 +288,16 @@ export class SessionsController {
     return { status: s.status, qr: this.manager.getQr(id) };
   }
 
+  // Recuperação com credencial nova (ex.: sessão desconectada pelo celular): limpa as creds
+  // persistidas e reinicia o socket — o QR novo chega pelo polling de GET /:id/qr. Diferente do
+  // /restart, que reaproveita as credenciais existentes.
+  @Post(':id/new-qr')
+  async newQr(@Param('id', SessionRefPipe) id: string) {
+    await this.ensure(id);
+    await this.manager.newQr(id);
+    return { ok: true };
+  }
+
   @Post(':id/pairing-code')
   async pairingCode(
     @Param('id', SessionRefPipe) id: string,

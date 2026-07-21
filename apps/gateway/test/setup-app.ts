@@ -13,6 +13,7 @@ export const fakeSessionManager = {
   stop: async () => undefined,
   restart: async () => undefined,
   logout: async () => undefined,
+  newQr: async () => undefined,
   remove: async () => undefined,
   getQr: () => null,
   requestPairingCode: async () => '12345678',

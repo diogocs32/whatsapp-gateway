@@ -76,13 +76,14 @@ function ConnectModal({
     }
   }
 
-  // Reinicia o socket → QR novo (reconectar a uma sessão existente sem criar outra).
+  // Credencial nova + socket novo → QR novo. Restart puro não serve aqui: se a sessão foi
+  // desconectada pelo celular, ele reconecta com as credenciais mortas e nunca gera QR.
   async function regenerate() {
     setRegenerating(true);
     setErr(null);
     setCode(null);
     try {
-      await api.sessions.restart(session.id);
+      await api.sessions.newQr(session.id);
     } catch (e) {
       setErr((e as Error).message);
     } finally {

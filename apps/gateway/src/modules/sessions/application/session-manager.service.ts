@@ -321,6 +321,27 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     });
   }
 
+  // "Novo QR" de verdade: derruba o socket atual, limpa as credenciais persistidas e sobe um
+  // socket novo — o caminho de recuperação para sessão desconectada pelo celular (creds mortas:
+  // restart puro reconecta com elas e volta a falhar sem nunca gerar QR). De propósito NÃO faz
+  // sock.logout() (round-trip com o WhatsApp): com creds mortas ele só trava, e o timeout abriria
+  // corrida entre a limpeza tardia da engine velha e as creds novas do QR seguinte. Sessão WORKING
+  // que queira desvincular "educadamente" do celular: usar POST /:id/logout.
+  async newQr(sessionId: string): Promise<void> {
+    const engine = this.engines.get(sessionId);
+    // Fora do mapa ANTES do stop: o guard de onEvent passa a ignorar eventos tardios da engine
+    // velha, e o start abaixo cria uma instância nova em vez de reaproveitar a antiga.
+    this.engines.delete(sessionId);
+    await this.withTimeout(engine?.stop(), 10_000);
+    await this.prisma.waAuthKey.deleteMany({ where: { sessionId } });
+    // updateMany: se a sessão já foi removida, não lança P2025 (segue como no-op).
+    await this.prisma.waSession.updateMany({
+      where: { id: sessionId },
+      data: { creds: Prisma.DbNull },
+    });
+    await this.start(sessionId);
+  }
+
   async remove(sessionId: string): Promise<void> {
     const engine = this.engines.get(sessionId);
     // Remove do mapa ANTES de deletar/parar: a partir daqui o guard de onEvent ignora qualquer
