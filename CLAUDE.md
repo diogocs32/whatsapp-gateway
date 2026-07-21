@@ -10,7 +10,7 @@ produção nem o contrato da API** (R0).
 2. `docs/SESSOES.md` — o que outras conversas estão fazendo AGORA
 3. O arquivo da sessão em `docs/sessions/ATIVA-*.md` (criar o seu se for sessão nova, com branch `feature/*`)
 
-Processo completo (ondas M0–M6, regras R0–R10, template de checkpoint): `DOCUMENTO_CONEXOZENVO_NESTJS.md`.
+Processo completo (ondas M0–M6, regras R0–R18, template de checkpoint): `BASE_CONEXOZENVO.md` (raiz — base universal v3.2 adaptada; R18). Siglas e navegação: `docs/MAPA.md`. Histórico da adaptação v2.1: `DOCUMENTO_CONEXOZENVO_NESTJS.md`.
 
 ## Stack (não sugerir alternativas)
 

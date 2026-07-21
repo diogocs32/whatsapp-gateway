@@ -11,6 +11,7 @@
 | ID                                 | Início      | Objetivo                                            | Escopo                                                        | Branch                     |
 | ---------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------- | -------------------------- |
 | 2026-07-10-1040-m2-guardrail-ativo | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway) | feature/m2-guardrail-ativo |
+| 2026-07-21-1630-adocao-base-v32    | 21/07 16:30 | Upgrade da base de processo p/ universal v3.2 (R18) | BASE_CONEXOZENVO.md + docs/{MAPA,AUDITORIAS,ADOCAO}.md + ponteiros (CLAUDE.md, DECISOES D-009) | feature/adocao-base-v32    |
 
 ## ✅ Histórico (mais recente primeiro)
 
