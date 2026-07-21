@@ -1,3 +1,9 @@
+> ⚠️ **SUPERSEDED (2026-07-21, D-009):** as regras de execução canônicas agora vivem em
+> **`BASE_CONEXOZENVO.md` (raiz)** — base universal **v3.2** (R0–R18). Este arquivo
+> permanece como histórico da adaptação v2.1 e como fonte das seções ainda referenciadas:
+> § FEATURE DIRECIONADA (ENGINE META CLOUD) e § PARTE 5 (árvore de referência do módulo
+> `proxies` + esboço do dependency-cruiser). Não atualizar regras aqui.
+
 # 📘 DOCUMENTO DE PROJETO — CONEXOZENVO — v1.1
 
 ### NestJS 11 · Node 22+ · TypeScript · Prisma 7 · BullMQ 5 · Baileys 7 · React 19 · PostgreSQL · Redis · Dokploy

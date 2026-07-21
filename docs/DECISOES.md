@@ -93,3 +93,28 @@
 - **Alternativas:** atribuição automática de proxy livre (1ª versão do pedido — o usuário refinou
   para ESCOLHA explícita em 10/07); modo novo `AUTO_EXCLUSIVE` no enum (rejeitado: migration +
   complexidade sem necessidade — SINGLE já expressa o resultado).
+
+## D-009 — 2026-07-21 — Upgrade da base de processo: universal v2.1 → v3.2 (R18)
+
+- **Decisão:** o projeto adota a base universal **v3.2** (`docs/DOCUMENTO_UNIVERSAL.md`,
+  trazida pelo usuário) via MODO UPGRADE do R18. Novo arquivo canônico de regras:
+  **`BASE_CONEXOZENVO.md` na raiz** (v3.2 traduzida para NestJS/Prisma/Vitest/Dokploy,
+  preservando R0, ondas M0–M6, módulos e a feature META CLOUD). `DOCUMENTO_CONEXOZENVO_NESTJS.md`
+  (adaptação da v2.1) vira histórico com banner de superseded — mantém as seções ainda
+  referenciadas (FEATURE DIRECIONADA e PARTE 5).
+- **Deltas aplicados (v2.2→v3.2):** MAPA.md (navegação de siglas) · AUDITORIAS.md (agenda
+  viva — R17) · regras novas R11 (.env como contrato) · R12 (acessibilidade — recomendado,
+  painel interno) · R13 (tempo/fuso — `@db.Timestamptz`, TZ, ISO-8601 com offset) · R14
+  (assets) · R15 (deploy de excelência — build-once/promote, smoke do artefato, graceful
+  shutdown; estado atual "auto-deploy + build no servidor" registrado como divergência) ·
+  R16 (hardening da imagem) · R17 (cadência de auditorias) · R18 (ciclo de vida da base) ·
+  reforços em R4 (N-1/expand-contract, índice CONCURRENTLY), R5 (2 níveis de criptografia
+  adaptados, teste→go-live), R6 (gitleaks, drift de env, baseline não cresce), R9
+  (SESSOES_ARQUIVO.md >15 linhas), R10 (identidade ≠ domínio).
+- **Numeração:** R1–R10 do projeto já coincidiam 1:1 com o universal → upgrade ADITIVO,
+  nenhuma referência antiga (R0–R10 em docs/sessões) quebra.
+- **Plano:** deltas que exigem código/infra viram ondas em `docs/ADOCAO.md` (cada uma
+  sessão R9 própria, priorizadas por risco — produção não para, nada de big-bang).
+- **Alternativas:** reescrever DOCUMENTO_CONEXOZENVO_NESTJS.md no lugar (rejeitado: R18
+  pede BASE_<NOME>.md canônico na raiz e o histórico da v2.1 tem valor de contexto);
+  renumerar regras para "limpar" o R0 (rejeitado: quebraria toda referência existente).
