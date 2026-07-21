@@ -34,8 +34,7 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main LOCAL > origin/main   | Adoção da base v3.2 (D-009, docs-only) mergeada em 21/07 SEM push — push a critério do usuário (dispara redeploy) |
-| origin/main = prod         | Feature D-008 (proxy na criação) pushada em 11/07 — deploy automático via webhook            |
+| main = origin/main         | Adoção base v3.2 (D-009) + P0 estabilidade de sessão pushados em 21/07 — deploy via webhook (confirmar ~5 min no /health) |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda              |
 
 ## Pendências operacionais
@@ -59,7 +58,7 @@ produção SEM backup do banco).
 ## Próximos passos
 
 1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
-1b. **Estabilidade de sessão WhatsApp** (sessão `2026-07-21-1730-estabilidade-sessoes`): P0 = mutex no start Baileys · limpeza de creds no loggedOut · fluxo "Novo QR" real · interceptor 401 no painel — diagnóstico completo no arquivo da sessão
+1b. **Estabilidade de sessão — P0 ENTREGUE 21/07** (sessão `DONE-2026-07-21-1730-estabilidade-sessoes`): mutex Baileys · creds limpas no loggedOut · `POST /:id/new-qr` + botão do painel · 401 → /login. Restam P1/P2 (watchdog, auto-heal DEGRADED, DisconnectReason, reconexão wwebjs — backlog no arquivo DONE da sessão; vira sessão nova quando priorizado)
 1c. **Adoção A1 (backup)** → A2 (gates) → A3 (fuso) — ver [ADOCAO.md](ADOCAO.md)
 2. M3 · Qualidade: testes unitários de domínio, coverage, dependency-cruiser no CI + fix do lint local (`apps/gateway/auth/` nos ignores), normalizar prettier e adicionar `format:check` ao CI
 3. Node n8n (repo separado): parâmetro `proxyId` na criação de sessão (D-008)
