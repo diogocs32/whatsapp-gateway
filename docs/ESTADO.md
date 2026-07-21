@@ -34,7 +34,8 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main = origin/main = prod  | Feature D-008 (proxy na criação) mergeada e pushada em 11/07 — deploy automático via webhook |
+| main LOCAL > origin/main   | Adoção da base v3.2 (D-009, docs-only) mergeada em 21/07 SEM push — push a critério do usuário (dispara redeploy) |
+| origin/main = prod         | Feature D-008 (proxy na criação) pushada em 11/07 — deploy automático via webhook            |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda              |
 
 ## Pendências operacionais
@@ -48,8 +49,17 @@ Nenhuma — O1–O4 concluídos. Observação contínua: intermitência do webho
   `POST /sessions` (SINGLE/STICKY exclusivo, 1 proxy = 1 sessão) + dropdown no painel. Pendência
   residual (repo do node n8n): parâmetro `proxyId` opcional na operação de criar sessão.
 
+## Processo (novo em 21/07 — D-009)
+
+Base universal **v3.2** adotada: regras canônicas em `BASE_CONEXOZENVO.md` (raiz, R0–R18);
+navegação de siglas em [MAPA.md](MAPA.md); agenda de auditorias em [AUDITORIAS.md](AUDITORIAS.md);
+diagnóstico + ondas de adoção **A1–A7** em [ADOCAO.md](ADOCAO.md) (A1 backup é a mais urgente:
+produção SEM backup do banco).
+
 ## Próximos passos
 
 1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
+1b. **Estabilidade de sessão WhatsApp** (sessão `2026-07-21-1730-estabilidade-sessoes`): P0 = mutex no start Baileys · limpeza de creds no loggedOut · fluxo "Novo QR" real · interceptor 401 no painel — diagnóstico completo no arquivo da sessão
+1c. **Adoção A1 (backup)** → A2 (gates) → A3 (fuso) — ver [ADOCAO.md](ADOCAO.md)
 2. M3 · Qualidade: testes unitários de domínio, coverage, dependency-cruiser no CI + fix do lint local (`apps/gateway/auth/` nos ignores), normalizar prettier e adicionar `format:check` ao CI
 3. Node n8n (repo separado): parâmetro `proxyId` na criação de sessão (D-008)
