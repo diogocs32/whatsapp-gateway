@@ -142,6 +142,19 @@ export class ProxyResolver {
   async resolveAgent(sessionId: string): Promise<Agent | null> {
     const proxy = await this.resolve(sessionId);
     if (!proxy) {
+      // Ponto cego ELIMINADO: antes, conectar sem proxy (IP direto do servidor = datacenter) era
+      // silencioso. Para WhatsApp, conexão direta é o gatilho nº 1 de flag. Logamos SEMPRE,
+      // distinguindo intencional (mode NONE) de falha (SINGLE sem proxy vivo / candidatos DEAD).
+      const a = await this.repo.getAssignment(sessionId);
+      const motivo =
+        !a || a.mode === 'NONE'
+          ? 'sem proxy atribuído (mode NONE)'
+          : a.mode === 'SINGLE'
+            ? 'SINGLE sem proxy vivo (currentProxyId ausente ou DEAD)'
+            : `${a.mode} sem candidato vivo`;
+      this.logger.warn(
+        `Sessão ${sessionId}: conectando SEM proxy — ${motivo}. Tráfego sai pelo IP do servidor (datacenter); risco de flag no WhatsApp. Atribua um proxy residencial (ou ligue WA_REQUIRE_PROXY para bloquear).`,
+      );
       return null;
     }
     this.logger.log(
