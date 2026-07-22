@@ -17,6 +17,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-07-22-1700-hardening-antiban     | 22/07   | Hardening anti-flag: fingerprint realista por sessão · log de conexão sem proxy · WA_REQUIRE_PROXY (91/91) | feature/hardening-antiban            |
 | 2026-07-21-1730-estabilidade-sessoes  | 21/07   | P0 estabilidade: mutex Baileys · creds limpas no loggedOut · POST /new-qr + painel · 401 → /login (82/82) | feature/estabilidade-sessoes         |
 | 2026-07-21-1630-adocao-base-v32       | 21/07   | Base universal v3.2 adotada (R18): BASE_CONEXOZENVO.md + MAPA + AUDITORIAS + ADOCAO (D-010) | feature/adocao-base-v32              |
 | 2026-07-11-1753-proxy-na-criacao      | 11/07   | Feature D-008: proxy livre opcional na criação de sessão (API+painel+contrato, 79/79)       | feature/proxy-na-criacao             |
