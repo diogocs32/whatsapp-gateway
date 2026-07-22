@@ -8,6 +8,14 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **Hardening anti-flag do WhatsApp** (sessão `2026-07-22-1700-hardening-antiban`): fingerprint
+  de browser realista e ESTÁVEL por sessão no Baileys (`browser-fingerprint.ts` — pick
+  determinístico por sessionId entre 6 fingerprints desktop reais), substituindo o antigo
+  `['WhatsApp Gateway','Chrome','1.0.0']` que aparecia como "WhatsApp Gateway" em Aparelhos
+  Conectados e denunciava automação. Log WARN quando uma sessão conecta SEM proxy (fim do ponto
+  cego — antes a conexão direta pelo IP do servidor era silenciosa). Nova env `WA_REQUIRE_PROXY`
+  (default false): quando ligada, a engine recusa conectar sessão sem proxy vivo em vez de vazar
+  o IP do servidor/datacenter. Efeito de fingerprint só aparece após RE-VÍNCULO da sessão.
 - **P0 estabilidade de sessão** (sessão `2026-07-21-1730-estabilidade-sessoes`): rota
   `POST /api/sessions/:id/new-qr` — limpa as credenciais persistidas e reinicia o socket
   (recuperação de sessão desconectada pelo celular; aditiva — R0/R4, sem tipo novo no contracts).

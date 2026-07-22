@@ -102,7 +102,11 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     if (existing) return existing;
     const created = this.engineFactory.create(engineType, {
       sessionId,
+      // deviceName: rótulo genérico legado (não é mais o fingerprint do Baileys — este agora é
+      // realista e por sessão, ver baileys/browser-fingerprint.ts). Mantido só pela forma da deps.
       deviceName: 'WhatsApp Gateway',
+      // Guard anti-vazamento: recusa conectar sem proxy vivo quando ligado (ver config WA_REQUIRE_PROXY).
+      requireProxy: this.config.get('WA_REQUIRE_PROXY', { infer: true }),
       prisma: this.prisma,
       logger: pino({
         level: this.config.get('WA_LOG_LEVEL', { infer: true }),

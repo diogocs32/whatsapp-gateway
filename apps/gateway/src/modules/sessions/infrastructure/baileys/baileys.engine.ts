@@ -40,6 +40,7 @@ import type {
 } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 import { usePostgresAuthState } from './postgres-auth-state';
+import { browserFingerprint } from './browser-fingerprint';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -47,6 +48,9 @@ export interface BaileysEngineDeps {
   prisma: PrismaService;
   logger: Logger;
   onEvent: EngineEventHandler;
+  // Guard anti-vazamento (WA_REQUIRE_PROXY): quando true, a engine RECUSA conectar se resolveAgent
+  // não devolver proxy — evita expor o IP do servidor (datacenter) ao WhatsApp. Default false.
+  requireProxy?: boolean;
   // Resolve o proxy (agent) a cada conexão. null/ausente => conexão direta, sem proxy (§7.4).
   resolveAgent?: () => Promise<Agent | null>;
   // Dados crus do proxy (server + auth) para engines que aplicam proxy no browser (wwebjs:
@@ -478,6 +482,22 @@ export class BaileysEngine implements IEngine {
     // Proxy (§7.4): o mesmo Agent serve para o WebSocket (`agent`) e para o download de mídia (`fetchAgent`).
     const agent = (await this.deps.resolveAgent?.()) ?? undefined;
 
+    // Guard anti-vazamento (opcional, WA_REQUIRE_PROXY): sem proxy resolvido, o WhatsApp seria
+    // acessado DIRETO pelo IP do servidor (datacenter) — gatilho nº 1 de flag de automação na
+    // conexão. Com o guard ligado, recusamos conectar em vez de vazar o IP. `stopped=true` corta
+    // o loop de reconexão (um start manual reseta e tenta de novo, já com proxy atribuído).
+    if (!agent && this.deps.requireProxy) {
+      this.stopped = true;
+      this.deps.logger.error(
+        `Sessão ${this.deps.sessionId}: conexão BLOQUEADA — WA_REQUIRE_PROXY ligado e nenhum proxy vivo atribuído.`,
+      );
+      this.setStatus('FAILED', {
+        error:
+          'Sem proxy vivo e WA_REQUIRE_PROXY ligado — conexão bloqueada para não vazar o IP do servidor. Atribua um proxy residencial à sessão e reinicie.',
+      });
+      return;
+    }
+
     const sock = makeWASocket({
       // Espalha condicionalmente: `version: undefined` sobrescreveria a default embutida do
       // Baileys no merge de config (spread), quebrando o handshake.
@@ -494,7 +514,10 @@ export class BaileysEngine implements IEngine {
         ),
       },
       logger: this.deps.logger as never,
-      browser: [this.deps.deviceName, 'Chrome', '1.0.0'],
+      // Fingerprint realista e estável por sessão (ver browser-fingerprint.ts). Substitui o antigo
+      // ['WhatsApp Gateway','Chrome','1.0.0'], que aparecia como "WhatsApp Gateway" em Aparelhos
+      // Conectados e denunciava automação.
+      browser: browserFingerprint(this.deps.sessionId),
       markOnlineOnConnect: false,
       syncFullHistory: false,
       // Sob carga (campanhas), o commit do key store no Postgres pode falhar transitoriamente.

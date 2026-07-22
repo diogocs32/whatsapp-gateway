@@ -80,6 +80,10 @@ const base = z.object({
     .default('error'),
   WEBSHARE_API_KEY: z.string().optional(),
   PROXY_TEST_ECHO_URL: z.string().default('https://api.ipify.org?format=json'),
+  // Anti-flag: quando ligado, a engine Baileys RECUSA conectar uma sessão que não tenha proxy vivo
+  // atribuído (em vez de vazar o IP do servidor/datacenter ao WhatsApp — gatilho de flag na conexão).
+  // Default false para não quebrar sessões existentes; ligue depois de atribuir proxy a todas.
+  WA_REQUIRE_PROXY: envBool(false),
   // Storage de mídia (S3-compatível). Defaults = MinIO do docker-compose; em prod aponte p/ R2/B2.
   S3_ENDPOINT: z.string().default('http://localhost:9000'),
   S3_REGION: z.string().default('us-east-1'),
