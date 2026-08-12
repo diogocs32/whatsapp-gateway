@@ -5,7 +5,9 @@ import {
   WWebJSEngine,
   mapInboundMediaType,
   authDirOf,
+  groupFlags,
 } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
+import type { GroupChat } from 'whatsapp-web.js';
 import type { BaileysEngineDeps } from '../src/modules/sessions/infrastructure/baileys/baileys.engine';
 
 // Primeiro teste que instancia a engine WWEBJS real (antes desta W1, a cobertura do caminho wwebjs
@@ -83,6 +85,29 @@ describe('WWebJSEngine — rótulo da engine (P1-1)', () => {
   it('expõe engineName "wwebjs" (fonte do rótulo do envelope de webhook)', () => {
     const { deps } = makeDeps({});
     expect(new WWebJSEngine(deps).engineName).toBe('wwebjs');
+  });
+});
+
+describe('groupFlags — announce/restrict reais do grupo (P-012)', () => {
+  const asGroup = (md: unknown) =>
+    ({ groupMetadata: md }) as unknown as GroupChat;
+
+  it('lê os valores reais de groupMetadata', () => {
+    expect(groupFlags(asGroup({ announce: true, restrict: false }))).toEqual({
+      announce: true,
+      restrict: false,
+    });
+    expect(groupFlags(asGroup({ announce: false, restrict: true }))).toEqual({
+      announce: false,
+      restrict: true,
+    });
+  });
+
+  it('metadata ausente → false (fallback sem regressão)', () => {
+    expect(groupFlags(asGroup(undefined))).toEqual({
+      announce: false,
+      restrict: false,
+    });
   });
 });
 
