@@ -7,10 +7,13 @@ produção nem o contrato da API** (R0).
 ## Ordem de leitura obrigatória (toda conversa, antes de qualquer trabalho — R9)
 
 1. `docs/ESTADO.md` — estado global, onda atual, divergência dev × prod
-2. `docs/SESSOES.md` — o que outras conversas estão fazendo AGORA
-3. O arquivo da sessão em `docs/sessions/ATIVA-*.md` (criar o seu se for sessão nova, com branch `feature/*`)
+2. `docs/SESSOES.md` COMPLETO — ativas + seção 📢 Avisos + 5 últimas do histórico
+3. `docs/PENDENCIAS.md` — quadro central de pendências (P-xxx) e bloqueios (B-xxx)
+4. O arquivo da sessão em `docs/sessions/ATIVA-*.md` (criar o seu se for sessão nova, com branch `feature/*` e bloco ECO DE LEITURA preenchido)
 
-Processo completo (ondas M0–M6, regras R0–R18, template de checkpoint): `BASE_CONEXOZENVO.md` (raiz — base universal v3.2 adaptada; R18). Siglas e navegação: `docs/MAPA.md`. Histórico da adaptação v2.1: `DOCUMENTO_CONEXOZENVO_NESTJS.md`.
+Processo completo (ondas M0–M6, regras R0–R21, template de checkpoint): `BASE_CONEXOZENVO.md` (raiz — base universal **v4.3** adaptada; R18 — a versão declarada aqui DEVE bater com o topo da BASE). Siglas e navegação: `docs/MAPA.md`. Histórico da adaptação v2.1: `DOCUMENTO_CONEXOZENVO_NESTJS.md`.
+
+Encerramento de sessão (R9): reconciliação documental (diff × mapa de gatilhos do R3 — o que este diff tornou FALSO na doc?), pendências viram P-xxx, checkpoint com os campos BLOQUEADO EM VOCÊ e DOCS TOCADAS.
 
 ## Stack (não sugerir alternativas)
 

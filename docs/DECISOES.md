@@ -141,3 +141,33 @@
 - **Alternativas:** reescrever DOCUMENTO_CONEXOZENVO_NESTJS.md no lugar (rejeitado: R18
   pede BASE_<NOME>.md canônico na raiz e o histórico da v2.1 tem valor de contexto);
   renumerar regras para "limpar" o R0 (rejeitado: quebraria toda referência existente).
+
+## D-011 — 2026-08-12 — Upgrade da base de processo: universal v3.2 → v4.3 (R18)
+
+- **Decisão:** o projeto adota a base universal **v4.3** (trazida pelo usuário) via MODO
+  UPGRADE do R18. `BASE_CONEXOZENVO.md` reescrito preservando o preenchimento do projeto
+  (CONTEXTO, STACK, MÓDULOS, R0, ondas M, mapa de adaptação). `docs/DOCUMENTO_UNIVERSAL.md`
+  passa a ser a v4.3 (a v3.2 fica no histórico do git — lei 7 do R3: um canônico).
+- **Deltas aplicados (v3.3→v4.3, pelo changelog do cabeçalho — que É o diff):**
+  v3.3 retenção no registry + higiene de custo de CI (R15/R6) · v3.4 comunicação entre
+  sessões — `PENDENCIAS.md` (criado, semeado com B-001 e P-001–P-006), seção 📢 Avisos
+  em SESSOES.md e ECO DE LEITURA na abertura (R9) · v3.5 **R19** ferramental de IA
+  (allowlist/hooks/memória) + **R20** briefing (loop de volta à base) + classe runbook
+  (R3) · v3.6 continuidade do briefing (rev/zonas/recibo) · v3.7 automação que implementa
+  regra também é gateada (R6) · v3.8 bloqueio externo **B-xxx** (R9/checkpoint) ·
+  v3.9+v4.1 **R21** varredura V0–V9 (com adaptações: entry points NestJS/BullMQ/EventBus,
+  "não é morto" = superfície `/api` do node n8n + jobs serializados na fila) · v4.0
+  projeção `.claude/` + worktrees (adaptado: worktree quando 2+ sessões tocarem código) ·
+  v4.2 R3 reescrito como engenharia de documentação (Diátaxis, ADR, postmortems,
+  frontmatter/frescor, depreciar>apagar) · v4.3 FIDEDIGNIDADE como DoD documental
+  (mapa de gatilhos, trailer `Docs-n/a`, reconciliação documental no encerramento,
+  campos BLOQUEADO EM VOCÊ + DOCS TOCADAS no checkpoint).
+- **Numeração:** upgrade ADITIVO (R0–R18 intactos, R19–R21 novos) — nenhuma referência
+  antiga quebra.
+- **Plano:** deltas que exigem código/infra viram ondas **A8–A11** em `ADOCAO.md`
+  (A8 projeção `.claude/` · A9 gates de docs · A10 bateria única + catracas/varredura ·
+  A11 reorganização docs/). Protocolo R9 novo (PENDENCIAS/eco/avisos/reconciliação)
+  vale JÁ — é doc, não código.
+- **Alternativas:** manter os dois universais lado a lado (rejeitado: duas fontes
+  divergem — lei 7); aplicar só as regras "baratas" e adiar R19–R21 (rejeitado: a BASE
+  é o contrato completo; o que custa código vira onda, não omissão).
