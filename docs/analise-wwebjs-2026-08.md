@@ -4,6 +4,7 @@ dono: Diogo
 revisado_em: 2026-08-12
 validade: 2026-11-12
 status: ativo
+partes: 2 (parte 2 = catálogo de recursos, §7–§8, adicionada 2026-08-12)
 ---
 
 # 🔬 Análise minuciosa do motor whatsapp-web.js (wwebjs) — 2026-08
@@ -13,7 +14,13 @@ status: ativo
 > `wwebjs.engine.ts` (1002 linhas) × `baileys.engine.ts` (1349) × contrato `IEngine`
 > × todos os consumidores × doc oficial da lib 1.34.7 (Context7 + `node_modules`).
 > Toda afirmação abaixo cita `arquivo:linha`. Objetivo do usuário: usar o wwebjs de
-> forma **intensa nos próximos dias** com "tudo funcionando 100%".
+> forma **intensa nos próximos dias** com "tudo funcionando 100%" e "todas as
+> funcionalidades possíveis".
+>
+> **Parte 1** (§1–§6): matriz do que EXISTE hoje + defeitos + plano de correção.
+> **Parte 2** (§7–§8, sessão `analise-wwebjs-parte2`): catálogo de TODAS as
+> capacidades da lib 1.34.7 (extraído do código instalado — 84 métodos no Client +
+> 27 structures) + plano de recursos NOVOS.
 
 ## TL;DR — o veredito
 
@@ -245,6 +252,155 @@ Para o uso intenso "nos próximos dias", independentemente das ondas W1–W4:
 5. **Sessão wwebjs que cair NÃO volta sozinha** (P0-1) — até a W1, o procedimento é
    `POST /api/sessions/:id/restart` (não `/start`, que é no-op; nem `/new-qr`, que não
    limpa credencial no wwebjs).
+
+---
+
+---
+
+# PARTE 2 — Catálogo de TODAS as funcionalidades possíveis
+
+> Fonte: leitura do código instalado `node_modules/whatsapp-web.js/src/` (1.34.7) —
+> Client.js (84 métodos async), Message.js, Chat/GroupChat/Channel/Contact.js e as 27
+> structures. Confirmado na doc oficial (Context7). Cada linha é `Arquivo.js:linha` da
+> **lib** (não do gateway). Legenda de estado no gateway: ✅ já exposto · 🟡 exposto
+> parcial · ❌ não exposto (recurso novo) · ⛔ inviável/bloqueado.
+
+## 7. O universo de capacidades da lib × o que o gateway expõe
+
+### 7.1 Envio e mensagens ricas (o maior ganho para outreach)
+
+| Capacidade | API da lib | Gateway | O que habilita |
+| ---------- | ---------- | ------- | -------------- |
+| Texto / mídia / caption / ptt | `Client.sendMessage:1386` | 🟡 (§2: falta document/sticker/gif corretos, S3) | base |
+| **Responder citando** (quote) | `sendMessage(opts.quotedMessageId)` / `Message.reply:461` | ❌ | conversa humana ("respondendo à sua msg…") — alto valor no funil |
+| **Menções** (@contato / @grupo) | `opts.mentions` / `opts.groupMentions` `:1442-1472` | ❌ | avisos em grupo, engajamento |
+| **Reagir** a mensagem (emoji) | `Client.sendReaction:1567` / `Message.react:479` | ❌ | micro-interação humana barata; "curtir" resposta do lead |
+| **Editar** mensagem enviada | `Message.edit:875` | ❌ | corrigir erro sem reenviar |
+| **Apagar** (revoke everyone/me) | `Message.delete:604` | ❌ | retirar mensagem errada |
+| **Encaminhar** | `Message.forward:497` | ❌ | repassar material a vários leads |
+| **Fixar** mensagem no chat | `Message.pin:718`/`unpin:736` | ❌ | destacar CTA |
+| **Estrelar** | `Message.star:670`/`unstar:693` | ❌ | organização interna |
+| **Enquete** + ler votos | `new Poll` + `opts.poll` · `Client.getPollVotes:3403` · evento `vote_update` | ❌ | **engajamento de campanha** — qualificação rápida de lead |
+| **Localização** | `new Location` + `opts.location` `:Location.js` | ❌ | enviar endereço (evento presencial) |
+| **Cartão de contato** (vCard) | `opts.contactCard`/`contactCardList` | ❌ | passar contato de vendedor/parceiro |
+| **View-once** | `opts.isViewOnce` | ❌ | mídia que some |
+| **Sticker** com nome/autor | `opts.sendMediaAsSticker/stickerName/Author` | ❌ (hoje vira imagem) | branding |
+| Link preview on/off | `opts.linkPreview` | ❌ | controle de layout |
+| Info de entrega detalhada | `Message.getInfo:758` (delivery/read/played por contato) | ❌ | quem leu numa lista |
+
+### 7.2 Inbox, histórico e busca (onboarding de sessão)
+
+| Capacidade | API | Gateway | Uso |
+| ---------- | --- | ------- | --- |
+| Listar todas as conversas | `Client.getChats:1668` | ❌ | popular inbox ao conectar (hoje o inbox só tem o que chega ao vivo) |
+| **Puxar histórico** de um chat | `Chat.fetchMessages({limit,fromMe}):203` | ❌ | recuperar conversa anterior de um lead |
+| Sincronizar histórico | `Client.syncHistory:3173`/`Chat.syncHistory` | ❌ | idem, sob demanda |
+| Buscar mensagens | `Client.searchMessages:1645` | ❌ | achar lead por termo |
+| Mensagens fixadas | `Client.getPinnedMessages:1778` | ❌ | — |
+| Arquivar / fixar / silenciar / marcar não-lido | `archiveChat:2007`, `pinChat:2035`, `muteChat:2081`, `markChatUnread:2131` | ❌ | gestão de inbox |
+
+### 7.3 Contatos e perfil próprio
+
+| Capacidade | API | Gateway | Nota |
+| ---------- | --- | ------- | ---- |
+| Número está no WhatsApp / wid | `isRegisteredUser:2214` / `getNumberId:2224` | ❌ `nope()` (P0/W4 já prevê) | validação de lista antes de disparar — **crítico p/ campanha** |
+| Foto de perfil | `getProfilePicUrl:2145` | ❌ `nope()` (W4) | — |
+| Recado ("about") | `Contact.getAbout:206` | ❌ | enriquecimento de lead |
+| Grupos em comum | `getCommonGroups:2166` | ❌ | contexto de relacionamento |
+| Nº de devices do contato | `getContactDeviceCount:3149` | ❌ | diagnóstico |
+| LID↔telefone em lote (oficial) | `getContactLidAndPhone:3307` | ❌ (hoje faz artesanal) | **substituiria** o `page.evaluate` manual de LID |
+| Bloqueados | `getBlockedContacts:2870` · `Contact.block/unblock` | ❌ `nope()` (W4) | — |
+| Salvar/remover na agenda | `saveOrEditAddressbookContact:3260`/`delete:3291` | ✅ | já exposto |
+| **Meu status/recado** | `setStatus:1944` | ❌ | perfil da conta |
+| **Meu nome de exibição** | `setDisplayName:1958` | ❌ | perfil |
+| **Minha foto** | `setProfilePicture:2891`/`delete:2907` | ❌ | perfil/branding |
+| Presença global online/offline | `sendPresenceAvailable:1984`/`Unavailable:1995` | 🟡 (hoje vira `clearState`) | corrigir os 2 estados globais (P2) |
+
+### 7.4 Grupos avançados
+
+Além dos 7 `nope()` já previstos no W4 (create/participants/leave/subject/desc/invite/revoke):
+
+| Capacidade | API | Uso |
+| ---------- | --- | --- |
+| Criar grupo com opções | `createGroup(opts):2310` (messageTimer, parentGroupId=comunidade, memberAddMode, membershipApprovalMode, isRestrict, isAnnounce) | grupo já nasce configurado |
+| **Aprovar/rejeitar entrada** | `getGroupMembershipRequests:2975` · `approve:3007`/`reject:3029` (com `sleep` anti-flood) | **crescimento de grupo** — moderar fila de entrada em massa |
+| Admin-only toggles | `setAddMembersAdminsOnly:447` · `setMessagesAdminsOnly:483` · `setInfoAdminsOnly:518` | travar grupo durante campanha |
+| Foto do grupo | `setPicture:561`/`deletePicture:548` | branding |
+| Info/aceitar convite | `getInviteInfo:1821` · `acceptInvite:1834` · `acceptGroupV4Invite:1922` | entrar em grupos |
+| Comunidades | via `parentGroupId` no createGroup | estrutura de comunidade |
+
+### 7.5 Canais (newsletter) — hoje 100% `nope()`
+
+Os 4 do contrato (create/info/follow/unfollow) + extras da lib: `getSubscribers:105`,
+`setReactionSetting:184` (nenhuma/básicas/todas), `transferChannelOwnership:2578`,
+`deleteChannel:2725`, `sendChannelAdminInvite:1600`, `searchChannels:2645`
+(recomendados/trending/popular/novos). Canais **nem estão no contrato público**
+(`INTEGRACAO.md` não tem seção) — decidir se entram (broadcast 1-para-muitos é caso
+de uso plausível no "uso intenso").
+
+### 7.6 Eventos entrantes que hoje se perdem (webhook mais rico)
+
+O motor ouve 7 eventos; a lib emite ~31. Capturar estes vira **evento novo no webhook**
+(aditivo ao contrato — R0):
+
+| Evento da lib | Habilita | Prioridade |
+| ------------- | -------- | ---------- |
+| `message_reaction` | saber que o lead reagiu | alta (sinal de engajamento) |
+| `vote_update` | resposta de enquete em tempo real | alta (qualificação) |
+| `message_edit` | atualizar texto no banco (hoje guarda o velho) | média |
+| `message_revoke_everyone`/`_me` | marcar msg apagada | média |
+| `call` (+ `Call.reject:69`) | registrar/rejeitar chamada | média |
+| `change_state` | CONFLICT/UNPAIRED/TIMEOUT antes do disconnect (diagnóstico) | alta (estabilidade) |
+| `code` | renovação do pairing code (a cada 3 min) | alta (login por código) |
+| `group_join`/`_leave`/`_admin_changed`/`_update` | timeline de grupo | média |
+| `contact_changed`, `unread_count`, `media_uploaded` | — | baixa |
+
+### 7.7 ⛔ Bloqueado / não vale a pena (registrar para não tentar de novo)
+
+- **Buttons / List**: DEPRECATED no próprio código da lib (warn no `sendMessage`
+  `:1505/:1514`) — o WhatsApp descontinuou. **Não implementar.**
+- **Labels** (`getLabels` etc.) e **Customer Notes**: só conta **WhatsApp Business**
+  (guard `smba/smbi`/`smbNotesV1Enabled` lança erro). A conta é comum → ⛔ salvo migração.
+- **Battery / `ClientInfo.getBatteryStatus`/`phone`/`me`**: `@deprecated` no multi-device.
+- **Chamada**: só dá `reject()`, **não há atender** — no máximo registrar/recusar.
+- **Order / Payment**: read-only (loja/pagamento) — só leitura, nicho.
+- **`createCallLink:3197`** (link de reunião voz/vídeo), **ScheduledEvent** (evento
+  agendado): existem, mas fora do caso de uso de outreach — backlog frio.
+
+## 8. Plano de recursos NOVOS (ondas W5–W8) — depois dos P0/P1 (W1–W4)
+
+> Pré-requisito: **W1–W4 primeiro** (a base tem de estar sólida antes de empilhar
+> recurso). Tudo aqui é **aditivo** ao contrato `IEngine`/`INTEGRACAO.md`/
+> `packages/contracts` (R0/R4 — novos métodos e eventos, nunca quebrar os atuais).
+> Cada recurso ganha teste e2e de efeito (R6). Priorizado por valor no "uso intenso"
+> (outreach/campanha) × esforço.
+
+**W5 — Mensagens ricas (maior ROI para conversa humana):**
+`reply`/quote · `mentions`/groupMentions · `sendReaction` · `poll` + `vote_update` no
+webhook · `location` · `contactCard`/vCard. São os que mais humanizam e engajam o funil.
+
+**W6 — Webhook mais rico (sinais que hoje se perdem):**
+capturar `message_reaction`, `vote_update`, `message_edit`, `message_revoke_*`,
+`change_state`, `code`, `group_*` → novos eventos aditivos. Casa com a correção do
+`recordHardSignal` morto (P1-5) e com o diagnóstico de estabilidade (`change_state`).
+
+**W7 — Inbox e histórico:**
+`getChats` + `fetchMessages` (popular o inbox ao conectar e puxar histórico de um lead) ·
+`searchMessages` · gestão (archive/pin/mute/markUnread). Fecha o gap "inbox só tem o que
+chega ao vivo".
+
+**W8 — Perfil próprio + grupos avançados + canais:**
+perfil (`setStatus`/`setDisplayName`/`setProfilePicture`, presença global) · membership
+requests (approve/reject com anti-flood) · admin-only toggles · foto de grupo · canais
+completos (decidir entrada no contrato). `getContactLidAndPhone` oficial substituindo o
+LID artesanal entra aqui como robustez.
+
+**Nota de risco transversal (vale para TODA nova capacidade no motor browser):** cada
+método é um round-trip CDP no Chromium — **serializar**, respeitar o `sleep` anti-flood
+embutido da lib (add/approve participants) e passar pelo **guard-rail** (G1–G8) como
+qualquer envio. Recurso de escrita em massa (menção a muitos, aprovar N entradas) é
+vetor de flag — tratar como envio cold (hard-gate 423) quando aplicável. E o custo de
+RAM por sessão wwebjs continua (1 Chromium) — recurso novo não muda isso.
 
 ---
 
