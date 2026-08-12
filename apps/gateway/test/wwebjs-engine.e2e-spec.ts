@@ -6,10 +6,6 @@ import {
   mapInboundMediaType,
   authDirOf,
 } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
-import {
-  UnsupportedEngineOperationError,
-  type IEngine,
-} from '../src/modules/sessions/application/engine.port';
 import type { BaileysEngineDeps } from '../src/modules/sessions/infrastructure/baileys/baileys.engine';
 
 // Primeiro teste que instancia a engine WWEBJS real (antes desta W1, a cobertura do caminho wwebjs
@@ -125,13 +121,35 @@ describe('WWebJSEngine.purgeAuthDir — limpeza do LocalAuth em disco (P1-2/P1-3
   });
 });
 
-describe('WWebJSEngine — operação não suportada (P1-6)', () => {
-  it('createGroup lança UnsupportedEngineOperationError (→ 501 no controller)', () => {
+describe('WWebJSEngine — grupos/contatos/canais implementados (W4/P-010)', () => {
+  // Após a W4 nenhum destes lança "não suportado" (nope removido): vão à lib real. Sem um client
+  // conectado, o caminho real falha com "Sessão não conectada" — o que PROVA que deixaram de ser
+  // no-op de engine (antes lançavam UnsupportedEngineOperationError). O comportamento real (criar
+  // grupo, checar número, seguir canal) depende de browser + WhatsApp — fora do CI.
+  it('createGroup vai à lib (sem client → "Sessão não conectada", não mais "não suportado")', async () => {
     const { deps } = makeDeps({});
-    const engine: IEngine = new WWebJSEngine(deps);
-    // nope() lança SÍNCRONO; o run() dos controllers captura e mapeia para 501.
-    expect(() => engine.createGroup('grupo', [])).toThrow(
-      UnsupportedEngineOperationError,
+    const engine = new WWebJSEngine(deps);
+    await expect(
+      engine.createGroup('grupo', ['5511999999999']),
+    ).rejects.toThrow(/Sessão não conectada/);
+  });
+
+  it('checkNumbers e setBlock idem (implementados, não mais nope)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(engine.checkNumbers(['5511999999999'])).rejects.toThrow(
+      /Sessão não conectada/,
+    );
+    await expect(engine.setBlock('5511999999999', 'block')).rejects.toThrow(
+      /Sessão não conectada/,
+    );
+  });
+
+  it('followChannel idem (canais beta implementados)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(engine.followChannel('123@newsletter')).rejects.toThrow(
+      /Sessão não conectada/,
     );
   });
 });

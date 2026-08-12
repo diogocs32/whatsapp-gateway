@@ -6,6 +6,20 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado
+
+- **wwebjs W4 — paridade funcional do motor** (sessão `2026-08-12-1736-wwebjs-w4-superficie`,
+  P-010): os 14 métodos que a engine whatsapp-web.js respondia como "não suportado" (HTTP 501)
+  passam a **funcionar de verdade** — a API já existia na lib 1.34.7. Grupos: `createGroup`,
+  `updateParticipants` (add/remove/promover/rebaixar), `leaveGroup`, `setGroupSubject`,
+  `setGroupDescription`, `groupInviteCode`, `groupRevokeInvite`. Contatos: `checkNumbers`
+  (checa se o número tem WhatsApp + JID canônico), `profilePicture`, `setBlock`
+  (bloquear/desbloquear). Canais/newsletter (beta): `createChannel`, `channelInfo`,
+  `followChannel`, `unfollowChannel`. O motor wwebjs passa a ter **paridade com o Baileys** no
+  contrato IEngine. Sem mudança de contrato (as rotas já existiam; deixaram de responder 501). O
+  mecanismo `UnsupportedEngineOperationError`→501 permanece como contrato de capacidade de engine
+  (dormante — sem operações não suportadas hoje; previsto para a futura engine META_CLOUD).
+
 ### Corrigido
 
 - **wwebjs W3 — ciclo de vida e recuperação** (sessão `2026-08-12-1723-wwebjs-w3-ciclo-vida`,

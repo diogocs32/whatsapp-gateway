@@ -231,6 +231,11 @@ conectada). Ordem por risco × custo:
 - P2: timeout no `destroy()`; zerar `qrBase64` e caches no stop; teto no `lidToPnCache`.
 - P1-6: `nope()` → HTTP 501/422 com corpo estruturado (o n8n distingue).
 
+> **Atualização 12/08:** W4 **ENTREGUE** (sessão `wwebjs-w4-superficie`, P-010 concluída)
+> — os 14 `nope()` implementados (grupos completos, checkNumbers, profilePicture, setBlock,
+> canais beta): paridade IEngine com o Baileys. Residual (recordHardSignal, dashboard,
+> anti-flag, announce/restrict) → **P-012**.
+
 **W4 — Completar a superfície (os 12 `nope()`) + higiene.**
 - Implementar os 12 métodos (a API existe na lib — §8 do relatório do motor). Maior
   retorno imediato: `checkNumbers` e `profilePicture`. Grupos completos e canais

@@ -29,6 +29,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-12-1736-wwebjs-w4-superficie   | 12/08   | W4 wwebjs (código): implementa os 14 nope() — grupos/contatos/canais (paridade IEngine com Baileys); P-010 ✅, residual→P-012 | feature/wwebjs-w4-superficie         |
 | 2026-08-12-1723-wwebjs-w3-ciclo-vida   | 12/08   | W3 wwebjs (código): limpa LocalAuth em disco (fim do vazamento + new-qr recupera) + destroy com teto + qrBase64/cache no stop + nope→501 (P-009 ✅) | feature/wwebjs-w3-ciclo-vida         |
 | 2026-08-12-1715-wwebjs-w2-midia        | 12/08   | W2 wwebjs (código): mídia no S3 (in/out) + envelope com engine real + sendMediaAsDocument/Sticker + guard sent null (P-008 ✅) | feature/wwebjs-w2-midia              |
 | 2026-08-12-1702-wwebjs-w1-estabilidade | 12/08   | W1 wwebjs (código): reconexão automática + fim do start no-op + guard WA_REQUIRE_PROXY + 1º teste da engine — resta B-002 (webVersion) | feature/wwebjs-w1-estabilidade       |
