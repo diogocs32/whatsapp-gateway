@@ -192,6 +192,11 @@ Cada onda é **sessão R9 própria** com branch `feature/*`, teste e2e de efeito
 deploy vigiado (R0 — push dispara redeploy no Dokploy; nunca em rajada com sessão real
 conectada). Ordem por risco × custo:
 
+> **Atualização 12/08:** W1 **P0-1 e P0-2 ENTREGUES** (sessão `wwebjs-w1-estabilidade`,
+> CHANGELOG Unreleased) — reconexão automática + fim do `start` no-op + guard
+> `WA_REQUIRE_PROXY` no wwebjs + 1º teste da engine. **Resta P0-4** (revalidar
+> `WWEBJS_WEB_VERSION` — ação operacional no Dokploy, **B-002**).
+
 **W1 — Estabilidade e segurança do motor (P0) — a mais urgente.**
 - P0-1: `disconnected` zera `this.client` (1 linha destrava o `start`) + reconexão com
   backoff espelhando o Baileys (`:642-664`).

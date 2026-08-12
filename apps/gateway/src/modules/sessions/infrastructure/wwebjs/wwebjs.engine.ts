@@ -60,6 +60,10 @@ const USER_AGENT =
   process.env.WWEBJS_USER_AGENT ??
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
 
+// Máximo de reconexões automáticas seguidas antes de desistir e marcar DEGRADED (espelha o
+// Baileys — baileys.engine.ts:398). O contador zera a cada 'ready' (conexão bem-sucedida).
+const MAX_RECONNECT = 5;
+
 // Engine alternativa (F8) usando whatsapp-web.js (Puppeteer + Chrome do sistema). Mesmo contrato
 // IEngine do BaileysEngine, escolhida por sessão via EngineFactory. NÚCLEO: conexão/QR, status,
 // enviar/receber texto e mídia. Recursos avançados (grupos/contatos/canais) ainda não suportados.
@@ -81,6 +85,8 @@ export class WWebJSEngine implements IEngine {
   // fica órfão segurando o ProcessSingleton do perfil → "browser already running" (puppeteer
   // BrowserLauncher.js:175). Serializar fecha essa janela: nunca há dois ciclos concorrentes.
   private lifecycle: Promise<unknown> = Promise.resolve();
+  // Reconexões automáticas seguidas (backoff). Zera no 'ready'. Ver handleDisconnect.
+  private reconnectAttempts = 0;
 
   constructor(private readonly deps: BaileysEngineDeps) {}
 
@@ -160,6 +166,31 @@ export class WWebJSEngine implements IEngine {
           'wwebjs: proxy tem username sem password — conectando SEM auth (provável 407). Corrija a credencial do proxy.',
         );
       }
+    } else {
+      // Sem proxy: o Chromium conectaria pelo IP do servidor (datacenter) — o WhatsApp vê esse IP
+      // em Aparelhos Conectados. Paridade com o log de conexão sem proxy do Baileys (hardening 22/07).
+      this.deps.logger.warn(
+        { sessionId: this.deps.sessionId },
+        'wwebjs: conectando SEM proxy — o WhatsApp verá o IP do servidor. Atribua um proxy residencial se anti-flag importar.',
+      );
+    }
+
+    // Guard anti-vazamento (WA_REQUIRE_PROXY): espelha o guard do Baileys (baileys.engine.ts:489-499).
+    // Sem proxy vivo e com o guard ligado, RECUSAMOS conectar em vez de vazar o IP do datacenter —
+    // gatilho nº 1 de flag na conexão. Falha ANTES de resolver a webVersion (nada de rede à toa).
+    // stopped=true corta a reconexão automática; um start manual, já com proxy atribuído à sessão,
+    // reseta e tenta de novo. (No wwebjs o commit 1525e4e injetava requireProxy mas nunca o lia.)
+    if (!proxy && this.deps.requireProxy) {
+      this.stopped = true;
+      this.deps.logger.error(
+        { sessionId: this.deps.sessionId },
+        'wwebjs: conexão BLOQUEADA — WA_REQUIRE_PROXY ligado e nenhum proxy vivo atribuído.',
+      );
+      this.setStatus('FAILED', {
+        error:
+          'Sem proxy vivo e WA_REQUIRE_PROXY ligado — conexão bloqueada para não vazar o IP do servidor. Atribua um proxy residencial à sessão e reinicie.',
+      });
+      return;
     }
 
     // Fixa a versão do WhatsApp Web (acelera/estabiliza o carregamento e evita quebra do Store).
@@ -253,6 +284,7 @@ export class WWebJSEngine implements IEngine {
     });
     client.on('ready', () => {
       this.qrBase64 = null;
+      this.reconnectAttempts = 0; // conexão OK: zera o backoff de reconexão
       this.setStatus('WORKING', {
         meJid: client.info?.wid?._serialized ?? null,
         mePushName: client.info?.pushname ?? null,
@@ -267,9 +299,7 @@ export class WWebJSEngine implements IEngine {
       this.setStatus('FAILED', { error: `auth_failure: ${m}` }),
     );
     client.on('disconnected', (reason: unknown) => {
-      this.setStatus(this.stopped ? 'STOPPED' : 'DEGRADED', {
-        error: this.stopped ? null : `desconectado: ${String(reason)}`,
-      });
+      void this.handleDisconnect(reason);
     });
     // message_create capta recebidas E enviadas de QUALQUER device (inclusive do celular). As enviadas
     // pelo painel já são emitidas no sendText/sendMedia (com telefone + metadados) e deduplicadas aqui
@@ -447,6 +477,56 @@ export class WWebJSEngine implements IEngine {
           ? `Instância anterior do navegador ainda ativa para esta sessão (perfil bloqueado). Pare a sessão e tente novamente; se persistir, reinicie o serviço.`
           : `Falha ao iniciar a sessão: ${msg}`;
     this.setStatus('FAILED', { error });
+  }
+
+  // Trata a queda da conexão (evento 'disconnected'). Dois problemas que este handler resolve:
+  // (1) a lib chama `this.destroy()` internamente ao detectar o estado não-aceito (Client.js:851),
+  //     mas mantém a instância viva; sem zerar `this.client`, o doStart:140 (`if (this.client) return`)
+  //     faz TODO start/restart virar no-op silencioso e a sessão nunca volta.
+  // (2) não havia reconexão automática — a sessão ficava DEGRADED até intervenção manual.
+  // Espelha o Baileys (baileys.engine.ts:641-666): backoff exponencial + jitter, teto MAX_RECONNECT,
+  // reconexão serializada re-checando `stopped` DENTRO da fila (um stop()/logout() que entrou entre o
+  // agendamento e a execução cancela a reconexão em vez de ressuscitar o Chromium).
+  private async handleDisconnect(reason: unknown): Promise<void> {
+    const dead = this.client;
+    try {
+      await dead?.destroy();
+    } catch {
+      /* a própria lib já pode ter destruído */
+    }
+    // Só zera se ninguém trocou o client no meio-tempo (não nula uma instância nova de reconexão).
+    if (this.client === dead) this.client = null;
+
+    if (this.stopped) {
+      this.setStatus('STOPPED', { error: null });
+      return;
+    }
+
+    this.reconnectAttempts += 1;
+    if (this.reconnectAttempts > MAX_RECONNECT) {
+      this.setStatus('DEGRADED', {
+        error: `desconectado (${String(reason)}); falha ao reconectar após ${MAX_RECONNECT} tentativas — reinicie a sessão (POST /restart)`,
+      });
+      return;
+    }
+    const delay =
+      Math.min(30_000, 1_000 * 2 ** this.reconnectAttempts) +
+      Math.floor(Math.random() * 1_000);
+    this.setStatus('DEGRADED', {
+      error: `desconectado (${String(reason)}) — reconectando (tentativa ${this.reconnectAttempts}/${MAX_RECONNECT})`,
+    });
+    this.deps.logger.warn(
+      { reason: String(reason), attempt: this.reconnectAttempts, delay },
+      'wwebjs: reconectando sessão',
+    );
+    setTimeout(() => {
+      if (this.stopped) return;
+      void this.serialize(() =>
+        this.stopped ? Promise.resolve() : this.doStart(),
+      ).catch((e) =>
+        this.deps.logger.error({ e }, 'wwebjs: erro ao reconectar'),
+      );
+    }, delay);
   }
 
   stop(): Promise<void> {

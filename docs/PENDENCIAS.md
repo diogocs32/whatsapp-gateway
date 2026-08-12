@@ -24,6 +24,22 @@
 - **Contorno em vigor:** `WA_REQUIRE_PROXY=false` (default seguro reverso — sessão
   conecta sem proxy e só LOGA) → removido por [P-002] ao desbloquear.
 
+### B-002 · 🔴 aberto · pedido em 12/08 (sessão wwebjs-w1-estabilidade)
+
+- **Ação:** revalidar e **pinar uma `WWEBJS_WEB_VERSION` válida** no Dokploy (env do
+  gateway) — a atual (`2.3000.1042271047-alpha`) expira ~fim de agosto/2026. Escolher
+  uma versão nova em `github.com/wppconnect-team/wa-version` que **ainda exponha o
+  número dos participantes** (builds novas escondem o PN no rollout LID) e confirmar
+  numa extração de leads real antes de fixar.
+- **Quem:** Diogo (ação operacional no Dokploy — R0).
+- **O que bloqueia:** uso intenso do wwebjs "nos próximos dias" — se a versão expirar
+  durante o uso, o fallback `live` degrada a extração de leads (perde o número).
+- **Pronto esperando:** o código já tem fallback (`handleInitFailure` tenta `live` +
+  WARN) e aceita `auto`/versão fixa por env — falta só a decisão da versão a fixar.
+- **Devolver:** responder "B-002 feito" com a versão fixada e a data.
+- **Contorno em vigor:** default fixo no código + retry `live` automático — segura a
+  operação, mas com risco de LID-only; **não substitui** a revalidação.
+
 ## 📋 Pendências técnicas (P-xxx — qualquer sessão assume)
 
 | ID    | Pendência                                                                                                                                                | Origem                                   | Status |
@@ -34,7 +50,7 @@
 | P-004 | Lint local: `apps/gateway/auth/` nos ignores · normalizar Prettier · `format:check` no CI                                                                 | ESTADO.md § próximos passos (entra na M3) | aberta |
 | P-005 | Job de purge de `refresh_tokens` expirados (índice em `expiresAt` já existe)                                                                              | D-009 (backlog)                          | aberta |
 | P-006 | Ondas de adoção v4.3: A8 projeção `.claude/` · A9 gates de docs · A10 bateria única + catracas · A11 reorganização docs/ — plano em `ADOCAO.md`            | D-011 (sessão adocao-base-v43)           | aberta |
-| P-007 | **wwebjs W1 (P0):** reconexão automática + `start` no-op (`disconnected` zera `this.client`) · honrar `WA_REQUIRE_PROXY` (vaza IP) · revalidar/pinar `WWEBJS_WEB_VERSION` antes de expirar (~fim ago/2026) · 1º e2e da engine real | analise-wwebjs-2026-08 (P0-1/2/4)        | aberta |
+| P-007 | **wwebjs W1 (P0):** ✅ reconexão automática + fim do `start` no-op · ✅ guard `WA_REQUIRE_PROXY` no wwebjs · ✅ 1º teste da engine real (entregues 12/08, sessão `wwebjs-w1-estabilidade`). **RESTA (B/operacional):** revalidar/pinar `WWEBJS_WEB_VERSION` no Dokploy antes de expirar (~fim ago/2026) — P0-4 | analise-wwebjs-2026-08 (P0-1/2/4)        | parcial |
 | P-008 | **wwebjs W2 (P0-3+P1):** mídia inbound `downloadMedia`+S3 e outbound `mediaKey` (hoje 404 sempre) · envelope de webhook com `engine` real (não hardcoded `baileys`) + fix do teste · `sendMediaAsDocument`/`Sticker` + guarda de `sent` null | analise-wwebjs-2026-08 (P0-3, P1-1)      | aberta |
 | P-009 | **wwebjs W3 (ciclo de vida):** `new-qr`/`logout`/`remove` limpam LocalAuth em disco (P1-2/P1-3, fim do vazamento de perfil no DELETE) · timeout no `destroy()` · zerar `qrBase64`/caches no stop · `nope()`→501/422 | analise-wwebjs-2026-08 (P1-2/3/6)        | aberta |
 | P-010 | **wwebjs W4 (superfície):** implementar os 12 `nope()` (API existe na lib 1.34.7 — checkNumbers/profilePicture/grupos/canais) · `recordHardSignal` sem chamador (`signal.463` morto) · dashboard sinaliza capacidade por engine · anti-flag do wwebjs (UA/fingerprint) | analise-wwebjs-2026-08 (P1-4/5, P2)      | aberta |
