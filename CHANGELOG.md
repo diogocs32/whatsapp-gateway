@@ -8,6 +8,20 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Corrigido
 
+- **wwebjs W2 — mídia no S3 + rótulo de engine no webhook** (sessão
+  `2026-08-12-1715-wwebjs-w2-midia`, P-008): a engine whatsapp-web.js passa a **baixar a
+  mídia recebida** (`msg.downloadMedia`) e persisti-la no S3 — antes toda mídia inbound
+  virava `type:'other'` sem download e o `GET /api/sessions/:id/messages/:msgId/media`
+  respondia 404 para 100% das mídias WWEBJS. A **mídia enviada** também sobe ao S3
+  (`mediaKey` no evento → o webhook recebe a `mediaUrl` e o Inbox mostra o binário).
+  Envio ganhou fidelidade de tipo (`sendMediaAsDocument`/`sendMediaAsSticker` — antes um
+  sticker ia como imagem) e guard contra retorno null do `sendMessage`. O **envelope de
+  eventos (webhook OUT) passa a rotular a engine REAL da sessão**: uma sessão WWEBJS
+  reporta `engine:"wwebjs"` (antes TODO evento saía como `baileys`, inclusive de sessões
+  WWEBJS — o node n8n recebia o campo errado); implementado via `engineName` na interface
+  `IEngine`, derivado no `SessionManager`. Sem mudança de contrato (o campo `engine` já
+  existia no envelope). Falha de download/upload emite os metadados sem binário (a
+  conversa não some), como no Baileys.
 - **wwebjs W1 — estabilidade e segurança do motor** (sessão `2026-08-12-1702-wwebjs-w1-estabilidade`,
   P-007): (P0-1) **reconexão automática** da engine whatsapp-web.js com backoff exponencial + jitter
   (espelha o Baileys, teto `MAX_RECONNECT=5` → `DEGRADED`), e **fim do `start` no-op**: o handler

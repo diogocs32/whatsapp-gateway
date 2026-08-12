@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { WWebJSEngine } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
+import {
+  WWebJSEngine,
+  mapInboundMediaType,
+} from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
 import type { BaileysEngineDeps } from '../src/modules/sessions/infrastructure/baileys/baileys.engine';
 
 // Primeiro teste que instancia a engine WWEBJS real (antes desta W1, a cobertura do caminho wwebjs
@@ -70,5 +73,28 @@ describe('WWebJSEngine — guard WA_REQUIRE_PROXY (P0-2)', () => {
     );
     expect(guardFail).toBeUndefined();
     await engine.stop().catch(() => undefined);
+  });
+});
+
+describe('WWebJSEngine — rótulo da engine (P1-1)', () => {
+  it('expõe engineName "wwebjs" (fonte do rótulo do envelope de webhook)', () => {
+    const { deps } = makeDeps({});
+    expect(new WWebJSEngine(deps).engineName).toBe('wwebjs');
+  });
+});
+
+describe('mapInboundMediaType — tipo de mídia recebida (P0-3)', () => {
+  it('mapeia os tipos do wwebjs para o mediaType público', () => {
+    expect(mapInboundMediaType('image')).toBe('image');
+    expect(mapInboundMediaType('video')).toBe('video');
+    expect(mapInboundMediaType('audio')).toBe('audio');
+    expect(mapInboundMediaType('ptt')).toBe('audio'); // nota de voz conta como áudio
+    expect(mapInboundMediaType('sticker')).toBe('sticker');
+    expect(mapInboundMediaType('document')).toBe('document');
+  });
+
+  it('mídia desconhecida cai em document (recuperável no GET /media)', () => {
+    expect(mapInboundMediaType('unknown')).toBe('document');
+    expect(mapInboundMediaType(undefined)).toBe('document');
   });
 });

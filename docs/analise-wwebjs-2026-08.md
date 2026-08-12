@@ -209,6 +209,10 @@ conectada). Ordem por risco × custo:
 - Gate novo: 1º teste e2e que instancia a engine real (ou um contrato de engine) —
   ataca P1-4 na raiz.
 
+> **Atualização 12/08:** W2 **ENTREGUE** (sessão `wwebjs-w2-midia`, P-008 concluída) —
+> mídia inbound/outbound no S3, envelope com `engine` real, `sendMediaAsDocument/Sticker`,
+> guard de `sent` null.
+
 **W2 — Mídia e fidelidade de envio (P0-3 + P1).**
 - P0-3: `msg.downloadMedia()` + `deps.storeMedia` no `onMessageCreate` (`:590`) e
   `mediaType` real a partir de `msg.type`; upload S3 no `sendMedia` com `mediaKey` no
