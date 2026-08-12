@@ -8,6 +8,14 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **W5 — mensagens ricas: reações e menções** (sessão `2026-08-12-1746-wwebjs-w5-mensagens-ricas`,
+  P-011 1º incremento): recurso NOVO **aditivo** nas DUAS engines (Baileys + wwebjs). **Reações**:
+  `POST /api/sessions/{s}/messages/{msgId}/reaction` com `{ emoji }` (emoji vazio remove a reação).
+  **Menções**: `text` e `media-url` aceitam `mentions: [números/JIDs]` (marca @, até 50). Sem
+  migration, sem env, sem breaking (campos opcionais; rota nova). Contrato documentado em
+  `INTEGRACAO.md`; formalização em `packages/contracts` adiada (P-013 — o arquivo está no escopo
+  da sessão ativa `auth-refresh`, R9). location/poll/reply/vCard ficam para o próximo incremento.
+
 - **wwebjs W4 — paridade funcional do motor** (sessão `2026-08-12-1736-wwebjs-w4-superficie`,
   P-010): os 14 métodos que a engine whatsapp-web.js respondia como "não suportado" (HTTP 501)
   passam a **funcionar de verdade** — a API já existia na lib 1.34.7. Grupos: `createGroup`,

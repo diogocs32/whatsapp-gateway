@@ -643,7 +643,8 @@ export class WWebJSEngine implements IEngine {
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
     const jid = this.toChatId(to);
-    const sent = await c.sendMessage(jid, text);
+    const mentions = this.toMentionIds(opts?.mentions);
+    const sent = await c.sendMessage(jid, text, mentions ? { mentions } : {});
     const keyId = sent.id?._serialized ?? '';
     if (keyId) this.rememberPanel(keyId);
     this.deps.onEvent('message', {
@@ -674,11 +675,13 @@ export class WWebJSEngine implements IEngine {
     );
     // Fidelidade de tipo: sem sendMediaAsDocument/Sticker o wwebjs infere pelo mime — um sticker ia
     // como imagem comum e um arquivo pedido como 'document' podia perder o fileName.
+    const mentions = this.toMentionIds(input.mentions);
     const sent = await c.sendMessage(jid, media, {
       caption: input.caption ?? undefined,
       sendAudioAsVoice: input.ptt,
       sendMediaAsDocument: input.type === 'document',
       sendMediaAsSticker: input.type === 'sticker',
+      ...(mentions ? { mentions } : {}),
     });
     // Guard: o wwebjs devolve null/undefined para conteúdo/destino não suportado (canal, status) —
     // sem isto o `sent.id` estourava com TypeError em vez de um erro claro.
@@ -742,6 +745,23 @@ export class WWebJSEngine implements IEngine {
   async markRead(chatJid: string, _msgId: string): Promise<void> {
     const chat = await this.req().getChatById(this.toChatId(chatJid));
     await chat.sendSeen();
+  }
+
+  // W5 — reage a uma mensagem (emoji vazio remove). O wwebjs resolve só pelo msgId serializado;
+  // chatJid/fromMe são ignorados (necessários só para o Baileys montar a key).
+  async sendReaction(
+    _chatJid: string,
+    msgId: string,
+    _fromMe: boolean,
+    emoji: string,
+  ): Promise<void> {
+    await this.withStoreReady(() => this.req().sendReaction(msgId, emoji));
+  }
+
+  // W5 — normaliza menções para o formato do wwebjs (contact ids `<num>@c.us`). undefined = sem menção.
+  private toMentionIds(mentions?: string[]): string[] | undefined {
+    if (!mentions?.length) return undefined;
+    return mentions.map((m) => this.toChatId(m));
   }
 
   // Handler do message_create: capta recebidas E enviadas de qualquer device. As enviadas pelo painel

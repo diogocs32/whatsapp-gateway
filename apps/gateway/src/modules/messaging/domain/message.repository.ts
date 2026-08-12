@@ -75,11 +75,11 @@ export interface MessageRepository {
     keyId: string,
     status: string,
   ): Promise<void>;
-  // G8: chatJid da mensagem (por keyId) — usado p/ montar a key do read receipt.
+  // G8: chatJid + fromMe da mensagem (por keyId) — key do read receipt (G8) e da reação (W5).
   findByKeyId(
     sessionId: string,
     keyId: string,
-  ): Promise<{ chatJid: string } | null>;
+  ): Promise<{ chatJid: string; fromMe: boolean } | null>;
   listByChat(
     sessionId: string,
     chatJids: string[],

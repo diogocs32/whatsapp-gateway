@@ -863,7 +863,12 @@ export class BaileysEngine implements IEngine {
   ): Promise<{ keyId: string; jid: string }> {
     if (!this.sock) throw new Error('Sessão não conectada');
     const jid = await this.resolveJid(to);
-    const sent = await this.sock.sendMessage(jid, { text });
+    // W5: menções (@) — JIDs a marcar; Baileys põe em contextInfo.mentionedJid via `mentions`.
+    const mentions = (opts?.mentions ?? []).map(toContactJid);
+    const sent = await this.sock.sendMessage(jid, {
+      text,
+      ...(mentions.length ? { mentions } : {}),
+    });
     const keyId = sent?.key?.id ?? '';
     if (keyId && sent?.message) this.cacheSent(keyId, sent.message);
     // O Baileys não emite messages.upsert para o que enviamos — emitimos aqui.
@@ -890,7 +895,12 @@ export class BaileysEngine implements IEngine {
     if (!this.sock) throw new Error('Sessão não conectada');
     const jid = await this.resolveJid(to);
     const content = buildMediaContent(input);
-    const sent = await this.sock.sendMessage(jid, content);
+    // W5: menções (@) também na legenda de mídia.
+    const mentions = (input.mentions ?? []).map(toContactJid);
+    const sent = await this.sock.sendMessage(
+      jid,
+      mentions.length ? { ...content, mentions } : content,
+    );
     const keyId = sent?.key?.id ?? '';
     if (keyId && sent?.message) this.cacheSent(keyId, sent.message);
 
@@ -970,6 +980,21 @@ export class BaileysEngine implements IEngine {
     await this.sk().readMessages([
       { remoteJid: toJid(chatJid), id: msgId, fromMe: false },
     ]);
+  }
+
+  // W5 — reage a uma mensagem. Emoji vazio remove a reação. A key precisa do fromMe correto
+  // (reagir à própria mensagem vs. à do contato) — o chamador resolve pelo registro da mensagem.
+  async sendReaction(
+    chatJid: string,
+    msgId: string,
+    fromMe: boolean,
+    emoji: string,
+  ): Promise<void> {
+    if (!this.sock) throw new Error('Sessão não conectada');
+    const remoteJid = toJid(chatJid);
+    await this.sock.sendMessage(remoteJid, {
+      react: { text: emoji, key: { remoteJid, id: msgId, fromMe } },
+    });
   }
 
   private cacheSent(keyId: string, message: proto.IMessage): void {
