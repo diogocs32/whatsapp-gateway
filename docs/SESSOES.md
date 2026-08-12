@@ -29,6 +29,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-12-1959-wwebjs-p012-announce-restrict | 12/08 | Polimento P-012: announce/restrict REAIS nos grupos do wwebjs (era `false` fixo — correção) | feature/wwebjs-p012-announce-restrict |
 | 2026-08-12-1947-wwebjs-w8b-foto-perfil | 12/08 | W8b (recurso NOVO, 2 engines): foto de perfil da conta via URL, aditivo (completa a W8) | feature/wwebjs-w8b-foto-perfil   |
 | 2026-08-12-1941-wwebjs-w8-perfil-conta | 12/08 | W8 (recurso NOVO, 2 engines): perfil da conta — status/recado + nome de exibição, aditivo | feature/wwebjs-w8-perfil-conta   |
 | 2026-08-12-1921-wwebjs-w6-webhook-reacoes | 12/08 | W6 (recurso NOVO, 2 engines): evento `message.reaction` no webhook (reações recebidas), aditivo | feature/wwebjs-w6-webhook-reacoes   |
@@ -42,7 +43,5 @@
 | 2026-08-12-1551-analise-wwebjs        | 12/08   | Análise do motor wwebjs (matriz 28 métodos + 3 P0 + plano W1–W4) → docs/analise-wwebjs-2026-08.md — pendências: P-007..P-010 | feature/analise-wwebjs               |
 | 2026-08-12-1504-adocao-base-v43       | 12/08   | Base universal v3.2 → v4.3 (D-011): BASE R0–R21 · PENDENCIAS.md · 📢 Avisos · ondas A8–A11 — pendências: P-006 | feature/adocao-base-v43              |
 | 2026-07-22-1700-hardening-antiban     | 22/07   | Hardening anti-flag: fingerprint realista por sessão · log de conexão sem proxy · WA_REQUIRE_PROXY (91/91) | feature/hardening-antiban            |
-| 2026-07-21-1730-estabilidade-sessoes  | 21/07   | P0 estabilidade: mutex Baileys · creds limpas no loggedOut · POST /new-qr + painel · 401 → /login (82/82) | feature/estabilidade-sessoes         |
-| 2026-07-21-1630-adocao-base-v32       | 21/07   | Base universal v3.2 adotada (R18): BASE_CONEXOZENVO.md + MAPA + AUDITORIAS + ADOCAO (D-010) | feature/adocao-base-v32              |
 
-> Sessões mais antigas (≤11/07) movidas para [SESSOES_ARQUIVO.md](SESSOES_ARQUIVO.md) — higiene de contexto (R9 v3.2).
+> Sessões mais antigas (≤21/07) movidas para [SESSOES_ARQUIVO.md](SESSOES_ARQUIVO.md) — higiene de contexto (R9 v3.2).

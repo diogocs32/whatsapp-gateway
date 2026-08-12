@@ -109,6 +109,21 @@ export function mapInboundMediaType(t: string | undefined): string {
   }
 }
 
+// P-012 — lê os flags REAIS do grupo (announce = só admin envia · restrict = só admin edita info).
+// Vivem em `groupMetadata` no runtime do wwebjs (Utils.js:967), mas o d.ts não os tipa → cast.
+// Ausente (metadata não carregada) → false, o mesmo fallback de antes (sem regressão). Puro/testável.
+export function groupFlags(g: GroupChat): {
+  announce: boolean;
+  restrict: boolean;
+} {
+  const md = (
+    g as unknown as {
+      groupMetadata?: { announce?: unknown; restrict?: unknown };
+    }
+  ).groupMetadata;
+  return { announce: !!md?.announce, restrict: !!md?.restrict };
+}
+
 // Diretório do perfil do Chromium (LocalAuth) desta sessão no volume persistente
 // (`{WWEBJS_DATA_PATH}/session-<sessionId>`, ver LocalAuth.js:35). É onde o wwebjs guarda as
 // credenciais — ao contrário do Baileys, que usa o Postgres. Exportado para teste (contrato do path).
@@ -1245,8 +1260,7 @@ export class WWebJSEngine implements IEngine {
           owner: g.owner?._serialized ?? null,
           desc: g.description || null,
           size: g.participants?.length ?? 0,
-          announce: false,
-          restrict: false,
+          ...groupFlags(g),
           participants: [],
         };
       });
@@ -1275,8 +1289,7 @@ export class WWebJSEngine implements IEngine {
       owner: g.owner?._serialized ?? null,
       desc: g.description || null,
       size: g.participants?.length ?? participants.length,
-      announce: false,
-      restrict: false,
+      ...groupFlags(g),
       participants,
     };
   }

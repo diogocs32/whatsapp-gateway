@@ -6,6 +6,14 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido
+
+- **wwebjs — `announce`/`restrict` reais nos grupos** (sessão `2026-08-12-1959-wwebjs-p012-announce-restrict`,
+  P-012): `GET /groups` e `GET /groups/{id}` da engine wwebjs devolviam sempre
+  `announce:false`/`restrict:false` (valores fixos — a API mentia). Agora leem os flags reais do
+  `groupMetadata` (announce = só admin envia · restrict = só admin edita info). Fallback `false`
+  quando a metadata não está carregada (sem regressão). O Baileys já devolvia os valores reais.
+
 ### Adicionado
 
 - **W8 — perfil da conta: status, nome e foto** (sessões `…-1941-wwebjs-w8-perfil-conta`
