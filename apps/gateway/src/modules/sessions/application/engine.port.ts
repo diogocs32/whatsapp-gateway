@@ -222,6 +222,9 @@ export interface IEngine {
     input: SendPollInput,
   ): Promise<{ keyId: string; jid: string }>;
   sendPresence(to: string, state: PresenceState): Promise<void>;
+  // W8 — perfil da CONTA conectada: recado ("about") e nome de exibição.
+  setProfileStatus(status: string): Promise<void>;
+  setProfileName(name: string): Promise<void>;
   // G8 — marca uma mensagem recebida como lida (read receipt / "visto").
   markRead(chatJid: string, msgId: string): Promise<void>;
   // W5 — reage a uma mensagem com um emoji (string vazia REMOVE a reação). `fromMe` identifica

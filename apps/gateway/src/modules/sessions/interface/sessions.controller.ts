@@ -35,6 +35,8 @@ import {
   createSessionSchema,
   pairingSchema,
   presenceSchema,
+  profileNameSchema,
+  profileStatusSchema,
   sessionConfigSchema,
 } from './dto';
 
@@ -218,6 +220,45 @@ export class SessionsController {
     }
     await this.manager.sendPresence(id, parsed.data.to, parsed.data.type);
     return { ok: true };
+  }
+
+  // W8 — perfil da conta conectada: recado (status) e nome de exibição.
+  @Post(':id/profile/status')
+  async profileStatus(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = profileStatusSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    try {
+      await this.manager.setProfileStatus(id, parsed.data.status);
+      return { ok: true };
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
+  @Post(':id/profile/name')
+  async profileName(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = profileNameSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    try {
+      await this.manager.setProfileName(id, parsed.data.name);
+      return { ok: true };
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
   }
 
   // G7 — override manual do estado guard-rail (decisão explícita do Diogo).

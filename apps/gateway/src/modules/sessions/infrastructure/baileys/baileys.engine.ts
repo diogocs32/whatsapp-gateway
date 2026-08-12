@@ -1084,6 +1084,14 @@ export class BaileysEngine implements IEngine {
     }
   }
 
+  // W8 — perfil da conta conectada.
+  async setProfileStatus(status: string): Promise<void> {
+    await this.sk().updateProfileStatus(status);
+  }
+  async setProfileName(name: string): Promise<void> {
+    await this.sk().updateProfileName(name);
+  }
+
   // G8 — marca a mensagem como lida (read receipt). Em 1:1 a key {remoteJid,id,fromMe:false} basta.
   async markRead(chatJid: string, msgId: string): Promise<void> {
     await this.sk().readMessages([
