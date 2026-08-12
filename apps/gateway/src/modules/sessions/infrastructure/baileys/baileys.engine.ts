@@ -29,8 +29,11 @@ import type {
   EngineEventHandler,
   GroupInfo,
   GroupParticipantAction,
+  GroupSettingKey,
   AckStatus,
   IEngine,
+  MembershipAction,
+  MembershipRequest,
   MessageSource,
   PresenceState,
   ReactionPayload,
@@ -1342,6 +1345,67 @@ export class BaileysEngine implements IEngine {
   }
   async groupRevokeInvite(jid: string): Promise<string> {
     return (await this.sk().groupRevokeInvite(toGroupJid(jid))) ?? '';
+  }
+
+  // W8 — fila de entrada do grupo (membership requests). O Baileys devolve linhas com `jid`; o
+  // formato exato varia entre builds, daí o cast defensivo. `requestedAt` não é exposto → null.
+  async groupMembershipRequests(jid: string): Promise<MembershipRequest[]> {
+    const rows = (await this.sk().groupRequestParticipantsList(
+      toGroupJid(jid),
+    )) as Array<Record<string, string>>;
+    return (rows ?? []).map((r) => {
+      const id = r.jid ?? r.phone_number ?? Object.values(r)[0] ?? '';
+      const num = id.endsWith('@s.whatsapp.net') ? id.replace(/\D/g, '') : null;
+      return { id, phone: num || null, requestedAt: null };
+    });
+  }
+
+  // W8 — aprova/rejeita pedidos. participants vazio = age sobre TODA a fila (busca a lista antes).
+  async groupMembershipAction(
+    jid: string,
+    action: MembershipAction,
+    participants?: string[],
+  ): Promise<void> {
+    const gjid = toGroupJid(jid);
+    let jids = participants?.length
+      ? await this.resolveParticipants(participants)
+      : [];
+    if (!jids.length) {
+      const list = (await this.sk().groupRequestParticipantsList(
+        gjid,
+      )) as Array<Record<string, string>>;
+      jids = (list ?? [])
+        .map((r) => r.jid ?? r.phone_number ?? Object.values(r)[0] ?? '')
+        .filter(Boolean);
+    }
+    if (!jids.length) return; // fila vazia — nada a fazer
+    await this.sk().groupRequestParticipantsUpdate(gjid, jids, action);
+  }
+
+  // W8 — announce (só admin envia) / restrict (só admin edita a info) do grupo.
+  async setGroupSetting(
+    jid: string,
+    setting: GroupSettingKey,
+    enabled: boolean,
+  ): Promise<void> {
+    const value =
+      setting === 'announce'
+        ? enabled
+          ? 'announcement'
+          : 'not_announcement'
+        : enabled
+          ? 'locked'
+          : 'unlocked';
+    await this.sk().groupSettingUpdate(toGroupJid(jid), value);
+  }
+
+  // W8 — foto do grupo (updateProfilePicture aceita Buffer; o WhatsApp reprocessa a imagem).
+  async setGroupPhoto(
+    jid: string,
+    image: Buffer,
+    _mimetype: string,
+  ): Promise<void> {
+    await this.sk().updateProfilePicture(toGroupJid(jid), image);
   }
 
   // ---- Contatos / perfil (§ F5) ----

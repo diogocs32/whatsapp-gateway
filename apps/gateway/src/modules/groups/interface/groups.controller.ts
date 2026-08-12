@@ -28,6 +28,21 @@ const participantsSchema = z.object({
 
 const subjectSchema = z.object({ subject: z.string().min(1).max(100) });
 const descriptionSchema = z.object({ description: z.string().max(2000) });
+// W8 — moderação da fila de entrada e configurações admin-only do grupo.
+const membershipSchema = z.object({
+  action: z.enum(['approve', 'reject']),
+  // ausente/vazio = age sobre TODA a fila pendente (a engine aplica anti-flood entre um e outro).
+  participants: z.array(z.string().min(5).max(40)).optional(),
+});
+const settingsSchema = z
+  .object({
+    announce: z.boolean().optional(), // true = só admins ENVIAM
+    restrict: z.boolean().optional(), // true = só admins EDITAM a info
+  })
+  .refine((d) => d.announce !== undefined || d.restrict !== undefined, {
+    message: 'informe announce e/ou restrict',
+  });
+const photoSchema = z.object({ url: z.string().url() });
 
 @UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions/:id/groups')
@@ -147,6 +162,84 @@ export class GroupsController {
       this.manager.groupRevokeInvite(id, groupId),
     );
     return { code, url: `https://chat.whatsapp.com/${code}` };
+  }
+
+  // W8 — fila de entrada pendente (pedidos de participação). Requer admin.
+  @Get(':groupId/membership-requests')
+  membershipRequests(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+  ) {
+    return this.run(() => this.manager.groupMembershipRequests(id, groupId));
+  }
+
+  // W8 — aprova/rejeita pedidos (todos, se `participants` ausente). Anti-flood na engine.
+  @Post(':groupId/membership-requests')
+  async membership(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+    @Body() body: unknown,
+  ) {
+    const d = parse(membershipSchema, body);
+    await this.run(() =>
+      this.manager.groupMembershipAction(
+        id,
+        groupId,
+        d.action,
+        d.participants,
+      ),
+    );
+    return { ok: true };
+  }
+
+  // W8 — liga/desliga announce (só admins enviam) e/ou restrict (só admins editam a info).
+  @Post(':groupId/settings')
+  async settings(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+    @Body() body: unknown,
+  ) {
+    const d = parse(settingsSchema, body);
+    if (d.announce !== undefined) {
+      await this.run(() =>
+        this.manager.setGroupSetting(id, groupId, 'announce', d.announce!),
+      );
+    }
+    if (d.restrict !== undefined) {
+      await this.run(() =>
+        this.manager.setGroupSetting(id, groupId, 'restrict', d.restrict!),
+      );
+    }
+    return { ok: true };
+  }
+
+  // W8 — foto do grupo por URL (o gateway baixa a imagem e a define). Espelha /profile/photo.
+  @Post(':groupId/photo')
+  async photo(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+    @Body() body: unknown,
+  ) {
+    const d = parse(photoSchema, body);
+    let buffer: Buffer;
+    let mimetype: string;
+    try {
+      const res = await fetch(d.url, { signal: AbortSignal.timeout(20000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      mimetype = res.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+      buffer = Buffer.from(await res.arrayBuffer());
+    } catch (e) {
+      throw new BadRequestException(
+        `não consegui baixar a imagem: ${(e as Error).message}`,
+      );
+    }
+    if (buffer.length > 10 * 1024 * 1024) {
+      throw new BadRequestException('imagem acima de 10 MB');
+    }
+    await this.run(() =>
+      this.manager.setGroupPhoto(id, groupId, buffer, mimetype),
+    );
+    return { ok: true };
   }
 
   // Converte erros da engine: operação não suportada → 501, o resto → 400 (mensagem original).

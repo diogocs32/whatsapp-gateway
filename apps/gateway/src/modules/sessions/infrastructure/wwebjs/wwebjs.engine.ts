@@ -26,7 +26,10 @@ import type {
   GroupParticipantAction,
   GroupParticipantInfo,
   GroupParticipantRole,
+  GroupSettingKey,
   IEngine,
+  MembershipAction,
+  MembershipRequest,
   MessageSource,
   PresenceState,
   SaveContactInput,
@@ -1547,6 +1550,60 @@ export class WWebJSEngine implements IEngine {
     // revokeInvite() da lib devolve void — buscamos o código NOVO para casar o contrato (string).
     await g.revokeInvite();
     return g.getInviteCode();
+  }
+
+  // W8 — fila de entrada do grupo (membership requests). `t` é o unix seconds do pedido.
+  async groupMembershipRequests(jid: string): Promise<MembershipRequest[]> {
+    const g = await this.getGroupChat(jid);
+    const reqs = await g.getGroupMembershipRequests();
+    return reqs.map((r) => {
+      const id =
+        (r.id as { _serialized?: string })?._serialized ?? String(r.id ?? '');
+      const num = id.endsWith('@c.us') ? id.replace(/\D/g, '') : null;
+      return {
+        id,
+        phone: num || null,
+        requestedAt: typeof r.t === 'number' ? r.t : null,
+      };
+    });
+  }
+
+  // W8 — aprova/rejeita pedidos (todos, se participants vazio). `sleep` = anti-flood da lib entre
+  // um requester e o próximo (default [250,500] ms) — obrigatório para não disparar flag na moderação
+  // em massa. `requesterIds: null` = a lib age sobre TODA a fila.
+  async groupMembershipAction(
+    jid: string,
+    action: MembershipAction,
+    participants?: string[],
+  ): Promise<void> {
+    const g = await this.getGroupChat(jid);
+    const requesterIds = participants?.length
+      ? participants.map((p) => this.toChatId(p))
+      : null;
+    const opts = { requesterIds, sleep: [250, 500] as [number, number] };
+    if (action === 'approve') await g.approveGroupMembershipRequests(opts);
+    else await g.rejectGroupMembershipRequests(opts);
+  }
+
+  // W8 — announce (só admin envia) / restrict (só admin edita a info) do grupo.
+  async setGroupSetting(
+    jid: string,
+    setting: GroupSettingKey,
+    enabled: boolean,
+  ): Promise<void> {
+    const g = await this.getGroupChat(jid);
+    if (setting === 'announce') await g.setMessagesAdminsOnly(enabled);
+    else await g.setInfoAdminsOnly(enabled);
+  }
+
+  // W8 — foto do grupo.
+  async setGroupPhoto(
+    jid: string,
+    image: Buffer,
+    mimetype: string,
+  ): Promise<void> {
+    const g = await this.getGroupChat(jid);
+    await g.setPicture(new MessageMedia(mimetype, image.toString('base64')));
   }
 
   // Verifica se cada número tem WhatsApp e devolve o JID canônico (getNumberId corrige o 9º dígito BR).

@@ -162,6 +162,18 @@ export interface ContactCheck {
   jid: string | null;
 }
 
+// W8 — pedido de ENTRADA pendente num grupo (fila de aprovação/membership request).
+// `requestedAt` em unix seconds quando a engine informa.
+export interface MembershipRequest {
+  id: string; // wid de quem pediu para entrar
+  phone: string | null; // telefone (quando o id é de número; @lid anônimo fica null)
+  requestedAt: number | null;
+}
+// W8 — configurações admin-only do grupo. `announce` = só admins ENVIAM mensagem;
+// `restrict` = só admins EDITAM os dados do grupo. Espelham os flags lidos em GroupInfo.
+export type GroupSettingKey = 'announce' | 'restrict';
+export type MembershipAction = 'approve' | 'reject';
+
 // Dados para salvar/editar um contato na agenda da conta. `syncToPhone` pede ao WhatsApp para
 // propagar também para a agenda do aparelho (saveOnPrimaryAddressbook no Baileys /
 // syncToAddressbook no wwebjs). Sem ele, o contato fica só na agenda da conta WhatsApp.
@@ -254,6 +266,22 @@ export interface IEngine {
   setGroupDescription(jid: string, description: string): Promise<void>;
   groupInviteCode(jid: string): Promise<string>;
   groupRevokeInvite(jid: string): Promise<string>;
+  // W8 — fila de entrada do grupo: listar pendentes e aprovar/rejeitar (todos ou alguns).
+  // Aprovar/rejeitar em massa passa por anti-flood (a engine aplica pausa entre um e outro).
+  groupMembershipRequests(jid: string): Promise<MembershipRequest[]>;
+  groupMembershipAction(
+    jid: string,
+    action: MembershipAction,
+    participants?: string[],
+  ): Promise<void>;
+  // W8 — liga/desliga announce (só admins enviam) e restrict (só admins editam a info).
+  setGroupSetting(
+    jid: string,
+    setting: GroupSettingKey,
+    enabled: boolean,
+  ): Promise<void>;
+  // W8 — define a foto do grupo.
+  setGroupPhoto(jid: string, image: Buffer, mimetype: string): Promise<void>;
 
   // Contatos / perfil
   checkNumbers(numbers: string[]): Promise<ContactCheck[]>;
