@@ -1,11 +1,12 @@
-# 🚧 ADOÇÃO DO PADRÃO v3.2 — ConexoZenvo
+# 🚧 ADOÇÃO DO PADRÃO — ConexoZenvo (base v3.2 → v4.3)
 
-> Diagnóstico + plano de ondas (R18 · modo UPGRADE, sessão
-> `2026-07-21-1630-adocao-base-v32`, D-010). Arquivar quando o diagnóstico
-> estiver 100% ✅/➖ e registrar em DECISOES.md.
-> Evidências coletadas em 21/07/2026 por varredura do repo (arquivo:linha).
+> Diagnóstico + plano de ondas (R18 · modo UPGRADE). v3.2: sessão
+> `2026-07-21-1630-adocao-base-v32` (D-010, ondas A1–A7). v4.3: sessão
+> `2026-08-12-1504-adocao-base-v43` (D-011, ondas A8–A11 — deltas abaixo).
+> Arquivar quando o diagnóstico estiver 100% ✅/➖ e registrar em DECISOES.md.
+> Evidências v3.2 coletadas em 21/07/2026 por varredura do repo (arquivo:linha).
 
-## Diagnóstico R0–R18
+## Diagnóstico R0–R18 (v3.2 · 21/07/2026)
 
 | Regra                | Status | Evidência                                                                                                                                                                            | Onda        |
 | -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
@@ -31,6 +32,23 @@
 
 Legenda: ✅ conforme · 🟡 parcial · 🔴 ausente · ➖ não se aplica
 
+## Diagnóstico dos deltas v4.3 (12/08/2026 — só o que a v4.3 muda/acrescenta)
+
+| Regra/delta                          | Status | Evidência (12/08/2026)                                                                                                              | Onda |
+| ------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---- |
+| R3 v4.2/v4.3 (engenharia de doc)     | 🟡     | Âncoras + MAPA + PENDENCIAS ✅ (esta sessão) · fidedignidade/mapa de gatilhos DEFINIDOS na BASE · faltam: runbooks/ e postmortems/ separados, ADRs, frontmatter/frescor, e os gates que fiscalizam | A9, A11 |
+| R6 gates de docs (docs-drift etc.)   | 🔴     | Nenhum gate de doc no CI (`ci.yml` só lint/typecheck/e2e/build)                                                                       | A9   |
+| R6 bateria única (`npm run check`)   | 🔴     | Não existe script agregado no package.json raiz                                                                                       | A10  |
+| R6 v3.7 (automação gateada)          | 🔴     | Scripts .sh e guardrail-observe.mjs sem bash -n/shellcheck/teste de comportamento no CI                                               | A10  |
+| R9 v3.4/v3.8/v4.3 (PENDENCIAS, avisos, eco, B-xxx, reconciliação) | ✅ | PENDENCIAS.md criado + seção 📢 em SESSOES.md + eco de leitura no ATIVA desta sessão — protocolo em vigor a partir de agora | —    |
+| R9 v4.0 (worktree por sessão paralela) | 🟡   | Sessões paralelas hoje compartilham o checkout principal (funciona porque escopos são disjuntos); worktree + `.worktreeinclude` quando 2+ sessões tocarem código | A8   |
+| R15 v3.3 (retenção no registry)      | ➖ hoje | Sem registry ainda (build no servidor); entra JUNTO da A5                                                                            | A5   |
+| R15 v4.1 (prova de deploy = ambiente mudado) | ✅ | Já praticado desde o incidente do webhook mudo (ESTADO.md registra conferência via /health pós-push)                            | —    |
+| R17 cadências novas (frescor, memory, varredura, runbook sorteado, matriz regra×gate) | ✅ | Linhas criadas em AUDITORIAS.md nesta sessão                                                                | —    |
+| R19 (ferramental de IA)              | 🔴     | Sem `.claude/settings.json`, hooks, skills ou `.mcp.json` versionados no repo; regras definidas na BASE, enforcement ausente          | A8   |
+| R20 (briefing)                       | ✅     | Protocolo definido na BASE; `docs/briefings/` nasce sob demanda no primeiro achado que cruzar fronteira                               | —    |
+| R21 (varredura V0–V9)                | 🔴     | Nunca executada; ferramentas (knip, jscpd, lizard/complexity, OSV-Scanner) não instaladas; agenda trimestral criada em AUDITORIAS.md  | A10  |
+
 ## Ondas de adoção (prioridade por RISCO — produção não para, nada de big-bang)
 
 | Onda   | Escopo                                                                                                                                                                                                             | Risco que elimina                                        | Sessão/branch               | Status   |
@@ -42,9 +60,15 @@ Legenda: ✅ conforme · 🟡 parcial · 🔴 ausente · ➖ não se aplica
 | **A5** | **Deploy de excelência (R15/R16)**: registry GHCR + build 1× no CI (tag=SHA) + smoke do artefato + promoção gated + rollback por tag ensaiado + retry de banco no entrypoint + graceful shutdown auditado (workers BullMQ + desconexão limpa das engines) + primeira tag git/release 0.2.0 (R4) | Deploy irreversível; artefato nunca testado; SIGKILL no meio de job | feature/adocao-a5-deploy    | pendente |
 | **A6** | = **onda M5** (não duplicar): canal único de alertas + uptime externo + decisão Sentry                                                                                                                              | Incidente descoberto pelo cliente                        | (sessão da M5)              | pendente |
 | **A7** | Leve, oportunista: jsx-a11y como warning ao tocar dashboard (R12)                                                                                                                                                   | —                                                        | junto de trabalho no dashboard | pendente |
+| **A8** | **Projeção `.claude/` (R19/v4.0)**: `settings.json` (permissions allow/deny — deny em `.env`, migrations aplicadas, comandos destrutivos, banco não-local) · hooks do catálogo R19 (PreToolUse Edit/Bash, SessionStart, Stop) · skills `/abrir-sessao`, `/encerrar-sessao`, `/checkpoint`, `/varredura`, `/briefing` · `.worktreeinclude` · rules fatiadas por paths — TODOS os scripts passando pelo gate v3.7 (mutação que prova a recusa) | Agente com regra só em instrução (pedido ≠ garantia); comando destrutivo sem trava | feature/adocao-a8-claude | pendente |
+| **A9** | **Gates de docs no CI (R6 v4.2/v4.3)**: docs-drift (paths-gatilho → doc mapeada ou trailer `Docs-n/a:`) · correspondência estrutural módulos↔ARQUITETURA · consistência versão BASE↔CLAUDE.md · integridade do painel de sessões · links+MAPA · frontmatter/frescor — entram NÃO-bloqueantes, calibram, só então bloqueiam (caminho do gitleaks) | Doc que mente com autoridade; mapa de módulos divergente do código | feature/adocao-a9-docs-gates | pendente |
+| **A10** | **Bateria única + catracas da varredura (R6/R21)**: `npm run check` agregado · knip (morto) · jscpd (duplicação não cresce) · complexity teto (ESLint) · piso v3.7 nos scripts (`bash -n`+shellcheck+teste de comportamento no coletor M2 e futuros) · depois: 1ª VARREDURA V0–V9 completa (sessão própria, agenda em AUDITORIAS.md) | "Rodei tudo" inverificável; morto/duplicação crescendo sem baseline | feature/adocao-a10-varredura | pendente |
+| **A11** | Leve, oportunista (R3 v4.2): separar `runbooks/` de `how-to/` (deploy/rollback/restore/chaves com comando copiável + saída esperada) · `decisions/` para ADR de decisão cara · `postmortems/` no primeiro incidente · frontmatter (`dono/revisado_em/validade`) nos docs TOCADOS · README roteador | Runbook que não opera sob pressão; doc sem dono apodrecendo | junto de sessões que toquem docs | pendente |
 
-Ordem recomendada: **A1 → A2 → A3 → (M3=A4) → A5 → (M5=A6)**. A1 e A2 são
-pequenas e independentes das ondas M em curso (M2 não é bloqueada).
+Ordem recomendada: **A1 → A2 → A3 → (M3=A4) → A5 → (M5=A6)**; da v4.3:
+**A8 → A9 → A10** (A8 primeiro — é o enforcement que protege as demais; A9/A10
+aproveitam o CI que a A2 instala), A11 oportunista. A1 e A2 seguem sendo as
+mais urgentes do conjunto (backup ainda é o maior risco). M2 não é bloqueada.
 
 Fora do escopo da adoção (é produto, não padrão): **estabilidade do ciclo de
 vida de sessão WhatsApp** (conectar/QR/pairing/stop/restart/logout) — análise

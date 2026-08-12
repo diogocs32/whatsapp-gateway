@@ -13,10 +13,23 @@
 | 2026-07-10-1040-m2-guardrail-ativo    | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway)                                                       | feature/m2-guardrail-ativo    |
 | 2026-07-19-0332-auth-refresh-rotation | 19/07 03:32 | Fix 401 `/auth/me`: refresh-token rotation (sessão não expira no meio do trabalho) | módulo `iam` (auth) + `apps/dashboard` (auth/api) + **`schema.prisma`** (refresh_tokens) + **`packages/contracts`** + config.ts + docs | feature/auth-refresh-rotation |
 
-## ✅ Histórico (mais recente primeiro)
+## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
+
+> Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
+> quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **12/08 · adocao-base-v43:** base universal agora é **v4.3** (R0–R21). Novidades que
+  afetam TODA sessão: abertura passa a incluir `docs/PENDENCIAS.md` (novo quadro
+  central P-xxx/B-xxx) e o **eco de leitura** no arquivo ATIVA-; encerramento ganha
+  **reconciliação documental** (diff × mapa de gatilhos do R3) e checkpoint ganha os
+  campos **BLOQUEADO EM VOCÊ** e **DOCS TOCADAS**. Sessões ativas (M2, auth-refresh)
+  encerram no formato novo.
+
+## ✅ Histórico (mais recente primeiro — as 5 do topo são leitura obrigatória na abertura)
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-12-1504-adocao-base-v43       | 12/08   | Base universal v3.2 → v4.3 (D-011): BASE R0–R21 · PENDENCIAS.md · 📢 Avisos · ondas A8–A11 — pendências: P-006 | feature/adocao-base-v43              |
 | 2026-07-22-1700-hardening-antiban     | 22/07   | Hardening anti-flag: fingerprint realista por sessão · log de conexão sem proxy · WA_REQUIRE_PROXY (91/91) | feature/hardening-antiban            |
 | 2026-07-21-1730-estabilidade-sessoes  | 21/07   | P0 estabilidade: mutex Baileys · creds limpas no loggedOut · POST /new-qr + painel · 401 → /login (82/82) | feature/estabilidade-sessoes         |
 | 2026-07-21-1630-adocao-base-v32       | 21/07   | Base universal v3.2 adotada (R18): BASE_CONEXOZENVO.md + MAPA + AUDITORIAS + ADOCAO (D-010) | feature/adocao-base-v32              |

@@ -34,8 +34,9 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main = origin/main         | Adoção base v3.2 (D-010) + P0 estabilidade de sessão pushados em 21/07 — deploy via webhook (confirmar ~5 min no /health) |
+| main local (à frente do origin) | Upgrade base v4.3 (D-011, 12/08 — só docs/processo) mergeado e AGUARDANDO push (push dispara redeploy no Dokploy; sem efeito de runtime, mas evitar rajada com sessão real conectada) |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda              |
+| feature/auth-refresh-rotation | Sessão auth-refresh ativa (D-009) — merge no fechamento                                   |
 
 ## Pendências operacionais
 
@@ -48,18 +49,26 @@ Nenhuma — O1–O4 concluídos. Observação contínua: intermitência do webho
   `POST /sessions` (SINGLE/STICKY exclusivo, 1 proxy = 1 sessão) + dropdown no painel. Pendência
   residual (repo do node n8n): parâmetro `proxyId` opcional na operação de criar sessão.
 
-## Processo (novo em 21/07 — D-010)
+## Processo (atualizado em 12/08 — D-011)
 
-Base universal **v3.2** adotada: regras canônicas em `BASE_CONEXOZENVO.md` (raiz, R0–R18);
-navegação de siglas em [MAPA.md](MAPA.md); agenda de auditorias em [AUDITORIAS.md](AUDITORIAS.md);
-diagnóstico + ondas de adoção **A1–A7** em [ADOCAO.md](ADOCAO.md) (A1 backup é a mais urgente:
-produção SEM backup do banco).
+Base universal **v4.3** adotada (upgrade da v3.2 — D-010/D-011): regras canônicas em
+`BASE_CONEXOZENVO.md` (raiz, R0–R21). Novidades v4.3 EM VIGOR: abertura de sessão lê
+também [PENDENCIAS.md](PENDENCIAS.md) (quadro P-xxx/B-xxx) e preenche ECO DE LEITURA;
+SESSOES.md tem seção 📢 Avisos; encerramento faz reconciliação documental (mapa de
+gatilhos do R3); checkpoint ganhou BLOQUEADO EM VOCÊ + DOCS TOCADAS. Navegação em
+[MAPA.md](MAPA.md); auditorias em [AUDITORIAS.md](AUDITORIAS.md); ondas de adoção
+**A1–A7** (v3.2) + **A8–A11** (v4.3: projeção `.claude/`, gates de docs, bateria
+única + varredura, reorganização docs/) em [ADOCAO.md](ADOCAO.md) — A1 backup segue
+sendo a mais urgente: produção SEM backup do banco.
 
 ## Próximos passos
 
 1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
 1b. **Estabilidade de sessão — P0 ENTREGUE 21/07** (sessão `DONE-2026-07-21-1730-estabilidade-sessoes`): mutex Baileys · creds limpas no loggedOut · `POST /:id/new-qr` + botão do painel · 401 → /login. Restam P1/P2 (watchdog, auto-heal DEGRADED, DisconnectReason, reconexão wwebjs — backlog no arquivo DONE da sessão; vira sessão nova quando priorizado)
 1c. **Anti-flag de sessão — CÓDIGO ENTREGUE 22/07** (sessão `DONE-2026-07-22-1700-hardening-antiban`): fingerprint realista por sessão · log de conexão sem proxy · `WA_REQUIRE_PROXY` (default false). Diagnóstico: proxies eram Webshare DATACENTER (`mode=direct`) — flag na conexão. **AÇÃO OPERACIONAL do usuário (em curso):** migrar p/ proxy RESIDENCIAL BR (adquirido — Webshare static residential, 20 IPs SP), importar em massa (`user:pass@ip:porta`, source MANUAL), atribuir 1 IP/sessão (Proxy fixo), ligar `WA_REQUIRE_PROXY=true` no Dokploy, re-vincular. Backlog: health-tester só testa ipify (não prova reputação WhatsApp).
-1d. **Adoção A1 (backup)** → A2 (gates) → A3 (fuso) — ver [ADOCAO.md](ADOCAO.md)
+1d. **Adoção A1 (backup)** → A2 (gates) → A3 (fuso) · da v4.3: A8 (`.claude/`) →
+   A9 (gates de docs) → A10 (bateria única + varredura) — ver [ADOCAO.md](ADOCAO.md);
+   pendências e bloqueios agora centralizados em [PENDENCIAS.md](PENDENCIAS.md)
+   (B-001 = migração proxy residencial, em curso com o usuário)
 2. M3 · Qualidade: testes unitários de domínio, coverage, dependency-cruiser no CI + fix do lint local (`apps/gateway/auth/` nos ignores), normalizar prettier e adicionar `format:check` ao CI
 3. Node n8n (repo separado): parâmetro `proxyId` na criação de sessão (D-008)
