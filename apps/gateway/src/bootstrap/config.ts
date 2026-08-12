@@ -25,6 +25,14 @@ const envBool = (def: boolean) =>
     return v; // inválido → z.boolean() acusa no validateEnv com o nome da variável
   }, z.boolean());
 
+// String opcional de env com vazio = ausente (uma `VAR=` sobrando no compose se comporta como VAR
+// não definida, em vez de virar string vazia que quebra downstream de forma críptica).
+const envStr = () =>
+  z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(1).optional(),
+  );
+
 const base = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
@@ -84,6 +92,15 @@ const base = z.object({
   // atribuído (em vez de vazar o IP do servidor/datacenter ao WhatsApp — gatilho de flag na conexão).
   // Default false para não quebrar sessões existentes; ligue depois de atribuir proxy a todas.
   WA_REQUIRE_PROXY: envBool(false),
+  // ---- Engine wwebjs (motor browser) ----
+  // O motor lê estas chaves direto de process.env (escopo de módulo, antes do Nest subir); declará-las
+  // aqui documenta o catálogo e valida a forma. Valor VAZIO = ausente (não derruba o boot — R0: um
+  // `WWEBJS_X=` sobrando no compose não pode virar outage de quem só usa Baileys); path inexistente é
+  // diagnosticado no start da sessão (guard próprio no doStart, com mensagem acionável).
+  WWEBJS_CHROME_PATH: envStr(),
+  WWEBJS_DATA_PATH: envStr(),
+  WWEBJS_WEB_VERSION: envStr(), // versão fixa | 'auto' | 'live'
+  WWEBJS_USER_AGENT: envStr(), // override global do UA (sem ele: UA estável por sessão)
   // Storage de mídia (S3-compatível). Defaults = MinIO do docker-compose; em prod aponte p/ R2/B2.
   S3_ENDPOINT: z.string().default('http://localhost:9000'),
   S3_REGION: z.string().default('us-east-1'),
