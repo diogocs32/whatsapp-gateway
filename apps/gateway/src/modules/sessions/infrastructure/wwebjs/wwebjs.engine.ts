@@ -4,6 +4,7 @@ import type {
   GroupChat,
   GroupParticipant,
   Contact,
+  Channel,
 } from 'whatsapp-web.js';
 import * as QRCode from 'qrcode';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
@@ -15,6 +16,7 @@ import type {
   ContactCheck,
   AckStatus,
   GroupInfo,
+  GroupParticipantAction,
   GroupParticipantInfo,
   GroupParticipantRole,
   IEngine,
@@ -24,7 +26,6 @@ import type {
   SendMediaInput,
   SendOptions,
 } from '../../application/engine.port';
-import { UnsupportedEngineOperationError } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 
 // Caminho do Chrome do sistema (no WSL já existe /usr/bin/google-chrome-stable). Configurável por env.
@@ -107,8 +108,9 @@ export function authDirOf(sessionId: string): string {
 }
 
 // Engine alternativa (F8) usando whatsapp-web.js (Puppeteer + Chrome do sistema). Mesmo contrato
-// IEngine do BaileysEngine, escolhida por sessão via EngineFactory. NÚCLEO: conexão/QR, status,
-// enviar/receber texto e mídia. Recursos avançados (grupos/contatos/canais) ainda não suportados.
+// IEngine do BaileysEngine, escolhida por sessão via EngineFactory. Cobre conexão/QR, status,
+// enviar/receber texto e mídia (S3), grupos (incl. extração de leads via Store oficial), contatos
+// (checar número, foto, bloquear, agenda) e canais/newsletter (beta) — paridade com o Baileys.
 export class WWebJSEngine implements IEngine {
   readonly engineName = 'wwebjs' as const;
   private client: Client | null = null;
@@ -1061,14 +1063,6 @@ export class WWebJSEngine implements IEngine {
     return this.client;
   }
 
-  private nope(op: string): never {
-    // Erro TIPADO → o controller devolve HTTP 501 (Not Implemented), não 400. Assim o node n8n
-    // distingue "esta engine não suporta a operação" de "payload inválido".
-    throw new UnsupportedEngineOperationError(
-      `${op} ainda não suportado na engine WWEBJS (use BAILEYS)`,
-    );
-  }
-
   // Executa uma operação que depende do Store interno do WhatsApp Web, tolerando o RACE do wwebjs
   // 1.34.7: logo após o `ready` o Store (window.WWebJS) pode ainda não estar injetado, e getChats/
   // getChatById estouram "Cannot read properties of undefined (reading 'getChats')". Em vez de falhar,
@@ -1124,13 +1118,18 @@ export class WWebJSEngine implements IEngine {
       });
   }
 
-  // Detalha um grupo com os participantes já resolvidos (telefone + nome salvo na agenda).
-  async groupInfo(jid: string): Promise<GroupInfo> {
+  // Resolve o GroupChat (com o Store pronto) e valida que o id é mesmo de um grupo.
+  private async getGroupChat(jid: string): Promise<GroupChat> {
     const chat = await this.withStoreReady(() =>
       this.req().getChatById(this.toGroupId(jid)),
     );
     if (!chat.isGroup) throw new Error('O id informado não é um grupo');
-    const g = chat as unknown as GroupChat;
+    return chat as unknown as GroupChat;
+  }
+
+  // Detalha um grupo com os participantes já resolvidos (telefone + nome salvo na agenda).
+  async groupInfo(jid: string): Promise<GroupInfo> {
+    const g = await this.getGroupChat(jid);
     const participants: GroupParticipantInfo[] = [];
     // Sequencial de propósito: paralelizar dezenas de consultas ao Puppeteer trava o Chromium.
     for (const p of g.participants ?? []) {
@@ -1196,35 +1195,88 @@ export class WWebJSEngine implements IEngine {
   private toGroupId(jid: string): string {
     return jid.includes('@') ? jid : `${jid}@g.us`;
   }
-  createGroup(): Promise<GroupInfo> {
-    return this.nope('createGroup');
+  // Cria um grupo e devolve o GroupInfo já detalhado (participantes resolvidos).
+  async createGroup(
+    subject: string,
+    participants: string[],
+  ): Promise<GroupInfo> {
+    const ids = participants.map((p) => this.toChatId(p));
+    const res = await this.withStoreReady(() =>
+      this.req().createGroup(subject, ids),
+    );
+    // A lib devolve string quando falha (ex.: nenhum participante válido).
+    if (typeof res === 'string') {
+      throw new Error(`Falha ao criar grupo: ${res}`);
+    }
+    return this.groupInfo(res.gid._serialized);
   }
-  updateParticipants(): Promise<void> {
-    return this.nope('updateParticipants');
+
+  async updateParticipants(
+    jid: string,
+    action: GroupParticipantAction,
+    participants: string[],
+  ): Promise<void> {
+    const g = await this.getGroupChat(jid);
+    const ids = participants.map((p) => this.toChatId(p));
+    if (action === 'add') await g.addParticipants(ids);
+    else if (action === 'remove') await g.removeParticipants(ids);
+    else if (action === 'promote') await g.promoteParticipants(ids);
+    else await g.demoteParticipants(ids);
   }
-  leaveGroup(): Promise<void> {
-    return this.nope('leaveGroup');
+
+  async leaveGroup(jid: string): Promise<void> {
+    await (await this.getGroupChat(jid)).leave();
   }
-  setGroupSubject(): Promise<void> {
-    return this.nope('setGroupSubject');
+
+  async setGroupSubject(jid: string, subject: string): Promise<void> {
+    await (await this.getGroupChat(jid)).setSubject(subject);
   }
-  setGroupDescription(): Promise<void> {
-    return this.nope('setGroupDescription');
+
+  async setGroupDescription(jid: string, description: string): Promise<void> {
+    await (await this.getGroupChat(jid)).setDescription(description);
   }
-  groupInviteCode(): Promise<string> {
-    return this.nope('groupInviteCode');
+
+  async groupInviteCode(jid: string): Promise<string> {
+    return (await this.getGroupChat(jid)).getInviteCode();
   }
-  groupRevokeInvite(): Promise<string> {
-    return this.nope('groupRevokeInvite');
+
+  async groupRevokeInvite(jid: string): Promise<string> {
+    const g = await this.getGroupChat(jid);
+    // revokeInvite() da lib devolve void — buscamos o código NOVO para casar o contrato (string).
+    await g.revokeInvite();
+    return g.getInviteCode();
   }
-  checkNumbers(): Promise<ContactCheck[]> {
-    return this.nope('checkNumbers');
+
+  // Verifica se cada número tem WhatsApp e devolve o JID canônico (getNumberId corrige o 9º dígito BR).
+  // Sequencial de propósito: getNumberId consulta o Store (Puppeteer) — paralelizar trava o Chromium.
+  async checkNumbers(numbers: string[]): Promise<ContactCheck[]> {
+    const c = this.req();
+    const out: ContactCheck[] = [];
+    for (const n of numbers) {
+      const digits = n.replace(/[^0-9]/g, '');
+      const id = await this.withStoreReady(() => c.getNumberId(digits));
+      out.push({ number: n, exists: !!id, jid: id?._serialized ?? null });
+    }
+    return out;
   }
-  profilePicture(): Promise<string | null> {
-    return this.nope('profilePicture');
+
+  async profilePicture(jid: string): Promise<string | null> {
+    try {
+      const url = await this.withStoreReady(() =>
+        this.req().getProfilePicUrl(this.toChatId(jid)),
+      );
+      return url || null;
+    } catch {
+      return null; // sem foto ou perfil privado
+    }
   }
-  setBlock(): Promise<void> {
-    return this.nope('setBlock');
+
+  async setBlock(jid: string, action: 'block' | 'unblock'): Promise<void> {
+    const contact = await this.withStoreReady(() =>
+      this.req().getContactById(this.toChatId(jid)),
+    );
+    if (action === 'block') await contact.block();
+    else await contact.unblock();
   }
   // wwebjs suporta a agenda nativamente (WAWebSaveContactAction). phoneNumber = só dígitos (país+DDD).
   async saveContact(jid: string, input: SaveContactInput): Promise<void> {
@@ -1242,16 +1294,43 @@ export class WWebJSEngine implements IEngine {
     const phone = jid.replace(/[^0-9]/g, '');
     await this.withStoreReady(() => this.req().deleteAddressbookContact(phone));
   }
-  createChannel(): Promise<ChannelInfo> {
-    return this.nope('createChannel');
+  // ---- Canais (newsletter) — beta ----
+  async createChannel(
+    name: string,
+    description?: string,
+  ): Promise<ChannelInfo> {
+    const res = await this.withStoreReady(() =>
+      this.req().createChannel(name, description ? { description } : {}),
+    );
+    if (typeof res === 'string') {
+      throw new Error(`Falha ao criar canal: ${res}`);
+    }
+    return {
+      id: res.nid._serialized,
+      name: res.title,
+      description: description ?? null,
+      subscribers: null, // recém-criado
+    };
   }
-  channelInfo(): Promise<ChannelInfo> {
-    return this.nope('channelInfo');
+
+  async channelInfo(jid: string): Promise<ChannelInfo> {
+    const chat = await this.withStoreReady(() => this.req().getChatById(jid));
+    const ch = chat as unknown as Channel;
+    if (!ch.isChannel) throw new Error('O id informado não é um canal');
+    return {
+      id: ch.id._serialized,
+      name: ch.name || '',
+      description: ch.description || null,
+      // A lib só expõe getSubscribers() (dos SEUS contatos), não a contagem total — deixamos null.
+      subscribers: null,
+    };
   }
-  followChannel(): Promise<void> {
-    return this.nope('followChannel');
+
+  async followChannel(jid: string): Promise<void> {
+    await this.withStoreReady(() => this.req().subscribeToChannel(jid));
   }
-  unfollowChannel(): Promise<void> {
-    return this.nope('unfollowChannel');
+
+  async unfollowChannel(jid: string): Promise<void> {
+    await this.withStoreReady(() => this.req().unsubscribeFromChannel(jid));
   }
 }
