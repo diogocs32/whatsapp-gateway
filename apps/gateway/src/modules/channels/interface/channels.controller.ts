@@ -3,11 +3,13 @@ import {
   Body,
   Controller,
   Get,
+  NotImplementedException,
   Param,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
+import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
@@ -43,13 +45,19 @@ export class ChannelsController {
   }
 
   @Post(':jid/follow')
-  async follow(@Param('id', SessionRefPipe) id: string, @Param('jid') jid: string) {
+  async follow(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('jid') jid: string,
+  ) {
     await this.run(() => this.manager.followChannel(id, jid));
     return { ok: true };
   }
 
   @Post(':jid/unfollow')
-  async unfollow(@Param('id', SessionRefPipe) id: string, @Param('jid') jid: string) {
+  async unfollow(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('jid') jid: string,
+  ) {
     await this.run(() => this.manager.unfollowChannel(id, jid));
     return { ok: true };
   }
@@ -58,6 +66,9 @@ export class ChannelsController {
     try {
       return await fn();
     } catch (e) {
+      // Canais no wwebjs caem em nope() → 501 (Not Implemented), não 400 (payload inválido).
+      if (e instanceof UnsupportedEngineOperationError)
+        throw new NotImplementedException((e as Error).message);
       throw new BadRequestException((e as Error).message);
     }
   }

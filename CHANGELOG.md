@@ -8,6 +8,19 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Corrigido
 
+- **wwebjs W3 — ciclo de vida e recuperação** (sessão `2026-08-12-1723-wwebjs-w3-ciclo-vida`,
+  P-009): as credenciais do wwebjs vivem em disco (LocalAuth em `{WWEBJS_DATA_PATH}/session-<id>`),
+  não no Postgres — agora `logout`/`new-qr`/`DELETE` **limpam o perfil do Chromium do disco**
+  (`WWebJSEngine.purgeAuthDir`). Fim de dois defeitos: (a) `DELETE /api/sessions/:id` deixava o
+  perfil (dezenas–centenas de MB) órfão no volume para sempre a cada sessão WWEBJS removida;
+  (b) `POST /api/sessions/:id/new-qr` era no-op para wwebjs (limpava só o Postgres → o LocalAuth
+  restaurava o mesmo perfil e a sessão voltava sem QR novo) — agora recupera de verdade. Robustez:
+  `destroy()` do Chromium com **teto de 12s** (um Chromium travado não pendura mais o mutex de ciclo
+  de vida da sessão), `qrBase64` zerado no `stop` (não serve QR morto) e teto FIFO no cache
+  LID→telefone. Operações não suportadas pelo wwebjs (grupos de escrita, canais, checkNumbers,
+  profilePicture, setBlock) passam a responder **HTTP 501** (Not Implemented) em vez de 400, via
+  `UnsupportedEngineOperationError` — o integrador distingue "engine não faz isso" de "payload
+  inválido". Sem migration/env/contrato.
 - **wwebjs W2 — mídia no S3 + rótulo de engine no webhook** (sessão
   `2026-08-12-1715-wwebjs-w2-midia`, P-008): a engine whatsapp-web.js passa a **baixar a
   mídia recebida** (`msg.downloadMedia`) e persisti-la no S3 — antes toda mídia inbound

@@ -20,6 +20,7 @@ import {
 } from '../domain/session.repository';
 import type { Session } from '../domain/session.entity';
 import { EngineFactory } from '../infrastructure/engine.factory';
+import { WWebJSEngine } from '../infrastructure/wwebjs/wwebjs.engine';
 import type {
   ChannelInfo,
   ContactCheck,
@@ -323,6 +324,9 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       where: { id: sessionId },
       data: { creds: Prisma.DbNull },
     });
+    // Sem engine no mapa: as creds do wwebjs estão em disco (LocalAuth), não no Postgres acima.
+    // Purga o perfil da sessão (no-op se for Baileys). Sem isto, o logout não limpava o wwebjs.
+    await WWebJSEngine.purgeAuthDir(sessionId);
     await this.repo.updateStatus(sessionId, 'STOPPED', {
       meJid: null,
       mePushName: null,
@@ -347,6 +351,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       where: { id: sessionId },
       data: { creds: Prisma.DbNull },
     });
+    // wwebjs: as creds vivem em disco (LocalAuth), não no Postgres — sem purgar, o LocalAuth
+    // restaurava o MESMO perfil no start abaixo e o new-qr era no-op (a sessão voltava sem QR novo).
+    // Chamado APÓS o stop (Chromium morto). No-op para sessão Baileys.
+    await WWebJSEngine.purgeAuthDir(sessionId);
     await this.start(sessionId);
   }
 
@@ -358,6 +366,9 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     this.names.delete(sessionId);
     // Para a engine com teto de tempo — não deixa um Chromium/socket travado pendurar a exclusão.
     await this.withTimeout(engine?.stop(), 8_000);
+    // Remove o perfil do Chromium do disco (wwebjs) — sem isto, cada sessão WWEBJS criada e removida
+    // deixava dezenas–centenas de MB órfãos no volume persistente para sempre. No-op para Baileys.
+    await WWebJSEngine.purgeAuthDir(sessionId);
     await this.repo.delete(sessionId);
   }
 

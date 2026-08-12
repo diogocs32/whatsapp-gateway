@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  NotImplementedException,
   Param,
   Post,
   Query,
@@ -13,6 +14,7 @@ import { ContactDirectory } from '../../../infra/directory/contact-directory.ser
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
+import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 
 const checkSchema = z.object({
@@ -94,16 +96,23 @@ export class ContactsController {
     try {
       return await this.manager.checkNumbers(id, r.data.numbers);
     } catch (e) {
+      if (e instanceof UnsupportedEngineOperationError)
+        throw new NotImplementedException((e as Error).message);
       throw new BadRequestException((e as Error).message);
     }
   }
 
   @Get(':jid/profile-picture')
-  async profilePicture(@Param('id', SessionRefPipe) id: string, @Param('jid') jid: string) {
+  async profilePicture(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('jid') jid: string,
+  ) {
     try {
       const url = await this.manager.profilePicture(id, jid);
       return { jid, url };
     } catch (e) {
+      if (e instanceof UnsupportedEngineOperationError)
+        throw new NotImplementedException((e as Error).message);
       throw new BadRequestException((e as Error).message);
     }
   }
@@ -120,6 +129,8 @@ export class ContactsController {
       await this.manager.setBlock(id, r.data.jid, r.data.action);
       return { ok: true };
     } catch (e) {
+      if (e instanceof UnsupportedEngineOperationError)
+        throw new NotImplementedException((e as Error).message);
       throw new BadRequestException((e as Error).message);
     }
   }
@@ -142,6 +153,8 @@ export class ContactsController {
       });
       return { ok: true };
     } catch (e) {
+      if (e instanceof UnsupportedEngineOperationError)
+        throw new NotImplementedException((e as Error).message);
       throw new BadRequestException((e as Error).message);
     }
   }
@@ -160,6 +173,8 @@ export class ContactsController {
       await this.manager.removeContact(id, target);
       return { ok: true };
     } catch (e) {
+      if (e instanceof UnsupportedEngineOperationError)
+        throw new NotImplementedException((e as Error).message);
       throw new BadRequestException((e as Error).message);
     }
   }

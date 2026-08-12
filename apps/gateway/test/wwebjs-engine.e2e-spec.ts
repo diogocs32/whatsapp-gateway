@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   WWebJSEngine,
   mapInboundMediaType,
+  authDirOf,
 } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
+import {
+  UnsupportedEngineOperationError,
+  type IEngine,
+} from '../src/modules/sessions/application/engine.port';
 import type { BaileysEngineDeps } from '../src/modules/sessions/infrastructure/baileys/baileys.engine';
 
 // Primeiro teste que instancia a engine WWEBJS real (antes desta W1, a cobertura do caminho wwebjs
@@ -96,5 +103,35 @@ describe('mapInboundMediaType — tipo de mídia recebida (P0-3)', () => {
   it('mídia desconhecida cai em document (recuperável no GET /media)', () => {
     expect(mapInboundMediaType('unknown')).toBe('document');
     expect(mapInboundMediaType(undefined)).toBe('document');
+  });
+});
+
+describe('WWebJSEngine.purgeAuthDir — limpeza do LocalAuth em disco (P1-2/P1-3)', () => {
+  it('remove o perfil do Chromium da sessão do disco', async () => {
+    const id = `test-purge-${Math.random().toString(36).slice(2)}`;
+    const dir = authDirOf(id);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'creds.json'), '{}');
+    await WWebJSEngine.purgeAuthDir(id);
+    // O dir não existe mais → access rejeita (ENOENT). Sem a purga, new-qr/remove vazavam o perfil.
+    await expect(access(dir)).rejects.toBeTruthy();
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  });
+
+  it('é no-op (não lança) para sessão sem perfil em disco', async () => {
+    await expect(
+      WWebJSEngine.purgeAuthDir(`inexistente-${Math.random()}`),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('WWebJSEngine — operação não suportada (P1-6)', () => {
+  it('createGroup lança UnsupportedEngineOperationError (→ 501 no controller)', () => {
+    const { deps } = makeDeps({});
+    const engine: IEngine = new WWebJSEngine(deps);
+    // nope() lança SÍNCRONO; o run() dos controllers captura e mapeia para 501.
+    expect(() => engine.createGroup('grupo', [])).toThrow(
+      UnsupportedEngineOperationError,
+    );
   });
 });

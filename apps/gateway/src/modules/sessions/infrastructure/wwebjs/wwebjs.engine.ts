@@ -24,6 +24,7 @@ import type {
   SendMediaInput,
   SendOptions,
 } from '../../application/engine.port';
+import { UnsupportedEngineOperationError } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 
 // Caminho do Chrome do sistema (no WSL já existe /usr/bin/google-chrome-stable). Configurável por env.
@@ -98,6 +99,13 @@ export function mapInboundMediaType(t: string | undefined): string {
   }
 }
 
+// Diretório do perfil do Chromium (LocalAuth) desta sessão no volume persistente
+// (`{WWEBJS_DATA_PATH}/session-<sessionId>`, ver LocalAuth.js:35). É onde o wwebjs guarda as
+// credenciais — ao contrário do Baileys, que usa o Postgres. Exportado para teste (contrato do path).
+export function authDirOf(sessionId: string): string {
+  return join(resolve(AUTH_PATH), `session-${sessionId}`);
+}
+
 // Engine alternativa (F8) usando whatsapp-web.js (Puppeteer + Chrome do sistema). Mesmo contrato
 // IEngine do BaileysEngine, escolhida por sessão via EngineFactory. NÚCLEO: conexão/QR, status,
 // enviar/receber texto e mídia. Recursos avançados (grupos/contatos/canais) ainda não suportados.
@@ -163,11 +171,23 @@ export class WWebJSEngine implements IEngine {
   // o ciclo é serializado (mutex) e só chegamos aqui com client==null; 1 container por volume → o lock
   // remanescente é sempre de processo morto.
   private async clearStaleSingletonLocks(): Promise<void> {
-    const dir = join(resolve(AUTH_PATH), `session-${this.deps.sessionId}`);
+    const dir = authDirOf(this.deps.sessionId);
     await Promise.all(
       ['SingletonLock', 'SingletonSocket', 'SingletonCookie'].map((f) =>
         rm(join(dir, f), { force: true }).catch(() => {}),
       ),
+    );
+  }
+
+  // Remove o perfil do Chromium (credenciais do LocalAuth) desta sessão do DISCO. As credenciais do
+  // wwebjs não ficam no Postgres (o SessionManager limpa lá é o store do Baileys) — ficam aqui.
+  // Chamado por new-qr/logout/remove no SessionManager DEPOIS de parar a engine (Chromium já morto),
+  // para: (a) o new-qr recuperar de verdade (creds mortas em disco → QR novo, antes era no-op); (b) o
+  // DELETE não deixar o perfil (dezenas–centenas de MB) órfão no volume. Seguro para qualquer sessão:
+  // se o dir não existe (sessão Baileys), é no-op.
+  static async purgeAuthDir(sessionId: string): Promise<void> {
+    await rm(authDirOf(sessionId), { recursive: true, force: true }).catch(
+      () => {},
     );
   }
 
@@ -564,18 +584,28 @@ export class WWebJSEngine implements IEngine {
     }, delay);
   }
 
+  // Fecha o Chromium com TETO de tempo: um destroy() que pendura (Chromium travado) não pode
+  // bloquear a fila `lifecycle` (mutex) desta sessão para sempre — sem o teto, todo start/stop/logout
+  // futuro penduraria atrás dele. Se estourar, o Chromium pode ficar órfão, mas o clearStaleSingletonLocks
+  // do próximo start remove o lock remanescente — melhor um órfão do que a sessão travada.
+  private async destroyWithTimeout(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    await Promise.race([
+      client.destroy().catch(() => {}),
+      new Promise<void>((r) => setTimeout(r, 12_000)),
+    ]);
+  }
+
   stop(): Promise<void> {
     return this.serialize(() => this.doStop());
   }
 
   private async doStop(): Promise<void> {
     this.stopped = true;
-    try {
-      await this.client?.destroy();
-    } catch {
-      /* noop */
-    }
+    await this.destroyWithTimeout();
     this.client = null;
+    this.qrBase64 = null; // não servir um QR morto de sessão parada via getQrBase64()
     this.setStatus('STOPPED');
   }
 
@@ -586,16 +616,17 @@ export class WWebJSEngine implements IEngine {
   private async doLogout(): Promise<void> {
     this.stopped = true;
     try {
+      // logout() do wwebjs faz o round-trip com o WhatsApp E remove o userDataDir (LocalAuth).
       await this.client?.logout();
     } catch {
-      /* noop */
+      /* pode falhar com creds mortas — a purga em disco abaixo garante a limpeza */
     }
-    try {
-      await this.client?.destroy();
-    } catch {
-      /* noop */
-    }
+    await this.destroyWithTimeout();
     this.client = null;
+    this.qrBase64 = null;
+    // Garante a limpeza do perfil em disco MESMO se o logout() acima lançou (antes o catch vazio
+    // deixava a credencial no volume). Idempotente com o rm que o próprio logout() já faz.
+    await WWebJSEngine.purgeAuthDir(this.deps.sessionId);
     this.setStatus('STOPPED');
   }
 
@@ -870,6 +901,11 @@ export class WWebJSEngine implements IEngine {
     const num = pn?.replace(/\D/g, '');
     if (!num) return rawId;
     const phoneJid = `${num}@c.us`;
+    // Teto do cache LID→telefone (FIFO): sem isto crescia sem limite pela vida do processo.
+    if (this.lidToPnCache.size >= 5000) {
+      const oldest = this.lidToPnCache.keys().next().value;
+      if (oldest !== undefined) this.lidToPnCache.delete(oldest);
+    }
     this.lidToPnCache.set(rawId, phoneJid);
     await this.mergeLidMessages(rawId, phoneJid);
     this.deps.contacts?.record({
@@ -1026,7 +1062,11 @@ export class WWebJSEngine implements IEngine {
   }
 
   private nope(op: string): never {
-    throw new Error(`${op} ainda não suportado na engine WWEBJS (use BAILEYS)`);
+    // Erro TIPADO → o controller devolve HTTP 501 (Not Implemented), não 400. Assim o node n8n
+    // distingue "esta engine não suporta a operação" de "payload inválido".
+    throw new UnsupportedEngineOperationError(
+      `${op} ainda não suportado na engine WWEBJS (use BAILEYS)`,
+    );
   }
 
   // Executa uma operação que depende do Store interno do WhatsApp Web, tolerando o RACE do wwebjs
