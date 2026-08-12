@@ -1091,6 +1091,12 @@ export class BaileysEngine implements IEngine {
   async setProfileName(name: string): Promise<void> {
     await this.sk().updateProfileName(name);
   }
+  async setProfilePhoto(image: Buffer, _mimetype: string): Promise<void> {
+    const me = this.sock?.user?.id;
+    if (!me) throw new Error('Sessão não conectada');
+    // updateProfilePicture aceita Buffer direto (WAMediaUpload); o WhatsApp reprocessa a imagem.
+    await this.sk().updateProfilePicture(jidNormalizedUser(me), image);
+  }
 
   // G8 — marca a mensagem como lida (read receipt). Em 1:1 a key {remoteJid,id,fromMe:false} basta.
   async markRead(chatJid: string, msgId: string): Promise<void> {

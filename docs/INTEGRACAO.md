@@ -110,6 +110,7 @@ POST /api/sessions/{sessao}/presence         # { to, type: composing|paused|avai
 POST /api/sessions/{sessao}/messages/{msgId}/read   # read receipt
 POST /api/sessions/{sessao}/profile/status   # W8 { status } — recado/"about" da conta (≤139)
 POST /api/sessions/{sessao}/profile/name     # W8 { name } — nome de exibição da conta (≤25)
+POST /api/sessions/{sessao}/profile/photo    # W8b { url } — foto de perfil (o gateway baixa a imagem; ≤10 MB)
 ```
 
 `cap_atual` é derivado do estado: quarentena/banida/pausa=0; throttled≈50% do base; aquecimento=curva[0]; ativa=capBase.

@@ -36,6 +36,7 @@ import {
   pairingSchema,
   presenceSchema,
   profileNameSchema,
+  profilePhotoSchema,
   profileStatusSchema,
   sessionConfigSchema,
 } from './dto';
@@ -255,6 +256,43 @@ export class SessionsController {
     }
     try {
       await this.manager.setProfileName(id, parsed.data.name);
+      return { ok: true };
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
+  // W8b — foto de perfil por URL: o gateway baixa a imagem e a define como foto da conta.
+  @Post(':id/profile/photo')
+  async profilePhoto(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = profilePhotoSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    let buffer: Buffer;
+    let mimetype: string;
+    try {
+      const res = await fetch(parsed.data.url, {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      mimetype = res.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+      buffer = Buffer.from(await res.arrayBuffer());
+    } catch (e) {
+      throw new BadRequestException(
+        `não consegui baixar a imagem: ${(e as Error).message}`,
+      );
+    }
+    if (buffer.length > 10 * 1024 * 1024) {
+      throw new BadRequestException('imagem acima de 10 MB');
+    }
+    try {
+      await this.manager.setProfilePhoto(id, buffer, mimetype);
       return { ok: true };
     } catch (e) {
       throw new BadRequestException((e as Error).message);

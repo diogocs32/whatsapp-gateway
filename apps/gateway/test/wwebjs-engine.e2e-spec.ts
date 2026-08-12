@@ -205,5 +205,8 @@ describe('WWebJSEngine — mensagens ricas (W5): reações e menções', () => {
     await expect(engine.setProfileName('Loja X')).rejects.toThrow(
       /Sessão não conectada/,
     );
+    await expect(
+      engine.setProfilePhoto(Buffer.from('x'), 'image/jpeg'),
+    ).rejects.toThrow(/Sessão não conectada/);
   });
 });
