@@ -817,6 +817,10 @@ export class WWebJSEngine implements IEngine {
   async setProfileName(name: string): Promise<void> {
     await this.req().setDisplayName(name);
   }
+  async setProfilePhoto(image: Buffer, mimetype: string): Promise<void> {
+    const media = new MessageMedia(mimetype, image.toString('base64'));
+    await this.req().setProfilePicture(media);
+  }
 
   async sendPresence(to: string, state: PresenceState): Promise<void> {
     const chat = await this.req().getChatById(this.toChatId(to));

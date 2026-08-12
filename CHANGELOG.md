@@ -8,12 +8,14 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
-- **W8 — perfil da conta: status e nome** (sessão `2026-08-12-1941-wwebjs-w8-perfil-conta`,
-  P-011): recurso NOVO aditivo nas DUAS engines. `POST /api/sessions/{s}/profile/status`
-  (`{status}` — recado/"about", ≤139) e `POST /api/sessions/{s}/profile/name` (`{name}` —
-  nome de exibição, ≤25). wwebjs via `setStatus`/`setDisplayName`, Baileys via
-  `updateProfileStatus`/`updateProfileName`. Sem migration/env/breaking. Foto de perfil
-  (setProfilePicture) = follow-up. Documentado em `INTEGRACAO.md`; contracts em P-013.
+- **W8 — perfil da conta: status, nome e foto** (sessões `…-1941-wwebjs-w8-perfil-conta`
+  e `…-1947-wwebjs-w8b-foto-perfil`, P-011): recurso NOVO aditivo nas DUAS engines.
+  `POST /api/sessions/{s}/profile/status` (`{status}` — recado/"about", ≤139),
+  `POST …/profile/name` (`{name}` — nome de exibição, ≤25) e `POST …/profile/photo`
+  (`{url}` — o gateway baixa a imagem, ≤10 MB). wwebjs via `setStatus`/`setDisplayName`/
+  `setProfilePicture`, Baileys via `updateProfileStatus`/`updateProfileName`/
+  `updateProfilePicture`. Sem migration/env/breaking. Documentado em `INTEGRACAO.md`;
+  contracts em P-013.
 - **W6 — webhook mais rico: reações recebidas** (sessão `2026-08-12-1921-wwebjs-w6-webhook-reacoes`,
   P-011): novo evento **`message.reaction`** no webhook — quando o contato (ou você, em outro device)
   reage a uma mensagem. Payload `{ keyId (msg-alvo), chatJid, senderJid, emoji ('' = reação removida),

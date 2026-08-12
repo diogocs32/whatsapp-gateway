@@ -29,6 +29,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-12-1947-wwebjs-w8b-foto-perfil | 12/08 | W8b (recurso NOVO, 2 engines): foto de perfil da conta via URL, aditivo (completa a W8) | feature/wwebjs-w8b-foto-perfil   |
 | 2026-08-12-1941-wwebjs-w8-perfil-conta | 12/08 | W8 (recurso NOVO, 2 engines): perfil da conta — status/recado + nome de exibição, aditivo | feature/wwebjs-w8-perfil-conta   |
 | 2026-08-12-1921-wwebjs-w6-webhook-reacoes | 12/08 | W6 (recurso NOVO, 2 engines): evento `message.reaction` no webhook (reações recebidas), aditivo | feature/wwebjs-w6-webhook-reacoes   |
 | 2026-08-12-1902-wwebjs-w5b-location-poll | 12/08 | W5b (recurso NOVO, 2 engines): enviar localização + enquete, aditivo; reply/vote/vCard deferidos | feature/wwebjs-w5b-location-reply   |
