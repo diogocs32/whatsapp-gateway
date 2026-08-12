@@ -70,5 +70,6 @@ sendo a mais urgente: produção SEM backup do banco.
    A9 (gates de docs) → A10 (bateria única + varredura) — ver [ADOCAO.md](ADOCAO.md);
    pendências e bloqueios agora centralizados em [PENDENCIAS.md](PENDENCIAS.md)
    (B-001 = migração proxy residencial, em curso com o usuário)
+1e. **Motor wwebjs — ANÁLISE ENTREGUE 12/08** (`analise-wwebjs-2026-08.md`, sessão `DONE-2026-08-12-1551-analise-wwebjs`): 3 defeitos P0 para uso intenso (sem reconexão + `start` no-op; `WA_REQUIRE_PROXY` ignorado = vaza IP; mídia nunca vai ao S3), 12/28 métodos IEngine em `nope()` (API existe na lib), zero e2e, e `WWEBJS_WEB_VERSION` a semanas de expirar. Plano em 4 ondas (P-007 W1 estabilidade+segurança → P-008 W2 mídia → P-009 W3 ciclo de vida → P-010 W4 superfície). **Ação operacional urgente:** revalidar/pinar `WWEBJS_WEB_VERSION` e garantir proxy residencial por sessão wwebjs manualmente (o guard não cobre o wwebjs até a W1).
 2. M3 · Qualidade: testes unitários de domínio, coverage, dependency-cruiser no CI + fix do lint local (`apps/gateway/auth/` nos ignores), normalizar prettier e adicionar `format:check` ao CI
 3. Node n8n (repo separado): parâmetro `proxyId` na criação de sessão (D-008)
