@@ -172,4 +172,27 @@ describe('WWebJSEngine — mensagens ricas (W5): reações e menções', () => {
       }),
     ).rejects.toThrow(/Sessão não conectada/);
   });
+
+  it('sendLocation vai à lib (sem client → "Sessão não conectada")', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(
+      engine.sendLocation('5511999999999', {
+        latitude: -23.55,
+        longitude: -46.63,
+        name: 'SP',
+      }),
+    ).rejects.toThrow(/Sessão não conectada/);
+  });
+
+  it('sendPoll vai à lib (sem client → "Sessão não conectada")', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(
+      engine.sendPoll('5511999999999', {
+        name: 'Prefere?',
+        options: ['A', 'B'],
+      }),
+    ).rejects.toThrow(/Sessão não conectada/);
+  });
 });

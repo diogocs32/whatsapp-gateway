@@ -1,4 +1,10 @@
-import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
+import {
+  Client,
+  LocalAuth,
+  MessageMedia,
+  Location,
+  Poll,
+} from 'whatsapp-web.js';
 import type {
   Message,
   GroupChat,
@@ -23,8 +29,10 @@ import type {
   MessageSource,
   PresenceState,
   SaveContactInput,
+  SendLocationInput,
   SendMediaInput,
   SendOptions,
+  SendPollInput,
 } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 
@@ -731,6 +739,72 @@ export class WWebJSEngine implements IEngine {
       timestamp: Math.floor(Date.now() / 1000),
     });
     return { keyId, jid };
+  }
+
+  async sendLocation(
+    to: string,
+    input: SendLocationInput,
+  ): Promise<{ keyId: string; jid: string }> {
+    const c = this.req();
+    const jid = this.toChatId(to);
+    const loc = new Location(input.latitude, input.longitude, {
+      name: input.name ?? undefined,
+      address: input.address ?? undefined,
+    });
+    const sent = await c.sendMessage(jid, loc);
+    if (!sent)
+      throw new Error('wwebjs: envio de localização não retornou mensagem');
+    const keyId = sent.id?._serialized ?? '';
+    if (keyId) this.rememberPanel(keyId);
+    this.emitOutbound(
+      keyId,
+      jid,
+      'location',
+      input.name || input.address || null,
+      input,
+    );
+    return { keyId, jid };
+  }
+
+  async sendPoll(
+    to: string,
+    input: SendPollInput,
+  ): Promise<{ keyId: string; jid: string }> {
+    const c = this.req();
+    const jid = this.toChatId(to);
+    const poll = new Poll(input.name, input.options, {
+      allowMultipleAnswers: input.multi ?? false,
+      messageSecret: undefined,
+    });
+    const sent = await c.sendMessage(jid, poll);
+    if (!sent)
+      throw new Error('wwebjs: envio de enquete não retornou mensagem');
+    const keyId = sent.id?._serialized ?? '';
+    if (keyId) this.rememberPanel(keyId);
+    this.emitOutbound(keyId, jid, 'poll', input.name, input);
+    return { keyId, jid };
+  }
+
+  // Eco de um envio nosso (fromMe=api) para o EventBus — persistência + webhook + reply-rate (G1).
+  private emitOutbound(
+    keyId: string,
+    jid: string,
+    type: string,
+    text: string | null,
+    opts: SendOptions,
+  ): void {
+    this.deps.onEvent('message', {
+      keyId,
+      chatJid: jid,
+      senderJid: this.client?.info?.wid?._serialized ?? null,
+      fromMe: true,
+      type,
+      text,
+      isCold: opts.cold ?? false,
+      idempotencyKey: opts.idempotencyKey ?? null,
+      source: 'api',
+      timestamp: Math.floor(Date.now() / 1000),
+    });
   }
 
   async sendPresence(to: string, state: PresenceState): Promise<void> {
