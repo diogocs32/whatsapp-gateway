@@ -19,6 +19,8 @@ POST /api/sessions/{sessao}/messages/text
 - **`cold: true`** = 1º contato permissionado (a IA, ao responder, deve mandar `cold: false`).
 - **`idempotencyKey`** = dedup forte: **reenviar com a mesma key NÃO duplica** — devolve o resultado anterior (`{ deduped: true }`). Use sempre em retry para não mandar 2×.
 - Mídia: `POST …/messages/media-url` (mesmos `cold`/`idempotencyKey`).
+- **Menções (W5, aditivo):** `text` e `media-url` aceitam `mentions: ["5511888888888", ...]` (números ou JIDs a marcar com @; até 50). Funciona nas duas engines (resolvidas ao formato de cada uma). Ex.: `{ "to": "...", "text": "olá @fulano", "mentions": ["5511888888888"] }`.
+- **Reação (W5, aditivo):** `POST /api/sessions/{sessao}/messages/{msgId}/reaction` com `{ "emoji": "👍" }` — `emoji` vazio (`""`) REMOVE a reação. `msgId` = keyId do WhatsApp (o mesmo que `read` e o download de mídia aceitam). 404 se a mensagem não for conhecida. Funciona nas duas engines.
 
 ## 3. Webhooks — receber eventos (G2/G3/G6)
 

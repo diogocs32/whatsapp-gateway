@@ -95,6 +95,9 @@ export type MediaSendType =
 export interface SendOptions {
   cold?: boolean;
   idempotencyKey?: string | null;
+  // W5: menções — JIDs/números a marcar (@) na mensagem. Resolvidos ao formato de cada engine
+  // (Baileys: `@s.whatsapp.net`; wwebjs: `@c.us`). Vazio/ausente = sem menção.
+  mentions?: string[];
 }
 
 export interface SendMediaInput extends SendOptions {
@@ -185,6 +188,15 @@ export interface IEngine {
   sendPresence(to: string, state: PresenceState): Promise<void>;
   // G8 — marca uma mensagem recebida como lida (read receipt / "visto").
   markRead(chatJid: string, msgId: string): Promise<void>;
+  // W5 — reage a uma mensagem com um emoji (string vazia REMOVE a reação). `fromMe` identifica
+  // se a mensagem-alvo foi enviada por nós (o Baileys precisa disso para montar a key; o wwebjs
+  // resolve só pelo msgId).
+  sendReaction(
+    chatJid: string,
+    msgId: string,
+    fromMe: boolean,
+    emoji: string,
+  ): Promise<void>;
   getQrBase64(): string | null;
   getStatus(): SessionStatus;
 

@@ -67,10 +67,11 @@ export class PrismaMessageRepository implements MessageRepository {
   async findByKeyId(
     sessionId: string,
     keyId: string,
-  ): Promise<{ chatJid: string } | null> {
+  ): Promise<{ chatJid: string; fromMe: boolean } | null> {
     const row = await this.prisma.waMessage.findFirst({
       where: { sessionId, keyId },
-      select: { chatJid: true },
+      // fromMe: necessário para a reação (a key do Baileys distingue reagir à própria msg vs. à do contato).
+      select: { chatJid: true, fromMe: true },
       orderBy: { timestamp: 'desc' },
     });
     return row ?? null;

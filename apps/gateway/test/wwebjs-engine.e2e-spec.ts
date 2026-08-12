@@ -153,3 +153,23 @@ describe('WWebJSEngine — grupos/contatos/canais implementados (W4/P-010)', () 
     );
   });
 });
+
+describe('WWebJSEngine — mensagens ricas (W5): reações e menções', () => {
+  it('sendReaction vai à lib (sem client → "Sessão não conectada")', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(
+      engine.sendReaction('5511999999999@c.us', 'ABC', false, '👍'),
+    ).rejects.toThrow(/Sessão não conectada/);
+  });
+
+  it('sendText com menções não quebra o caminho (sem client → "Sessão não conectada")', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(
+      engine.sendText('5511999999999', 'oi @fulano', {
+        mentions: ['5511888888888'],
+      }),
+    ).rejects.toThrow(/Sessão não conectada/);
+  });
+});

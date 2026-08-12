@@ -425,6 +425,16 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return this.working(sessionId).markRead(chatJid, msgId);
   }
 
+  sendReaction(
+    sessionId: string,
+    chatJid: string,
+    msgId: string,
+    fromMe: boolean,
+    emoji: string,
+  ): Promise<void> {
+    return this.working(sessionId).sendReaction(chatJid, msgId, fromMe, emoji);
+  }
+
   // Retorna a engine só se a sessão estiver conectada (WORKING) — usado pelas operações F5.
   private working(sessionId: string): IEngine {
     const engine = this.engines.get(sessionId);

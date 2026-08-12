@@ -34,9 +34,13 @@ import {
 const coldField = z.boolean().optional();
 const idempotencyKeyField = z.string().min(1).max(200).optional();
 
+// W5: menções — lista de números/JIDs a marcar (@). Opcional, aditivo (R0/R4).
+const mentionsField = z.array(z.string().min(5).max(40)).max(50).optional();
+
 const sendTextSchema = z.object({
   to: z.string().min(5).max(40),
   text: z.string().min(1).max(4096),
+  mentions: mentionsField,
   cold: coldField,
   idempotencyKey: idempotencyKeyField,
 });
@@ -50,9 +54,13 @@ const sendMediaUrlSchema = z.object({
   caption: z.string().max(4096).optional(),
   fileName: z.string().max(255).optional(),
   mimetype: z.string().max(120).optional(),
+  mentions: mentionsField,
   cold: coldField,
   idempotencyKey: idempotencyKeyField,
 });
+
+// W5: reação a uma mensagem. emoji vazio ('') REMOVE a reação.
+const reactionSchema = z.object({ emoji: z.string().max(20) });
 
 // Infere o tipo de mídia a partir do mimetype quando o cliente não informa.
 function inferType(mimetype: string | undefined): MediaSendType {
@@ -221,6 +229,35 @@ export class MessagesController {
     return { ok: true };
   }
 
+  // W5 — reage a uma mensagem com um emoji (emoji vazio remove a reação).
+  @Post(':msgId/reaction')
+  async reaction(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('msgId') msgId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = reactionSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    const msg = await this.repo.findByKeyId(id, msgId);
+    if (!msg) throw new NotFoundException('Mensagem não encontrada');
+    try {
+      await this.manager.sendReaction(
+        id,
+        msg.chatJid,
+        msgId,
+        msg.fromMe,
+        parsed.data.emoji,
+      );
+      return { ok: true };
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
   // G1: dedup forte. Se já houve um envio com a mesma idempotencyKey nesta sessão, devolve o
   // resultado anterior SEM reenviar (crítico p/ o retry do n8n não duplicar). O índice único
   // (sessionId, idempotencyKey) é a rede de segurança contra corrida; aqui é a pré-checagem.
@@ -245,7 +282,7 @@ export class MessagesController {
         parsed.error.issues[0]?.message ?? 'Dados inválidos',
       );
     }
-    const { to, text, cold, idempotencyKey } = parsed.data;
+    const { to, text, mentions, cold, idempotencyKey } = parsed.data;
     const dup = await this.deduped(id, idempotencyKey);
     if (dup) return dup;
     await this.assertColdAllowed(id, cold);
@@ -253,6 +290,7 @@ export class MessagesController {
       const res = await this.manager.sendText(id, to, text, {
         cold,
         idempotencyKey,
+        mentions,
       });
       return { id: res.keyId, to: res.jid, deduped: false };
     } catch (e) {
@@ -351,6 +389,7 @@ export class MessagesController {
         mimetype,
         fileName: d.fileName ?? null,
         caption: d.caption ?? null,
+        mentions: d.mentions,
         cold: d.cold,
         idempotencyKey: d.idempotencyKey,
       });
