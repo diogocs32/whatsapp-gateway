@@ -47,6 +47,7 @@
 | Armadilhas de operação (WSL, LID, memória) | `agent-whatzapp_api.md` §6/§6B                |
 | Deploy no Dokploy                       | `deploy-dokploy.md`                              |
 | Comparativo de engines WhatsApp         | `motores-whatsapp.md`                            |
+| Análise do motor wwebjs (matriz + plano 100%) | `analise-wwebjs-2026-08.md`                |
 | Backlog/auditoria 07/2026               | `auditoria-2026-07.md`                           |
 | Agenda de auditorias recorrentes        | `AUDITORIAS.md`                                  |
 | Tarefas sem pressão (como fazer X)      | `how-to/`                                        |

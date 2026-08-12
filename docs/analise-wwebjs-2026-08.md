@@ -1,0 +1,258 @@
+---
+tipo: explanation
+dono: Diogo
+revisado_em: 2026-08-12
+validade: 2026-11-12
+status: ativo
+---
+
+# 🔬 Análise minuciosa do motor whatsapp-web.js (wwebjs) — 2026-08
+
+> Fonte: auditoria de código em 12/08/2026 (sessão `2026-08-12-1551-analise-wwebjs`,
+> R21 parcial — leitura, sem alteração de código). 3 subagentes cruzaram
+> `wwebjs.engine.ts` (1002 linhas) × `baileys.engine.ts` (1349) × contrato `IEngine`
+> × todos os consumidores × doc oficial da lib 1.34.7 (Context7 + `node_modules`).
+> Toda afirmação abaixo cita `arquivo:linha`. Objetivo do usuário: usar o wwebjs de
+> forma **intensa nos próximos dias** com "tudo funcionando 100%".
+
+## TL;DR — o veredito
+
+O motor wwebjs **cumpre o núcleo** (conexão/QR, status, enviar/receber texto, ACK,
+presença básica, LID→telefone via Store oficial, extração de leads de grupo) e é
+**superior ao Baileys** exatamente no que justifica sua existência: resolver
+número+nome de membros de grupo em massa (Store oficial do WhatsApp Web) e salvar
+contatos na agenda. Fora disso, está **incompleto e com 3 defeitos críticos** que
+batem direto no "uso intenso":
+
+1. **Não reconecta sozinho.** Se a sessão cai, fica `DEGRADED` até um restart manual
+   — e, pior, `POST /start` vira **no-op silencioso** (a rota responde 200 e nada
+   acontece). `wwebjs.engine.ts:140` + `:269-273`.
+2. **Ignora `WA_REQUIRE_PROXY`.** Com o guard anti-flag LIGADO, uma sessão wwebjs sem
+   proxy vivo **conecta pelo IP do datacenter** — o exato vazamento que o hardening de
+   21/07 (commit `1525e4e`) foi criado para impedir. `wwebjs.engine.ts:139-295` (o
+   guard existe só no Baileys, `baileys.engine.ts:489`).
+3. **Toda mídia recebida é descartada** (vira `type:'other'`, sem download, sem S3);
+   e a mídia enviada também não sobe ao S3. `GET /:msgId/media` responde **404** para
+   100% das mídias wwebjs, nas duas direções. `wwebjs.engine.ts:590` e `:516-550`.
+
+Além disso: **12 dos 28 métodos** do contrato lançam "não suportado" (`nope()`) —
+e **nenhum é limitação da lib**: todos têm API pronta na 1.34.7. E há **zero teste
+e2e** exercitando o caminho wwebjs (os fakes fazem as 14 operações não suportadas
+"passarem" verdes).
+
+E uma **bomba-relógio de calendário**: `WWEBJS_WEB_VERSION` está pinada numa versão
+que a Meta expira "~fim de agosto/2026" (`wwebjs.engine.ts:39-40`) — a semanas de
+vencer. Quando expirar, o init cai no fallback `live`, que traz builds novas que
+**escondem o número dos participantes** — degradando justamente a extração de leads.
+
+---
+
+## 1. Como o wwebjs funciona hoje no gateway
+
+- **1 arquivo:** `apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`
+  implementa a interface `IEngine` (`…/application/engine.port.ts`). Escolha da engine
+  é **por sessão**, só na criação (`POST /api/sessions {engine}`), persistida em
+  `WaSession.engine` (enum `BAILEYS|WWEBJS`); ponto de decisão único em
+  `engine.factory.ts:12-14`. Não há rota para trocar a engine de uma sessão existente.
+- **Auth:** `LocalAuth` grava o perfil do Chromium em disco (`WWEBJS_DATA_PATH`,
+  `/data/wwebjs` em prod, volume Dokploy) — **não** no Postgres (onde mora o Baileys).
+  Não usa `RemoteAuth` → a sessão não sobrevive a troca de volume/host.
+- **Chromium:** 1 processo por sessão (`headless:true`, ~20 flags, heap cap 512 MB —
+  `:199-228`), imagem inclui `chromium`+`fonts-liberation` (`Dockerfile:46-49`), `tini`
+  faz reaping. `WWEBJS_CHROME_PATH=/usr/bin/chromium` no Docker sobrescreve o default do
+  código (`google-chrome-stable`, que só existe no WSL de dev).
+- **webVersion:** pinada e cacheada no volume (`.webcache`/LocalWebCache) para não bater
+  rede a cada start; modos `auto`/`live`/fixa.
+- **Diferencial real:** LID→telefone via `window.WWebJS.enforceLidAndPnRetrieval` +
+  `getContact` por `page.evaluate` (o `window.Store` **não** é exposto na 1.34), com
+  merge retroativo das mensagens já gravadas e varredura no `ready`.
+
+Peças de robustez que **já existem e são boas**: mutex de ciclo de vida (`serialize`,
+nasceu aqui e foi copiado para o Baileys), limpeza de Singleton locks
+(`:124-131`), fallback de proxy e de webVersion no init com mensagens acionáveis
+(`handleInitFailure:370-450`), autostart escalonado (Baileys antes de wwebjs, para não
+subir N Chromium de uma vez), teto de 15s no start/destroy.
+
+---
+
+## 2. Matriz capacidade da lib × IEngine × estado real
+
+**28 métodos do contrato `IEngine`.** Estado (evidência em `wwebjs.engine.ts` salvo nota):
+
+| # | Método | Estado | Evidência / observação |
+| -- | ------ | ------ | ---------------------- |
+| 1 | `start` | ✅ | `133-135`→`doStart 139-295`. Mas ver P0-1 (no-op após queda). |
+| 2 | `stop` | 🟡 | `456-465`: fecha Chromium, mas **não zera `qrBase64` nem caches**. |
+| 3 | `logout` | 🟡 | `471-485`: apaga userDataDir — **só se `logout()` não lançar** (catch vazio `475-481`). |
+| 4 | `requestPairingCode` | 🟡 | `487-489`: não seta status `PAIRING_CODE`, não ouve o evento `code` (renova a cada 3 min). |
+| 5 | `sendText` | ✅ | `491-514`. Sem `raw` (retry anti-"Aguardando mensagem" é Baileys-only). |
+| 6 | `sendMedia` | 🟡 | `516-550`: só `caption`+`ptt`. **Sem document/sticker corretos, sem upload S3.** |
+| 7 | `sendPresence` | 🟡 | `552-558`: composing/recording ok; **paused/available/unavailable → `clearState`** (2 globais errados). |
+| 8 | `markRead` | 🟡 | `561-564`: `chat.sendSeen()` marca o **chat inteiro**; `msgId` ignorado. |
+| 9 | `getQrBase64` | ✅ | `101-103`. Nunca zerado no stop (serve QR morto). |
+| 10 | `getStatus` | ✅ | `98-100`. |
+| 11 | `listGroups` | 🟡 | `853-870`: `announce`/`restrict` **hardcoded false**, `participants:[]`. |
+| 12 | `groupInfo` | 🟡 | `873-894`: **é a razão de existir da engine** (leads). `announce`/`restrict` falsos; participantes 1-a-1 sequencial. |
+| 13 | `createGroup` | ❌ `nope()` | `944`. Lib tem `Client.createGroup`. |
+| 14 | `updateParticipants` | ❌ `nope()` | `947`. Lib tem add/remove/promote/demoteParticipants. |
+| 15 | `leaveGroup` | ❌ `nope()` | `950`. Lib tem `GroupChat.leave`. |
+| 16 | `setGroupSubject` | ❌ `nope()` | `953`. Lib tem `setSubject`. |
+| 17 | `setGroupDescription` | ❌ `nope()` | `956`. Lib tem `setDescription`. |
+| 18 | `groupInviteCode` | ❌ `nope()` | `959`. Lib tem `getInviteCode`. |
+| 19 | `groupRevokeInvite` | ❌ `nope()` | `962`. Lib tem `revokeInvite`. |
+| 20 | `checkNumbers` | ❌ `nope()` | `965`. Lib tem `isRegisteredUser`/`getNumberId`. |
+| 21 | `profilePicture` | ❌ `nope()` | `968`. Lib tem `getProfilePicUrl`. |
+| 22 | `setBlock` | ❌ `nope()` | `971`. Lib tem `Contact.block`/`unblock`. |
+| 23 | `saveContact` | ✅ | `975-985`: `saveOrEditAddressbookContact` nativo + `syncToPhone`. |
+| 24 | `removeContact` | ✅ | `986-989`: `deleteAddressbookContact`. |
+| 25 | `createChannel` | ❌ `nope()` | `990`. Lib tem `Client.createChannel`. |
+| 26 | `channelInfo` | ❌ `nope()` | `993`. Lib tem `getChannels`/`getChannelByInviteCode`. |
+| 27 | `followChannel` | ❌ `nope()` | `996`. Lib tem `subscribeToChannel`. |
+| 28 | `unfollowChannel` | ❌ `nope()` | `999`. Lib tem `unsubscribeFromChannel`. |
+
+**Resumo:** ✅ 6 · 🟡 10 · ❌ 12. Os 12 `nope()` **têm API na lib** (mapa em §8 do
+relatório do motor) — são wrappers finos a escrever, não bloqueios.
+
+**Recursos da lib que o gateway sequer expõe no contrato** (oportunidade de recurso
+novo): reações (`sendReaction`), reply/quote e menções, editar mensagem, revogar
+(apagar) mensagem, enquetes (poll) + `vote_update`, localização, vCard, encaminhar
+(forward), perfil próprio (nome/status/foto/presença global), chats
+(archive/pin/mute/labels/unread), busca de mensagens, e o evento `call` (chamada
+recebida). Nenhum é ouvido/implementado hoje.
+
+**Eventos:** o motor ouve **7** dos ~31 da lib (`qr`, `ready`, `auth_failure`,
+`disconnected`, `message_create`, `message_ack`, `loading_screen`). **Não ouve 24**,
+com custo real em: `code` (renovação do pairing), `change_state`
+(CONFLICT/UNPAIRED/TIMEOUT antes do disconnect), `message_edit` e
+`message_revoke_everyone` (o banco guarda texto velho para sempre), `message_reaction`,
+`vote_update`, `call`, `group_*`.
+
+---
+
+## 3. Achados por severidade (com evidência)
+
+### 🔴 P0 — corrigir ANTES do uso intenso
+
+| # | Achado | Evidência | Impacto no uso intenso |
+| - | ------ | --------- | ---------------------- |
+| P0-1 | **Sem reconexão + `start()` no-op após queda.** `disconnected` só troca status; a lib destrói o browser mas `this.client` fica non-null → `doStart` retorna cedo. | `wwebjs.engine.ts:140`, `:269-273` (vs Baileys `:642-664`) | Sessão cai no meio de uma campanha e **não volta** — nem sozinha, nem por `POST /start` (responde 200 e nada). Só `restart` recupera. |
+| P0-2 | **`WA_REQUIRE_PROXY` ignorado.** `deps.requireProxy` nunca é lido no wwebjs. | `wwebjs.engine.ts:139-295` (guard só em `baileys.engine.ts:489`) | Com o guard ligado p/ anti-flag, sessão wwebjs sem proxy sobe pelo **IP do datacenter** → risco de flag exatamente no período de uso pesado. Casa com **B-001** (migração p/ proxy residencial). |
+| P0-3 | **Mídia recebida descartada + mídia enviada não vai ao S3.** `type:'other'`, sem `downloadMedia`, sem `storeMedia`. | `wwebjs.engine.ts:590`, `:516-550`; `GET media` 404 em `messages.controller.ts:186-210` | Qualquer imagem/áudio/documento que o lead mandar é **irrecuperável**; o inbox e o n8n não recebem o binário. |
+| P0-4 | **webVersion a semanas de expirar.** Pin `2.3000.104227…` com aviso "Meta expira ~fim de agosto/2026". | `wwebjs.engine.ts:39-40,43`; `env.production.example:112-115` | Se expirar durante o uso intenso, o fallback `live` traz build que **esconde o número dos leads** — quebra a razão de usar wwebjs. Precisa **revalidar/pinar versão nova válida ANTES**. |
+
+### 🟠 P1 — alto (defeitos que degradam silenciosamente)
+
+| # | Achado | Evidência |
+| - | ------ | --------- |
+| P1-1 | **Envelope de webhook rotula toda sessão wwebjs como `engine:'baileys'`** (hardcoded); `guardrail.service.ts:180` faz certo → o mesmo consumidor recebe rótulos contraditórios. Contrato público (node n8n). Um teste **cristaliza o bug**. | `session-manager.service.ts:172`; `webhooks.e2e-spec.ts:102` |
+| P1-2 | **`POST /:id/new-qr` é no-op de credencial no wwebjs** (limpa só o Postgres; a credencial está no disco/LocalAuth). O botão do painel "gerar novo QR" não recupera sessão wwebjs desconectada pelo celular. | `session-manager.service.ts:340-345` vs `wwebjs.engine.ts:173-176` |
+| P1-3 | **`DELETE /sessions/:id` vaza perfil Chromium** (dezenas–centenas de MB) órfão no volume, para sempre, a cada sessão wwebjs criada+removida. | `session-manager.service.ts:349-358`; nada apaga `/data/wwebjs/session-<id>/` |
+| P1-4 | **Zero cobertura e2e do caminho wwebjs**; o `fakeSessionManager` faz as 14 operações não suportadas passarem verdes → 18 arquivos e2e dão impressão de paridade inexistente. | `apps/gateway/test/setup-app.ts:11-53`; `f5.e2e-spec.ts` |
+| P1-5 | **`recordHardSignal` nunca é chamado** → `signal.463` e `signal.restriction` são catálogo público morto (nas DUAS engines); `ultimoSinal` sempre null. | `guardrail.service.ts:350` (única ocorrência = a definição) |
+| P1-6 | **12 `nope()` → HTTP 400 genérico** (não 501/422): para o n8n, "engine não suporta" é indistinguível de "payload inválido". | `wwebjs.engine.ts:813-815`; controllers de groups/contacts/channels |
+
+### 🟡 P2 — médio (paridade e robustez)
+
+- **Anti-flag não cobre wwebjs:** fingerprint/UA estável por sessão foi só Baileys (22/07); `WWEBJS_USER_AGENT` está no env de dev e **ausente do de produção**. `CHANGELOG:11-18`, `env.example:94` vs `env.production.example`.
+- **`destroy()` sem teto dentro do mutex** pode travar a fila `lifecycle` da sessão para sempre se o Chromium pendurar. `wwebjs.engine.ts:459,393`.
+- **`markRead` marca o chat inteiro** e **todo envio marca visto** (`sendSeen` implícito) → controle fino de leitura inexiste; risco no handoff IA×celular. `:560-564`, §4 do relatório do motor.
+- **`sendPresence` degrada 3 de 5 estados** para `clearState` respondendo `{ok:true}`; campanha perde o "parou de digitar". `:552-558`; `campaign-queue.ts:137`.
+- **`groupInfo` sequencial sem teto próprio** — grupo de 500 = 500 round-trips CDP, `GET /leads` pode levar minutos; worker de campanha com `concurrency:4` no mesmo Chromium contradiz o comentário de "não paralelizar". `:880-883`, `campaign-queue.ts:68`.
+- **`announce`/`restrict` hardcoded false** em `listGroups`/`groupInfo` — 2 campos em que o consumidor não pode confiar. `:865-866,890-891`.
+- **Envs `WWEBJS_*` fora do zod** (lidas em escopo de módulo): typo em `WWEBJS_CHROME_PATH` não falha no boot, só no 1º start como `FAILED`. `bootstrap/config.ts` (sem `WWEBJS_*`).
+- **`lidToPnCache` sem teto** (cresce pela vida do processo); dedup do eco por `setTimeout(3000)` pode duplicar linha se o `sendMessage` demorar >3s. `:73`, `:573-576`.
+- **Dashboard não sinaliza capacidade por engine**: numa sessão wwebjs o painel oferece criar grupo, checar número, foto, bloquear, canais — cada clique volta 400. `Groups.tsx`/`Contacts.tsx` sem condicional.
+
+### 🟢 P3 — baixo / recurso novo
+- Recursos da lib ainda não expostos (reações, reply, edição, revogação, poll, localização, vCard, forward, perfil, chats/labels) — backlog de produto, não defeito.
+- `raw` (proto) ausente no wwebjs — provavelmente inerente (não há proto); o retry anti-"Aguardando mensagem" é Baileys-only por natureza.
+
+---
+
+## 4. Onde o wwebjs GANHA do Baileys (preservar)
+
+- **LID→telefone via Store oficial** e **nome salvo na agenda** — o Baileys não consegue pelo limite do protocolo Meta. `:673-715`, `:899-939`, `:765-801`.
+- **Extração de leads de grupo com número em massa** — é o papel declarado da engine (`auditoria:72`, `ARQUITETURA.md:25`).
+- **`saveContact`/`removeContact` nativos** na agenda. `:975-989`.
+- **Proxy aplicado no browser** com fallback e diagnóstico acionável. `:150-163,370-450`.
+- **Cache local da webVersion** + limpeza de Singleton locks. `:299-364,124-131`.
+
+---
+
+## 5. Plano priorizado para "100% redondo"
+
+Cada onda é **sessão R9 própria** com branch `feature/*`, teste e2e de efeito (R6) e
+deploy vigiado (R0 — push dispara redeploy no Dokploy; nunca em rajada com sessão real
+conectada). Ordem por risco × custo:
+
+**W1 — Estabilidade e segurança do motor (P0) — a mais urgente.**
+- P0-1: `disconnected` zera `this.client` (1 linha destrava o `start`) + reconexão com
+  backoff espelhando o Baileys (`:642-664`).
+- P0-2: honrar `deps.requireProxy` no `doStart` (após `:150`) + log de "conexão sem
+  proxy" (paridade com o hardening do Baileys). Fecha o vazamento de IP.
+- P0-4: revalidar e **pinar uma `WWEBJS_WEB_VERSION` válida** que ainda exponha o
+  número (ação operacional no Dokploy + confirmar na extração de leads); documentar a
+  cadência "revalidar a cada ~2 meses" em AUDITORIAS.md (linha de compliance de versão
+  já existe).
+- Gate novo: 1º teste e2e que instancia a engine real (ou um contrato de engine) —
+  ataca P1-4 na raiz.
+
+**W2 — Mídia e fidelidade de envio (P0-3 + P1).**
+- P0-3: `msg.downloadMedia()` + `deps.storeMedia` no `onMessageCreate` (`:590`) e
+  `mediaType` real a partir de `msg.type`; upload S3 no `sendMedia` com `mediaKey` no
+  eco (paridade com Baileys `:896-912`).
+- P1-1: derivar `engine` real no envelope (`session-manager.service.ts:172`) e
+  **corrigir o teste** que cristaliza o bug.
+- `sendMedia`: `sendMediaAsDocument`/`sendMediaAsSticker` + guarda de `sent` null/undefined.
+
+**W3 — Ciclo de vida e paridade de recuperação (P1/P2).**
+- P1-2: `new-qr`/`logout`/`remove` limpam o LocalAuth em disco no wwebjs (não só o
+  Postgres) — inclui P1-3 (fim do vazamento de perfil no DELETE).
+- P2: timeout no `destroy()`; zerar `qrBase64` e caches no stop; teto no `lidToPnCache`.
+- P1-6: `nope()` → HTTP 501/422 com corpo estruturado (o n8n distingue).
+
+**W4 — Completar a superfície (os 12 `nope()`) + higiene.**
+- Implementar os 12 métodos (a API existe na lib — §8 do relatório do motor). Maior
+  retorno imediato: `checkNumbers` e `profilePicture`. Grupos completos e canais
+  fecham a paridade com o Baileys.
+- P1-5: fiar `recordHardSignal` a um sinal real (ou remover o catálogo morto do
+  contrato, com plano de versão — R0). Vale para as duas engines.
+- Dashboard: desabilitar/rotular ações não suportadas por engine + aviso de custo de RAM.
+- Anti-flag: `WWEBJS_USER_AGENT` no env de produção + fingerprint estável por sessão.
+
+**Recursos novos (backlog de produto, fora do "100% do que existe"):** reações, reply,
+edição/revogação, poll, localização, vCard, forward, chats/labels — cada um vira P-xxx
+quando priorizado.
+
+---
+
+## 6. Recomendações operacionais IMEDIATAS (antes de qualquer código)
+
+Para o uso intenso "nos próximos dias", independentemente das ondas W1–W4:
+
+1. **Revalidar a `WWEBJS_WEB_VERSION` JÁ** (P0-4) — é a única bomba de calendário; se
+   expirar no meio do uso, os leads perdem o número. Ação no Dokploy.
+2. **Resolver o B-001** (proxy residencial BR + `WA_REQUIRE_PROXY=true`) — mas ciente do
+   P0-2: **hoje o guard não protege o wwebjs**, então até a W1 entrar, garantir
+   manualmente que **toda sessão wwebjs tenha um proxy residencial atribuído** (Proxy
+   fixo), senão ela conecta pelo IP do datacenter mesmo com a flag ligada.
+3. **Não reiniciar o gateway em rajada** com sessão wwebjs real conectada (derruba a
+   sessão — §6.6 do `agent-whatzapp_api.md`); e **1 réplica** no Dokploy (sessão é
+   stateful, volume local).
+4. **Monitorar RAM/`/health`** — cada sessão wwebjs ≈ 1 Chromium; `heapUsedPct > 0.9`
+   degrada o container e o Traefik pode tirar do balanceador (502). Confirmar Memory
+   Limit ativo (O2 da auditoria 07/2026).
+5. **Sessão wwebjs que cair NÃO volta sozinha** (P0-1) — até a W1, o procedimento é
+   `POST /api/sessions/:id/restart` (não `/start`, que é no-op; nem `/new-qr`, que não
+   limpa credencial no wwebjs).
+
+---
+
+## Referências
+
+- Contrato: `apps/gateway/src/modules/sessions/application/engine.port.ts`
+- Motor: `apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`
+- Régua: `…/baileys/baileys.engine.ts` · Orquestração: `…/application/session-manager.service.ts`
+- Docs: `motores-whatsapp.md` (matriz de engines) · `agent-whatzapp_api.md` §6B.10 (Chromium/RAM) ·
+  `INTEGRACAO.md` §9-10 (leads/contatos) · `auditoria-2026-07.md` (itens 3-12,17,23)
+- Pendências abertas correlatas: `PENDENCIAS.md` — P-001 (reconexão wwebjs), B-001 (proxy), P-002 (health-tester), P-004 (lint `auth/`)
