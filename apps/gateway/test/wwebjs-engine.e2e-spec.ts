@@ -195,4 +195,15 @@ describe('WWebJSEngine — mensagens ricas (W5): reações e menções', () => {
       }),
     ).rejects.toThrow(/Sessão não conectada/);
   });
+
+  it('setProfileStatus/setProfileName vão à lib (sem client → "Sessão não conectada")', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(engine.setProfileStatus('Disponível')).rejects.toThrow(
+      /Sessão não conectada/,
+    );
+    await expect(engine.setProfileName('Loja X')).rejects.toThrow(
+      /Sessão não conectada/,
+    );
+  });
 });

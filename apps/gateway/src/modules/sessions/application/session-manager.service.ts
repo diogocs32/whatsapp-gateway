@@ -439,6 +439,13 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return this.working(sessionId).sendPresence(to, state);
   }
 
+  setProfileStatus(sessionId: string, status: string): Promise<void> {
+    return this.working(sessionId).setProfileStatus(status);
+  }
+  setProfileName(sessionId: string, name: string): Promise<void> {
+    return this.working(sessionId).setProfileName(name);
+  }
+
   markRead(sessionId: string, chatJid: string, msgId: string): Promise<void> {
     return this.working(sessionId).markRead(chatJid, msgId);
   }

@@ -108,6 +108,8 @@ POST /api/webhooks/dead-letters/redeliver    # reentrega com a config atual do w
 GET/PATCH /api/sessions/{sessao}/config      # capBase, warmupCurve, regiaoDdd, modo, janela, timezone
 POST /api/sessions/{sessao}/presence         # { to, type: composing|paused|available|unavailable }
 POST /api/sessions/{sessao}/messages/{msgId}/read   # read receipt
+POST /api/sessions/{sessao}/profile/status   # W8 { status } — recado/"about" da conta (≤139)
+POST /api/sessions/{sessao}/profile/name     # W8 { name } — nome de exibição da conta (≤25)
 ```
 
 `cap_atual` é derivado do estado: quarentena/banida/pausa=0; throttled≈50% do base; aquecimento=curva[0]; ativa=capBase.

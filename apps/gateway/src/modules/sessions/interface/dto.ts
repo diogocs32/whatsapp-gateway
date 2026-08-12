@@ -44,3 +44,7 @@ export const presenceSchema = z.object({
     'recording',
   ]),
 });
+
+// W8 — perfil da conta. status ("recado") até 139 chars; nome de exibição até 25 (limites do WhatsApp).
+export const profileStatusSchema = z.object({ status: z.string().max(139) });
+export const profileNameSchema = z.object({ name: z.string().min(1).max(25) });

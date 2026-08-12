@@ -810,6 +810,14 @@ export class WWebJSEngine implements IEngine {
     });
   }
 
+  // W8 — perfil da conta conectada.
+  async setProfileStatus(status: string): Promise<void> {
+    await this.req().setStatus(status);
+  }
+  async setProfileName(name: string): Promise<void> {
+    await this.req().setDisplayName(name);
+  }
+
   async sendPresence(to: string, state: PresenceState): Promise<void> {
     const chat = await this.req().getChatById(this.toChatId(to));
     if (state === 'composing') await chat.sendStateTyping();

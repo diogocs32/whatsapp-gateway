@@ -417,6 +417,11 @@ capturar `message_reaction`, `vote_update`, `message_edit`, `message_revoke_*`,
 `searchMessages` · gestão (archive/pin/mute/markUnread). Fecha o gap "inbox só tem o que
 chega ao vivo".
 
+> **Atualização 12/08:** 1º incremento ENTREGUE (sessão `wwebjs-w8-perfil-conta`) —
+> **status/recado + nome de exibição** da conta, nas 2 engines. Restam: foto de perfil,
+> membership requests, admin-only toggles, `getContactLidAndPhone`. W7 (inbox/histórico)
+> segue pulado por assimetria (Baileys não tem `getChats` limpo).
+
 **W8 — Perfil próprio + grupos avançados + canais:**
 perfil (`setStatus`/`setDisplayName`/`setProfilePicture`, presença global) · membership
 requests (approve/reject com anti-flood) · admin-only toggles · foto de grupo · canais
