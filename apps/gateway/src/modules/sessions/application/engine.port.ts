@@ -109,6 +109,19 @@ export interface SendMediaInput extends SendOptions {
   ptt?: boolean; // áudio como nota de voz
 }
 
+// W5 — localização e enquete (poll). Sends completos em si (sem evento inbound novo).
+export interface SendLocationInput extends SendOptions {
+  latitude: number;
+  longitude: number;
+  name?: string | null; // rótulo do lugar
+  address?: string | null; // endereço legível
+}
+export interface SendPollInput extends SendOptions {
+  name: string; // a pergunta
+  options: string[]; // as opções (2..12)
+  multi?: boolean; // permite múltiplas respostas (default: escolha única)
+}
+
 // ---- F5: grupos / contatos / canais (resultados independentes da engine) ----
 export type GroupParticipantRole = 'admin' | 'superadmin' | 'member';
 export type GroupParticipantAction = 'add' | 'remove' | 'promote' | 'demote';
@@ -184,6 +197,15 @@ export interface IEngine {
   sendMedia(
     to: string,
     input: SendMediaInput,
+  ): Promise<{ keyId: string; jid: string }>;
+  // W5 — envia uma localização (mapa) e uma enquete (poll).
+  sendLocation(
+    to: string,
+    input: SendLocationInput,
+  ): Promise<{ keyId: string; jid: string }>;
+  sendPoll(
+    to: string,
+    input: SendPollInput,
   ): Promise<{ keyId: string; jid: string }>;
   sendPresence(to: string, state: PresenceState): Promise<void>;
   // G8 — marca uma mensagem recebida como lida (read receipt / "visto").

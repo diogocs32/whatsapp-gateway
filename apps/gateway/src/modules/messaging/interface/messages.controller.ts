@@ -62,6 +62,27 @@ const sendMediaUrlSchema = z.object({
 // W5: reação a uma mensagem. emoji vazio ('') REMOVE a reação.
 const reactionSchema = z.object({ emoji: z.string().max(20) });
 
+// W5: localização.
+const sendLocationSchema = z.object({
+  to: z.string().min(5).max(40),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  name: z.string().max(255).optional(),
+  address: z.string().max(500).optional(),
+  cold: coldField,
+  idempotencyKey: idempotencyKeyField,
+});
+
+// W5: enquete (poll). 2..12 opções (limite do WhatsApp).
+const sendPollSchema = z.object({
+  to: z.string().min(5).max(40),
+  name: z.string().min(1).max(255),
+  options: z.array(z.string().min(1).max(100)).min(2).max(12),
+  multi: z.boolean().optional(),
+  cold: coldField,
+  idempotencyKey: idempotencyKeyField,
+});
+
 // Infere o tipo de mídia a partir do mimetype quando o cliente não informa.
 function inferType(mimetype: string | undefined): MediaSendType {
   if (mimetype?.startsWith('image/')) return 'image';
@@ -390,6 +411,67 @@ export class MessagesController {
         fileName: d.fileName ?? null,
         caption: d.caption ?? null,
         mentions: d.mentions,
+        cold: d.cold,
+        idempotencyKey: d.idempotencyKey,
+      });
+      return { id: res.keyId, to: res.jid, deduped: false };
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
+  // W5 — envia uma localização (mapa).
+  @Post('location')
+  async sendLocation(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = sendLocationSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    const d = parsed.data;
+    const dup = await this.deduped(id, d.idempotencyKey);
+    if (dup) return dup;
+    await this.assertColdAllowed(id, d.cold);
+    try {
+      const res = await this.manager.sendLocation(id, d.to, {
+        latitude: d.latitude,
+        longitude: d.longitude,
+        name: d.name ?? null,
+        address: d.address ?? null,
+        cold: d.cold,
+        idempotencyKey: d.idempotencyKey,
+      });
+      return { id: res.keyId, to: res.jid, deduped: false };
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
+  // W5 — envia uma enquete (poll).
+  @Post('poll')
+  async sendPoll(
+    @Param('id', SessionRefPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = sendPollSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    const d = parsed.data;
+    const dup = await this.deduped(id, d.idempotencyKey);
+    if (dup) return dup;
+    await this.assertColdAllowed(id, d.cold);
+    try {
+      const res = await this.manager.sendPoll(id, d.to, {
+        name: d.name,
+        options: d.options,
+        multi: d.multi,
         cold: d.cold,
         idempotencyKey: d.idempotencyKey,
       });

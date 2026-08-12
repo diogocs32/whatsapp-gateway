@@ -34,8 +34,10 @@ import type {
   MessageSource,
   PresenceState,
   SaveContactInput,
+  SendLocationInput,
   SendMediaInput,
   SendOptions,
+  SendPollInput,
   SessionStatePayload,
 } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
@@ -937,6 +939,74 @@ export class BaileysEngine implements IEngine {
       fileName: input.fileName ?? null,
       fileSize: input.buffer.length,
       mediaKey,
+      raw: sent?.message ? encodeProto(sent.message) : null,
+      timestamp: Math.floor(Date.now() / 1000),
+    });
+    return { keyId, jid };
+  }
+
+  async sendLocation(
+    to: string,
+    input: SendLocationInput,
+  ): Promise<{ keyId: string; jid: string }> {
+    if (!this.sock) throw new Error('Sessão não conectada');
+    const jid = await this.resolveJid(to);
+    const sent = await this.sock.sendMessage(jid, {
+      location: {
+        degreesLatitude: input.latitude,
+        degreesLongitude: input.longitude,
+        ...(input.name ? { name: input.name } : {}),
+        ...(input.address ? { address: input.address } : {}),
+      },
+    });
+    return this.emitOutbound(
+      sent,
+      jid,
+      'location',
+      input.name || input.address || null,
+      input,
+    );
+  }
+
+  async sendPoll(
+    to: string,
+    input: SendPollInput,
+  ): Promise<{ keyId: string; jid: string }> {
+    if (!this.sock) throw new Error('Sessão não conectada');
+    const jid = await this.resolveJid(to);
+    const sent = await this.sock.sendMessage(jid, {
+      poll: {
+        name: input.name,
+        values: input.options,
+        // selectableCount: 1 = escolha única · 0 = múltipla (mesma semântica do wwebjs).
+        selectableCount: input.multi ? 0 : 1,
+      },
+    });
+    return this.emitOutbound(sent, jid, 'poll', input.name, input);
+  }
+
+  // Eco de um envio nosso (fromMe=api) para o EventBus — persistência + webhook + reply-rate (G1).
+  private emitOutbound(
+    sent:
+      | { key?: proto.IMessageKey; message?: proto.IMessage | null }
+      | undefined,
+    jid: string,
+    type: string,
+    text: string | null,
+    opts: SendOptions,
+  ): { keyId: string; jid: string } {
+    const keyId = sent?.key?.id ?? '';
+    if (keyId && sent?.message) this.cacheSent(keyId, sent.message);
+    this.deps.onEvent('message', {
+      keyId,
+      chatJid: jid,
+      senderJid: this.sock?.user?.id ?? null,
+      fromMe: true,
+      type,
+      text,
+      isCold: opts.cold ?? false,
+      idempotencyKey: opts.idempotencyKey ?? null,
+      source: 'api',
       raw: sent?.message ? encodeProto(sent.message) : null,
       timestamp: Math.floor(Date.now() / 1000),
     });

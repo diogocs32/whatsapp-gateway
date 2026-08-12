@@ -396,9 +396,10 @@ O motor ouve 7 eventos; a lib emite ~31. Capturar estes vira **evento novo no we
 **W5 — Mensagens ricas (maior ROI para conversa humana):**
 `reply`/quote · `mentions`/groupMentions · `sendReaction` · `poll` + `vote_update` no
 webhook · `location` · `contactCard`/vCard. São os que mais humanizam e engajam o funil.
-> **Atualização 12/08:** 1º incremento ENTREGUE (sessão `wwebjs-w5-mensagens-ricas`) —
-> **reações** (rota nova) e **menções** (em text/media-url) nas duas engines, aditivo.
-> Restam neste W5: reply/quote, poll+vote_update, location, vCard (próximo incremento).
+> **Atualização 12/08:** ENTREGUES **reações + menções** (sessão `wwebjs-w5-mensagens-ricas`)
+> e **localização + enquete** (sessão `wwebjs-w5b-location-poll`), nas duas engines, aditivo.
+> Restam neste W5: **reply/quote** (deferido — Baileys não persiste `raw` inbound),
+> **captura de votos** (`vote_update` — Baileys precisa decifrar), **vCard** (assimétrico).
 > `packages/contracts` a formalizar = P-013 (evitou conflito R9 com auth-refresh).
 
 **W6 — Webhook mais rico (sinais que hoje se perdem):**

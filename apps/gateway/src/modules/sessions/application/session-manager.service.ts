@@ -31,8 +31,10 @@ import type {
   MessagePayload,
   PresenceState,
   SaveContactInput,
+  SendLocationInput,
   SendMediaInput,
   SendOptions,
+  SendPollInput,
   SessionStatePayload,
   WaEventEnvelope,
 } from './engine.port';
@@ -411,6 +413,22 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     input: SendMediaInput,
   ): Promise<{ keyId: string; jid: string }> {
     return this.working(sessionId).sendMedia(to, input);
+  }
+
+  sendLocation(
+    sessionId: string,
+    to: string,
+    input: SendLocationInput,
+  ): Promise<{ keyId: string; jid: string }> {
+    return this.working(sessionId).sendLocation(to, input);
+  }
+
+  sendPoll(
+    sessionId: string,
+    to: string,
+    input: SendPollInput,
+  ): Promise<{ keyId: string; jid: string }> {
+    return this.working(sessionId).sendPoll(to, input);
   }
 
   sendPresence(

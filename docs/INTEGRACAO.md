@@ -21,6 +21,8 @@ POST /api/sessions/{sessao}/messages/text
 - Mídia: `POST …/messages/media-url` (mesmos `cold`/`idempotencyKey`).
 - **Menções (W5, aditivo):** `text` e `media-url` aceitam `mentions: ["5511888888888", ...]` (números ou JIDs a marcar com @; até 50). Funciona nas duas engines (resolvidas ao formato de cada uma). Ex.: `{ "to": "...", "text": "olá @fulano", "mentions": ["5511888888888"] }`.
 - **Reação (W5, aditivo):** `POST /api/sessions/{sessao}/messages/{msgId}/reaction` com `{ "emoji": "👍" }` — `emoji` vazio (`""`) REMOVE a reação. `msgId` = keyId do WhatsApp (o mesmo que `read` e o download de mídia aceitam). 404 se a mensagem não for conhecida. Funciona nas duas engines.
+- **Localização (W5, aditivo):** `POST /api/sessions/{sessao}/messages/location` com `{ "to": "...", "latitude": -23.55, "longitude": -46.63, "name": "Escritório", "address": "Av. ..." }` (`name`/`address` opcionais; mesmos `cold`/`idempotencyKey`). Funciona nas duas engines.
+- **Enquete/poll (W5, aditivo):** `POST /api/sessions/{sessao}/messages/poll` com `{ "to": "...", "name": "Qual horário?", "options": ["Manhã","Tarde"], "multi": false }` (2..12 opções; `multi` = múltipla escolha; mesmos `cold`/`idempotencyKey`). Funciona nas duas engines. **Nota:** a CAPTURA de votos via webhook (`vote_update`) ainda não está exposta — os votos aparecem no app; captura automática = incremento futuro.
 
 ## 3. Webhooks — receber eventos (G2/G3/G6)
 

@@ -8,6 +8,13 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **W5b — mensagens ricas: localização e enquete** (sessão `2026-08-12-1902-wwebjs-w5b-location-poll`,
+  P-011): recurso NOVO aditivo nas DUAS engines. **Localização**: `POST /api/sessions/{s}/messages/location`
+  (`{to, latitude, longitude, name?, address?}`). **Enquete/poll**: `POST /api/sessions/{s}/messages/poll`
+  (`{to, name, options[2..12], multi?}`). Ambos com `cold`/`idempotencyKey` e o mesmo hard-gate do
+  guard-rail. Sem migration/env/breaking (rotas novas). Documentado em `INTEGRACAO.md`; contracts em
+  P-013. **Reply/quote deferido** (o Baileys só persiste `raw` de mensagens enviadas, não das recebidas);
+  captura de votos (`vote_update`) e vCard = incrementos futuros.
 - **W5 — mensagens ricas: reações e menções** (sessão `2026-08-12-1746-wwebjs-w5-mensagens-ricas`,
   P-011 1º incremento): recurso NOVO **aditivo** nas DUAS engines (Baileys + wwebjs). **Reações**:
   `POST /api/sessions/{s}/messages/{msgId}/reaction` com `{ emoji }` (emoji vazio remove a reação).
