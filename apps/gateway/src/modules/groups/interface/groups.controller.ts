@@ -3,12 +3,14 @@ import {
   Body,
   Controller,
   Get,
+  NotImplementedException,
   Param,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
+import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
@@ -46,7 +48,10 @@ export class GroupsController {
   }
 
   @Get(':groupId')
-  info(@Param('id', SessionRefPipe) id: string, @Param('groupId') groupId: string) {
+  info(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+  ) {
     return this.run(() => this.manager.groupInfo(id, groupId));
   }
 
@@ -90,7 +95,10 @@ export class GroupsController {
   }
 
   @Post(':groupId/leave')
-  async leave(@Param('id', SessionRefPipe) id: string, @Param('groupId') groupId: string) {
+  async leave(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+  ) {
     await this.run(() => this.manager.leaveGroup(id, groupId));
     return { ok: true };
   }
@@ -120,7 +128,10 @@ export class GroupsController {
   }
 
   @Get(':groupId/invite')
-  async invite(@Param('id', SessionRefPipe) id: string, @Param('groupId') groupId: string) {
+  async invite(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+  ) {
     const code = await this.run(() =>
       this.manager.groupInviteCode(id, groupId),
     );
@@ -128,18 +139,25 @@ export class GroupsController {
   }
 
   @Post(':groupId/invite/revoke')
-  async revoke(@Param('id', SessionRefPipe) id: string, @Param('groupId') groupId: string) {
+  async revoke(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('groupId') groupId: string,
+  ) {
     const code = await this.run(() =>
       this.manager.groupRevokeInvite(id, groupId),
     );
     return { code, url: `https://chat.whatsapp.com/${code}` };
   }
 
-  // Converte erros da engine/Baileys em 400 com a mensagem original.
+  // Converte erros da engine: operação não suportada → 501, o resto → 400 (mensagem original).
   private async run<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();
     } catch (e) {
+      // Operação não suportada pela engine (wwebjs: grupos de escrita) → 501, não 400: o n8n
+      // distingue "engine não faz isso" de "payload inválido".
+      if (e instanceof UnsupportedEngineOperationError)
+        throw new NotImplementedException((e as Error).message);
       throw new BadRequestException((e as Error).message);
     }
   }

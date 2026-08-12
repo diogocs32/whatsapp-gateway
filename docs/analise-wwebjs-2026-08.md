@@ -221,6 +221,10 @@ conectada). Ordem por risco × custo:
   **corrigir o teste** que cristaliza o bug.
 - `sendMedia`: `sendMediaAsDocument`/`sendMediaAsSticker` + guarda de `sent` null/undefined.
 
+> **Atualização 12/08:** W3 **ENTREGUE** (sessão `wwebjs-w3-ciclo-vida`, P-009 concluída)
+> — `purgeAuthDir` (fim do vazamento de perfil + new-qr recupera), `destroy` com teto,
+> `qrBase64`/cache com teto, `nope()`→HTTP 501.
+
 **W3 — Ciclo de vida e paridade de recuperação (P1/P2).**
 - P1-2: `new-qr`/`logout`/`remove` limpam o LocalAuth em disco no wwebjs (não só o
   Postgres) — inclui P1-3 (fim do vazamento de perfil no DELETE).

@@ -155,6 +155,16 @@ export type PresenceState =
   | 'available'
   | 'unavailable';
 
+// Erro de operação NÃO suportada pela engine ativa (ex.: grupos/canais no wwebjs, cujo `nope()` o
+// lança). O controller mapeia para HTTP 501 (Not Implemented) — distinto de payload inválido (400):
+// para o integrador (node n8n), "esta engine não faz isso" ≠ "você mandou errado".
+export class UnsupportedEngineOperationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnsupportedEngineOperationError';
+  }
+}
+
 export interface IEngine {
   // Nome da engine desta instância — usado para rotular o envelope de eventos (webhook OUT) com a
   // engine REAL da sessão. Sem isto o SessionManager rotulava tudo como 'baileys' (inclusive WWEBJS).
