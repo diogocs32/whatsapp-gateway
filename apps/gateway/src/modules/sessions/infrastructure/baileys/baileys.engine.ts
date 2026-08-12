@@ -33,6 +33,7 @@ import type {
   IEngine,
   MessageSource,
   PresenceState,
+  ReactionPayload,
   SaveContactInput,
   SendLocationInput,
   SendMediaInput,
@@ -159,6 +160,28 @@ interface MediaInfo {
   fileName: string | null;
   caption: string | null;
   fileSize: number | null;
+}
+
+// W6 — mapeia uma reação recebida (key da msg-alvo + proto.IReaction) para o payload público.
+// `text` vazio = reação REMOVIDA; `reaction.key.fromMe` = a reação é nossa. Pura/testável.
+export function mapBaileysReaction(
+  key: proto.IMessageKey,
+  reaction: proto.IReaction,
+  ourJid: string | null,
+): ReactionPayload | null {
+  const keyId = key.id ?? '';
+  const chatJid = key.remoteJid ?? '';
+  if (!keyId || !chatJid || chatJid === 'status@broadcast') return null;
+  const fromMe = !!reaction.key?.fromMe;
+  const ts = toNum(reaction.senderTimestampMs);
+  return {
+    keyId,
+    chatJid,
+    senderJid: fromMe ? ourJid : (key.participant ?? chatJid),
+    emoji: reaction.text ?? '',
+    fromMe,
+    timestamp: ts ? Math.floor(ts / 1000) : Math.floor(Date.now() / 1000),
+  };
 }
 
 // Converte Long (protobufjs) | number | null em number | null.
@@ -559,6 +582,22 @@ export class BaileysEngine implements IEngine {
     sock.ev.on('contacts.update', (cs) =>
       this.safe(() => this.onContacts(cs), 'contacts.update'),
     );
+    // W6 — reação RECEBIDA (o lead reagiu a uma mensagem). Emite o evento message.reaction.
+    sock.ev.on('messages.reaction', (rs) =>
+      this.safe(() => this.onReactions(rs), 'messages.reaction'),
+    );
+  }
+
+  // W6 — reações recebidas. O mapeamento (fromMe/emoji/removida/timestamp) é uma função pura
+  // testável (mapBaileysReaction); aqui só iteramos e emitimos o evento message.reaction.
+  private onReactions(
+    reactions: { key: proto.IMessageKey; reaction: proto.IReaction }[],
+  ): void {
+    const ourJid = this.sock?.user?.id ?? null;
+    for (const { key, reaction } of reactions) {
+      const payload = mapBaileysReaction(key, reaction, ourJid);
+      if (payload) this.deps.onEvent('message.reaction', payload);
+    }
   }
 
   private async onConnectionUpdate(

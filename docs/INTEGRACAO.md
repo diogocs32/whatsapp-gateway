@@ -40,6 +40,7 @@ Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`,
 | ------------------------------------------------------------ | ------------------------ | ---------------------------------------------------------------------- |
 | `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`** — base do handoff IA×celular   |
 | `message.ack`                                                | entrega/leitura          | `{ msg_id, status: sent\|delivered\|read }`                            |
+| `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid, emoji ('' = removida), fromMe, timestamp }` — 2 engines |
 | `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }` |
 | `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                           |
 | `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                    |
