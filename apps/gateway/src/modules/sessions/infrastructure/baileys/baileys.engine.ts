@@ -399,6 +399,7 @@ const MAX_RECONNECT = 5;
 const SENT_CACHE_MAX = 1000;
 
 export class BaileysEngine implements IEngine {
+  readonly engineName = 'baileys' as const;
   private sock: WASocket | null = null;
   private status: SessionStatus = 'STOPPED';
   private qrBase64: string | null = null;

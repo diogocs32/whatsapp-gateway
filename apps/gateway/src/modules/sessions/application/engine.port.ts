@@ -156,6 +156,9 @@ export type PresenceState =
   | 'unavailable';
 
 export interface IEngine {
+  // Nome da engine desta instância — usado para rotular o envelope de eventos (webhook OUT) com a
+  // engine REAL da sessão. Sem isto o SessionManager rotulava tudo como 'baileys' (inclusive WWEBJS).
+  readonly engineName: 'baileys' | 'wwebjs';
   start(): Promise<void>;
   stop(): Promise<void>;
   logout(): Promise<void>;

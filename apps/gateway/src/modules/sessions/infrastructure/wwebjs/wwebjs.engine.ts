@@ -64,10 +64,45 @@ const USER_AGENT =
 // Baileys — baileys.engine.ts:398). O contador zera a cada 'ready' (conexão bem-sucedida).
 const MAX_RECONNECT = 5;
 
+// mime/fileName → extensão do objeto no S3. Espelha o extOf do Baileys (baileys.engine.ts:226) —
+// helper mecânico (não é conhecimento de negócio), duplicado de propósito para não acoplar as
+// duas engines num import de valor (R21 V6).
+function extOf(mimetype: string | null, fileName: string | null): string {
+  if (fileName && fileName.includes('.')) {
+    const e = fileName.split('.').pop();
+    if (e && e.length <= 5) return e.toLowerCase();
+  }
+  if (mimetype) {
+    const sub = mimetype.split('/')[1]?.split(';')[0];
+    if (sub) return sub.toLowerCase();
+  }
+  return 'bin';
+}
+
+// Tipo do wwebjs (msg.type) → mediaType público (image|video|audio|document|sticker). ptt (nota de
+// voz) conta como audio; qualquer mídia desconhecida cai em document (recuperável no GET /media).
+// Exportado para teste unitário (é a tradução que decide o tipo emitido no webhook de mídia).
+export function mapInboundMediaType(t: string | undefined): string {
+  switch (t) {
+    case 'image':
+      return 'image';
+    case 'video':
+      return 'video';
+    case 'audio':
+    case 'ptt':
+      return 'audio';
+    case 'sticker':
+      return 'sticker';
+    default:
+      return 'document';
+  }
+}
+
 // Engine alternativa (F8) usando whatsapp-web.js (Puppeteer + Chrome do sistema). Mesmo contrato
 // IEngine do BaileysEngine, escolhida por sessão via EngineFactory. NÚCLEO: conexão/QR, status,
 // enviar/receber texto e mídia. Recursos avançados (grupos/contatos/canais) ainda não suportados.
 export class WWebJSEngine implements IEngine {
+  readonly engineName = 'wwebjs' as const;
   private client: Client | null = null;
   private status: SessionStatus = 'STOPPED';
   private qrBase64: string | null = null;
@@ -604,12 +639,44 @@ export class WWebJSEngine implements IEngine {
       input.buffer.toString('base64'),
       input.fileName ?? undefined,
     );
+    // Fidelidade de tipo: sem sendMediaAsDocument/Sticker o wwebjs infere pelo mime — um sticker ia
+    // como imagem comum e um arquivo pedido como 'document' podia perder o fileName.
     const sent = await c.sendMessage(jid, media, {
       caption: input.caption ?? undefined,
       sendAudioAsVoice: input.ptt,
+      sendMediaAsDocument: input.type === 'document',
+      sendMediaAsSticker: input.type === 'sticker',
     });
+    // Guard: o wwebjs devolve null/undefined para conteúdo/destino não suportado (canal, status) —
+    // sem isto o `sent.id` estourava com TypeError em vez de um erro claro.
+    if (!sent) {
+      throw new Error(
+        'wwebjs: envio de mídia não retornou mensagem (conteúdo ou destino não suportado)',
+      );
+    }
     const keyId = sent.id?._serialized ?? '';
     if (keyId) this.rememberPanel(keyId);
+
+    // Sobe a própria mídia enviada ao S3 (mesma pipeline da recebida) para aparecer no Inbox e para
+    // o webhook receber a mediaUrl — paridade com o Baileys (baileys.engine.ts:896-912). Antes o
+    // mediaKey saía sempre null e o binário do que o painel mandou nunca ficava disponível.
+    let mediaKey: string | null = null;
+    try {
+      const ext = extOf(input.mimetype, input.fileName ?? null);
+      const safeId = (keyId || String(Date.now())).replace(
+        /[^a-zA-Z0-9_-]/g,
+        '',
+      );
+      mediaKey = `media/${this.deps.sessionId}/${safeId}.${ext}`;
+      await this.deps.storeMedia?.(mediaKey, input.buffer, input.mimetype);
+    } catch (e) {
+      this.deps.logger.error(
+        { err: e, reason: (e as Error)?.message },
+        'wwebjs: falha ao armazenar mídia enviada — seguirá SEM mediaKey',
+      );
+      mediaKey = null;
+    }
+
     this.deps.onEvent('message', {
       keyId,
       chatJid: jid,
@@ -624,6 +691,7 @@ export class WWebJSEngine implements IEngine {
       mimetype: input.mimetype,
       fileName: input.fileName ?? null,
       fileSize: input.buffer.length,
+      mediaKey,
       timestamp: Math.floor(Date.now() / 1000),
     });
     return { keyId, jid };
@@ -657,7 +725,7 @@ export class WWebJSEngine implements IEngine {
       const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
       if (!raw || raw === 'status@broadcast') return;
       const chatJid = await this.resolveNumberJid(raw);
-      this.deps.onEvent('message', {
+      const base = {
         keyId,
         chatJid,
         senderJid: msg.fromMe
@@ -667,15 +735,82 @@ export class WWebJSEngine implements IEngine {
         // G2: as enviadas pelo painel já saíram filtradas (sentByPanel, acima). Um fromMe aqui
         // foi digitado no celular = phone; recebida do contato = sem origem nossa (null).
         source: (msg.fromMe ? 'phone' : null) as MessageSource | null,
-        type: msg.hasMedia ? 'other' : 'text',
-        text: msg.body || null,
         timestamp:
           typeof msg.timestamp === 'number'
             ? msg.timestamp
             : Math.floor(Date.now() / 1000),
+      };
+      // Mídia recebida: baixa o binário, sobe ao S3 e emite com a chave (antes virava type:'other'
+      // sem download → GET /:msgId/media respondia 404 para toda mídia WWEBJS).
+      if (msg.hasMedia) {
+        await this.handleIncomingMedia(msg, base);
+        return;
+      }
+      this.deps.onEvent('message', {
+        ...base,
+        type: 'text',
+        text: msg.body || null,
       });
     } catch (e) {
       this.deps.logger.error({ e }, 'wwebjs: onMessageCreate falhou');
+    }
+  }
+
+  // Baixa a mídia recebida (msg.downloadMedia), sobe ao S3 e emite com mediaKey + metadados reais.
+  // Espelha o handleIncomingMedia do Baileys (baileys.engine.ts:791-856): em falha de download/upload,
+  // emite os metadados SEM binário para a conversa não "sumir".
+  private async handleIncomingMedia(
+    msg: Message,
+    base: {
+      keyId: string;
+      chatJid: string;
+      senderJid: string | null;
+      fromMe: boolean;
+      source: MessageSource | null;
+      timestamp: number;
+    },
+  ): Promise<void> {
+    const mediaType = mapInboundMediaType(msg.type);
+    const caption = msg.body || null;
+    try {
+      // O d.ts diz Promise<MessageMedia>, mas em runtime devolve undefined quando a mídia expirou
+      // ou está sendo reprocessada — daí o cast + guard.
+      const media = (await msg.downloadMedia()) as MessageMedia | undefined;
+      if (!media?.data) throw new Error('downloadMedia sem dados');
+      const buffer = Buffer.from(media.data, 'base64');
+      const mimetype = media.mimetype || 'application/octet-stream';
+      const fileName = media.filename ?? null;
+      const ext = extOf(mimetype, fileName);
+      const safeId = (base.keyId || String(base.timestamp)).replace(
+        /[^a-zA-Z0-9_-]/g,
+        '',
+      );
+      const key = `media/${this.deps.sessionId}/${safeId}.${ext}`;
+      await this.deps.storeMedia?.(key, buffer, mimetype);
+      this.deps.onEvent('message', {
+        ...base,
+        type: mediaType,
+        text: caption,
+        mediaType,
+        mimetype,
+        fileName,
+        fileSize: media.filesize ?? buffer.length,
+        mediaKey: key,
+      });
+    } catch (e) {
+      this.deps.logger.error(
+        { err: e, reason: (e as Error)?.message },
+        'wwebjs: falha ao baixar/armazenar mídia recebida — seguirá SEM mediaKey',
+      );
+      this.deps.onEvent('message', {
+        ...base,
+        type: mediaType,
+        text: caption,
+        mediaType,
+        mimetype: null,
+        fileName: null,
+        fileSize: null,
+      });
     }
   }
 

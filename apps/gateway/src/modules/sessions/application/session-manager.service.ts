@@ -146,6 +146,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     name: EngineEventName,
     payload: unknown,
   ): Promise<void> {
+    // Engine REAL da sessão, capturada síncronamente ANTES dos awaits abaixo (persist/presign) para
+    // não correr com um engines.delete concorrente. Antes o envelope rotulava TUDO como 'baileys',
+    // inclusive sessões WWEBJS — o node n8n recebia a engine errada (contrato público).
+    const engine = this.engines.get(sessionId)?.engineName ?? 'baileys';
     if (name === 'session.status') {
       await this.persistStatus(sessionId, payload as SessionStatePayload);
     }
@@ -169,7 +173,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       sessionId,
       session: this.names.get(sessionId) ?? sessionId,
       payload,
-      engine: 'baileys',
+      engine,
     };
     this.eventBus.publish({
       name: 'wa.event',
