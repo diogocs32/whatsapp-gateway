@@ -29,6 +29,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-12-1551-analise-wwebjs        | 12/08   | Análise do motor wwebjs (matriz 28 métodos + 3 P0 + plano W1–W4) → docs/analise-wwebjs-2026-08.md — pendências: P-007..P-010 | feature/analise-wwebjs               |
 | 2026-08-12-1504-adocao-base-v43       | 12/08   | Base universal v3.2 → v4.3 (D-011): BASE R0–R21 · PENDENCIAS.md · 📢 Avisos · ondas A8–A11 — pendências: P-006 | feature/adocao-base-v43              |
 | 2026-07-22-1700-hardening-antiban     | 22/07   | Hardening anti-flag: fingerprint realista por sessão · log de conexão sem proxy · WA_REQUIRE_PROXY (91/91) | feature/hardening-antiban            |
 | 2026-07-21-1730-estabilidade-sessoes  | 21/07   | P0 estabilidade: mutex Baileys · creds limpas no loggedOut · POST /new-qr + painel · 401 → /login (82/82) | feature/estabilidade-sessoes         |
