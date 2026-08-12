@@ -39,6 +39,19 @@
 - **Devolver:** responder "B-002 feito" com a versão fixada e a data.
 - **Contorno em vigor:** default fixo no código + retry `live` automático — segura a
   operação, mas com risco de LID-only; **não substitui** a revalidação.
+- **Cenário em 12/08 (consulta ao `wa-version`):** o `currentVersion` é
+  `2.3000.1045049472-alpha` e as builds atuais expiram **~12/10/2026** (2 meses). O
+  default fixado no código (`2.3000.104227…`) é mais antigo e vence ~fim de agosto → o
+  fallback `live` vai começar a agir em breve (com risco de esconder o PN).
+- **Procedimento de revalidação (ordem):**
+  1. Numa sessão wwebjs de teste, pinar um candidato em `WWEBJS_WEB_VERSION` (começar
+     por uma build **próxima do default atual**, subindo aos poucos — as mais novas
+     tendem a esconder o número).
+  2. Rodar `GET /api/sessions/{s}/groups/{groupId}/leads` num grupo real e conferir se
+     os leads ainda vêm com `phone` preenchido (PN exposto).
+  3. Fixar no Dokploy a **build mais nova que AINDA expõe o PN** e que dê a maior janela
+     até expirar. Evitar `auto`/`live` (trazem a mais nova = risco de LID-only).
+  4. Anotar a versão + data aqui e responder "B-002 feito".
 
 ## 📋 Pendências técnicas (P-xxx — qualquer sessão assume)
 
