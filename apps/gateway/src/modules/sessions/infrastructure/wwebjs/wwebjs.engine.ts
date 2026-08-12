@@ -11,6 +11,7 @@ import type {
   GroupParticipant,
   Contact,
   Channel,
+  Reaction,
 } from 'whatsapp-web.js';
 import * as QRCode from 'qrcode';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
@@ -377,6 +378,8 @@ export class WWebJSEngine implements IEngine {
     client.on('message_ack', (msg: Message, ack: number) =>
       this.onMessageAck(msg, ack),
     );
+    // W6 — reação RECEBIDA (o lead reagiu a uma mensagem). Emite o evento message.reaction.
+    client.on('message_reaction', (r: Reaction) => void this.onReaction(r));
 
     // Aguarda o initialize (já serializado pelo mutex de ciclo de vida) para garantir cleanup
     // determinístico: quando o `goto` falha (proxy), `this.pupBrowser` já foi setado (Client.js:477)
@@ -974,6 +977,31 @@ export class WWebJSEngine implements IEngine {
       });
     } catch (e) {
       this.deps.logger.error({ e }, 'wwebjs: onMessageAck falhou');
+    }
+  }
+
+  // W6 — reação recebida. `msgId` (MessageId) é a mensagem-alvo; `reaction` é o emoji ('' = removida);
+  // `id.fromMe` diz se a reação é NOSSA. O chat vem do `msgId.remote` (com merge @lid→telefone).
+  private async onReaction(r: Reaction): Promise<void> {
+    try {
+      const keyId = r.msgId?._serialized ?? '';
+      if (!keyId) return;
+      const rawChat = r.msgId?.remote ?? '';
+      if (!rawChat || rawChat === 'status@broadcast') return;
+      const chatJid = await this.resolveNumberJid(rawChat);
+      this.deps.onEvent('message.reaction', {
+        keyId,
+        chatJid,
+        senderJid: r.senderId ?? null,
+        emoji: r.reaction ?? '',
+        fromMe: !!r.id?.fromMe,
+        timestamp:
+          typeof r.timestamp === 'number'
+            ? r.timestamp
+            : Math.floor(Date.now() / 1000),
+      });
+    } catch (e) {
+      this.deps.logger.error({ e }, 'wwebjs: onReaction falhou');
     }
   }
 

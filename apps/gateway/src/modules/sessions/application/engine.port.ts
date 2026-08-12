@@ -51,7 +51,21 @@ export interface MessageAckPayload {
   timestamp: number; // unix seconds (momento do receipt)
 }
 
-export type EngineEventName = 'session.status' | 'message' | 'message.ack';
+// W6 — reação RECEBIDA a uma mensagem (novo evento aditivo no webhook). keyId = id da mensagem-alvo.
+export interface ReactionPayload {
+  keyId: string; // id da mensagem que recebeu a reação
+  chatJid: string;
+  senderJid: string | null; // quem reagiu (best-effort)
+  emoji: string; // '' = reação removida
+  fromMe: boolean; // a reação é NOSSA?
+  timestamp: number; // unix seconds
+}
+
+export type EngineEventName =
+  | 'session.status'
+  | 'message'
+  | 'message.ack'
+  | 'message.reaction';
 export type EngineEventHandler = (
   name: EngineEventName,
   payload: unknown,

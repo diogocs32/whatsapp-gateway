@@ -402,6 +402,11 @@ webhook · `location` · `contactCard`/vCard. São os que mais humanizam e engaj
 > **captura de votos** (`vote_update` — Baileys precisa decifrar), **vCard** (assimétrico).
 > `packages/contracts` a formalizar = P-013 (evitou conflito R9 com auth-refresh).
 
+> **Atualização 12/08:** 1º incremento ENTREGUE (sessão `wwebjs-w6-webhook-reacoes`) —
+> evento **`message.reaction`** (reações recebidas) nas 2 engines. Restam: edição
+> (`message_edit`), revogação (`message_revoke`), votos (`vote_update`), `change_state`,
+> `group_*` — Baileys exige inspeção de protocolMessage / decifrar voto.
+
 **W6 — Webhook mais rico (sinais que hoje se perdem):**
 capturar `message_reaction`, `vote_update`, `message_edit`, `message_revoke_*`,
 `change_state`, `code`, `group_*` → novos eventos aditivos. Casa com a correção do

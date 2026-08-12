@@ -8,6 +8,14 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **W6 — webhook mais rico: reações recebidas** (sessão `2026-08-12-1921-wwebjs-w6-webhook-reacoes`,
+  P-011): novo evento **`message.reaction`** no webhook — quando o contato (ou você, em outro device)
+  reage a uma mensagem. Payload `{ keyId (msg-alvo), chatJid, senderJid, emoji ('' = reação removida),
+  fromMe, timestamp }`. Capturado nas DUAS engines (wwebjs `message_reaction`, Baileys
+  `messages.reaction`) e roteado ao webhook pelo fluxo existente (dedup por id de envelope, filtro por
+  nome de evento — assine `*` ou `message.reaction`). Completa o round-trip de reações da W5. Sem
+  migration/env/breaking. Documentado em `INTEGRACAO.md`; contracts em P-013. Edição/revogação/votos
+  (vote_update) recebidos = incrementos futuros (Baileys exige inspeção de protocolMessage/decifrar).
 - **W5b — mensagens ricas: localização e enquete** (sessão `2026-08-12-1902-wwebjs-w5b-location-poll`,
   P-011): recurso NOVO aditivo nas DUAS engines. **Localização**: `POST /api/sessions/{s}/messages/location`
   (`{to, latitude, longitude, name?, address?}`). **Enquete/poll**: `POST /api/sessions/{s}/messages/poll`
