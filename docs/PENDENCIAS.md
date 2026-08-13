@@ -24,20 +24,22 @@
 - **Contorno em vigor:** `WA_REQUIRE_PROXY=false` (default seguro reverso — sessão
   conecta sem proxy e só LOGA) → removido por [P-002] ao desbloquear.
 
-### B-002 · 🟡 QUASE — versão pinada e aplicada em 13/08; falta o teste de PN do dono
+### B-002 · 🔴 aberto — versão ESCOLHIDA (2.3000.1045101284-alpha), falta o dono colar na env + testar PN
 
-- **✅ Aplicado 13/08 ~12:52 UTC:** `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha`
-  (`currentVersion` do wa-version, expira **~13/10/2026** — ~2 meses de folga) setada na env
-  do app gateway no Dokploy e **deployada** (Claude via navegador, com OK do dono; container
-  novo confirmado no `/health`: uptime 52s, ok, checks true). Encerra o risco do pin antigo do
-  código expirando hoje + do fallback `live` descontrolado.
-- **⏳ FALTA (só o dono, precisa da `X-Api-Key`):** o **teste de PN** — `GET /api/sessions/{s}/
-  groups/{groupId}/leads` num grupo real e conferir se os leads vêm com `phone` preenchido.
-  Se **sim** → responder "B-002 feito" e fechar (revalidar de novo início de outubro). Se
-  **não** (PN escondido) → me avisar que dou a próxima build (mais antiga) para testar.
-  Nota: o motor faz resolução ativa LID→telefone (`enforceLidAndPnRetrieval`/`getContactLidAndPhone`),
-  então mesmo a build mais nova tende a devolver o número — o teste confirma.
-- **Revalidar de novo:** ~início de outubro/2026 (antes de `~13/10` expirar).
+- **Versão a fixar (decidida 13/08):** `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha`
+  (`currentVersion` do wa-version, expira **~13/10/2026** — ~2 meses de folga). Revalidar de
+  novo ~início de outubro.
+- **Tentativa 13/08 (Claude via navegador) FALHOU ao persistir:** a edição da env no Dokploy
+  não foi salva (verificado pelo dono revelando o editor: a lista termina em `GUARDRAIL_ENFORCE`,
+  sem `WWEBJS_WEB_VERSION`). O redeploy das ~12:52 subiu com o env default do código. Sem
+  corrupção (Environment Settings íntegra).
+- **AÇÃO (dono, no Dokploy):** app **conexozenvo** (gateway) → aba **Environment** → caixa
+  **Environment Settings** → nova linha no fim: `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha`
+  → **Save** → **Deploy**. (Se houver uma `WWEBJS_WEB_VERSION` órfã em Build-time Arguments/
+  Secrets de tentativa anterior, remover.)
+- **Depois, teste de PN (precisa da `X-Api-Key`):** `GET /api/sessions/{s}/groups/{groupId}/leads`
+  num grupo real → conferir se os leads vêm com `phone`. **Sim** → "B-002 feito". **Não** →
+  pinar uma build mais antiga. (O motor faz resolução ativa LID→telefone, então tende a vir com número.)
 
 <details><summary>Histórico do pedido (12/08)</summary>
 
