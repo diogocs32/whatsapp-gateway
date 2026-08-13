@@ -139,8 +139,42 @@ GET …/groups/{groupId}/leads?all=true                   # inclui membros sem n
 - **Engine:** resolução de nome/número mais completa em sessões **WWEBJS** (whatsapp-web.js — catálogo
   oficial do WhatsApp Web). No **Baileys**, os nomes vêm do cruzamento com o diretório
   (`GET /api/sessions/{sessao}/contacts/directory`) — quanto mais a sessão sincroniza, mais resolve.
-- **Custo:** resolver os membros consulta o WhatsApp por participante (sequencial) — grupo grande leva
-  alguns segundos. É extração pontual, não hot path. Os leads resolvidos ficam no diretório de contatos.
+- **Custo:** na engine WWEBJS a resolução é em **lote** (uma leitura da agenda + LID→telefone em
+  blocos de 50), então até grupos grandes voltam em poucos segundos; no Baileys os metadados já vêm
+  prontos. É extração pontual, não hot path. Os leads resolvidos ficam no diretório de contatos.
+
+### 9.1 Administração de grupo (criar / participantes / convite / info)
+
+Operações de escrita em grupos que a sessão **admin** pode executar. No node: resource **Group**.
+
+```
+POST /api/sessions/{sessao}/groups                              { "subject": "Time", "participants": ["5511..."] }
+POST …/groups/{groupId}/participants   { "action": "add|remove|promote|demote", "participants": ["5511..."] }
+POST …/groups/{groupId}/leave                                   # sair do grupo
+POST …/groups/{groupId}/subject                                 { "subject": "Novo nome" }
+POST …/groups/{groupId}/description                             { "description": "..." }
+GET  …/groups/{groupId}/invite                                  # { code, url }
+POST …/groups/{groupId}/invite/revoke                           # revoga e devolve o novo { code, url }
+```
+
+### 9.2 Moderação e configuração de grupo (W8 — fila de entrada / travas / foto)
+
+```
+GET  …/groups/{groupId}/membership-requests                     # fila de entrada pendente
+POST …/groups/{groupId}/membership-requests   { "action": "approve|reject", "participants"?: ["5511..."] }
+POST …/groups/{groupId}/settings              { "announce"?: true, "restrict"?: false }
+POST …/groups/{groupId}/photo                 { "url": "https://.../foto.jpg" }
+```
+
+- **`GET membership-requests`** → `[{ id, phone, requestedAt }]` (fila de quem pediu para entrar).
+- **`POST membership-requests`** aprova/rejeita. Sem `participants`, age sobre **toda** a fila; a engine
+  aplica **anti-flood** entre um pedido e o outro (pausa de 250–500 ms) — moderar em massa é seguro.
+- **`settings`** → `announce: true` = **só admins enviam** mensagem; `restrict: true` = **só admins
+  editam** os dados do grupo. Informe um dos dois ou ambos.
+- **`photo`** — o gateway **baixa a imagem da URL** (≤10 MB) e a define como foto do grupo (mesmo
+  padrão de `POST …/profile/photo`).
+- **Engine:** todas essas rotas funcionam nas **duas** engines (Baileys e whatsapp-web.js) — paridade.
+- Resposta das rotas de ação: `{ "ok": true }`.
 
 ## 10. Contatos — agenda da conta (salvar / remover / bloquear)
 

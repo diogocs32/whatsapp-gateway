@@ -37,6 +37,10 @@ export const fakeSessionManager = {
   setGroupDescription: async () => undefined,
   groupInviteCode: async () => 'FAKEINVITE',
   groupRevokeInvite: async () => 'NEWINVITE',
+  groupMembershipRequests: async () => [],
+  groupMembershipAction: async () => undefined,
+  setGroupSetting: async () => undefined,
+  setGroupPhoto: async () => undefined,
   checkNumbers: async (_id: string, numbers: string[]) =>
     numbers.map((n) => ({
       number: n,

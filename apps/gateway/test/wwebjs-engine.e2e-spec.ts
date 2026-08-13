@@ -6,6 +6,7 @@ import {
   mapInboundMediaType,
   authDirOf,
   groupFlags,
+  userAgentFor,
 } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
 import type { GroupChat } from 'whatsapp-web.js';
 import type { BaileysEngineDeps } from '../src/modules/sessions/infrastructure/baileys/baileys.engine';
@@ -233,5 +234,74 @@ describe('WWebJSEngine — mensagens ricas (W5): reações e menções', () => {
     await expect(
       engine.setProfilePhoto(Buffer.from('x'), 'image/jpeg'),
     ).rejects.toThrow(/Sessão não conectada/);
+  });
+});
+
+describe('WWebJSEngine — W8 grupos avançados (membership/settings/foto)', () => {
+  it('groupMembershipRequests/Action e setGroupSetting/Photo vão à lib (sem client)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(engine.groupMembershipRequests('123@g.us')).rejects.toThrow(
+      /Sessão não conectada/,
+    );
+    await expect(
+      engine.groupMembershipAction('123@g.us', 'approve'),
+    ).rejects.toThrow(/Sessão não conectada/);
+    await expect(
+      engine.setGroupSetting('123@g.us', 'announce', true),
+    ).rejects.toThrow(/Sessão não conectada/);
+    await expect(
+      engine.setGroupPhoto('123@g.us', Buffer.from('x'), 'image/jpeg'),
+    ).rejects.toThrow(/Sessão não conectada/);
+  });
+});
+
+describe('userAgentFor — UA anti-flag estável por sessão (P-012)', () => {
+  const clean = (fn: () => void) => {
+    const prev = process.env.WWEBJS_USER_AGENT;
+    delete process.env.WWEBJS_USER_AGENT;
+    try {
+      fn();
+    } finally {
+      if (prev === undefined) delete process.env.WWEBJS_USER_AGENT;
+      else process.env.WWEBJS_USER_AGENT = prev;
+    }
+  };
+
+  it('é DETERMINÍSTICO por sessão (mesmo id → mesmo UA entre reconexões)', () => {
+    clean(() => {
+      expect(userAgentFor('sessao-A')).toBe(userAgentFor('sessao-A'));
+    });
+  });
+
+  it('é um UA de Chrome/Linux plausível e recente (não o Chrome/101 default do wwebjs)', () => {
+    clean(() => {
+      const ua = userAgentFor('qualquer');
+      expect(ua).toMatch(
+        /^Mozilla\/5\.0 \(X11; Linux x86_64\).*Chrome\/14[456]\.0\.0\.0 Safari\/537\.36$/,
+      );
+      expect(ua).not.toMatch(/Chrome\/101/);
+    });
+  });
+
+  it('varia entre sessões diferentes (frota não usa UA idêntico)', () => {
+    clean(() => {
+      const uas = new Set(
+        ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].map(userAgentFor),
+      );
+      expect(uas.size).toBeGreaterThan(1);
+    });
+  });
+
+  it('WWEBJS_USER_AGENT força um override global explícito', () => {
+    const prev = process.env.WWEBJS_USER_AGENT;
+    process.env.WWEBJS_USER_AGENT = 'UA-CUSTOM/1.0';
+    try {
+      expect(userAgentFor('a')).toBe('UA-CUSTOM/1.0');
+      expect(userAgentFor('b')).toBe('UA-CUSTOM/1.0');
+    } finally {
+      if (prev === undefined) delete process.env.WWEBJS_USER_AGENT;
+      else process.env.WWEBJS_USER_AGENT = prev;
+    }
   });
 });

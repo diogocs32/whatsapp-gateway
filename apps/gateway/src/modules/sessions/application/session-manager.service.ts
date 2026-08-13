@@ -27,7 +27,10 @@ import type {
   EngineEventName,
   GroupInfo,
   GroupParticipantAction,
+  GroupSettingKey,
   IEngine,
+  MembershipAction,
+  MembershipRequest,
   MessagePayload,
   PresenceState,
   SaveContactInput,
@@ -525,6 +528,40 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   }
   groupRevokeInvite(sessionId: string, jid: string): Promise<string> {
     return this.working(sessionId).groupRevokeInvite(jid);
+  }
+  groupMembershipRequests(
+    sessionId: string,
+    jid: string,
+  ): Promise<MembershipRequest[]> {
+    return this.working(sessionId).groupMembershipRequests(jid);
+  }
+  groupMembershipAction(
+    sessionId: string,
+    jid: string,
+    action: MembershipAction,
+    participants?: string[],
+  ): Promise<void> {
+    return this.working(sessionId).groupMembershipAction(
+      jid,
+      action,
+      participants,
+    );
+  }
+  setGroupSetting(
+    sessionId: string,
+    jid: string,
+    setting: GroupSettingKey,
+    enabled: boolean,
+  ): Promise<void> {
+    return this.working(sessionId).setGroupSetting(jid, setting, enabled);
+  }
+  setGroupPhoto(
+    sessionId: string,
+    jid: string,
+    image: Buffer,
+    mimetype: string,
+  ): Promise<void> {
+    return this.working(sessionId).setGroupPhoto(jid, image, mimetype);
   }
 
   // ---- Contatos (F5) ----

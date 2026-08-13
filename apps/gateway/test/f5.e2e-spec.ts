@@ -157,4 +157,67 @@ describe('F5 grupos/contatos/canais (e2e)', () => {
     expect(res.statusCode).toBe(201);
     expect(res.json().name).toBe('Canal Fake');
   });
+
+  // W8 — grupos avançados (membership requests / settings / foto)
+  it('GET membership-requests → 200 array', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/s1/groups/123-456@g.us/membership-requests',
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.json())).toBe(true);
+  });
+
+  it('membership action inválida → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups/123-456@g.us/membership-requests',
+      headers: jsonAuth(),
+      payload: { action: 'maybe' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('membership approve (fila toda) → 201 ok', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups/123-456@g.us/membership-requests',
+      headers: jsonAuth(),
+      payload: { action: 'approve' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().ok).toBe(true);
+  });
+
+  it('settings sem announce nem restrict → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups/123-456@g.us/settings',
+      headers: jsonAuth(),
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('settings announce+restrict → 201 ok', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups/123-456@g.us/settings',
+      headers: jsonAuth(),
+      payload: { announce: true, restrict: false },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().ok).toBe(true);
+  });
+
+  it('group photo com url inválida → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/s1/groups/123-456@g.us/photo',
+      headers: jsonAuth(),
+      payload: { url: 'não-é-url' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });

@@ -26,7 +26,10 @@ import type {
   GroupParticipantAction,
   GroupParticipantInfo,
   GroupParticipantRole,
+  GroupSettingKey,
   IEngine,
+  MembershipAction,
+  MembershipRequest,
   MessageSource,
   PresenceState,
   SaveContactInput,
@@ -38,9 +41,10 @@ import type {
 import type { SessionStatus } from '../../domain/session-status';
 
 // Caminho do Chrome do sistema (no WSL já existe /usr/bin/google-chrome-stable). Configurável por env.
+// `||` (não `??`): env VAZIA se comporta como ausente — mesma semântica do envStr() do config.ts.
 const CHROME_PATH =
-  process.env.WWEBJS_CHROME_PATH ?? '/usr/bin/google-chrome-stable';
-const AUTH_PATH = process.env.WWEBJS_DATA_PATH ?? 'auth/wwebjs';
+  process.env.WWEBJS_CHROME_PATH || '/usr/bin/google-chrome-stable';
+const AUTH_PATH = process.env.WWEBJS_DATA_PATH || 'auth/wwebjs';
 
 // Versão do WhatsApp Web a FIXAR. Sem fixar, o wwebjs baixa a versão "ao vivo" do web.whatsapp.com a
 // cada conexão e a renegocia (é o "fica atualizando muito tempo") — e uma build ruim do WhatsApp Web
@@ -52,7 +56,7 @@ const AUTH_PATH = process.env.WWEBJS_DATA_PATH ?? 'auth/wwebjs';
 // WWEBJS_WEB_VERSION aceita: versão explícita | 'auto' (currentVersion do wa-version — MAIS NOVA,
 // risco de LID-only nos contatos) | 'live' (não fixa).
 const DEFAULT_WEB_VERSION = '2.3000.1042271047-alpha';
-const WEB_VERSION_MODE = process.env.WWEBJS_WEB_VERSION ?? DEFAULT_WEB_VERSION;
+const WEB_VERSION_MODE = process.env.WWEBJS_WEB_VERSION || DEFAULT_WEB_VERSION;
 const WEB_VERSION_REMOTE =
   'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html';
 // versions.json do wa-version: { currentVersion, versions: [{ version, expire, ... }] }.
@@ -65,11 +69,26 @@ const AUTO_WEB_VERSION_TTL_MS = 6 * 60 * 60 * 1000;
 // baixa o HTML do GitHub a CADA initialize (persist() é no-op); com o arquivo pré-baixado aqui,
 // o LocalWebCache lê do disco e o start não depende de rede para a versão.
 const WEB_CACHE_DIR = join(resolve(AUTH_PATH), '.webcache');
-// UA alinhado ao Chromium real (Linux/146). O default do wwebjs é Chrome/101 (2022), que pode disparar
-// o aviso de "navegador desatualizado" do WhatsApp Web. Configurável por env.
-const USER_AGENT =
-  process.env.WWEBJS_USER_AGENT ??
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
+// P-012 anti-flag — UA realista, ESTÁVEL POR SESSÃO (paridade com o browser-fingerprint do
+// Baileys): determinístico pelo sessionId — estável entre reconexões (trocar UA a cada conexão é
+// suspeito) e distinto entre sessões (frota inteira com UA idêntico denuncia automação). Varia SÓ a
+// versão do Chrome (UA reduction: minor congelado em .0.0.0); a plataforma fica Linux DE VERDADE —
+// UA de Windows num Chromium Linux diverge de navigator.platform e é MAIS detectável, não menos.
+// O default do wwebjs seria Chrome/101 (2022), que dispara o aviso de "navegador desatualizado".
+// WWEBJS_USER_AGENT (env) segue como override global explícito. Exportado para teste.
+const CHROME_UA_MAJORS = [144, 145, 146] as const;
+export function userAgentFor(sessionId: string): string {
+  const override = process.env.WWEBJS_USER_AGENT;
+  if (override) return override;
+  // FNV-1a 32-bit — o mesmo hash determinístico do browser-fingerprint.ts do Baileys.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < sessionId.length; i++) {
+    h ^= sessionId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  const major = CHROME_UA_MAJORS[(h >>> 0) % CHROME_UA_MAJORS.length]!;
+  return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
+}
 
 // Máximo de reconexões automáticas seguidas antes de desistir e marcar DEGRADED (espelha o
 // Baileys — baileys.engine.ts:398). O contador zera a cada 'ready' (conexão bem-sucedida).
@@ -274,6 +293,24 @@ export class WWebJSEngine implements IEngine {
       return;
     }
 
+    // Chromium inexistente (typo/ausência em WWEBJS_CHROME_PATH) só estouraria no launch, com um
+    // ENOENT críptico do puppeteer. Falha ANTES (e antes de resolver a webVersion — nada de rede à
+    // toa), com diagnóstico acionável, e corta a reconexão automática (stopped=true): reconectar
+    // não conserta binário ausente. Depois do guard de proxy de propósito: segurança primeiro.
+    try {
+      await access(CHROME_PATH);
+    } catch {
+      this.stopped = true;
+      this.deps.logger.error(
+        { chromePath: CHROME_PATH },
+        'wwebjs: Chromium não encontrado',
+      );
+      this.setStatus('FAILED', {
+        error: `Chromium não encontrado em "${CHROME_PATH}" — instale-o na imagem ou corrija WWEBJS_CHROME_PATH.`,
+      });
+      return;
+    }
+
     // Fixa a versão do WhatsApp Web (acelera/estabiliza o carregamento e evita quebra do Store).
     const webVersion = await this.resolveWebVersion(forceLive);
     // Item 6 — garante o HTML da versão no cache local: 1 download por versão, não por initialize.
@@ -296,7 +333,7 @@ export class WWebJSEngine implements IEngine {
               : { type: 'remote' as const, remotePath: WEB_VERSION_REMOTE },
           }
         : {}),
-      userAgent: USER_AGENT,
+      userAgent: userAgentFor(this.deps.sessionId),
       // Credenciais do proxy (o Chromium não aceita user:pass na URL do --proxy-server; o wwebjs faz
       // o page.authenticate por baixo).
       ...(proxy?.username && proxy.password
@@ -379,6 +416,23 @@ export class WWebJSEngine implements IEngine {
     client.on('auth_failure', (m: string) =>
       this.setStatus('FAILED', { error: `auth_failure: ${m}` }),
     );
+    // Diagnóstico de estabilidade: CONFLICT/UNPAIRED/TIMEOUT chegam AQUI antes do 'disconnected' —
+    // no log fica claro o PORQUÊ da queda (ex.: UNPAIRED = desvinculado pelo celular; CONFLICT =
+    // outro WhatsApp Web abriu com a mesma conta). Sem isto, só se via o sintoma (a desconexão).
+    client.on('change_state', (state) => {
+      this.deps.logger.warn(
+        { sessionId: this.deps.sessionId, state },
+        'wwebjs: estado da conexão mudou',
+      );
+    });
+    // Login por código: o WhatsApp renova o pairing code a cada ~3 min; a rota devolve só o
+    // primeiro. O renovado aparece no log — sem isto, código expirado = beco sem saída silencioso.
+    client.on('code', (code: string) => {
+      this.deps.logger.info(
+        { sessionId: this.deps.sessionId, code },
+        'wwebjs: pairing code renovado',
+      );
+    });
     client.on('disconnected', (reason: unknown) => {
       void this.handleDisconnect(reason);
     });
@@ -619,10 +673,15 @@ export class WWebJSEngine implements IEngine {
   private async destroyWithTimeout(): Promise<void> {
     const client = this.client;
     if (!client) return;
-    await Promise.race([
-      client.destroy().catch(() => {}),
-      new Promise<void>((r) => setTimeout(r, 12_000)),
-    ]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((r) => {
+      timer = setTimeout(r, 12_000);
+    });
+    try {
+      await Promise.race([client.destroy().catch(() => {}), timeout]);
+    } finally {
+      if (timer) clearTimeout(timer); // não deixa o timer vivo 12s após um destroy rápido
+    }
   }
 
   stop(): Promise<void> {
@@ -659,7 +718,13 @@ export class WWebJSEngine implements IEngine {
   }
 
   async requestPairingCode(phoneNumber: string): Promise<string> {
-    return this.req().requestPairingCode(phoneNumber.replace(/\D/g, ''));
+    const code = await this.req().requestPairingCode(
+      phoneNumber.replace(/\D/g, ''),
+    );
+    // Paridade com o Baileys (baileys.engine.ts:1416): o painel/n8n distingue "esperando o código
+    // ser digitado" de "esperando QR". O evento 'code' (acima) loga as renovações (~3 min).
+    this.setStatus('PAIRING_CODE');
+    return code;
   }
 
   async sendText(
@@ -838,10 +903,16 @@ export class WWebJSEngine implements IEngine {
   }
 
   async sendPresence(to: string, state: PresenceState): Promise<void> {
-    const chat = await this.req().getChatById(this.toChatId(to));
+    const c = this.req();
+    // available/unavailable são presença GLOBAL (online/offline da conta) — paridade com o Baileys
+    // (sendPresenceUpdate sem jid). Antes degradavam para clearState do chat, respondendo ok sem
+    // fazer o que o contrato promete (G8: presença global existe no catálogo público).
+    if (state === 'available') return void (await c.sendPresenceAvailable());
+    if (state === 'unavailable') return void (await c.sendPresenceUnavailable());
+    const chat = await c.getChatById(this.toChatId(to));
     if (state === 'composing') await chat.sendStateTyping();
     else if (state === 'recording') await chat.sendStateRecording();
-    // paused/available/unavailable: o wwebjs não tem presença global por chat → limpa o estado.
+    // paused: não há "parou de digitar" explícito no wwebjs → limpa o estado do chat.
     else await chat.clearState();
   }
 
@@ -876,8 +947,12 @@ export class WWebJSEngine implements IEngine {
     try {
       const keyId = msg.id?._serialized ?? '';
       if (msg.fromMe) {
-        await new Promise((r) => setTimeout(r, 3000));
+        // Caminho rápido: sendMessage já resolveu → keyId já está em sentByPanel, sem esperar.
         if (this.sentByPanel.has(keyId)) return; // enviada pelo painel: já emitida
+        // Janela p/ sendMessage lento (message_create pode chegar ANTES do sendMessage resolver).
+        // Só quem cai aqui espera: digitadas no celular (raras) e ecos de envio ainda em trânsito.
+        await new Promise((r) => setTimeout(r, 3000));
+        if (this.sentByPanel.has(keyId)) return;
       }
       const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
       if (!raw || raw === 'status@broadcast') return;
@@ -1052,12 +1127,7 @@ export class WWebJSEngine implements IEngine {
     const num = pn?.replace(/\D/g, '');
     if (!num) return rawId;
     const phoneJid = `${num}@c.us`;
-    // Teto do cache LID→telefone (FIFO): sem isto crescia sem limite pela vida do processo.
-    if (this.lidToPnCache.size >= 5000) {
-      const oldest = this.lidToPnCache.keys().next().value;
-      if (oldest !== undefined) this.lidToPnCache.delete(oldest);
-    }
-    this.lidToPnCache.set(rawId, phoneJid);
+    this.cacheLidPn(rawId, phoneJid);
     await this.mergeLidMessages(rawId, phoneJid);
     this.deps.contacts?.record({
       waId: rawId,
@@ -1067,6 +1137,15 @@ export class WWebJSEngine implements IEngine {
       source: 'wwebjs-lid',
     });
     return phoneJid;
+  }
+
+  // Teto do cache LID→telefone (FIFO): sem isto crescia sem limite pela vida do processo.
+  private cacheLidPn(lid: string, phoneJid: string): void {
+    if (this.lidToPnCache.size >= 5000) {
+      const oldest = this.lidToPnCache.keys().next().value;
+      if (oldest !== undefined) this.lidToPnCache.delete(oldest);
+    }
+    this.lidToPnCache.set(lid, phoneJid);
   }
 
   // Consulta o Store interno do WhatsApp Web (window.Store.LidUtils.getPhoneNumber) via Puppeteer —
@@ -1138,6 +1217,7 @@ export class WWebJSEngine implements IEngine {
   // No 'ready': tenta resolver/fundir todos os @lid já gravados nesta sessão (conversas antigas
   // divididas). As novas são fundidas na entrada via resolveNumberJid.
   private async mergeExistingLids(): Promise<void> {
+    if (this.stopped || !this.client) return; // sessão parou entre o 'ready' e o agendamento
     try {
       const rows = await this.deps.prisma.waMessage.findMany({
         where: {
@@ -1165,6 +1245,7 @@ export class WWebJSEngine implements IEngine {
   // público (pushname) de cada contato — é o que faltava para o diretório mostrar nomes (antes só vinham
   // telefones de mensagens recebidas, sem nome). Roda no 'ready' (fire-and-forget).
   private async syncAddressBook(): Promise<void> {
+    if (this.stopped || !this.client) return; // sessão parou entre o 'ready' e o agendamento
     try {
       const contacts = await this.withStoreReady(() =>
         this.req().getContacts(),
@@ -1278,11 +1359,9 @@ export class WWebJSEngine implements IEngine {
   // Detalha um grupo com os participantes já resolvidos (telefone + nome salvo na agenda).
   async groupInfo(jid: string): Promise<GroupInfo> {
     const g = await this.getGroupChat(jid);
-    const participants: GroupParticipantInfo[] = [];
-    // Sequencial de propósito: paralelizar dezenas de consultas ao Puppeteer trava o Chromium.
-    for (const p of g.participants ?? []) {
-      participants.push(await this.resolveGroupParticipant(p));
-    }
+    const participants = await this.resolveParticipantsBatch(
+      g.participants ?? [],
+    );
     return {
       id: g.id._serialized,
       subject: g.name ?? '',
@@ -1294,49 +1373,128 @@ export class WWebJSEngine implements IEngine {
     };
   }
 
-  // Resolve número + nome de um participante via Store oficial — a força do motor browser.
-  // `Contact.name` é o nome salvo na SUA agenda; `pushname` é o nome público. O @lid é
-  // resolvido para telefone (mesmo mecanismo do merge). Acumula no diretório como lead.
-  private async resolveGroupParticipant(
-    p: GroupParticipant,
-  ): Promise<GroupParticipantInfo> {
-    const id = p.id._serialized;
-    const role: GroupParticipantRole = p.isSuperAdmin
-      ? 'superadmin'
-      : p.isAdmin
-        ? 'admin'
-        : 'member';
-    const lid = p.id.server === 'lid' || id.endsWith('@lid') ? id : null;
-    let phone = p.id.server === 'c.us' ? p.id.user : null;
-    let savedName: string | null = null;
-    let pushName: string | null = null;
+  // Tamanho do chunk da resolução LID→telefone em lote (1 round-trip CDP por chunk).
+  private static readonly LID_BATCH = 50;
+
+  // Resolve número + nome de TODOS os participantes — a extração de leads é a razão de existir
+  // desta engine e era o maior gargalo dela: 1 getContactById (round-trip CDP no Chromium) POR
+  // participante + 1 evaluate POR @lid ⇒ grupo de 500 levava minutos e o comentário mandava não
+  // paralelizar (correto: CDP concorrente trava o Chromium). A resposta não é paralelizar, é
+  // REDUZIR round-trips: 1 getContacts() (mapa id→contato — o Store conhece os participantes) +
+  // getContactLidAndPhone em CHUNKS para os @lid ainda sem número (via oficial da lib,
+  // Client.js:3307) + getContactById individual SÓ se o lote de contatos falhar. Round-trips:
+  // O(N) → O(N/50). Nomes, telefones e o registro no diretório saem idênticos aos de antes.
+  private async resolveParticipantsBatch(
+    list: GroupParticipant[],
+  ): Promise<GroupParticipantInfo[]> {
+    if (!list.length) return [];
+    const byId = new Map<string, Contact>();
     try {
-      const contact = await this.req().getContactById(id);
-      savedName = (contact.name || '').trim() || null;
-      pushName = (contact.pushname || '').trim() || null;
-      if (!phone) {
+      for (const c of await this.withStoreReady(() =>
+        this.req().getContacts(),
+      )) {
+        const id = c.id?._serialized;
+        if (id) byId.set(id, c);
+      }
+    } catch (e) {
+      this.deps.logger.warn(
+        { err: (e as Error)?.message },
+        'wwebjs: getContacts falhou — resolvendo participantes um a um',
+      );
+    }
+    type Row = {
+      id: string;
+      role: GroupParticipantRole;
+      lid: string | null;
+      phone: string | null;
+      savedName: string | null;
+      pushName: string | null;
+    };
+    const rows: Row[] = [];
+    for (const p of list) {
+      const id = p.id._serialized;
+      const role: GroupParticipantRole = p.isSuperAdmin
+        ? 'superadmin'
+        : p.isAdmin
+          ? 'admin'
+          : 'member';
+      const lid = p.id.server === 'lid' || id.endsWith('@lid') ? id : null;
+      let phone = p.id.server === 'c.us' ? p.id.user : null;
+      let contact = byId.get(id);
+      if (!contact && byId.size === 0) {
+        // Lote de contatos indisponível: caminho um-a-um (o comportamento pré-otimização).
+        try {
+          contact = await this.req().getContactById(id);
+        } catch {
+          /* contato pode não ser resolvível pelo Store — segue com o que já temos */
+        }
+      }
+      const savedName = (contact?.name || '').trim() || null;
+      const pushName = (contact?.pushname || '').trim() || null;
+      if (!phone && contact) {
         const num = (contact.number || '').replace(/\D/g, '');
         const idNum = p.id.user.replace(/\D/g, '');
         // contact.number de um @lid às vezes devolve o próprio LID — só aceita se diferir.
         if (num && num !== idNum) phone = num;
       }
-    } catch {
-      /* contato pode não ser resolvível pelo Store — segue com o que já temos */
+      if (!phone && lid) {
+        const cached = this.lidToPnCache.get(lid);
+        if (cached) phone = cached.replace(/\D/g, '');
+      }
+      rows.push({ id, role, lid, phone, savedName, pushName });
     }
-    if (!phone && lid) phone = await this.resolveLidToPhone(lid);
-    const name = savedName ?? pushName;
-    if (phone || name) {
-      this.deps.contacts?.record({
-        waId: id,
-        jid: phone ? `${phone}@s.whatsapp.net` : null,
-        lid,
-        phone,
-        name: savedName,
-        pushName,
-        source: 'wwebjs-group',
-      });
+    await this.resolvePendingLids(rows.filter((r) => !r.phone && r.lid));
+    return rows.map((r) => {
+      const name = r.savedName ?? r.pushName;
+      if (r.phone || name) {
+        this.deps.contacts?.record({
+          waId: r.id,
+          jid: r.phone ? `${r.phone}@s.whatsapp.net` : null,
+          lid: r.lid,
+          phone: r.phone,
+          name: r.savedName,
+          pushName: r.pushName,
+          source: 'wwebjs-group',
+        });
+      }
+      return { id: r.id, role: r.role, phone: r.phone, name };
+    });
+  }
+
+  // Resolve @lid pendentes em chunks pela via OFICIAL em lote (getContactLidAndPhone força o par
+  // LID↔PN no Store para o array inteiro num único evaluate; a ordem do retorno espelha a entrada).
+  // Se o lote falhar, cai no resolveLidToPhone artesanal um a um (o mecanismo pré-existente).
+  // Muta `rows` no lugar e alimenta o cache LID→telefone.
+  private async resolvePendingLids(
+    rows: { lid: string | null; phone: string | null }[],
+  ): Promise<void> {
+    for (let i = 0; i < rows.length; i += WWebJSEngine.LID_BATCH) {
+      const chunk = rows.slice(i, i + WWebJSEngine.LID_BATCH);
+      const lids = chunk.map((r) => r.lid ?? '');
+      // Runtime pode devolver lid/pn undefined (d.ts otimista) — daí o tipo frouxo + guards.
+      let resolved: ({ lid?: string; pn?: string } | undefined)[] | null = null;
+      try {
+        resolved = await this.req().getContactLidAndPhone(lids);
+      } catch (e) {
+        this.deps.logger.warn(
+          { err: (e as Error)?.message, count: lids.length },
+          'wwebjs: lote LID→telefone falhou — resolvendo um a um',
+        );
+      }
+      for (let j = 0; j < chunk.length; j++) {
+        const row = chunk[j]!;
+        const lid = row.lid ?? '';
+        let num: string | null = null;
+        const pn = resolved?.[j]?.pn;
+        if (pn?.endsWith('@c.us')) num = pn.replace(/\D/g, '');
+        if (!num && !resolved) num = await this.resolveLidToPhone(lid);
+        const lidNum = lid.replace(/\D/g, '');
+        if (num && num !== lidNum) {
+          row.phone = num;
+          this.cacheLidPn(lid, `${num}@c.us`);
+        }
+      }
     }
-    return { id, role, phone, name };
   }
 
   private toGroupId(jid: string): string {
@@ -1392,6 +1550,60 @@ export class WWebJSEngine implements IEngine {
     // revokeInvite() da lib devolve void — buscamos o código NOVO para casar o contrato (string).
     await g.revokeInvite();
     return g.getInviteCode();
+  }
+
+  // W8 — fila de entrada do grupo (membership requests). `t` é o unix seconds do pedido.
+  async groupMembershipRequests(jid: string): Promise<MembershipRequest[]> {
+    const g = await this.getGroupChat(jid);
+    const reqs = await g.getGroupMembershipRequests();
+    return reqs.map((r) => {
+      const id =
+        (r.id as { _serialized?: string })?._serialized ?? String(r.id ?? '');
+      const num = id.endsWith('@c.us') ? id.replace(/\D/g, '') : null;
+      return {
+        id,
+        phone: num || null,
+        requestedAt: typeof r.t === 'number' ? r.t : null,
+      };
+    });
+  }
+
+  // W8 — aprova/rejeita pedidos (todos, se participants vazio). `sleep` = anti-flood da lib entre
+  // um requester e o próximo (default [250,500] ms) — obrigatório para não disparar flag na moderação
+  // em massa. `requesterIds: null` = a lib age sobre TODA a fila.
+  async groupMembershipAction(
+    jid: string,
+    action: MembershipAction,
+    participants?: string[],
+  ): Promise<void> {
+    const g = await this.getGroupChat(jid);
+    const requesterIds = participants?.length
+      ? participants.map((p) => this.toChatId(p))
+      : null;
+    const opts = { requesterIds, sleep: [250, 500] as [number, number] };
+    if (action === 'approve') await g.approveGroupMembershipRequests(opts);
+    else await g.rejectGroupMembershipRequests(opts);
+  }
+
+  // W8 — announce (só admin envia) / restrict (só admin edita a info) do grupo.
+  async setGroupSetting(
+    jid: string,
+    setting: GroupSettingKey,
+    enabled: boolean,
+  ): Promise<void> {
+    const g = await this.getGroupChat(jid);
+    if (setting === 'announce') await g.setMessagesAdminsOnly(enabled);
+    else await g.setInfoAdminsOnly(enabled);
+  }
+
+  // W8 — foto do grupo.
+  async setGroupPhoto(
+    jid: string,
+    image: Buffer,
+    mimetype: string,
+  ): Promise<void> {
+    const g = await this.getGroupChat(jid);
+    await g.setPicture(new MessageMedia(mimetype, image.toString('base64')));
   }
 
   // Verifica se cada número tem WhatsApp e devolve o JID canônico (getNumberId corrige o 9º dígito BR).
