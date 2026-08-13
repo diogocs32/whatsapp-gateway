@@ -7,6 +7,7 @@ import {
   authDirOf,
   buildAuthProxyUrl,
   groupFlags,
+  raceStoreOp,
   userAgentFor,
 } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
 import type { GroupChat } from 'whatsapp-web.js';
@@ -362,5 +363,119 @@ describe('userAgentFor — UA anti-flag estável por sessão (P-012)', () => {
       if (prev === undefined) delete process.env.WWEBJS_USER_AGENT;
       else process.env.WWEBJS_USER_AGENT = prev;
     }
+  });
+});
+
+describe('raceStoreOp + withStoreReady com teto (P-014 — página do Store travada)', () => {
+  // Acesso ao método privado com timeouts injetados (defaults de produção são 10s/45s).
+  type StoreReady = {
+    withStoreReady<T>(
+      fn: () => Promise<T>,
+      attempts?: number,
+      delayMs?: number,
+      opTimeoutMs?: number,
+      probeTimeoutMs?: number,
+    ): Promise<T>;
+    client: unknown;
+    lastLoadingPct: number | null;
+  };
+  const asStore = (e: WWebJSEngine) => e as unknown as StoreReady;
+  const hang = () => new Promise<never>(() => undefined);
+
+  it('raceStoreOp: operação rápida passa; pendurada estoura com mensagem acionável + teto', async () => {
+    await expect(raceStoreOp(Promise.resolve(42), 50, 'x')).resolves.toBe(42);
+    await expect(
+      raceStoreOp(hang(), 20, 'Operação X não respondeu'),
+    ).rejects.toThrow(/Operação X não respondeu \(teto de \d+s\)/);
+  });
+
+  it('raceStoreOp: rejeição TARDIA da promise órfã é engolida (sem unhandled rejection)', async () => {
+    let rejectLate!: (e: Error) => void;
+    const op = new Promise<never>((_, rej) => (rejectLate = rej));
+    await expect(raceStoreOp(op, 10, 'y')).rejects.toThrow(/teto/);
+    rejectLate(new Error('tarde demais'));
+    // Se a rejeição tardia NÃO fosse engolida, o vitest derrubaria o arquivo com unhandled rejection.
+    await new Promise((r) => setTimeout(r, 20));
+  });
+
+  it('probe detecta página que não responde ANTES da operação pesada (fn nem é chamado)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    asStore(engine).client = { getState: () => hang() };
+    let fnCalled = false;
+    await expect(
+      asStore(engine).withStoreReady(
+        async () => {
+          fnCalled = true;
+          return 1;
+        },
+        1,
+        1,
+        100,
+        20,
+      ),
+    ).rejects.toThrow(
+      /Página do WhatsApp Web não responde.*P-014.*Reinicie a sessão/,
+    );
+    expect(fnCalled).toBe(false);
+  });
+
+  it('operação pendurada estoura o teto próprio (não os 240s do CDP) SEM retry', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    asStore(engine).client = { getState: async () => 'CONNECTED' };
+    let calls = 0;
+    await expect(
+      asStore(engine).withStoreReady(
+        () => {
+          calls++;
+          return hang();
+        },
+        8,
+        1,
+        20,
+        100,
+      ),
+    ).rejects.toThrow(/Operação no WhatsApp Web não respondeu/);
+    expect(calls).toBe(1); // teto estourado NÃO reintenta — evita empilhar chamadas CDP órfãs
+  });
+
+  it('retry do Store-ainda-injetando continua funcionando (regressão do fluxo original)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    asStore(engine).client = { getState: async () => 'CONNECTED' };
+    let calls = 0;
+    const result = await asStore(engine).withStoreReady(
+      async () => {
+        calls++;
+        if (calls === 1)
+          throw new Error(
+            "Evaluation failed: Cannot read properties of undefined (reading 'getChats')",
+          );
+        return 42;
+      },
+      3,
+      1,
+      100,
+      100,
+    );
+    expect(result).toBe(42);
+    expect(calls).toBe(2);
+  });
+
+  it('mensagem de erro inclui o percent do loading_screen quando houve progresso (diagnóstico)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    asStore(engine).client = { getState: () => hang() };
+    asStore(engine).lastLoadingPct = 37;
+    await expect(
+      asStore(engine).withStoreReady(async () => 1, 1, 1, 100, 20),
+    ).rejects.toThrow(/sincronização vista em 37%/);
+  });
+
+  it('sem client: comportamento antigo preservado (probe não roda, erro "Sessão não conectada")', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(engine.listChats(5)).rejects.toThrow('Sessão não conectada');
   });
 });

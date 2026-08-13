@@ -168,6 +168,40 @@ export function authDirOf(sessionId: string): string {
   return join(resolve(AUTH_PATH), `session-${sessionId}`);
 }
 
+// Tetos das operações de Store (P-014): a página do WhatsApp Web pode PENDURAR após reconexões de
+// QR (evaluate nunca resolve) e o chamador ficava preso os 240s do protocolTimeout do CDP. O probe
+// curto detecta página morta antes da operação; o teto por operação devolve erro acionável em
+// segundos. Dimensionados para NÃO abortar sincronização legítima (getChats real volta em <30s).
+const STORE_PROBE_TIMEOUT_MS = 10_000;
+const STORE_OP_TIMEOUT_MS = 45_000;
+
+// Corre uma promise de Store contra um teto. O race NÃO cancela a chamada CDP subjacente (fica
+// pendente no Chromium até o protocolTimeout) — o teto existe para devolver o erro acionável AGORA
+// em vez de prender o chamador; a rejeição tardia da promise órfã é engolida (sem unhandled).
+// Exportada para teste.
+export async function raceStoreOp<T>(
+  op: Promise<T>,
+  ms: number,
+  timeoutMsg: string,
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const ceiling = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(new Error(`${timeoutMsg} (teto de ${Math.round(ms / 1000)}s)`)),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([op, ceiling]);
+  } catch (e) {
+    op.catch(() => undefined); // perdeu o race: engole a rejeição tardia da chamada órfã
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Engine alternativa (F8) usando whatsapp-web.js (Puppeteer + Chrome do sistema). Mesmo contrato
 // IEngine do BaileysEngine, escolhida por sessão via EngineFactory. Cobre conexão/QR, status,
 // enviar/receber texto e mídia (S3), grupos (incl. extração de leads via Store oficial), contatos
@@ -196,6 +230,10 @@ export class WWebJSEngine implements IEngine {
   private lifecycle: Promise<unknown> = Promise.resolve();
   // Reconexões automáticas seguidas (backoff). Zera no 'ready'. Ver handleDisconnect.
   private reconnectAttempts = 0;
+  // Último percent visto no loading_screen (sincronização offline pós-login). Diagnóstico do
+  // P-014: entra na mensagem de erro quando uma operação de Store estoura o teto — distingue
+  // "ainda sincronizando em X%" de "página travada sem nunca ter emitido progresso" (null).
+  private lastLoadingPct: number | null = null;
 
   constructor(private readonly deps: BaileysEngineDeps) {}
 
@@ -432,11 +470,13 @@ export class WWebJSEngine implements IEngine {
       browserName: 'Chrome',
     });
     this.client = client;
+    this.lastLoadingPct = null; // página nova: progresso de sincronização recomeça do zero
     this.setStatus('STARTING');
 
     // Progresso da sincronização offline — torna visível o "demora muito" (em vez de ficar cego no
     // STARTING). Útil para diagnosticar carregamento lento (ex.: via proxy).
     client.on('loading_screen', (percent: number, message: string) => {
+      this.lastLoadingPct = Number(percent);
       this.deps.logger.info(
         { percent, message },
         'wwebjs: carregando WhatsApp Web',
@@ -1368,15 +1408,38 @@ export class WWebJSEngine implements IEngine {
   // 1.34.7: logo após o `ready` o Store (window.WWebJS) pode ainda não estar injetado, e getChats/
   // getChatById estouram "Cannot read properties of undefined (reading 'getChats')". Em vez de falhar,
   // aguarda e tenta de novo (o Store fica pronto em segundos). Ver issue wwebjs #3505.
+  //
+  // P-014 (página do Store travada após reconexões de QR): quando a página PENDURA — o evaluate
+  // nunca resolve nem rejeita — o retry acima não atua e o chamador ficava preso os 240s do
+  // protocolTimeout (CDP). Dois tetos curtos resolvem a UX sem mascarar sincronização legítima:
+  // 1) PROBE: um `getState()` (evaluate trivial, Client.js:1975) com teto próprio detecta página
+  //    morta em segundos, ANTES de disparar a operação pesada;
+  // 2) TETO por tentativa: a operação corre num raceStoreOp — estourou, erro ACIONÁVEL na hora
+  //    (sem retry: a chamada CDP subjacente segue órfã no Chromium; repetir só empilharia outra).
   private async withStoreReady<T>(
     fn: () => Promise<T>,
     attempts = 8,
     delayMs = 1500,
+    opTimeoutMs = STORE_OP_TIMEOUT_MS,
+    probeTimeoutMs = STORE_PROBE_TIMEOUT_MS,
   ): Promise<T> {
+    if (this.client) {
+      // Estado em si não importa (o .catch cobre client ainda sem pupPage — segue para o fn(),
+      // cujo erro real cai no retry abaixo); só a RESPONSIVIDADE da página interessa aqui.
+      await raceStoreOp(
+        this.client.getState().catch(() => null),
+        probeTimeoutMs,
+        `Página do WhatsApp Web não responde${this.syncHint()} — provável sincronização travada após reconexão (P-014). Reinicie a sessão`,
+      );
+    }
     let lastErr: unknown;
     for (let i = 0; i < attempts; i++) {
       try {
-        return await fn();
+        return await raceStoreOp(
+          fn(),
+          opTimeoutMs,
+          `Operação no WhatsApp Web não respondeu${this.syncHint()} — a página pode ainda estar sincronizando. Tente novamente em instantes; se persistir, reinicie a sessão`,
+        );
       } catch (e) {
         const msg = (e as Error)?.message ?? '';
         const storeNotReady =
@@ -1395,6 +1458,14 @@ export class WWebJSEngine implements IEngine {
     throw new Error(
       `WhatsApp Web ainda sincronizando (Store indisponível após ${attempts} tentativas) — tente em alguns segundos. Causa: ${(lastErr as Error)?.message ?? 'desconhecida'}`,
     );
+  }
+
+  // Contexto de sincronização para as mensagens de erro do P-014: "em 37%" = sincronizando de
+  // verdade (aguarde); nada = a página nunca emitiu loading_screen nesta subida (travou antes).
+  private syncHint(): string {
+    return this.lastLoadingPct != null
+      ? ` (sincronização vista em ${this.lastLoadingPct}%)`
+      : '';
   }
 
   // ---- W7: inbox/histórico (backfill do banco a partir do store do WhatsApp Web) ----
