@@ -99,3 +99,22 @@ Logo após salvar, valide nos DOIS sentidos:
 
 Esvaziar o campo Watch Paths volta ao comportamento atual (deploya em qualquer push).
 Config não-destrutiva e reversível a qualquer momento.
+
+## Aplicado em
+
+### 2026-08-13 — configurado nos 2 apps + teste 1 OK
+
+- Painel Dokploy (`http://187.77.248.160:3000`, projeto **campanha / production**),
+  aba **General → Provider → Watch Paths** (fica logo abaixo de Branch/Trigger Type).
+  O campo é de "chips": digita o padrão + botão **[+]** cria a etiqueta; **Save** persiste
+  (toast "Service Provider Saved"). Dokploy v0.29.13.
+- **gateway** (`conexozenvo`, `campanha-conexozenvo-z9ldgl`): `apps/gateway/**` ·
+  `packages/contracts/**` · `package.json` · `package-lock.json`.
+- **dashboard** (`conexozenvo dashboard`, `campanha-dashboard-5rxpk8`): `apps/dashboard/**` ·
+  `packages/contracts/**` · `package.json` · `package-lock.json`.
+- **Teste 1 (doc-only NÃO deploya) — PASSOU:** push do commit `cca541a` (só `docs/`) →
+  em ambos os apps o último deployment permaneceu `dca6f26` (nenhuma build nova). ✅
+- **Teste 2 (código DEPLOYA):** não forçado de propósito (rebuild = restart do gateway,
+  R0). Será confirmado no **próximo push de código real** — deve aparecer uma deployment
+  nova no app correspondente. Se NÃO aparecer, a lista está incompleta: adicione o path
+  que você mexeu.

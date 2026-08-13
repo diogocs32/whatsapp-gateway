@@ -29,6 +29,7 @@
 - **Guard-rail G1–G8:** implementado e em produção em modo OBSERVAÇÃO (`GUARDRAIL_ENFORCE=false`) — ligar é a M2
 - **Node n8n** `n8n-nodes-conexozenvo-gateway`: publicado no npm (v0.4.1) — repo separado; o contrato `/api` atual é a v1 de fato (R0/R4)
 - **Webhook de deploy do Dokploy:** intermitente no histórico (2 falhas em 03/07), mas disparou normal nos 2 pushes de 10/07 (~4,5 min de ciclo) — seguir observando
+- **Watch Paths (13/08):** configurado nos 2 apps (gateway + dashboard) para NÃO redeployar em commit só de `docs/` — lista de inclusão `apps/<app>/**` + `packages/contracts/**` + `package.json` + `package-lock.json`. **Teste 1 OK** (push doc-only `cca541a` não gerou build em nenhum app). Teste 2 (código deploya) valida no próximo push de código real. Runbook: [how-to/dokploy-watch-paths.md](how-to/dokploy-watch-paths.md).
 - **Push 13/08 (origin/main = `9cb5686`):** todas as ondas wwebjs (W1–W8 + qualidade/desempenho MAX) e a base v4.3 estão no remoto e **em produção** — deploy confirmado pelo `/health` (ver "Último deploy"). Resta só o smoke funcional (runbook [how-to/smoke-test-wwebjs-w8-qualidade.md](how-to/smoke-test-wwebjs-w8-qualidade.md)).
 
 ## Divergência dev × produção
