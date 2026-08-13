@@ -74,13 +74,22 @@ passo agora é DESTRAVAR A OBSERVABILIDADE (abaixo).
 - ⚠️ Login do Dokploy EXPIROU no meio (~23:45) — a leitura final do log ficou bloqueada no dono
   logar de novo.
 
-### Próximo passo imediato (assim que o dono logar no Dokploy)
-1. Logs → container atual → Limit 5000 → filtro `wwebjs:` → ler: `usando proxy` (#27?),
-   `forwarder local`, e **`carregando WhatsApp Web` (percent)** na janela do restart ~23:40 UTC.
-2. Travou <100% (ou ausente) ⇒ sincronização pós-login não completa nesta build/perfil. Caminho:
-   **B-002 bisect antecipado** — pinar candidata ≤1044.x (ex.: `2.3000.1044967578-alpha`),
-   deploy, **new-qr na DIOGO** (purge + QR novo na build candidata) e validar grupos+leads+phone.
-3. Mergear+pushar esta branch (o teto/probe corta os pendurados de 240s → erro acionável em ~10s).
+### 🎯 CAUSA CRAVADA (13/08 ~23:55 UTC — loading_screen lido com o dono logado)
+Progressão no container `4d128e828504` (horários BRT): **20:22 `0%` → 20:27 `100%` ✅** (1ª subida,
+auto-restore no boot — sincronizou COMPLETA) · **20:37:52 `0%` → 20:38:00 `70%` → :01 `87%` →
+:02 `99%` 🔴 e NUNCA progrediu** (2ª subida, o restart da validação). Conclusão: **a
+re-sincronização pós-subida é uma LOTERIA na build `1042271047` — às vezes fecha (100%), às vezes
+empaca nos últimos 1% (99%) e aí TODO evaluate do Store pendura para sempre** (getChats/
+getContacts 240s → `Runtime.callFunctionOn timed out`). Não é proxy, não é rajada de QR, não é
+memória. Os travamentos de 17:12/17:24 e o probe 20:42 são o MESMO fenômeno (sync empacada).
+Errata: o filtro de busca do Dokploy quebra com `:` — "wwebjs:" retornava vazio e escondeu a 1ª
+subida; usar termos sem dois-pontos (ex.: `carregando`, `wwebjs`).
+
+**Mitigações:** (a) código desta branch (teto/probe — erro acionável em ~10s com o % da sync na
+mensagem, em vez de 240s mudo); (b) operacional: restart re-rola a loteria até pegar 100%;
+(c) DEFINITIVO (candidato): bisect B-002 (~25/08) numa build ≤1044.x que sincronize estável —
+testar grupos+leads+phone E a sync 100% na mesma janela; (d) futuro (P-001 watchdog): auto-reload
+quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct`) para isso.
 
 ## 🎯 PLANO REVISADO (substitui a ordem antiga; passos antigos mantidos abaixo para contexto)
 
