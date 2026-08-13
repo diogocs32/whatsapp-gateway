@@ -14,6 +14,7 @@ import type {
   Reaction,
 } from 'whatsapp-web.js';
 import * as QRCode from 'qrcode';
+import { anonymizeProxy, closeAnonymizedProxy } from 'proxy-chain';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
@@ -146,6 +147,20 @@ export function groupFlags(g: GroupChat): {
   return { announce: !!md?.announce, restrict: !!md?.restrict };
 }
 
+// Monta a URL do proxy COM credenciais para o upstream do forwarder local (proxy-chain). Usa os
+// setters do WHATWG URL, que aplicam o percent-encode do userinfo — senha com @ : / # não quebra
+// a URL (o proxy-chain decodifica ao montar o Proxy-Authorization). Exportada para teste.
+export function buildAuthProxyUrl(
+  server: string,
+  username: string,
+  password: string,
+): string {
+  const url = new URL(server);
+  url.username = username;
+  url.password = password;
+  return url.toString();
+}
+
 // Diretório do perfil do Chromium (LocalAuth) desta sessão no volume persistente
 // (`{WWEBJS_DATA_PATH}/session-<sessionId>`, ver LocalAuth.js:35). É onde o wwebjs guarda as
 // credenciais — ao contrário do Baileys, que usa o Postgres. Exportado para teste (contrato do path).
@@ -169,6 +184,9 @@ export class WWebJSEngine implements IEngine {
   // keyId das mensagens enviadas PELO painel (sendText/sendMedia) — para o handler message_create
   // não duplicá-las (já são emitidas no envio). Sobra capturar as enviadas pelo próprio celular.
   private readonly sentByPanel = new Set<string>();
+  // URL do forwarder LOCAL (proxy-chain) que anonimiza o proxy autenticado deste start.
+  // Fechado no stop/logout/queda/falha de init para liberar a porta (ver closeAnonProxy).
+  private anonProxyUrl: string | null = null;
   // Mutex de ciclo de vida: serializa start/stop/logout da MESMA sessão. Sem isto, um restart
   // (stop→start) ou cliques/polling repetidos podem lançar 2 Chromium no mesmo userDataDir — entre o
   // `puppeteer.launch` (whatsapp-web.js Client.js:462) e o `this.pupBrowser = browser` (Client.js:477)
@@ -321,6 +339,37 @@ export class WWebJSEngine implements IEngine {
       ? await this.ensureWebVersionHtml(webVersion)
       : false;
 
+    // Proxy AUTENTICADO vai por forwarder LOCAL (proxy-chain), não por page.authenticate. Visto em
+    // produção (13/08, Webshare static residential): o proxy responde o 407 do CONNECT com
+    // "Connection: close", e a auth por desafio do Puppeteer (interceptação Fetch) não completa —
+    // o Chromium falha com ERR_TUNNEL_CONNECTION_FAILED e o proxy (são) era marcado DEAD. O
+    // forwarder inverte o jogo: o Chromium fala com 127.0.0.1 SEM auth e o proxy-chain injeta o
+    // Proxy-Authorization no upstream JÁ no 1º CONNECT — o mesmo caminho proativo do
+    // https-proxy-agent que faz o health-tester e o Baileys funcionarem nesses proxies. Cobre
+    // página, service worker e WebSocket de uma vez. Doc: README do proxy-chain (anonymizeProxy).
+    await this.closeAnonProxy(); // reconexão/retry pode ter deixado o forwarder do start anterior
+    let proxyServer = proxy?.server ?? null;
+    let nativeProxyAuth = false;
+    if (proxy?.username && proxy.password) {
+      try {
+        this.anonProxyUrl = await anonymizeProxy(
+          buildAuthProxyUrl(proxy.server, proxy.username, proxy.password),
+        );
+        proxyServer = this.anonProxyUrl;
+        this.deps.logger.info(
+          { upstream: proxy.server, local: this.anonProxyUrl },
+          'wwebjs: proxy autenticado anonimizado em forwarder local (proxy-chain)',
+        );
+      } catch (e) {
+        // Fallback: caminho antigo (page.authenticate) — tentar é melhor do que não conectar.
+        nativeProxyAuth = true;
+        this.deps.logger.warn(
+          { err: (e as Error)?.message, server: proxy.server },
+          'wwebjs: falha ao subir o forwarder local — caindo para page.authenticate (CONNECT pode falhar)',
+        );
+      }
+    }
+
     const client = new Client({
       authStrategy: new LocalAuth({
         clientId: this.deps.sessionId,
@@ -337,9 +386,10 @@ export class WWebJSEngine implements IEngine {
           }
         : {}),
       userAgent: userAgentFor(this.deps.sessionId),
-      // Credenciais do proxy (o Chromium não aceita user:pass na URL do --proxy-server; o wwebjs faz
-      // o page.authenticate por baixo).
-      ...(proxy?.username && proxy.password
+      // page.authenticate SÓ no fallback (forwarder local indisponível): o Chromium não aceita
+      // user:pass na URL do --proxy-server, e a auth por desafio falha com proxies que fecham a
+      // conexão no 407 do CONNECT (ver bloco do proxy-chain acima).
+      ...(nativeProxyAuth && proxy?.username && proxy.password
         ? {
             proxyAuthentication: {
               username: proxy.username,
@@ -354,7 +404,7 @@ export class WWebJSEngine implements IEngine {
         protocolTimeout: 240_000,
         defaultViewport: { width: 1024, height: 768 },
         args: [
-          ...(proxy ? [`--proxy-server=${proxy.server}`] : []),
+          ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
@@ -565,6 +615,7 @@ export class WWebJSEngine implements IEngine {
       /* noop */
     }
     this.client = null;
+    await this.closeAnonProxy(); // um retry (doStart abaixo) sobe forwarder novo; sem retry, libera a porta
     if (this.stopped) return; // stop()/logout() pediu parada — não sobrescreve o STOPPED
     // Item 8 — fallback de proxy: o proxy atual falhou em uso real. Marca-o DEAD e, nos modos
     // rotativos, tenta de novo UMA vez — o resolve() do retry pula os DEAD e entrega o próximo
@@ -635,7 +686,11 @@ export class WWebJSEngine implements IEngine {
       /* a própria lib já pode ter destruído */
     }
     // Só zera se ninguém trocou o client no meio-tempo (não nula uma instância nova de reconexão).
-    if (this.client === dead) this.client = null;
+    if (this.client === dead) {
+      this.client = null;
+      // Forwarder do start que caiu não serve mais (a reconexão sobe um novo no doStart).
+      await this.closeAnonProxy();
+    }
 
     if (this.stopped) {
       this.setStatus('STOPPED', { error: null });
@@ -669,6 +724,16 @@ export class WWebJSEngine implements IEngine {
     }, delay);
   }
 
+  // Fecha o forwarder local (proxy-chain) deste start, se houver — libera a porta e derruba
+  // conexões pendentes (closeConnections=true: o Chromium já morreu/vai morrer, não há o que drenar).
+  // Idempotente e à prova de dupla chamada (zera a referência ANTES do await).
+  private async closeAnonProxy(): Promise<void> {
+    const url = this.anonProxyUrl;
+    if (!url) return;
+    this.anonProxyUrl = null;
+    await closeAnonymizedProxy(url, true).catch(() => undefined);
+  }
+
   // Fecha o Chromium com TETO de tempo: um destroy() que pendura (Chromium travado) não pode
   // bloquear a fila `lifecycle` (mutex) desta sessão para sempre — sem o teto, todo start/stop/logout
   // futuro penduraria atrás dele. Se estourar, o Chromium pode ficar órfão, mas o clearStaleSingletonLocks
@@ -695,6 +760,7 @@ export class WWebJSEngine implements IEngine {
     this.stopped = true;
     await this.destroyWithTimeout();
     this.client = null;
+    await this.closeAnonProxy();
     this.qrBase64 = null; // não servir um QR morto de sessão parada via getQrBase64()
     this.setStatus('STOPPED');
   }
@@ -713,6 +779,7 @@ export class WWebJSEngine implements IEngine {
     }
     await this.destroyWithTimeout();
     this.client = null;
+    await this.closeAnonProxy();
     this.qrBase64 = null;
     // Garante a limpeza do perfil em disco MESMO se o logout() acima lançou (antes o catch vazio
     // deixava a credencial no volume). Idempotente com o rm que o próprio logout() já faz.
@@ -911,7 +978,8 @@ export class WWebJSEngine implements IEngine {
     // (sendPresenceUpdate sem jid). Antes degradavam para clearState do chat, respondendo ok sem
     // fazer o que o contrato promete (G8: presença global existe no catálogo público).
     if (state === 'available') return void (await c.sendPresenceAvailable());
-    if (state === 'unavailable') return void (await c.sendPresenceUnavailable());
+    if (state === 'unavailable')
+      return void (await c.sendPresenceUnavailable());
     const chat = await c.getChatById(this.toChatId(to));
     if (state === 'composing') await chat.sendStateTyping();
     else if (state === 'recording') await chat.sendStateRecording();
@@ -1371,9 +1439,7 @@ export class WWebJSEngine implements IEngine {
 
   // Normaliza uma Message do store para HistoryMessage. O chatJid é o outro lado (msg.to nas
   // enviadas, msg.from nas recebidas), com merge @lid→telefone (cacheado → ~1 resolução por chat).
-  private async toHistoryMessage(
-    msg: Message,
-  ): Promise<HistoryMessage | null> {
+  private async toHistoryMessage(msg: Message): Promise<HistoryMessage | null> {
     const keyId = msg.id?._serialized ?? '';
     if (!keyId) return null;
     const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
