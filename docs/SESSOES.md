@@ -12,7 +12,6 @@
 | ------------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | 2026-07-10-1040-m2-guardrail-ativo    | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway)                                                       | feature/m2-guardrail-ativo    |
 | 2026-07-19-0332-auth-refresh-rotation | 19/07 03:32 | Fix 401 `/auth/me`: refresh-token rotation (sessão não expira no meio do trabalho) | módulo `iam` (auth) + `apps/dashboard` (auth/api) + **`schema.prisma`** (refresh_tokens) + **`packages/contracts`** + config.ts + docs | feature/auth-refresh-rotation |
-| 2026-08-12-2043-wwebjs-qualidade-max  | 12/08 20:43 | Qualidade máxima do motor wwebjs: leads em lote (fim dos N round-trips CDP), presença global real, UA anti-flag por sessão (P-012) + W8 final: membership requests, admin toggles, foto de grupo (P-011) | módulos `sessions` + `groups` + `config.ts` (WWEBJS_* zod) + test + docs (SEM contracts/prisma) | feature/wwebjs-qualidade-max |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
@@ -30,6 +29,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-12-2043-wwebjs-qualidade-max  | 12/08 | Qualidade/desempenho do motor wwebjs: leads em LOTE (round-trips CDP O(N)→O(N/50)), presença global real, pairing+diagnóstico, UA anti-flag por sessão (P-012 ✅) + W8 grupos avançados nas 2 engines (membership/settings/foto — P-011) | feature/wwebjs-qualidade-max |
 | 2026-08-12-1959-wwebjs-p012-announce-restrict | 12/08 | Polimento P-012: announce/restrict REAIS nos grupos do wwebjs (era `false` fixo — correção) | feature/wwebjs-p012-announce-restrict |
 | 2026-08-12-1947-wwebjs-w8b-foto-perfil | 12/08 | W8b (recurso NOVO, 2 engines): foto de perfil da conta via URL, aditivo (completa a W8) | feature/wwebjs-w8b-foto-perfil   |
 | 2026-08-12-1941-wwebjs-w8-perfil-conta | 12/08 | W8 (recurso NOVO, 2 engines): perfil da conta — status/recado + nome de exibição, aditivo | feature/wwebjs-w8-perfil-conta   |

@@ -54,6 +54,17 @@ vencer. Quando expirar, o init cai no fallback `live`, que traz builds novas que
 
 ---
 
+> **Atualização 12/08 (sessão `wwebjs-qualidade-max`):** fechados vários P2 e o anti-flag da P-012.
+> **Desempenho:** `groupInfo`/`/leads` deixou de ser O(N) round-trips CDP → passou a
+> `getContacts()` 1× + `getContactLidAndPhone` em blocos de 50 (§8 W8/robustez — o LID artesanal
+> vira fallback). **Presença:** `available`/`unavailable` agora são presença global real (não mais
+> `clearState`). **Login/diagnóstico:** `requestPairingCode`→status `PAIRING_CODE` + listeners
+> `code`/`change_state`; guard de Chromium ausente com erro acionável. **Anti-flag:** UA realista e
+> **estável por sessão** (P-012) + `WWEBJS_*` no zod. **Higiene:** `clearTimeout` no destroy,
+> `cacheLidPn` único, early-return `stopped` no sync do `ready`. **Recurso novo (W8):** grupos
+> avançados — membership requests (list/approve/reject com anti-flood), settings announce/restrict,
+> foto de grupo — nas 2 engines. Resta da P-012 só o `recordHardSignal` morto (decisão de produto).
+
 ## 1. Como o wwebjs funciona hoje no gateway
 
 - **1 arquivo:** `apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`

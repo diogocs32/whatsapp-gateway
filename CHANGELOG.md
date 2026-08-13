@@ -6,7 +6,27 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Desempenho
+
+- **wwebjs — extração de leads em LOTE** (sessão `2026-08-12-2043-wwebjs-qualidade-max`): `GET
+  /groups/{id}` (e `/leads`) resolvia número+nome com **1 round-trip CDP por participante** +
+  1 `evaluate` por `@lid` — grupo de 500 levava minutos. Agora usa **1 `getContacts()`** (mapa
+  id→contato) + **`getContactLidAndPhone` em blocos de 50** (via oficial da lib para o par
+  LID↔telefone). Round-trips O(N) → O(N/50); nomes, telefones e o registro no diretório saem
+  idênticos. Fallback um-a-um preservado quando o lote falha.
+
 ### Corrigido
+
+- **wwebjs — presença global `available`/`unavailable` real** (sessão `…-2043-wwebjs-qualidade-max`):
+  esses dois estados degradavam para `clearState` do chat (respondiam `ok` sem alterar a presença
+  online/offline da conta). Agora usam `sendPresenceAvailable`/`sendPresenceUnavailable` (paridade
+  com o Baileys). `composing`/`recording`/`paused` inalterados.
+- **wwebjs — `PAIRING_CODE` + diagnóstico de queda** (sessão `…-2043-wwebjs-qualidade-max`):
+  `requestPairingCode` agora seta o status `PAIRING_CODE` (paridade com o Baileys — o painel/n8n
+  distingue "esperando código" de "esperando QR"); listeners `code` (renovação do pairing a cada
+  ~3 min) e `change_state` (CONFLICT/UNPAIRED/TIMEOUT **antes** do disconnect) logam o porquê da
+  queda. Guard de Chromium ausente (`WWEBJS_CHROME_PATH` errado) falha com erro acionável em vez
+  de ENOENT críptico. Higiene: `clearTimeout` no `destroy`, dedup do eco sem `sleep` de 3 s à toa.
 
 - **wwebjs — `announce`/`restrict` reais nos grupos** (sessão `2026-08-12-1959-wwebjs-p012-announce-restrict`,
   P-012): `GET /groups` e `GET /groups/{id}` da engine wwebjs devolviam sempre
@@ -15,6 +35,23 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
   quando a metadata não está carregada (sem regressão). O Baileys já devolvia os valores reais.
 
 ### Adicionado
+
+- **W8 — grupos avançados: fila de entrada, travas admin-only e foto** (sessão
+  `2026-08-12-2043-wwebjs-qualidade-max`, P-011): recurso NOVO aditivo nas DUAS engines.
+  `GET /api/sessions/{s}/groups/{g}/membership-requests` (fila de entrada pendente),
+  `POST …/membership-requests` (`{action: approve|reject, participants?}` — sem `participants`
+  age sobre toda a fila, com **anti-flood** de 250–500 ms entre pedidos),
+  `POST …/settings` (`{announce?, restrict?}` — travar envio/edição para admins) e
+  `POST …/photo` (`{url}` — foto do grupo, o gateway baixa a imagem ≤10 MB). wwebjs via
+  `getGroupMembershipRequests`/`approve`/`reject` + `setMessagesAdminsOnly`/`setInfoAdminsOnly`
+  + `setPicture`; Baileys via `groupRequestParticipantsList`/`Update` + `groupSettingUpdate`
+  + `updateProfilePicture`. Sem migration/env/breaking. Documentado em `INTEGRACAO.md` §9.2;
+  contracts em P-013.
+- **Anti-flag wwebjs — User-Agent realista e estável por sessão** (sessão
+  `…-2043-wwebjs-qualidade-max`, P-012): o UA do Chromium passa a variar por sessão de forma
+  **determinística** (paridade com o `browser-fingerprint` do Baileys) — estável entre reconexões,
+  distinto entre sessões (frota inteira com UA idêntico denuncia automação). `WWEBJS_USER_AGENT`
+  segue como override global. Variáveis `WWEBJS_*` agora validadas no zod do boot (vazio = ausente).
 
 - **W8 — perfil da conta: status, nome e foto** (sessões `…-1941-wwebjs-w8-perfil-conta`
   e `…-1947-wwebjs-w8b-foto-perfil`, P-011): recurso NOVO aditivo nas DUAS engines.
