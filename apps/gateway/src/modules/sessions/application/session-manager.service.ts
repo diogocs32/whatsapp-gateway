@@ -23,6 +23,7 @@ import { EngineFactory } from '../infrastructure/engine.factory';
 import { WWebJSEngine } from '../infrastructure/wwebjs/wwebjs.engine';
 import type {
   ChannelInfo,
+  ChatFlag,
   ChatSummary,
   ContactCheck,
   EngineEventName,
@@ -472,6 +473,14 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     limit: number,
   ): Promise<HistoryMessage[]> {
     return this.working(sessionId).fetchChatHistory(chatJid, limit);
+  }
+  setChatFlag(
+    sessionId: string,
+    chatJid: string,
+    flag: ChatFlag,
+    enabled: boolean,
+  ): Promise<void> {
+    return this.working(sessionId).setChatFlag(chatJid, flag, enabled);
   }
 
   sendReaction(

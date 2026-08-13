@@ -36,6 +36,13 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **W7 — inbox: gestão de chat** (sessão `2026-08-13-0744-wwebjs-w7b-chat-mgmt`, P-011): recurso
+  NOVO aditivo. `POST /api/sessions/{s}/messages/{chatId}/flag` (`{flag, enabled}`) arquiva/fixa/
+  silencia/marca-não-lido uma conversa (`flag` ∈ archive|pin|mute|unread; `unread` com
+  `enabled:false` marca como lido). Só **WWEBJS**; numa **Baileys** responde **501** (archive/
+  markRead exigem app-state sync com o histórico — fora do escopo, e falha silenciosa é vetada pelo
+  R6). Idempotente. Sem migration/env/breaking. Documentado em `INTEGRACAO.md` §12; contracts em
+  P-013. Fecha o W7 exceto `searchMessages`.
 - **W7 — inbox: backfill de histórico** (sessão `2026-08-13-0726-wwebjs-w7-inbox`, P-011):
   recurso NOVO aditivo. `POST /api/sessions/{s}/messages/sync` (`{chatId?, limit?, maxChats?}`)
   puxa o histórico da engine e grava no banco, populando a inbox de leitura que já existia

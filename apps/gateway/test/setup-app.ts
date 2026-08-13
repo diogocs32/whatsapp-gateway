@@ -27,9 +27,10 @@ export const fakeSessionManager = {
   }),
   sendPresence: async () => undefined,
   markRead: async () => undefined,
-  // W7 — inbox/histórico (backfill)
+  // W7 — inbox/histórico (backfill) + gestão de chat
   listChats: async () => [],
   fetchChatHistory: async () => [],
+  setChatFlag: async () => undefined,
   // F5 — grupos / contatos / canais
   listGroups: async () => [],
   groupInfo: async () => fakeGroup,

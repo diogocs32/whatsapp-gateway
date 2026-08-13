@@ -432,8 +432,10 @@ chega ao vivo".
 > (`GET /messages/conversations` + `GET /messages`, servidas de `wa_messages`). O W7 virou
 > POPULAR o banco: `IEngine.listChats`/`fetchChatHistory` (wwebjs via `getChats`/`fetchMessages`;
 > Baileys → 501) + `POST /messages/sync` + `InboxSyncService` que grava direto no repo (dedup por
-> keyId, **sem** EventBus → não dispara webhook/reply-rate). Mídia histórica sem binário. **Restam:**
-> gestão de chat (archive/pin/mute/markUnread), `searchMessages`.
+> keyId, **sem** EventBus → não dispara webhook/reply-rate). Mídia histórica sem binário.
+> **Atualização 13/08 (sessão `wwebjs-w7b-chat-mgmt`):** gestão de chat ENTREGUE —
+> `setChatFlag(chatJid, flag, enabled)` (archive/pin/mute/unread) via `POST /messages/:chatId/flag`,
+> só WWEBJS (Baileys → 501: archive/markRead exigem app-state sync). **Resta do W7 só `searchMessages`.**
 
 > **Atualização 12/08:** 1º incremento ENTREGUE (sessão `wwebjs-w8-perfil-conta`) —
 > **status/recado + nome de exibição** da conta, nas 2 engines. Restam: foto de perfil,

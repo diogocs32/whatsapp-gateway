@@ -25,6 +25,7 @@ import type { ContactRecord } from '../../../../infra/directory/contact-director
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import type {
   ChannelInfo,
+  ChatFlag,
   ChatSummary,
   ContactCheck,
   EngineEventHandler,
@@ -1212,6 +1213,18 @@ export class BaileysEngine implements IEngine {
   ): Promise<HistoryMessage[]> {
     throw new UnsupportedEngineOperationError(
       'Backfill de inbox/histórico não é suportado na engine Baileys (sem store de chats). Use uma sessão WWEBJS; a inbox ao vivo do Baileys segue via GET /messages/conversations.',
+    );
+  }
+
+  // W7 — gestão de chat: no Baileys, archive/markRead exigem sincronização de app-state com o
+  // histórico (chatModify + lastMessages) — não coberta por ora, e falha silenciosa é vetada (R6).
+  async setChatFlag(
+    _chatJid: string,
+    _flag: ChatFlag,
+    _enabled: boolean,
+  ): Promise<void> {
+    throw new UnsupportedEngineOperationError(
+      'Gestão de chat (arquivar/fixar/silenciar/marcar não-lido) não é suportada na engine Baileys por ora. Use uma sessão WWEBJS.',
     );
   }
 

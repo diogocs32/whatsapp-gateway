@@ -267,6 +267,18 @@ describe('WWebJSEngine — W7 inbox/histórico (listChats/fetchChatHistory)', ()
   });
 });
 
+describe('WWebJSEngine — W7 gestão de chat (setChatFlag)', () => {
+  it('todos os flags vão à lib (sem client → "Sessão não conectada")', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    for (const flag of ['archive', 'pin', 'mute', 'unread'] as const) {
+      await expect(
+        engine.setChatFlag('5511999999999@c.us', flag, true),
+      ).rejects.toThrow(/Sessão não conectada/);
+    }
+  });
+});
+
 describe('userAgentFor — UA anti-flag estável por sessão (P-012)', () => {
   const clean = (fn: () => void) => {
     const prev = process.env.WWEBJS_USER_AGENT;

@@ -200,6 +200,10 @@ export interface ChatSummary {
   lastText: string | null;
 }
 
+// W7 — gestão de chat. archive = arquivar/desarquivar · pin = fixar/desafixar · mute = silenciar/
+// dessilenciar · unread = marcar como não-lido (enabled=true) ou lido (enabled=false).
+export type ChatFlag = 'archive' | 'pin' | 'mute' | 'unread';
+
 // W7 — mensagem histórica normalizada (backfill). NÃO baixa o binário de mídia (pesado demais no
 // backfill): grava só tipo/metadados → `mediaKey` fica null (o GET /media responde 404 p/ histórica).
 export interface HistoryMessage {
@@ -284,6 +288,10 @@ export interface IEngine {
   // chats consultável). NÃO disparam webhook nem contam no reply-rate — gravam direto no banco.
   listChats(limit: number): Promise<ChatSummary[]>;
   fetchChatHistory(chatJid: string, limit: number): Promise<HistoryMessage[]>;
+  // W7 — gestão de chat (arquivar/fixar/silenciar/marcar não-lido). Só o wwebjs implementa; o
+  // Baileys lança UnsupportedEngineOperationError (archive/markRead exigem sincronização de
+  // app-state com o histórico — não coberto por ora).
+  setChatFlag(chatJid: string, flag: ChatFlag, enabled: boolean): Promise<void>;
 
   // Grupos
   listGroups(): Promise<GroupInfo[]>;

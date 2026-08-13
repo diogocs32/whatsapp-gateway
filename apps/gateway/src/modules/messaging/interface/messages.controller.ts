@@ -47,6 +47,12 @@ const inboxSyncSchema = z.object({
   maxChats: z.number().int().min(1).max(200).optional(), // só no modo "todos os chats"
 });
 
+// W7: gestão de chat. flag = o que mudar; enabled = ligar/desligar.
+const chatFlagSchema = z.object({
+  flag: z.enum(['archive', 'pin', 'mute', 'unread']),
+  enabled: z.boolean(),
+});
+
 const sendTextSchema = z.object({
   to: z.string().min(5).max(40),
   text: z.string().min(1).max(4096),
@@ -243,6 +249,37 @@ export class MessagesController {
       });
     } catch (e) {
       // Engine não suporta (Baileys) → 501; o resto (sessão não conectada etc.) → 400.
+      if (e instanceof UnsupportedEngineOperationError) {
+        throw new NotImplementedException((e as Error).message);
+      }
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
+  // W7 — gestão de chat: arquivar/fixar/silenciar/marcar não-lido. `{chatId}` na URL; corpo
+  // `{flag, enabled}`. Só WWEBJS; Baileys → 501. Idempotente. `enabled:false` em `unread` = marca
+  // como LIDO (sendSeen). Requer a sessão conectada (WORKING).
+  @Post(':chatId/flag')
+  async chatFlag(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('chatId') chatId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = chatFlagSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    try {
+      await this.manager.setChatFlag(
+        id,
+        chatId,
+        parsed.data.flag,
+        parsed.data.enabled,
+      );
+      return { ok: true };
+    } catch (e) {
       if (e instanceof UnsupportedEngineOperationError) {
         throw new NotImplementedException((e as Error).message);
       }
