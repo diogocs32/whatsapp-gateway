@@ -145,4 +145,46 @@ describe('Messaging (e2e)', () => {
     });
     expect(res.statusCode).toBe(401);
   });
+
+  // W7 — gestão de chat (manager mockado: setChatFlag resolve void).
+  it('chat flag válido → 201 {ok:true}', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/5511999999999/flag',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { flag: 'pin', enabled: true },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().ok).toBe(true);
+  });
+
+  it('chat flag inválido → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/5511999999999/flag',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { flag: 'delete', enabled: true },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('chat flag sem enabled → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/5511999999999/flag',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { flag: 'archive' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('chat flag sem auth → 401', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/5511999999999/flag',
+      headers: { 'content-type': 'application/json' },
+      payload: { flag: 'pin', enabled: true },
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });

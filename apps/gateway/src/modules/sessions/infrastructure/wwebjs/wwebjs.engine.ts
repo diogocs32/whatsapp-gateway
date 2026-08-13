@@ -20,6 +20,7 @@ import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import type {
   ChannelInfo,
+  ChatFlag,
   ChatSummary,
   ContactCheck,
   AckStatus,
@@ -1400,6 +1401,34 @@ export class WWebJSEngine implements IEngine {
       fileName: null,
       fileSize: null,
     };
+  }
+
+  // W7 — gestão de chat. mute sem data = silenciar por tempo indeterminado (lib); unread=false
+  // marca como lido via sendSeen (o markChatUnread só marca NÃO-lido). withStoreReady cobre o RACE
+  // logo após o ready. Idempotente (arquivar já arquivado é no-op no WhatsApp Web).
+  async setChatFlag(
+    chatJid: string,
+    flag: ChatFlag,
+    enabled: boolean,
+  ): Promise<void> {
+    const id = this.toChatId(chatJid);
+    const c = this.req();
+    await this.withStoreReady(async () => {
+      switch (flag) {
+        case 'archive':
+          await (enabled ? c.archiveChat(id) : c.unarchiveChat(id));
+          return;
+        case 'pin':
+          await (enabled ? c.pinChat(id) : c.unpinChat(id));
+          return;
+        case 'mute':
+          await (enabled ? c.muteChat(id) : c.unmuteChat(id));
+          return;
+        case 'unread':
+          await (enabled ? c.markChatUnread(id) : c.sendSeen(id));
+          return;
+      }
+    });
   }
 
   // ---- Grupos: extração de leads (nome + número via Store oficial do WhatsApp Web) ----
