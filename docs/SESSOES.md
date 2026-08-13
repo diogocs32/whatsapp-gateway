@@ -12,6 +12,7 @@
 | ------------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | 2026-07-10-1040-m2-guardrail-ativo    | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway)                                                       | feature/m2-guardrail-ativo    |
 | 2026-07-19-0332-auth-refresh-rotation | 19/07 03:32 | Fix 401 `/auth/me`: refresh-token rotation (sessão não expira no meio do trabalho) | módulo `iam` (auth) + `apps/dashboard` (auth/api) + **`schema.prisma`** (refresh_tokens) + **`packages/contracts`** + config.ts + docs | feature/auth-refresh-rotation |
+| 2026-08-13-0726-wwebjs-w7-inbox        | 13/08 07:26 | W7 inbox (P-011): backfill de histórico da engine → `wa_messages` (getChats/fetchMessages no wwebjs, 501 no Baileys); a inbox de leitura já existia | módulos `sessions` + `messaging` + test + docs (SEM contracts/prisma) | feature/wwebjs-w7-inbox |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
