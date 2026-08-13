@@ -24,7 +24,22 @@
 - **Contorno em vigor:** `WA_REQUIRE_PROXY=false` (default seguro reverso — sessão
   conecta sem proxy e só LOGA) → removido por [P-002] ao desbloquear.
 
-### B-002 · 🔴 aberto · pedido em 12/08 (sessão wwebjs-w1-estabilidade)
+### B-002 · 🟡 QUASE — versão pinada e aplicada em 13/08; falta o teste de PN do dono
+
+- **✅ Aplicado 13/08 ~12:52 UTC:** `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha`
+  (`currentVersion` do wa-version, expira **~13/10/2026** — ~2 meses de folga) setada na env
+  do app gateway no Dokploy e **deployada** (Claude via navegador, com OK do dono; container
+  novo confirmado no `/health`: uptime 52s, ok, checks true). Encerra o risco do pin antigo do
+  código expirando hoje + do fallback `live` descontrolado.
+- **⏳ FALTA (só o dono, precisa da `X-Api-Key`):** o **teste de PN** — `GET /api/sessions/{s}/
+  groups/{groupId}/leads` num grupo real e conferir se os leads vêm com `phone` preenchido.
+  Se **sim** → responder "B-002 feito" e fechar (revalidar de novo início de outubro). Se
+  **não** (PN escondido) → me avisar que dou a próxima build (mais antiga) para testar.
+  Nota: o motor faz resolução ativa LID→telefone (`enforceLidAndPnRetrieval`/`getContactLidAndPhone`),
+  então mesmo a build mais nova tende a devolver o número — o teste confirma.
+- **Revalidar de novo:** ~início de outubro/2026 (antes de `~13/10` expirar).
+
+<details><summary>Histórico do pedido (12/08)</summary>
 
 - **Ação:** revalidar e **pinar uma `WWEBJS_WEB_VERSION` válida** no Dokploy (env do
   gateway) — a atual (`2.3000.1042271047-alpha`) expira ~fim de agosto/2026. Escolher
@@ -52,6 +67,8 @@
   3. Fixar no Dokploy a **build mais nova que AINDA expõe o PN** e que dê a maior janela
      até expirar. Evitar `auto`/`live` (trazem a mais nova = risco de LID-only).
   4. Anotar a versão + data aqui e responder "B-002 feito".
+
+</details>
 
 ## 📋 Pendências técnicas (P-xxx — qualquer sessão assume)
 
