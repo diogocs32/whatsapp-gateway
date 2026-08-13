@@ -20,6 +20,7 @@ import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import type {
   ChannelInfo,
+  ChatSummary,
   ContactCheck,
   AckStatus,
   GroupInfo,
@@ -27,6 +28,7 @@ import type {
   GroupParticipantInfo,
   GroupParticipantRole,
   GroupSettingKey,
+  HistoryMessage,
   IEngine,
   MembershipAction,
   MembershipRequest,
@@ -1324,6 +1326,80 @@ export class WWebJSEngine implements IEngine {
     throw new Error(
       `WhatsApp Web ainda sincronizando (Store indisponível após ${attempts} tentativas) — tente em alguns segundos. Causa: ${(lastErr as Error)?.message ?? 'desconhecida'}`,
     );
+  }
+
+  // ---- W7: inbox/histórico (backfill do banco a partir do store do WhatsApp Web) ----
+  // Lista os chats do store (inclui conversas anteriores à conexão do gateway). Devolve o id CRU do
+  // store (@c.us/@g.us/@lid) para o fetchChatHistory reusar — a resolução @lid→telefone acontece por
+  // mensagem lá (com cache), evitando um evaluate por chat aqui. getChats já vem por recência.
+  async listChats(limit: number): Promise<ChatSummary[]> {
+    const chats = await this.withStoreReady(() => this.req().getChats());
+    return chats
+      .filter((c) => {
+        const raw = c.id?._serialized ?? '';
+        return !!raw && raw !== 'status@broadcast';
+      })
+      .slice(0, Math.max(0, limit))
+      .map((c) => ({
+        chatJid: c.id._serialized,
+        name: (c.name || '').trim() || null,
+        isGroup: !!c.isGroup,
+        unreadCount: typeof c.unreadCount === 'number' ? c.unreadCount : 0,
+        timestamp: typeof c.timestamp === 'number' ? c.timestamp : 0,
+        lastText: c.lastMessage?.body || null,
+      }));
+  }
+
+  // Puxa o histórico (últimas `limit`) de um chat e normaliza. fetchMessages carrega do store,
+  // buscando páginas anteriores até `limit`. Sem download de mídia (só metadados) — backfill leve.
+  async fetchChatHistory(
+    chatJid: string,
+    limit: number,
+  ): Promise<HistoryMessage[]> {
+    const chat = await this.withStoreReady(() =>
+      this.req().getChatById(this.toChatId(chatJid)),
+    );
+    const msgs = await chat.fetchMessages({ limit: Math.max(1, limit) });
+    const out: HistoryMessage[] = [];
+    for (const msg of msgs) {
+      const h = await this.toHistoryMessage(msg);
+      if (h) out.push(h);
+    }
+    return out;
+  }
+
+  // Normaliza uma Message do store para HistoryMessage. O chatJid é o outro lado (msg.to nas
+  // enviadas, msg.from nas recebidas), com merge @lid→telefone (cacheado → ~1 resolução por chat).
+  private async toHistoryMessage(
+    msg: Message,
+  ): Promise<HistoryMessage | null> {
+    const keyId = msg.id?._serialized ?? '';
+    if (!keyId) return null;
+    const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
+    if (!raw || raw === 'status@broadcast') return null;
+    const chatJid = await this.resolveNumberJid(raw);
+    const isMedia = !!msg.hasMedia;
+    const type = isMedia ? mapInboundMediaType(msg.type) : 'text';
+    // author = participante real numa mensagem de grupo; em 1:1 é ausente.
+    const author = (msg as unknown as { author?: string }).author;
+    return {
+      keyId,
+      chatJid,
+      senderJid: msg.fromMe
+        ? (this.client?.info?.wid?._serialized ?? null)
+        : (author ?? chatJid),
+      fromMe: !!msg.fromMe,
+      type,
+      text: msg.body || null,
+      timestamp:
+        typeof msg.timestamp === 'number'
+          ? msg.timestamp
+          : Math.floor(Date.now() / 1000),
+      mediaType: isMedia ? type : null,
+      mimetype: null,
+      fileName: null,
+      fileSize: null,
+    };
   }
 
   // ---- Grupos: extração de leads (nome + número via Store oficial do WhatsApp Web) ----

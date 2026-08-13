@@ -4,6 +4,7 @@ import {
   Get,
   Inject,
   NotFoundException,
+  NotImplementedException,
   Param,
   Post,
   Query,
@@ -19,9 +20,11 @@ import { GuardrailService } from '../../guardrail/guardrail.service';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
+import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
+import { InboxSyncService } from '../application/inbox-sync.service';
 import {
   MESSAGE_REPOSITORY,
   type ConversationSummary,
@@ -36,6 +39,13 @@ const idempotencyKeyField = z.string().min(1).max(200).optional();
 
 // W5: menções — lista de números/JIDs a marcar (@). Opcional, aditivo (R0/R4).
 const mentionsField = z.array(z.string().min(5).max(40)).max(50).optional();
+
+// W7: backfill do inbox. `chatId` presente = só aquele chat; ausente = os `maxChats` mais recentes.
+const inboxSyncSchema = z.object({
+  chatId: z.string().min(3).max(40).optional(),
+  limit: z.number().int().min(1).max(500).optional(), // mensagens por chat
+  maxChats: z.number().int().min(1).max(200).optional(), // só no modo "todos os chats"
+});
 
 const sendTextSchema = z.object({
   to: z.string().min(5).max(40),
@@ -160,6 +170,7 @@ export class MessagesController {
     private readonly manager: SessionManager,
     private readonly mediaStorage: MediaStorage,
     private readonly guardrail: GuardrailService,
+    private readonly inboxSync: InboxSyncService,
   ) {}
 
   // G5 hard-gate: só envios COLD passam pelo guard-rail; cold=false (chat aberto) sempre passa.
@@ -206,6 +217,37 @@ export class MessagesController {
         ),
       ),
     );
+  }
+
+  // W7 — backfill do inbox: puxa o histórico da engine e grava no banco, populando GET
+  // /conversations e GET /messages com conversas anteriores à conexão. `{chatId}` = só aquele chat;
+  // sem `chatId` = os `maxChats` mais recentes. Só WWEBJS; Baileys → 501 (a inbox ao vivo dele já
+  // funciona via /conversations). Não dispara webhook nem conta no reply-rate. Devolve
+  // `{chats, fetched, imported}` (imported = quantas eram novas). Mídia histórica não tem binário.
+  @Post('sync')
+  async sync(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
+    const parsed = inboxSyncSchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    const d = parsed.data;
+    try {
+      if (d.chatId) {
+        return await this.inboxSync.syncChat(id, d.chatId, d.limit ?? 50);
+      }
+      return await this.inboxSync.syncAll(id, {
+        maxChats: d.maxChats ?? 50,
+        limitPerChat: d.limit ?? 50,
+      });
+    } catch (e) {
+      // Engine não suporta (Baileys) → 501; o resto (sessão não conectada etc.) → 400.
+      if (e instanceof UnsupportedEngineOperationError) {
+        throw new NotImplementedException((e as Error).message);
+      }
+      throw new BadRequestException((e as Error).message);
+    }
   }
 
   // GAP 2 (contrato CP-149) — download dos BYTES da mídia pelo próprio gateway. Aceita o id

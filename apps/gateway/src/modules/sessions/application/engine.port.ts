@@ -189,6 +189,33 @@ export interface ChannelInfo {
   subscribers: number | null;
 }
 
+// W7 — inbox/histórico (backfill). Resumo de um chat vindo DIRETO do store da engine (não do
+// banco): inclui conversas anteriores à conexão do gateway. Usado só para enumerar o que puxar.
+export interface ChatSummary {
+  chatJid: string; // id do chat no store da engine (@c.us/@g.us/@lid) — passar a fetchChatHistory
+  name: string | null;
+  isGroup: boolean;
+  unreadCount: number;
+  timestamp: number; // unix seconds da última atividade
+  lastText: string | null;
+}
+
+// W7 — mensagem histórica normalizada (backfill). NÃO baixa o binário de mídia (pesado demais no
+// backfill): grava só tipo/metadados → `mediaKey` fica null (o GET /media responde 404 p/ histórica).
+export interface HistoryMessage {
+  keyId: string;
+  chatJid: string; // já resolvido (@lid→telefone quando possível), p/ fundir com a inbox ao vivo
+  senderJid: string | null;
+  fromMe: boolean;
+  type: string; // text | image | video | audio | document | sticker
+  text: string | null;
+  timestamp: number; // unix seconds
+  mediaType?: string | null;
+  mimetype?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+}
+
 // G8 — estados de presença. composing/recording/paused são por chat; available/unavailable globais.
 export type PresenceState =
   | 'composing'
@@ -251,6 +278,12 @@ export interface IEngine {
   ): Promise<void>;
   getQrBase64(): string | null;
   getStatus(): SessionStatus;
+
+  // W7 — inbox/histórico (backfill do banco a partir do store da engine). Só o wwebjs implementa
+  // (getChats/Chat.fetchMessages); o Baileys lança UnsupportedEngineOperationError (não tem store de
+  // chats consultável). NÃO disparam webhook nem contam no reply-rate — gravam direto no banco.
+  listChats(limit: number): Promise<ChatSummary[]>;
+  fetchChatHistory(chatJid: string, limit: number): Promise<HistoryMessage[]>;
 
   // Grupos
   listGroups(): Promise<GroupInfo[]>;

@@ -53,6 +53,50 @@ export class PrismaMessageRepository implements MessageRepository {
     }
   }
 
+  async saveHistorical(inputs: SaveMessageInput[]): Promise<number> {
+    if (!inputs.length) return 0;
+    const sessionId = inputs[0].sessionId;
+    const keyIds = inputs.map((i) => i.keyId).filter(Boolean);
+    // Dedup contra o que já existe no banco (histórico + ao vivo). Sem unique em (sessionId,keyId)
+    // no schema, a checagem é em aplicação; createMany(skipDuplicates) só cobre o unique de
+    // idempotencyKey (null no histórico → NULLS DISTINCT → não conflita).
+    const existing = await this.prisma.waMessage.findMany({
+      where: { sessionId, keyId: { in: keyIds } },
+      select: { keyId: true },
+    });
+    const seen = new Set(existing.map((e) => e.keyId));
+    const rows: Prisma.WaMessageCreateManyInput[] = [];
+    for (const i of inputs) {
+      if (!i.keyId || seen.has(i.keyId)) continue;
+      seen.add(i.keyId); // dedup também dentro do próprio lote
+      rows.push({
+        id: newId(),
+        sessionId: i.sessionId,
+        keyId: i.keyId,
+        chatJid: i.chatJid,
+        senderJid: i.senderJid,
+        fromMe: i.fromMe,
+        type: i.type,
+        text: i.text,
+        isCold: i.isCold ?? false,
+        idempotencyKey: i.idempotencyKey ?? null,
+        source: i.source ?? null,
+        timestamp: i.timestamp,
+        mediaType: i.mediaType ?? null,
+        mimetype: i.mimetype ?? null,
+        fileName: i.fileName ?? null,
+        mediaKey: i.mediaKey ?? null,
+        fileSize: i.fileSize ?? null,
+      });
+    }
+    if (!rows.length) return 0;
+    const r = await this.prisma.waMessage.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
+    return r.count;
+  }
+
   async findByIdempotencyKey(
     sessionId: string,
     idempotencyKey: string,

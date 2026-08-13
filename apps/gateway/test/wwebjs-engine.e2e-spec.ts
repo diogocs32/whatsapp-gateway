@@ -256,6 +256,17 @@ describe('WWebJSEngine — W8 grupos avançados (membership/settings/foto)', () 
   });
 });
 
+describe('WWebJSEngine — W7 inbox/histórico (listChats/fetchChatHistory)', () => {
+  it('vão à lib (sem client → "Sessão não conectada", não são no-op)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    await expect(engine.listChats(50)).rejects.toThrow(/Sessão não conectada/);
+    await expect(
+      engine.fetchChatHistory('5511999999999@c.us', 50),
+    ).rejects.toThrow(/Sessão não conectada/);
+  });
+});
+
 describe('userAgentFor — UA anti-flag estável por sessão (P-012)', () => {
   const clean = (fn: () => void) => {
     const prev = process.env.WWEBJS_USER_AGENT;
