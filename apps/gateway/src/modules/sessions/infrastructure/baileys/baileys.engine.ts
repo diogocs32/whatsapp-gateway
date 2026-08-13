@@ -25,12 +25,14 @@ import type { ContactRecord } from '../../../../infra/directory/contact-director
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import type {
   ChannelInfo,
+  ChatSummary,
   ContactCheck,
   EngineEventHandler,
   GroupInfo,
   GroupParticipantAction,
   GroupSettingKey,
   AckStatus,
+  HistoryMessage,
   IEngine,
   MembershipAction,
   MembershipRequest,
@@ -44,6 +46,7 @@ import type {
   SendPollInput,
   SessionStatePayload,
 } from '../../application/engine.port';
+import { UnsupportedEngineOperationError } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 import { usePostgresAuthState } from './postgres-auth-state';
 import { browserFingerprint } from './browser-fingerprint';
@@ -1194,6 +1197,22 @@ export class BaileysEngine implements IEngine {
   private sk(): WASocket {
     if (!this.sock) throw new Error('Sessão não conectada');
     return this.sock;
+  }
+
+  // W7 — o Baileys não tem store de chats consultável (é stateless; o histórico do gateway vem dos
+  // eventos ao vivo, já persistidos em wa_messages). Backfill de histórico é exclusivo do wwebjs.
+  async listChats(_limit: number): Promise<ChatSummary[]> {
+    throw new UnsupportedEngineOperationError(
+      'Backfill de inbox/histórico não é suportado na engine Baileys (sem store de chats). Use uma sessão WWEBJS; a inbox ao vivo do Baileys segue via GET /messages/conversations.',
+    );
+  }
+  async fetchChatHistory(
+    _chatJid: string,
+    _limit: number,
+  ): Promise<HistoryMessage[]> {
+    throw new UnsupportedEngineOperationError(
+      'Backfill de inbox/histórico não é suportado na engine Baileys (sem store de chats). Use uma sessão WWEBJS; a inbox ao vivo do Baileys segue via GET /messages/conversations.',
+    );
   }
 
   private async resolveParticipants(items: string[]): Promise<string[]> {

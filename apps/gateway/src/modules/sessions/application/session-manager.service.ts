@@ -23,11 +23,13 @@ import { EngineFactory } from '../infrastructure/engine.factory';
 import { WWebJSEngine } from '../infrastructure/wwebjs/wwebjs.engine';
 import type {
   ChannelInfo,
+  ChatSummary,
   ContactCheck,
   EngineEventName,
   GroupInfo,
   GroupParticipantAction,
   GroupSettingKey,
+  HistoryMessage,
   IEngine,
   MembershipAction,
   MembershipRequest,
@@ -458,6 +460,18 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
 
   markRead(sessionId: string, chatJid: string, msgId: string): Promise<void> {
     return this.working(sessionId).markRead(chatJid, msgId);
+  }
+
+  // W7 — inbox/histórico (backfill). Só WWEBJS; Baileys lança UnsupportedEngineOperationError.
+  listChats(sessionId: string, limit: number): Promise<ChatSummary[]> {
+    return this.working(sessionId).listChats(limit);
+  }
+  fetchChatHistory(
+    sessionId: string,
+    chatJid: string,
+    limit: number,
+  ): Promise<HistoryMessage[]> {
+    return this.working(sessionId).fetchChatHistory(chatJid, limit);
   }
 
   sendReaction(

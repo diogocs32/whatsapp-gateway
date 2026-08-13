@@ -64,6 +64,10 @@ export interface IdempotentHit {
 
 export interface MessageRepository {
   save(input: SaveMessageInput): Promise<void>;
+  // W7 — grava um LOTE de mensagens históricas (backfill do inbox), deduplicando pelo keyId já
+  // presente na sessão. NÃO passa pelo EventBus (não dispara webhook nem reply-rate). Devolve
+  // quantas foram efetivamente inseridas (as já existentes são ignoradas).
+  saveHistorical(inputs: SaveMessageInput[]): Promise<number>;
   // G1: localiza um envio anterior com a mesma idempotencyKey nesta sessão (dedup forte).
   findByIdempotencyKey(
     sessionId: string,

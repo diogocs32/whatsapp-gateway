@@ -427,6 +427,13 @@ capturar `message_reaction`, `vote_update`, `message_edit`, `message_revoke_*`,
 `getChats` + `fetchMessages` (popular o inbox ao conectar e puxar histórico de um lead) ·
 `searchMessages` · gestão (archive/pin/mute/markUnread). Fecha o gap "inbox só tem o que
 chega ao vivo".
+> **Atualização 13/08 (sessão `wwebjs-w7-inbox`):** 1º incremento ENTREGUE — **backfill**.
+> Descoberta que redefiniu o escopo: a LEITURA da inbox JÁ existia e é agnóstica de engine
+> (`GET /messages/conversations` + `GET /messages`, servidas de `wa_messages`). O W7 virou
+> POPULAR o banco: `IEngine.listChats`/`fetchChatHistory` (wwebjs via `getChats`/`fetchMessages`;
+> Baileys → 501) + `POST /messages/sync` + `InboxSyncService` que grava direto no repo (dedup por
+> keyId, **sem** EventBus → não dispara webhook/reply-rate). Mídia histórica sem binário. **Restam:**
+> gestão de chat (archive/pin/mute/markUnread), `searchMessages`.
 
 > **Atualização 12/08:** 1º incremento ENTREGUE (sessão `wwebjs-w8-perfil-conta`) —
 > **status/recado + nome de exibição** da conta, nas 2 engines. Restam: foto de perfil,

@@ -36,6 +36,16 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **W7 — inbox: backfill de histórico** (sessão `2026-08-13-0726-wwebjs-w7-inbox`, P-011):
+  recurso NOVO aditivo. `POST /api/sessions/{s}/messages/sync` (`{chatId?, limit?, maxChats?}`)
+  puxa o histórico da engine e grava no banco, populando a inbox de leitura que já existia
+  (`GET /messages/conversations` + `GET /messages`) com conversas **anteriores à conexão**.
+  Só **WWEBJS** (via `getChats`/`Chat.fetchMessages`); numa sessão **Baileys** responde **501**
+  (sem store de histórico — a inbox ao vivo dele segue funcionando). O backfill grava DIRETO no
+  banco (dedup por mensagem), **não** dispara webhook nem conta no reply-rate. Mídia histórica sem
+  binário (`mediaKey` null → `GET /media` 404). Sem migration/env/breaking. Documentado em
+  `INTEGRACAO.md` §12; contracts em P-013. Gestão de chat (archive/pin/mute) e `searchMessages` =
+  próximos incrementos do W7.
 - **W8 — grupos avançados: fila de entrada, travas admin-only e foto** (sessão
   `2026-08-12-2043-wwebjs-qualidade-max`, P-011): recurso NOVO aditivo nas DUAS engines.
   `GET /api/sessions/{s}/groups/{g}/membership-requests` (fila de entrada pendente),

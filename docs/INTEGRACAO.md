@@ -211,3 +211,30 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
   caso a sessão NÃO é criada (sem sessão órfã).
 - A exclusividade vale para o fluxo `SINGLE`; os modos `RANGE`/`GLOBAL_ROUND_ROBIN` (configurados via
   `PUT /api/sessions/{sessao}/proxy`) seguem podendo usar qualquer proxy do pool em runtime.
+
+## 12. Inbox — conversas, mensagens e backfill de histórico (W7)
+
+A inbox é servida do **banco do gateway** (o que já chegou ao vivo), independente da engine:
+
+```
+GET  /api/sessions/{sessao}/messages/conversations   # lista de conversas (última msg, nome, foto)
+GET  /api/sessions/{sessao}/messages?chatId=5511...   # mensagens de uma conversa (traz keyId)
+```
+
+**Backfill (W7 — só engine WWEBJS):** ao conectar uma sessão, a inbox só tem o que chegou DEPOIS.
+Para trazer o histórico anterior, dispare o sync — ele puxa do WhatsApp Web e grava no banco, e aí os
+dois GETs acima já mostram:
+
+```
+POST /api/sessions/{sessao}/messages/sync            # { "chatId"?: "5511...", "limit"?: 50, "maxChats"?: 50 }
+```
+
+- **Sem `chatId`:** backfill dos `maxChats` chats mais recentes (default 50), `limit` mensagens cada
+  (default 50). **Com `chatId`:** só aquela conversa. Resposta: `{ chats, fetched, imported }`
+  (`imported` = quantas eram novas; reexecutar é seguro — deduplica por mensagem).
+- **Engine:** só **WWEBJS**. Numa sessão **Baileys** responde **HTTP 501** (não tem store de histórico
+  — a inbox ao vivo dele já funciona via `/conversations`).
+- **Custo:** cada chat é um round-trip no Chromium (sequencial) — backfill de muitos chats leva alguns
+  segundos. É pontual, não hot path. **Requer a sessão conectada** (`WORKING`).
+- **Mídia histórica:** o backfill grava tipo/texto/timestamp mas **não baixa o binário** (só a mídia que
+  chega ao vivo vai ao S3) — `GET …/messages/{msgId}/media` responde 404 para mídia histórica.

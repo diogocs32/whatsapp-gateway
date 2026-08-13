@@ -102,4 +102,47 @@ describe('Messaging (e2e)', () => {
     });
     expect(res.statusCode).toBe(401);
   });
+
+  // W7 — backfill do inbox (manager mockado devolve [] p/ listChats/fetchChatHistory).
+  it('sync (todos os chats) → 201 com {chats, fetched, imported}', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/sync',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toEqual({ chats: 0, fetched: 0, imported: 0 });
+  });
+
+  it('sync de um chat específico → 201', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/sync',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { chatId: '5511999999999', limit: 20 },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().chats).toBe(1);
+  });
+
+  it('sync com maxChats fora do range → 400', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/sync',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { maxChats: 9999 },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('sync sem auth → 401', async () => {
+    const res = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions/x/messages/sync',
+      headers: { 'content-type': 'application/json' },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });
