@@ -238,3 +238,15 @@ POST /api/sessions/{sessao}/messages/sync            # { "chatId"?: "5511...", "
   segundos. É pontual, não hot path. **Requer a sessão conectada** (`WORKING`).
 - **Mídia histórica:** o backfill grava tipo/texto/timestamp mas **não baixa o binário** (só a mídia que
   chega ao vivo vai ao S3) — `GET …/messages/{msgId}/media` responde 404 para mídia histórica.
+
+**Gestão de chat (W7 — só engine WWEBJS):** arquivar / fixar / silenciar / marcar não-lido.
+
+```
+POST /api/sessions/{sessao}/messages/{chatId}/flag   # { "flag": "archive|pin|mute|unread", "enabled": true }
+```
+
+- **`flag`**: `archive` (arquivar), `pin` (fixar), `mute` (silenciar), `unread` (marcar não-lido).
+  **`enabled`**: `true` liga, `false` desliga. Em `unread`, `enabled:false` marca a conversa como
+  **lida** (read receipt). Resposta: `{ "ok": true }`. Idempotente.
+- **Engine:** só **WWEBJS**. Numa **Baileys** responde **HTTP 501** (arquivar/marcar-lido exigem
+  sincronização de app-state com o histórico — fora do escopo por ora). Requer a sessão **WORKING**.
