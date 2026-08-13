@@ -5,6 +5,7 @@ import {
   WWebJSEngine,
   mapInboundMediaType,
   authDirOf,
+  buildAuthProxyUrl,
   groupFlags,
   userAgentFor,
 } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
@@ -276,6 +277,41 @@ describe('WWebJSEngine — W7 gestão de chat (setChatFlag)', () => {
         engine.setChatFlag('5511999999999@c.us', flag, true),
       ).rejects.toThrow(/Sessão não conectada/);
     }
+  });
+});
+
+describe('buildAuthProxyUrl — upstream do forwarder local (proxy autenticado)', () => {
+  it('injeta as credenciais na URL do proxy', () => {
+    const url = buildAuthProxyUrl('http://104.165.153.111:5744', 'usr', 'pwd');
+    const u = new URL(url);
+    expect(u.username).toBe('usr');
+    expect(u.password).toBe('pwd');
+    expect(u.hostname).toBe('104.165.153.111');
+    expect(u.port).toBe('5744');
+    expect(u.protocol).toBe('http:');
+  });
+
+  it('percent-encoda credenciais com caracteres especiais (@ : /) sem quebrar a URL', () => {
+    const url = buildAuthProxyUrl('http://1.2.3.4:8080', 'u@ser', 'p:a@s/s');
+    const u = new URL(url); // não lança = URL válida
+    expect(decodeURIComponent(u.username)).toBe('u@ser');
+    expect(decodeURIComponent(u.password)).toBe('p:a@s/s');
+  });
+});
+
+describe('proxy-chain — forwarder local p/ proxy autenticado (ERR_TUNNEL_CONNECTION_FAILED)', () => {
+  // O Chromium não aceita credencial no --proxy-server e a auth por desafio (page.authenticate)
+  // falha com proxies que fecham a conexão no 407 do CONNECT (Webshare em produção, 13/08). O
+  // doStart anonimiza o proxy num forwarder local; aqui provamos o contrato da dep no NOSSO
+  // runtime: URL local SEM credencial (o Chromium aceita) e porta liberada no close (teardown).
+  it('anonymizeProxy devolve URL local sem credencial e closeAnonymizedProxy libera a porta', async () => {
+    const { anonymizeProxy, closeAnonymizedProxy } =
+      await import('proxy-chain');
+    const local = await anonymizeProxy('http://usr:pwd@127.0.0.1:9'); // upstream morto: só conecta on-demand
+    expect(local).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/); // sem user:pass → utilizável no --proxy-server
+    await expect(closeAnonymizedProxy(local, true)).resolves.toBe(true);
+    // Segundo close = false (já fechado) — prova que o close é idempotente p/ o closeAnonProxy.
+    await expect(closeAnonymizedProxy(local, true)).resolves.toBe(false);
   });
 });
 
