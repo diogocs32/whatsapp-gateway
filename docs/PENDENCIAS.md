@@ -8,7 +8,17 @@
 
 ## 🚧 BLOQUEADO EM MIM OU EM TERCEIRO (B-xxx — só o dono resolve)
 
-### B-001 · 🔴 aberto · pedido em 22/07 (sessão hardening-antiban)
+### B-001 · 🟡 proxies importados e atribuídos; falta ligar WA_REQUIRE_PROXY (e deploy do fix wwebjs)
+
+- **⚠️ DESCOBERTA 13/08 (sessão `wwebjs-proxy-anonimizado`):** os 20 IPs residenciais estão
+  importados e atribuídos (1/sessão, Proxy fixo), MAS o **wwebjs não conseguia usá-los**: o
+  Webshare responde o 407 do CONNECT com `Connection: close`, a auth por desafio do Puppeteer
+  (`page.authenticate`) não completa e o Chromium falha com `ERR_TUNNEL_CONNECTION_FAILED` — e o
+  gateway marcava o proxy (são) como DEAD a cada tentativa (falso "proxy morto"; teste ipify
+  passa porque o Node manda `Proxy-Authorization` proativo). **Corrigido em código** na branch
+  `feature/wwebjs-proxy-anonimizado` (forwarder local proxy-chain) — aguarda merge+deploy.
+  Alternativa/adicional sem código: **IP Authorization** no painel Webshare (autorizar o IP do
+  VPS → CONNECT sem credencial funciona no Chromium).
 
 - **Ação:** concluir a migração para proxy RESIDENCIAL BR: importar os 20 IPs
   Webshare static residential em massa no painel (`user:pass@ip:porta`, source
@@ -24,7 +34,21 @@
 - **Contorno em vigor:** `WA_REQUIRE_PROXY=false` (default seguro reverso — sessão
   conecta sem proxy e só LOGA) → removido por [P-002] ao desbloquear.
 
-### B-002 · 🟡 env APLICADA em 13/08 (dono colou); falta só o teste de PN
+### B-002 · 🟡 ROLLBACK 13/08 ~20h UTC: build 1045 INCOMPATÍVEL com a lib; PN OK na default
+
+- **⚠️ DESCOBERTA 13/08 (sessão `wwebjs-proxy-anonimizado`):** a build `2.3000.1045101284-alpha`
+  (aplicada às 13:44 UTC) é **INCOMPATÍVEL com o whatsapp-web.js 1.34.7** (que é a ÚLTIMA versão
+  no npm — não há upgrade de lib). Sintomas em produção: `downloadMedia` falhando com erro
+  minificado `"r"`, `syncAddressBook`/`getContacts` com `ProtocolError: Runtime.callFunctionOn
+  timed out` (240s), `getChats` pendurado indefinidamente → grupos somem e envio trava com a
+  sessão WORKING. **Rollback aplicado pelo dono ~19:50 UTC**: env voltou para
+  `2.3000.1042271047-alpha` (a default do código, válida até **28/08**).
+- **✅ Teste de PN PASSOU 13/08** (na build default): `GET .../groups/{g}/leads` num grupo real de
+  99 membros → **99/99 com `phone`, 0 sem número**.
+- **⏳ RESTA (antes de ~25/08):** bisect da B-002 para achar build nova compatível — **restrito à
+  série ≤ `1044.x`** (12–13/08 = série `1045.x` = quebrada). Candidata inicial:
+  `2.3000.1044967578-alpha` (11/08, expira 11/10). Testar em janela calma: pinar → deploy →
+  restart da sessão wweb → validar **grupos + leads com phone**. NUNCA `auto`/`live`.
 
 - **✅ Aplicado 13/08 ~13:44 UTC (pelo DONO):** `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha`
   (`currentVersion` do wa-version, expira **~13/10/2026** — ~2 meses de folga) colada na env
