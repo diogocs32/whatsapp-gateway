@@ -8,7 +8,14 @@
 
 ## 🚧 BLOQUEADO EM MIM OU EM TERCEIRO (B-xxx — só o dono resolve)
 
-### B-001 · 🟡 proxies importados e atribuídos; falta ligar WA_REQUIRE_PROXY (e deploy do fix wwebjs)
+### B-001 · 🟢 QUASE FECHADA — constatado 13/08 ~23h UTC (leitura da env de prod): `WA_REQUIRE_PROXY=true` JÁ ESTÁ LIGADO e o fix do forwarder (7e05fc1) está deployado
+
+- **✅ Constatação 13/08 (sessão `wwebjs-store-travado`, leitura da Environment Settings):**
+  `WA_REQUIRE_PROXY=true` presente na env de prod (linha 39) e o fix proxy-chain mergeado/deployado
+  (`7e05fc1`, container de 20:01 UTC). Os 20 IPs residenciais estão importados e atribuídos.
+  **Falta só o dono responder "B-001 feito"** (com a data em que ligou) para fechar formalmente —
+  e remover o texto de contorno abaixo. Higiene residual: DIOGO (wwebjs) compartilha o proxy #1 com
+  uma Baileys — mover p/ IP livre (P-014 plano revisado, item 2).
 
 - **⚠️ DESCOBERTA 13/08 (sessão `wwebjs-proxy-anonimizado`):** os 20 IPs residenciais estão
   importados e atribuídos (1/sessão, Proxy fixo), MAS o **wwebjs não conseguia usá-los**: o
@@ -45,6 +52,10 @@
   `2.3000.1042271047-alpha` (a default do código, válida até **28/08**).
 - **✅ Teste de PN PASSOU 13/08** (na build default): `GET .../groups/{g}/leads` num grupo real de
   99 membros → **99/99 com `phone`, 0 sem número**.
+- **✅ Rollback confirmado NA ENV 13/08 ~23h UTC** (sessão `wwebjs-store-travado`, leitura da
+  Environment Settings): `WWEBJS_WEB_VERSION=2.3000.1042271047-alpha` (linha 65). Expira **28/08**
+  — o bisect ≤1044.x continua com prazo ~25/08. Obs.: a build candidata pode TAMBÉM resolver o
+  travamento do Store (P-014) — testar as duas coisas juntas na janela do bisect.
 - **⏳ RESTA (antes de ~25/08):** bisect da B-002 para achar build nova compatível — **restrito à
   série ≤ `1044.x`** (12–13/08 = série `1045.x` = quebrada). Candidata inicial:
   `2.3000.1044967578-alpha` (11/08, expira 11/10). Testar em janela calma: pinar → deploy →
@@ -109,4 +120,4 @@
 | P-013 | **Formalizar em `packages/contracts` os campos da W5** (não tocados por conflito R9 com a sessão ativa `auth-refresh`): `mentions?: string[]` em `SendTextRequest` + tipo `SendReactionRequest { emoji }`. Hoje validados por zod + documentados em INTEGRACAO.md; formalizar quando `auth-refresh` fechar | sessão wwebjs-w5-mensagens-ricas          | aberta |
 | P-012 | **wwebjs polimentos residuais:** ✅ `announce`/`restrict` reais (12/08, `p012-announce-restrict`) · ~~dashboard por engine~~ **OBSOLETO** · ✅ **anti-flag wwebjs** (12/08, `wwebjs-qualidade-max`): UA realista e estável POR SESSÃO (determinístico, paridade com o browser-fingerprint do Baileys) + `WWEBJS_USER_AGENT`/`WWEBJS_*` no zod + doc no env de prod. **RESTA:** `recordHardSignal` sem chamador (`signal.463`/`signal.restriction` = catálogo morto nas 2 engines — exige decisão de produto: fiar a sinal real × remover do contrato público com plano de versão R0) | analise-wwebjs-2026-08 (P1-5, P2)        | parcial |
 | P-011 | **wwebjs recursos NOVOS (W5–W8, aditivo ao contrato):** ✅ W5/W5b (reações, menções, localização, poll) · ✅ W6 1º incremento (`message.reaction`) · ✅ W8 perfil próprio (status/nome/foto) · ✅ **W8 grupos avançados** (12/08, `wwebjs-qualidade-max`): membership requests (list/approve/reject c/ anti-flood), settings announce/restrict, foto de grupo — nas 2 engines. **RESTAM:** W6 (edit/revoke/vote_update/change_state/group_* — Baileys exige protocolMessage/decifrar) · **W7 COMPLETO ✅** (13/08): backfill (`POST /messages/sync`) · gestão de chat (`POST /messages/:chatId/flag`, wwebjs/501 Baileys) · busca (`GET /messages/search`, agnóstica de engine) · canais completos (getSubscribers/transfer/delete) · vCard · reply/quote (Baileys sem `raw` inbound). Catálogo em `analise-wwebjs-2026-08.md` §7–§8 | analise-wwebjs-2026-08 parte 2           | aberta |
-| P-014 | 🔴 **wwebjs: página do Store TRAVA após reconexões de QR** — sessão WORKING mas `getChats`/`sendMessage` penduram os 240s do `protocolTimeout` e estouram (`Runtime.callFunctionOn timed out`). Isolado (13/08): **não é proxy** (Baileys usa o mesmo #1 e vai bem) **nem memória** (heap 8%). Gatilho provável: sincronização pós-login não completa após new-qr em rajada. **Plano completo (4 passos: ler log Dokploy → teste sem-proxy → timeout no `withStoreReady` + gate loading 100% → higiene proxy compartilhado) em `docs/sessions/ATIVA-2026-08-13-2100-wwebjs-store-travado.md`.** Falta ler o `loading_screen` no log para cravar a causa | sessão wwebjs-store-travado (13/08)      | aberta |
+| P-014 | 🟠 **wwebjs: página do Store TRAVA após reconexões de QR** — sessão WORKING mas `getChats`/`sendMessage` penduram os 240s do `protocolTimeout` e estouram. Isolado (13/08): **não é proxy** (Baileys usa o mesmo #1 e vai bem; forwarder proxy-chain subiu sem fallback) **nem memória** (heap 8%). **Log do Dokploy LIDO 13/08 ~23h**: os `info` da engine estão suprimidos (`WA_LOG_LEVEL=warn` na env — `loading_screen`/forwarder/"usando proxy" invisíveis por construção); só 2 warns de timeout CDP (17:12/17:24 BRT, pós-ready de cada QR); zero `change_state`, zero "Store ainda sincronizando" (chamadas PENDURAM no CDP, nunca falham com store-undefined). **PLANO REVISADO em `docs/sessions/ATIVA-2026-08-13-2100-wwebjs-store-travado.md`**: (1) dono sobe `WA_LOG_LEVEL=info` temporário; (2) mover DIOGO p/ IP livre (hoje compartilha #1 — e o teste sem-proxy do plano antigo está INVÁLIDO: `WA_REQUIRE_PROXY=true` bloqueia); (3) UM restart e ler `loading_screen`; (4) só então codar teto no `withStoreReady` + gate com probe | sessão wwebjs-store-travado (13/08)      | aberta |

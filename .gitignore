@@ -12,6 +12,8 @@ build/
 .env
 .env.*
 !.env.example
+# credenciais de proxies exportadas do painel Webshare (NUNCA commitar)
+/Webshare*.txt
 
 # prisma
 apps/gateway/prisma/migrations/dev.db*

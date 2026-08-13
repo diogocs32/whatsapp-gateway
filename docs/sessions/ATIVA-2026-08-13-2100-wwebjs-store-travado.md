@@ -7,13 +7,77 @@
 
 - **Branch a criar:** `feature/wwebjs-store-travado` (ainda NÃO criada — a investigação parou
   antes de tocar código; hoje está tudo na `main`, deploy `7e05fc1`).
-- **Status:** 🔴 ABERTO — sintoma reproduzido e isolado; causa raiz NÃO confirmada (falta log).
+- **Status:** 🟠 EM PROGRESSO — PASSO 1 (log) EXECUTADO em 13/08 ~23h UTC (dono logou no Dokploy;
+  leitura via navegador). Causa raiz ainda não cravada, mas o PORQUÊ da cegueira foi: ver abaixo.
 
 ---
 
-## 🎯 PARA A PRÓXIMA SESSÃO — ordem de execução
+## ✅ PASSO 1 EXECUTADO (13/08 ~23:00 UTC) — o log NÃO tem o que o plano mandava procurar, e o motivo é config
 
-### PASSO 1 — ler os logs do Dokploy (bloqueado em ação do dono: login)
+**Descoberta central: `WA_LOG_LEVEL=warn` na env de prod** (Environment Settings, linha 33) —
+o logger das ENGINES é um pino separado do global (`session-manager.service.ts:121`, nível via
+`WA_LOG_LEVEL`, default `error` em `bootstrap/config.ts:86`). TODOS os logs de diagnóstico do
+plano são `logger.info` (`wwebjs.engine.ts`): `loading_screen` (:439), "usando proxy" (:279),
+"forwarder local proxy-chain" (:359), pairing code (:484). **Com warn, nenhum deles chega ao
+Dokploy** — a busca por `loading_screen` era impossível por construção. (O ProxyResolver usa o
+logger GLOBAL `LOG_LEVEL`=info, por isso os "Sessão … → proxy #N" aparecem.)
+
+**Evidência colhida no log do container `abe412edcad7` (boot 17:01:43 BRT = 20:01 UTC, janela 5000 linhas cobre o boot):**
+
+| Hora (BRT) | Evento |
+| ---------- | ------ |
+| 17:01:48 | Boot: todas as sessões resolvem proxy; Baileys `01KWJQGVSS…` → **proxy #1** `104.165.153.111:5744` |
+| 17:02:06 | `POST /sessions/01KZXVSMXZZT9EJ4EPRRVPBM4Y/start` (DIOGO wwebjs, browser) → **proxy #1** (compartilhado!) |
+| 17:12:09 | ⚠️ warn: `Runtime.callFunctionOn timed out` (240s) em `getContacts` (syncAddressBook pós-ready do 1º QR ~17:05) |
+| 17:16:15 | `POST /start` DIOGO de novo → **proxy #1** de novo (2ª reconexão de QR) |
+| 17:24:06 | ⚠️ warn: mesmo timeout de `getContacts` (pós-ready do 2º QR ~17:16-17) |
+| 17:58–18:44 | Só re-resoluções de proxy das Baileys (#1 e #2) — nada mais da wwebjs |
+
+**O que NÃO apareceu (e apareceria, pois são warn/error):** `change_state` (sem CONFLICT/UNPAIRED/
+TIMEOUT), "Store ainda sincronizando" (o retry do `withStoreReady` NUNCA atuou — as chamadas não
+falham com "store undefined", elas PENDURAM no CDP até o protocolTimeout), fallback do forwarder
+(o proxy-chain subiu OK), proxy marcado DEAD, disconnected. **Conclusão reforçada:** página abre,
+WS conecta (WORKING), forwarder OK — mas os `Runtime.callFunctionOn` no Store nunca resolvem.
+Consistente com sincronização pós-login incompleta após new-qr em rajada (com `purgeAuthDir` =
+login do zero), ou Store da build antiga travando. Falta o `loading_screen` para cravar → 1º
+passo agora é DESTRAVAR A OBSERVABILIDADE (abaixo).
+
+**Envs confirmadas na aba Environment (13/08 ~23h UTC):**
+- `WA_LOG_LEVEL=warn` (linha 33) — causa da cegueira acima.
+- `WA_REQUIRE_PROXY=true` (linha 39) — **JÁ LIGADO** (docs diziam pendente; B-001 na prática concluída). ⚠️ Invalida o PASSO 2 como escrito (teste sem-proxy seria BLOQUEADO pelo guard — engine recusa e vira FAILED).
+- `WWEBJS_WEB_VERSION=2.3000.1042271047-alpha` (linha 65) — rollback do B-002 confirmado na env (expira 28/08; bisect ≤1044.x segue com prazo ~25/08).
+- `GUARDRAIL_ENFORCE=true` (linha 63) — **DIVERGÊNCIA com ESTADO.md/M2** (docs dizem observação `false`). Confirmar com o dono se foi intencional → se sim, M2 está de fato ligada e a onda precisa ser reconciliada.
+
+## 🎯 PLANO REVISADO (substitui a ordem antiga; passos antigos mantidos abaixo para contexto)
+
+1. **(Dono, 2 min — R0)** Dokploy → conexozenvo → Environment: mudar `WA_LOG_LEVEL=warn` →
+   `WA_LOG_LEVEL=info` (temporário, para diagnóstico) → Save → Deploy em janela calma (reinicia o
+   gateway). Reverter para `warn` quando P-014 fechar.
+2. **(Dono, painel — higiene D-008)** Mover a DIOGO para um IP LIVRE do pool (há 19 ALIVE) — hoje
+   ela compartilha o #1 com a Baileys `01KWJQGVSS…` (violação 1 proxy = 1 sessão, confirmada no log
+   2×). Isso também serve de teste de isolamento SEM desproteger (não usar o teste sem-proxy do
+   antigo PASSO 2 — `WA_REQUIRE_PROXY=true` o bloqueia).
+3. **UM restart da DIOGO (sem rajada)** e acompanhar o log com info ligado: `loading_screen` % →
+   se trava <100% = sincronização não completa (causa cravada); se chega a 100% e `getChats` ainda
+   pendura = Store/build → reforça o bisect do B-002 (a build 1044.x pode resolver TAMBÉM isto).
+4. **Código (branch `feature/wwebjs-store-travado`), DEPOIS do log acima:** teto próprio no
+   `withStoreReady` (Promise.race ~30–45s por tentativa, sem cancelar CDP subjacente — serializar
+   operações pesadas) + gate `storeReady` com PROBE leve + teto (não depender só do evento
+   `loading_screen`, que pode nem disparar — zero ocorrências observadas até em conexões que
+   funcionaram).
+5. **Segurança (dono):** rotacionar a `X-Api-Key` vazada (`cz_WeeXSF…`) — pendente desde 13/08.
+   E tirar o arquivo `Webshare 20 proxies.txt` (credenciais dos 20 proxies) da RAIZ do repo —
+   está untracked, um `git add .` descuidado o commitaria.
+
+---
+
+## 🗄️ PLANO ORIGINAL (13/08 21h — SUPERSEDIDO pelo "PLANO REVISADO" acima; mantido para contexto)
+
+> ⚠️ Correções descobertas na execução: o PASSO 1 era impossível como escrito (`WA_LOG_LEVEL=warn`
+> suprime os info da engine) e o PASSO 2 está INVÁLIDO (`WA_REQUIRE_PROXY=true` em prod bloqueia
+> start sem proxy).
+
+### PASSO 1 — ler os logs do Dokploy (✅ executado 13/08 ~23h, ver seção acima)
 Painel Dokploy `http://187.77.248.160:3000` → projeto **campanha/production** → app **conexozenvo**
 (gateway, id de serviço `B2ComxiJzaEbaOiLBH_Rv`) → aba **Logs** → **Limit 5000** → filtrar por
 `wwebjs`. Procurar, na janela desde a última reconexão da sessão DIOGO (WWEBJS):

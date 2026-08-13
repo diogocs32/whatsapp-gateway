@@ -13,13 +13,19 @@
 | 2026-07-10-1040-m2-guardrail-ativo    | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway)                                                       | feature/m2-guardrail-ativo    |
 | 2026-07-19-0332-auth-refresh-rotation | 19/07 03:32 | Fix 401 `/auth/me`: refresh-token rotation (sessão não expira no meio do trabalho) | módulo `iam` (auth) + `apps/dashboard` (auth/api) + **`schema.prisma`** (refresh_tokens) + **`packages/contracts`** + config.ts + docs | feature/auth-refresh-rotation |
 | 2026-08-13-1630-wwebjs-proxy-anonimizado | 13/08 16:30 | Incidente wweb em prod: diagnóstico build 1045 (B-002, rollback) + fix proxy autenticado no Chromium via forwarder local proxy-chain (B-001) | `wwebjs.engine.ts` + teste + `apps/gateway/package.json` (dep proxy-chain) + docs | feature/wwebjs-proxy-anonimizado |
-| 2026-08-13-2100-wwebjs-store-travado | 13/08 21:00 | 🔴 ABERTA — página do Store wwebjs trava após reconexões de QR (getChats/sendMessage penduram 240s). Diagnóstico parcial (não é proxy/memória); falta ler log Dokploy. Plano 4-passos + P-014 documentados | (a criar) feature/wwebjs-store-travado |
+| 2026-08-13-2100-wwebjs-store-travado | 13/08 21:00 | 🟠 EM PROGRESSO — Store wwebjs trava após reconexões de QR (P-014). Log Dokploy LIDO 13/08 ~23h: `WA_LOG_LEVEL=warn` cegava o diagnóstico; PASSO 2 antigo inválido (`WA_REQUIRE_PROXY=true`). PLANO REVISADO no arquivo da sessão | (a criar) feature/wwebjs-store-travado |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
+- **13/08 · wwebjs-store-travado:** leitura da env de PROD no Dokploy (~23h UTC) achou
+  **`GUARDRAIL_ENFORCE=true`** (linha 63) — **diverge do ESTADO.md/M2**, que dizem modo observação
+  (`false`). Quem precisa saber: sessão **M2** (se o dono ligou de propósito, a onda M2 está de
+  fato ativa e precisa reconciliar; se foi engano, desligar). Também constatado
+  `WA_REQUIRE_PROXY=true` (B-001 quase fechada) e `WA_LOG_LEVEL=warn` (logs `info` das engines
+  invisíveis em prod — afeta QUALQUER sessão que dependa de log de engine para diagnóstico).
 - **12/08 · adocao-base-v43:** base universal agora é **v4.3** (R0–R21). Novidades que
   afetam TODA sessão: abertura passa a incluir `docs/PENDENCIAS.md` (novo quadro
   central P-xxx/B-xxx) e o **eco de leitura** no arquivo ATIVA-; encerramento ganha
