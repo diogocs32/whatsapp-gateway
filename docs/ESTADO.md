@@ -22,14 +22,14 @@
 ## Estado de produção
 
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
-- **Último deploy confirmado:** 10/07/2026 13:28 UTC — imagem de `808c175`, restart com **Memory Limit ativo** (`memoryUsedPct: 0.27` no `/health`), checks database/redis/storage true
+- **Último deploy — build 13/08/2026 ✅:** webhook do Dokploy buildou a imagem `campanha-conexozenvo-z9ldgl:latest` (digest `sha256:5d853af76301fe3fb58bf3e35de28781b57082335e503e95953fba02072550fd`) a partir do commit `9cb5686` (topo de `origin/main`) — `prisma generate` (client 7.8.0) + `nest build` OK; imagem de produção com `chromium`+`fonts-liberation` (wwebjs). **Falta a validação de RUNTIME** (`/health`: Memory Limit ativo + checks database/redis/storage) — colar o `/health` para fechar. Último deploy com runtime totalmente validado: 10/07/2026 13:28 UTC (imagem `808c175`, `memoryUsedPct: 0.27`, checks true).
 - **Auditoria 07/2026: 100% ENCERRADA** — código (itens 3–26) e operacionais (O1–O4) todos ✅; detalhes em [auditoria-2026-07.md](auditoria-2026-07.md)
 - **Proxies:** pool Webshare re-sincronizado (10/07), todos ALIVE de verdade (health-tester só aceita 2xx), sessões WORKING
 - **DNS:** validado verde no Dokploy (10/07)
 - **Guard-rail G1–G8:** implementado e em produção em modo OBSERVAÇÃO (`GUARDRAIL_ENFORCE=false`) — ligar é a M2
 - **Node n8n** `n8n-nodes-conexozenvo-gateway`: publicado no npm (v0.4.1) — repo separado; o contrato `/api` atual é a v1 de fato (R0/R4)
 - **Webhook de deploy do Dokploy:** intermitente no histórico (2 falhas em 03/07), mas disparou normal nos 2 pushes de 10/07 (~4,5 min de ciclo) — seguir observando
-- **Push 13/08 (origin/main = `3f7c611`):** todas as ondas wwebjs (W1–W8 + qualidade/desempenho MAX) e a base v4.3 estão no remoto — **deploy disparado, aguardando confirmação operacional** (checar `/health` + Memory Limit ativo no Dokploy; smoke por [how-to/smoke-test-wwebjs-w1-w6.md](how-to/smoke-test-wwebjs-w1-w6.md)). Se o container não redeployar em ~5 min: GitHub → Settings → Webhooks → Recent Deliveries + deploy manual.
+- **Push 13/08 (origin/main = `9cb5686`):** todas as ondas wwebjs (W1–W8 + qualidade/desempenho MAX) e a base v4.3 estão no remoto; o webhook do Dokploy disparou e o **build passou ✅** (ver "Último deploy"). Falta só a validação de runtime `/health` + smoke das rotas novas ([how-to/smoke-test-wwebjs-w1-w6.md](how-to/smoke-test-wwebjs-w1-w6.md)).
 
 ## Divergência dev × produção
 
