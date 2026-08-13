@@ -22,14 +22,14 @@
 ## Estado de produção
 
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
-- **Último deploy confirmado:** 13/08/2026 ~05:32 UTC — container novo no ar e **saudável**: `/health` = `ok` às 05:34:13 UTC, `uptimeSeconds: 90` (subiu ~05:32, é a imagem nova, não o processo velho), **Memory Limit ativo** (`memoryUsedPct: 0.28`, `heapUsedPct: 0.08`, `rssBytes` ≈ 291 MB), checks database/redis/storage **true**, version 0.1.0. Build do webhook Dokploy: imagem `campanha-conexozenvo-z9ldgl:latest` do commit `9cb5686` (digest `sha256:5d853af7…`); `prisma generate` (client 7.8.0) + `nest build` OK, imagem de produção com `chromium`+`fonts-liberation` (wwebjs). O doc-commit `12cac17` posterior é diff só de docs (código idêntico). **Pendente:** smoke das rotas novas W8 (membership/settings/photo) — [how-to/smoke-test-wwebjs-w1-w6.md](how-to/smoke-test-wwebjs-w1-w6.md).
+- **Último deploy confirmado:** 13/08/2026 ~05:32 UTC — container novo no ar e **saudável**: `/health` = `ok` às 05:34:13 UTC, `uptimeSeconds: 90` (subiu ~05:32, é a imagem nova, não o processo velho), **Memory Limit ativo** (`memoryUsedPct: 0.28`, `heapUsedPct: 0.08`, `rssBytes` ≈ 291 MB), checks database/redis/storage **true**, version 0.1.0. Build do webhook Dokploy: imagem `campanha-conexozenvo-z9ldgl:latest` do commit `9cb5686` (digest `sha256:5d853af7…`); `prisma generate` (client 7.8.0) + `nest build` OK, imagem de produção com `chromium`+`fonts-liberation` (wwebjs). O doc-commit `12cac17` posterior é diff só de docs (código idêntico). **Pendente:** smoke funcional das rotas novas (perfil, W8 grupos, presença/leads-lote) com sessão WWEBJS real — runbook pronto em [how-to/smoke-test-wwebjs-w8-qualidade.md](how-to/smoke-test-wwebjs-w8-qualidade.md).
 - **Auditoria 07/2026: 100% ENCERRADA** — código (itens 3–26) e operacionais (O1–O4) todos ✅; detalhes em [auditoria-2026-07.md](auditoria-2026-07.md)
 - **Proxies:** pool Webshare re-sincronizado (10/07), todos ALIVE de verdade (health-tester só aceita 2xx), sessões WORKING
 - **DNS:** validado verde no Dokploy (10/07)
 - **Guard-rail G1–G8:** implementado e em produção em modo OBSERVAÇÃO (`GUARDRAIL_ENFORCE=false`) — ligar é a M2
 - **Node n8n** `n8n-nodes-conexozenvo-gateway`: publicado no npm (v0.4.1) — repo separado; o contrato `/api` atual é a v1 de fato (R0/R4)
 - **Webhook de deploy do Dokploy:** intermitente no histórico (2 falhas em 03/07), mas disparou normal nos 2 pushes de 10/07 (~4,5 min de ciclo) — seguir observando
-- **Push 13/08 (origin/main = `9cb5686`):** todas as ondas wwebjs (W1–W8 + qualidade/desempenho MAX) e a base v4.3 estão no remoto e **em produção** — deploy confirmado pelo `/health` (ver "Último deploy"). Resta só o smoke das rotas novas W8.
+- **Push 13/08 (origin/main = `9cb5686`):** todas as ondas wwebjs (W1–W8 + qualidade/desempenho MAX) e a base v4.3 estão no remoto e **em produção** — deploy confirmado pelo `/health` (ver "Último deploy"). Resta só o smoke funcional (runbook [how-to/smoke-test-wwebjs-w8-qualidade.md](how-to/smoke-test-wwebjs-w8-qualidade.md)).
 
 ## Divergência dev × produção
 
