@@ -36,6 +36,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ### Adicionado
 
+- **W7 — inbox: busca de mensagens** (sessão `2026-08-13-0810-wwebjs-w7c-search`, P-011): recurso
+  NOVO aditivo. `GET /api/sessions/{s}/messages/search?q=termo` (opcional `&chatId=&limit=`) busca o
+  termo no texto das mensagens (case-insensitive, mais recente primeiro), mesmo formato do
+  `GET /messages`. Servida do **banco** → funciona nas **2 engines** e alcança o histórico importado
+  pelo backfill. Sem migration/env/breaking. Documentado em `INTEGRACAO.md` §12; contracts em P-013.
+  **Fecha o W7** (backfill + gestão de chat + busca — todos os itens entregues).
 - **W7 — inbox: gestão de chat** (sessão `2026-08-13-0744-wwebjs-w7b-chat-mgmt`, P-011): recurso
   NOVO aditivo. `POST /api/sessions/{s}/messages/{chatId}/flag` (`{flag, enabled}`) arquiva/fixa/
   silencia/marca-não-lido uma conversa (`flag` ∈ archive|pin|mute|unread; `unread` com
