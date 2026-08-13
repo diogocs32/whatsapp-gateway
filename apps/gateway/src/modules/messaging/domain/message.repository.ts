@@ -97,6 +97,15 @@ export interface MessageRepository {
     sessionId: string,
     limit: number,
   ): Promise<ConversationSummary[]>;
+  // W7 — busca por termo no texto das mensagens (case-insensitive). `chatJids` vazio = toda a
+  // sessão; preenchido = restringe àquela conversa. Ordena pela mais recente. Servida do banco →
+  // agnóstica de engine; alcança o que foi persistido (ao vivo + backfill).
+  searchMessages(
+    sessionId: string,
+    query: string,
+    chatJids: string[],
+    limit: number,
+  ): Promise<StoredMessage[]>;
 }
 
 export const MESSAGE_REPOSITORY = Symbol('MESSAGE_REPOSITORY');

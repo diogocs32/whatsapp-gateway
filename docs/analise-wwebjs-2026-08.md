@@ -435,7 +435,11 @@ chega ao vivo".
 > keyId, **sem** EventBus → não dispara webhook/reply-rate). Mídia histórica sem binário.
 > **Atualização 13/08 (sessão `wwebjs-w7b-chat-mgmt`):** gestão de chat ENTREGUE —
 > `setChatFlag(chatJid, flag, enabled)` (archive/pin/mute/unread) via `POST /messages/:chatId/flag`,
-> só WWEBJS (Baileys → 501: archive/markRead exigem app-state sync). **Resta do W7 só `searchMessages`.**
+> só WWEBJS (Baileys → 501: archive/markRead exigem app-state sync).
+> **Atualização 13/08 (sessão `wwebjs-w7c-search`): W7 COMPLETO** — `searchMessages` via
+> `GET /messages/search?q=` (busca no banco `wa_messages.text`, agnóstica de engine, alcança o
+> histórico do backfill). Todos os itens do W7 entregues (inbox de leitura já existia; backfill +
+> gestão de chat + busca adicionados).
 
 > **Atualização 12/08:** 1º incremento ENTREGUE (sessão `wwebjs-w8-perfil-conta`) —
 > **status/recado + nome de exibição** da conta, nas 2 engines. Restam: foto de perfil,

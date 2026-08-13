@@ -29,7 +29,8 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 2026-08-13-0744-wwebjs-w7b-chat-mgmt   | 13/08 | W7 gestão de chat (P-011): `setChatFlag` archive/pin/mute/unread (`POST /messages/:chatId/flag`) — wwebjs, 501 no Baileys. Fecha o W7 exceto searchMessages | feature/wwebjs-w7b-chat-mgmt |
+| 2026-08-13-0810-wwebjs-w7c-search      | 13/08 | W7 searchMessages (P-011, ÚLTIMO item — **fecha o W7**): busca no banco `GET /messages/search`, agnóstica de engine | feature/wwebjs-w7c-search |
+| 2026-08-13-0744-wwebjs-w7b-chat-mgmt   | 13/08 | W7 gestão de chat (P-011): `setChatFlag` archive/pin/mute/unread (`POST /messages/:chatId/flag`) — wwebjs, 501 no Baileys | feature/wwebjs-w7b-chat-mgmt |
 | 2026-08-13-0726-wwebjs-w7-inbox        | 13/08 | W7 inbox 1º incremento (P-011): backfill de histórico da engine → `wa_messages` (`POST /messages/sync`; getChats/fetchMessages no wwebjs, 501 no Baileys) — a inbox de leitura já existia | feature/wwebjs-w7-inbox |
 | 2026-08-12-2043-wwebjs-qualidade-max  | 12/08 | Qualidade/desempenho do motor wwebjs: leads em LOTE (round-trips CDP O(N)→O(N/50)), presença global real, pairing+diagnóstico, UA anti-flag por sessão (P-012 ✅) + W8 grupos avançados nas 2 engines (membership/settings/foto — P-011) | feature/wwebjs-qualidade-max |
 | 2026-08-12-1959-wwebjs-p012-announce-restrict | 12/08 | Polimento P-012: announce/restrict REAIS nos grupos do wwebjs (era `false` fixo — correção) | feature/wwebjs-p012-announce-restrict |

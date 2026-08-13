@@ -201,6 +201,27 @@ export class PrismaMessageRepository implements MessageRepository {
     return rows.reverse().map((r) => this.toStored(r));
   }
 
+  async searchMessages(
+    sessionId: string,
+    query: string,
+    chatJids: string[],
+    limit: number,
+  ): Promise<StoredMessage[]> {
+    const rows = await this.prisma.waMessage.findMany({
+      where: {
+        sessionId,
+        // ILIKE '%query%' (parametrizado). `%`/`_` do usuário viram wildcard — aceitável numa
+        // caixa de busca. Sem índice dedicado (seq scan no `text`) — ok p/ o volume atual; um
+        // índice trigram/FTS é melhoria futura se a tabela crescer muito.
+        text: { contains: query, mode: 'insensitive' },
+        ...(chatJids.length ? { chatJid: { in: chatJids } } : {}),
+      },
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+    });
+    return rows.map((r) => this.toStored(r));
+  }
+
   // GAP 2 (CP-149): aceita o ULID interno OU o keyId do WhatsApp. Em colisão improvável,
   // a mensagem mais recente vence (mesmo critério do findByKeyId).
   async findByRef(

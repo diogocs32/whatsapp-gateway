@@ -219,7 +219,14 @@ A inbox é servida do **banco do gateway** (o que já chegou ao vivo), independe
 ```
 GET  /api/sessions/{sessao}/messages/conversations   # lista de conversas (última msg, nome, foto)
 GET  /api/sessions/{sessao}/messages?chatId=5511...   # mensagens de uma conversa (traz keyId)
+GET  /api/sessions/{sessao}/messages/search?q=termo   # busca por termo (opcional: &chatId=5511...&limit=50)
 ```
+
+- **Busca (`/search`):** procura o termo `q` no texto das mensagens da sessão (case-insensitive),
+  ordenado da mais recente. `chatId` opcional restringe a uma conversa; `limit` default 50 (máx 200).
+  Mesmo formato do `GET /messages` (traz `keyId` + `mediaUrl`). Funciona nas 2 engines e alcança o
+  histórico já importado pelo backfill (busca o que está **persistido** — rode o `/sync` antes para
+  incluir conversas anteriores à conexão).
 
 **Backfill (W7 — só engine WWEBJS):** ao conectar uma sessão, a inbox só tem o que chegou DEPOIS.
 Para trazer o histórico anterior, dispare o sync — ele puxa do WhatsApp Web e grava no banco, e aí os

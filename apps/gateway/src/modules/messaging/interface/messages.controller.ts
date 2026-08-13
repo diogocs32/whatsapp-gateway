@@ -225,6 +225,37 @@ export class MessagesController {
     );
   }
 
+  // W7 — busca por termo (`q`) no texto das mensagens da sessão. `chatId` opcional restringe a uma
+  // conversa. Servida do banco → funciona nas 2 engines e alcança o histórico já importado
+  // (backfill). Mesmo formato do GET /messages (traz keyId + mediaUrl pré-assinada quando há mídia).
+  @Get('search')
+  async search(
+    @Param('id', SessionRefPipe) id: string,
+    @Query('q') q?: string,
+    @Query('chatId') chatId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const term = (q ?? '').trim();
+    if (term.length < 1) {
+      throw new BadRequestException('q (termo de busca) é obrigatório');
+    }
+    const take = Math.min(Number(limit) || 50, 200);
+    const chatJids = chatId ? candidateJids(chatId) : [];
+    const msgs = await this.repo.searchMessages(id, term, chatJids, take);
+    return Promise.all(
+      msgs.map(async (m) =>
+        toDto(
+          m,
+          m.mediaKey
+            ? await this.mediaStorage
+                .presignedGetUrl(m.mediaKey)
+                .catch(() => null)
+            : null,
+        ),
+      ),
+    );
+  }
+
   // W7 — backfill do inbox: puxa o histórico da engine e grava no banco, populando GET
   // /conversations e GET /messages com conversas anteriores à conexão. `{chatId}` = só aquele chat;
   // sem `chatId` = os `maxChats` mais recentes. Só WWEBJS; Baileys → 501 (a inbox ao vivo dele já
