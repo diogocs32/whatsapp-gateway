@@ -187,4 +187,42 @@ describe('Messaging (e2e)', () => {
     });
     expect(res.statusCode).toBe(401);
   });
+
+  // W7 — busca no banco (repo real; DB de teste vazio → array vazio, mas o contrato responde 200).
+  it('search com q → 200 e array', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/x/messages/search?q=oi',
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.json())).toBe(true);
+  });
+
+  it('search sem q → 400', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/x/messages/search',
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('search com q só espaços → 400', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/x/messages/search?q=%20%20',
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('search sem auth → 401', async () => {
+    const res = await inject(app, {
+      method: 'GET',
+      url: '/api/sessions/x/messages/search?q=oi',
+      headers: {},
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });
