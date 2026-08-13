@@ -48,6 +48,49 @@ passo agora é DESTRAVAR A OBSERVABILIDADE (abaixo).
 - `WWEBJS_WEB_VERSION=2.3000.1042271047-alpha` (linha 65) — rollback do B-002 confirmado na env (expira 28/08; bisect ≤1044.x segue com prazo ~25/08).
 - `GUARDRAIL_ENFORCE=true` (linha 63) — **DIVERGÊNCIA com ESTADO.md/M2** (docs dizem observação `false`). Confirmar com o dono se foi intencional → se sim, M2 está de fato ligada e a onda precisa ser reconciliada.
 
+## ✅ EXECUÇÃO 13/08 ~23:30–23:50 UTC (continuação — passos 1, 2 e restart FEITOS; sintoma PERSISTE)
+
+- **`WA_LOG_LEVEL=info` aplicado** (dono salvou na env; Dokploy auto-redeployou ~23:30 UTC, redeploy
+  de 5s sem rebuild — container novo `4d128e828504`). Confirmado `WWEBJS_WEB_VERSION=1042271047`
+  na env (linha 65).
+- **DIOGO movida do proxy #1 → #27 `104.165.159.224:5357`** (IP livre; painel Proxies →
+  Atribuição por sessão → Salvo ✓). Fim do compartilhamento com a Baileys "Diogo". #30 segue livre.
+- **Restart ÚNICO da DIOGO** (~23:40 UTC): Iniciando → Conectado em ~1 min SEM pedir QR
+  (LocalAuth reaproveitado — reconexão W1 ok).
+- **PROBE (painel Grupos, sessão DIOGO): `getChats` pendurou 240s → `Runtime.callFunctionOn
+  timed out`.** 🔴 **O travamento NÃO é rajada de QR nem proxy compartilhado**: persiste com
+  restart limpo + proxy dedicado + container novo.
+- **Leitura atualizada da causa:** o teste de PN (leads 99/99, usa o MESMO Store) passou às
+  ~19:50 UTC na MESMA build — antes das reconexões. O que mudou foi o **login do ZERO**
+  (new-qr → purgeAuthDir): a sincronização pós-login desse perfil novo nunca completa (na build
+  `1042271047`, que expira 28/08) e a página fica com evaluates pendurados PARA SEMPRE — mesmo
+  após restarts (o perfil meio-sincronizado persiste no LocalAuth). **Prova final: `loading_screen`
+  no log do container atual (info já ligado)** — travado em X% <100 crava; se nem aparece, a página
+  trava antes do progresso.
+- **Código entregue nesta branch (`a43fb63`)**: `raceStoreOp` + probe `getState()` (10s) + teto
+  45s/tentativa no `withStoreReady` + `lastLoadingPct` na mensagem de erro. 34/34 testes ·
+  tsc/eslint/prettier OK. **Aguardando: ler o loading_screen ANTES de mergear+deployar** (o
+  deploy troca o container e perde o log da evidência).
+- ⚠️ Login do Dokploy EXPIROU no meio (~23:45) — a leitura final do log ficou bloqueada no dono
+  logar de novo.
+
+### 🎯 CAUSA CRAVADA (13/08 ~23:55 UTC — loading_screen lido com o dono logado)
+Progressão no container `4d128e828504` (horários BRT): **20:22 `0%` → 20:27 `100%` ✅** (1ª subida,
+auto-restore no boot — sincronizou COMPLETA) · **20:37:52 `0%` → 20:38:00 `70%` → :01 `87%` →
+:02 `99%` 🔴 e NUNCA progrediu** (2ª subida, o restart da validação). Conclusão: **a
+re-sincronização pós-subida é uma LOTERIA na build `1042271047` — às vezes fecha (100%), às vezes
+empaca nos últimos 1% (99%) e aí TODO evaluate do Store pendura para sempre** (getChats/
+getContacts 240s → `Runtime.callFunctionOn timed out`). Não é proxy, não é rajada de QR, não é
+memória. Os travamentos de 17:12/17:24 e o probe 20:42 são o MESMO fenômeno (sync empacada).
+Errata: o filtro de busca do Dokploy quebra com `:` — "wwebjs:" retornava vazio e escondeu a 1ª
+subida; usar termos sem dois-pontos (ex.: `carregando`, `wwebjs`).
+
+**Mitigações:** (a) código desta branch (teto/probe — erro acionável em ~10s com o % da sync na
+mensagem, em vez de 240s mudo); (b) operacional: restart re-rola a loteria até pegar 100%;
+(c) DEFINITIVO (candidato): bisect B-002 (~25/08) numa build ≤1044.x que sincronize estável —
+testar grupos+leads+phone E a sync 100% na mesma janela; (d) futuro (P-001 watchdog): auto-reload
+quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct`) para isso.
+
 ## 🎯 PLANO REVISADO (substitui a ordem antiga; passos antigos mantidos abaixo para contexto)
 
 1. **(Dono, 2 min — R0)** Dokploy → conexozenvo → Environment: mudar `WA_LOG_LEVEL=warn` →
