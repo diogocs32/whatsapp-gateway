@@ -260,6 +260,26 @@ LID→PN em lote). `DEFAULT_WEB_VERSION` do código só sobe após essa validaç
    diagnóstico de hoje só foi possível com info).
 6. `getChatById` em vez de `getChats` onde couber (#3485, barato) — pendente da pesquisa.
 
+## 🌊 CICLO DA TARDE 14/08 (~14:20–15:40 UTC) — crashes de mídia, 4GB, e o diagnóstico refinado da re-sync
+
+1. **Crash de renderer ×2** (`Target crashed` no downloadMedia, grupos de promo) → página morta →
+   1º caso derrubou até o container (provável OOM do cgroup 2GB; Swarm recriou task sem deploy).
+2. **Entregues em prod**: teto de download de mídia 24MB + heal em crash + probe no envio + retry
+   da pinada (`1595ac7`) · heal p/ página CRASHADA em todos os caminhos (`ccc17b1`, P-017c) ·
+   **Memory Limit 2GB → 4GB** (autorizado pelo dono; persistência conferida; heap Node auto-ajusta
+   p/ 2GB via entrypoint).
+3. **Diagnóstico REFINADO (contra-evidência do dono)**: pós-QR a MESMA conta roda leve ⇒ não é
+   peso de conta; é o caminho INCREMENTAL da re-sync de reconexão que empaca em 99% (bootstrap
+   3/3 ✓; incremental ~10× ✗, em 3 builds). Regra operacional: reconexão não-confiável;
+   re-pareamento confiável; deploys de gateway em lote/janela (podem custar re-scan).
+4. **Recuperações do dia**: 3 re-scans de QR (todos com sync 100% imediata). Estado final ~15:40:
+   dono confirma "após QR tudo ok" (grupos + inbox + curl).
+5. **P-019 codada SEM deploy** (commit local `25cad0c`): watchdog 60s → 3 falhas = DEGRADED com
+   "re-escaneie o QR" + heal; recupera WORKING sozinho. Entra no próximo lote.
+6. Pendências estruturais registradas: P-018 (Baileys não-pareadas em loop de QR — alívio manual:
+   pausar autostart) · rotação da X-Api-Key · fix upstream da re-sync é do ecossistema (wa-js tem
+   compat fixes; fora de escopo por D-012 — opção futura se o incremental seguir quebrando).
+
 ## Validação em prod (roteiro original — SUPERSEDIDO pelo achado acima; 1ª troca executada)
 
 1. Deploy em janela calma. **A 1ª troca de container ainda pode pedir QR** (o container VELHO
