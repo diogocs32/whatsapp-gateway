@@ -175,6 +175,17 @@ export function authDirOf(sessionId: string): string {
 const STORE_PROBE_TIMEOUT_MS = 10_000;
 const STORE_OP_TIMEOUT_MS = 45_000;
 
+// P-015 — teto do `client.logout()` no doLogout: numa página travada os evaluates do logout
+// penduram até o protocolTimeout (240s) SEGURANDO o mutex de ciclo de vida — o Parar/shutdown
+// enfileira atrás e nunca roda. Estourou → seguimos para destroy+purge (que garantem a limpeza).
+const LOGOUT_TIMEOUT_MS = 8_000;
+// P-015 — marcador de "fechado limpo" gravado no perfil (authDir) quando NÓS fechamos o Chromium
+// com sucesso (destroy dentro do teto) e consumido no start seguinte. Perfil presente SEM o
+// marcador = o último encerramento foi sujo (SIGKILL/crash/teto de shutdown estourado) — o cenário
+// que invalida o LocalAuth e faz o WhatsApp exigir QR na volta. Arquivo estranho ao Chromium
+// (ignorado por ele) e morre junto com o dir no purgeAuthDir. Exportado para teste.
+export const CLEAN_SHUTDOWN_MARKER = '.gateway-clean-shutdown';
+
 // Corre uma promise de Store contra um teto. O race NÃO cancela a chamada CDP subjacente (fica
 // pendente no Chromium até o protocolTimeout) — o teto existe para devolver o erro acionável AGORA
 // em vez de prender o chamador; a rejeição tardia da promise órfã é engolida (sem unhandled).
@@ -234,6 +245,10 @@ export class WWebJSEngine implements IEngine {
   // P-014: entra na mensagem de erro quando uma operação de Store estoura o teto — distingue
   // "ainda sincronizando em X%" de "página travada sem nunca ter emitido progresso" (null).
   private lastLoadingPct: number | null = null;
+  // Tetos de ciclo de vida (P-015) — campos (e não constantes inline) para os testes injetarem
+  // valores curtos, como o withStoreReady faz com os tetos de Store.
+  private logoutTimeoutMs = LOGOUT_TIMEOUT_MS;
+  private destroyTimeoutMs = 12_000;
 
   constructor(private readonly deps: BaileysEngineDeps) {}
 
@@ -304,6 +319,10 @@ export class WWebJSEngine implements IEngine {
   private async doStart(attempt = 0, forceLive = false): Promise<void> {
     if (this.client) return;
     this.stopped = false;
+
+    // P-015 — diagnóstico: perfil presente sem marca de "fechado limpo" = último encerramento sujo.
+    // Só na 1ª tentativa: o retry interno (attempt>0) roda depois do consumo e logaria WARN falso.
+    if (attempt === 0) await this.consumeCleanShutdownMarker();
 
     // Remove locks de perfil órfãos (Singleton*) ANTES de lançar o Chromium — sem isto, um SingletonLock
     // stale no volume persistente (hostname do container mudou) faz o Chromium recusar com
@@ -778,44 +797,143 @@ export class WWebJSEngine implements IEngine {
   // bloquear a fila `lifecycle` (mutex) desta sessão para sempre — sem o teto, todo start/stop/logout
   // futuro penduraria atrás dele. Se estourar, o Chromium pode ficar órfão, mas o clearStaleSingletonLocks
   // do próximo start remove o lock remanescente — melhor um órfão do que a sessão travada.
-  private async destroyWithTimeout(): Promise<void> {
+  // Retorna se fechou LIMPO (destroy completou dentro do teto — P-015): false = estouro, o browser
+  // pode morrer no meio de escritas do perfil. destroy() que REJEITA conta como fechado (o browser
+  // já não está mais de pé segurando o perfil).
+  private async destroyWithTimeout(): Promise<boolean> {
     const client = this.client;
-    if (!client) return;
+    if (!client) return true; // nada aberto = nada a sujar
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<void>((r) => {
-      timer = setTimeout(r, 12_000);
+    const timeout = new Promise<boolean>((r) => {
+      timer = setTimeout(() => r(false), this.destroyTimeoutMs);
     });
     try {
-      await Promise.race([client.destroy().catch(() => {}), timeout]);
+      return await Promise.race([
+        client.destroy().then(
+          () => true,
+          () => true,
+        ),
+        timeout,
+      ]);
     } finally {
       if (timer) clearTimeout(timer); // não deixa o timer vivo 12s após um destroy rápido
     }
   }
 
+  // P-015 — grava o marcador de "fechado limpo" no perfil. Só chega aqui após um destroy que
+  // completou dentro do teto E com um client que existia (hadClient nos chamadores) — marcar sem
+  // ter havido browser mascararia um fechamento sujo anterior. writeFile falha se o dir não existe
+  // (sessão que nunca logou) → noop.
+  private async markCleanShutdown(): Promise<void> {
+    await writeFile(
+      join(authDirOf(this.deps.sessionId), CLEAN_SHUTDOWN_MARKER),
+      new Date().toISOString(),
+    ).catch(() => {});
+  }
+
+  // P-015 — consumido no início do doStart: perfil presente SEM o marcador = o último encerramento
+  // foi sujo. O WARN é o diagnóstico em prod: se o QR for exigido logo em seguida, a hipótese da
+  // P-015 (shutdown sujo invalida o LocalAuth) está confirmada para ESTA ocorrência; se o start
+  // vier de perfil limpo e o QR for exigido mesmo assim, a causa é outra (ex.: perfil da build
+  // errada) e o log refuta a hipótese.
+  private async consumeCleanShutdownMarker(): Promise<void> {
+    const dir = authDirOf(this.deps.sessionId);
+    const hasProfile = await access(dir).then(
+      () => true,
+      () => false,
+    );
+    if (!hasProfile) return; // perfil virgem — nada a diagnosticar
+    const marker = join(dir, CLEAN_SHUTDOWN_MARKER);
+    const wasClean = await access(marker).then(
+      () => true,
+      () => false,
+    );
+    if (wasClean) {
+      // Remove ANTES do launch: se ESTA execução morrer suja, o próximo start não acha o marcador.
+      await rm(marker, { force: true }).catch(() => {});
+      this.deps.logger.info(
+        'wwebjs: perfil fechado limpo na última execução (marcador presente)',
+      );
+      return;
+    }
+    this.deps.logger.warn(
+      'wwebjs: perfil existente SEM marca de fechamento limpo — o último encerramento foi sujo (crash/SIGKILL/teto de shutdown estourado). Se o WhatsApp exigir QR agora, a causa é esta (P-015).',
+    );
+  }
+
   stop(): Promise<void> {
+    // `stopped` marcado FORA da fila (paridade com o Baileys, baileys.engine.ts): cancela na hora
+    // reconexões agendadas mesmo com o doStop enfileirado atrás de uma operação lenta no mutex.
+    this.stopped = true;
     return this.serialize(() => this.doStop());
   }
 
   private async doStop(): Promise<void> {
     this.stopped = true;
-    await this.destroyWithTimeout();
+    const hadClient = this.client !== null;
+    const clean = await this.destroyWithTimeout();
     this.client = null;
     await this.closeAnonProxy();
+    if (hadClient && clean) await this.markCleanShutdown(); // P-015: diagnóstico no próximo start
     this.qrBase64 = null; // não servir um QR morto de sessão parada via getQrBase64()
     this.setStatus('STOPPED');
   }
 
+  // P-015 — encerramento do PROCESSO (SIGTERM do redeploy). NÃO passa pelo mutex de ciclo de vida:
+  // se uma operação pendurada segura a fila (ex.: logout numa página travada), o stop() serializado
+  // nunca começaria dentro do grace period e o container morreria com o Chromium no meio de
+  // escritas → perfil sujo → WhatsApp exige QR na volta (a P-015 em si). destroy() direto com teto
+  // fecha o browser (flush do perfil) mesmo com a fila presa. NÃO emite/persiste status: o
+  // findAutostart só reidrata WORKING/STARTING/SCAN_QR/PAIRING/DEGRADED — persistir STOPPED aqui
+  // impediria a sessão de voltar no container novo.
+  async shutdown(): Promise<void> {
+    this.stopped = true;
+    const startedAt = Date.now();
+    const hadClient = this.client !== null;
+    const clean = await this.destroyWithTimeout();
+    this.client = null;
+    await this.closeAnonProxy();
+    if (!hadClient) return; // nada estava aberto — sem browser, sem marcador, sem log
+    if (clean) await this.markCleanShutdown();
+    const elapsedMs = Date.now() - startedAt;
+    if (clean) {
+      this.deps.logger.info(
+        { elapsedMs },
+        'wwebjs: shutdown fechou o Chromium limpo',
+      );
+    } else {
+      this.deps.logger.warn(
+        { elapsedMs },
+        'wwebjs: shutdown estourou o teto do destroy — o Chromium pode morrer sujo com o container e invalidar o LocalAuth (P-015)',
+      );
+    }
+  }
+
   logout(): Promise<void> {
+    this.stopped = true; // fora da fila — mesma razão do stop()
     return this.serialize(() => this.doLogout());
   }
 
   private async doLogout(): Promise<void> {
     this.stopped = true;
-    try {
-      // logout() do wwebjs faz o round-trip com o WhatsApp E remove o userDataDir (LocalAuth).
-      await this.client?.logout();
-    } catch {
-      /* pode falhar com creds mortas — a purga em disco abaixo garante a limpeza */
+    if (this.client) {
+      try {
+        // logout() do wwebjs faz o round-trip com o WhatsApp E remove o userDataDir (LocalAuth).
+        // Com TETO (P-015): numa página travada os evaluates penduram 240s segurando o mutex — o
+        // Parar/shutdown enfileirava atrás e o painel via "Logout/Parar presos".
+        await raceStoreOp(
+          this.client.logout(),
+          this.logoutTimeoutMs,
+          'logout do WhatsApp não respondeu',
+        );
+      } catch (e) {
+        // Creds mortas (ok) ou teto estourado (página travada) — nos dois casos o destroy+purga
+        // abaixo garantem a limpeza; fica só o registro do motivo.
+        this.deps.logger.warn(
+          { err: (e as Error)?.message },
+          'wwebjs: logout() não completou — seguindo para destroy+purga',
+        );
+      }
     }
     await this.destroyWithTimeout();
     this.client = null;

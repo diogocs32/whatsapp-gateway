@@ -9,6 +9,7 @@ import {
   groupFlags,
   raceStoreOp,
   userAgentFor,
+  CLEAN_SHUTDOWN_MARKER,
 } from '../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine';
 import type { GroupChat } from 'whatsapp-web.js';
 import type { BaileysEngineDeps } from '../src/modules/sessions/infrastructure/baileys/baileys.engine';
@@ -563,5 +564,134 @@ describe('resolveParticipantsBatch SEM getContacts + auto-heal (P-014, 14/08)', 
     ).rejects.toThrow(/não responde/);
     await new Promise((r) => setTimeout(r, 20));
     expect(reloads).toBe(2);
+  });
+});
+
+describe('WWebJSEngine — shutdown limpo do processo (P-015)', () => {
+  // QR a cada troca de container: o stop() serializado ficava atrás de uma operação pendurada no
+  // mutex de ciclo de vida, o teto de 15s do onModuleDestroy estourava e o Chromium levava SIGKILL
+  // no meio de escritas do perfil (LocalAuth sujo → WhatsApp exige QR). shutdown() fecha por fora
+  // do mutex; o marcador "fechado limpo" torna a hipótese observável em prod.
+  type Lifecycle = {
+    client: unknown;
+    serialize<T>(fn: () => Promise<T>): Promise<T>;
+    logoutTimeoutMs: number;
+    destroyTimeoutMs: number;
+    consumeCleanShutdownMarker(): Promise<void>;
+  };
+  const internals = (e: WWebJSEngine) => e as unknown as Lifecycle;
+  const captureLogger = () => {
+    const warns: string[] = [];
+    const infos: string[] = [];
+    const push =
+      (arr: string[]) =>
+      (...args: unknown[]) => {
+        arr.push(args.map(String).join(' '));
+      };
+    const noop = () => undefined;
+    return {
+      warns,
+      infos,
+      logger: {
+        info: push(infos),
+        warn: push(warns),
+        error: noop,
+        debug: noop,
+        fatal: noop,
+        trace: noop,
+      } as unknown as BaileysEngineDeps['logger'],
+    };
+  };
+
+  it('shutdown() fecha o Chromium POR FORA do mutex (fila de ciclo de vida presa não impede o destroy)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    let destroyed = 0;
+    internals(engine).client = {
+      destroy: async () => {
+        destroyed++;
+      },
+    };
+    // Prende a fila (simula um logout pendurado numa página travada). Um stop() serializado
+    // ficaria atrás disto para sempre — o shutdown() não pode.
+    void internals(engine).serialize(() => new Promise(() => undefined));
+    await engine.shutdown();
+    expect(destroyed).toBe(1);
+  });
+
+  it('shutdown() com destroy pendurado estoura o teto próprio e RESOLVE (não pendura o grace period)', async () => {
+    const { warns, logger } = captureLogger();
+    const { deps } = makeDeps({ logger });
+    const engine = new WWebJSEngine(deps);
+    internals(engine).destroyTimeoutMs = 20;
+    internals(engine).client = { destroy: () => new Promise(() => undefined) };
+    await expect(engine.shutdown()).resolves.toBeUndefined();
+    // Estouro é logado como warn citando a P-015 — o diagnóstico em prod depende disto.
+    expect(warns.join('\n')).toMatch(/P-015/);
+  });
+
+  it('destroy limpo grava o marcador no perfil; o start seguinte o consome SEM warn de sujo', async () => {
+    const id = `test-p015-${Math.random().toString(36).slice(2)}`;
+    const dir = authDirOf(id);
+    await mkdir(dir, { recursive: true });
+    try {
+      const { deps } = makeDeps({ sessionId: id });
+      const engine = new WWebJSEngine(deps);
+      internals(engine).client = { destroy: async () => undefined };
+      await engine.shutdown();
+      await expect(
+        access(join(dir, CLEAN_SHUTDOWN_MARKER)),
+      ).resolves.toBeUndefined();
+
+      const { warns, logger } = captureLogger();
+      const { deps: deps2 } = makeDeps({ sessionId: id, logger });
+      const engine2 = new WWebJSEngine(deps2);
+      await internals(engine2).consumeCleanShutdownMarker();
+      expect(warns).toHaveLength(0); // fechado limpo → sem warn
+      // Marcador é consumido (removido): se ESTA execução morrer suja, o próximo start detecta.
+      await expect(
+        access(join(dir, CLEAN_SHUTDOWN_MARKER)),
+      ).rejects.toBeTruthy();
+
+      // Perfil presente SEM marcador = encerramento sujo → warn com P-015.
+      await internals(engine2).consumeCleanShutdownMarker();
+      expect(warns.join('\n')).toMatch(/P-015/);
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
+  it('shutdown() sem client aberto NÃO grava o marcador (não mascara um fechamento sujo anterior)', async () => {
+    const id = `test-p015-noclient-${Math.random().toString(36).slice(2)}`;
+    const dir = authDirOf(id);
+    await mkdir(dir, { recursive: true });
+    try {
+      const { deps } = makeDeps({ sessionId: id });
+      const engine = new WWebJSEngine(deps);
+      await engine.shutdown();
+      await expect(
+        access(join(dir, CLEAN_SHUTDOWN_MARKER)),
+      ).rejects.toBeTruthy();
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
+  it('logout() numa página travada estoura o teto do client.logout() e segue para destroy+purga', async () => {
+    const { warns, logger } = captureLogger();
+    const { deps, events } = makeDeps({ logger });
+    const engine = new WWebJSEngine(deps);
+    let destroyed = 0;
+    internals(engine).logoutTimeoutMs = 20;
+    internals(engine).client = {
+      logout: () => new Promise(() => undefined), // evaluates pendurados na página travada
+      destroy: async () => {
+        destroyed++;
+      },
+    };
+    await engine.logout(); // antes do teto, pendurava 240s segurando o mutex ("Logout/Parar presos")
+    expect(destroyed).toBe(1);
+    expect(warns.join('\n')).toMatch(/logout\(\) não completou/);
+    expect(events.at(-1)?.status).toBe('STOPPED');
   });
 });

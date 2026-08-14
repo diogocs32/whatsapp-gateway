@@ -92,8 +92,23 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     // Teto no shutdown (item 12 da auditoria 07/2026): um Chromium/socket travado não pode
     // pendurar o redeploy — o orquestrador mata o container após o grace period de qualquer
     // forma; melhor liberar o processo de forma controlada.
+    // P-015: engines com shutdown() (wwebjs) fecham por FORA do mutex de ciclo de vida — um
+    // logout/start pendurado segurando a fila deixava o stop() serializado sem nem COMEÇAR nos
+    // 15s, o Chromium levava SIGKILL no meio de escritas e o perfil sujo fazia o WhatsApp exigir
+    // QR a cada troca de container. Duração e estouros ficam logados para validar em prod.
+    const startedAt = Date.now();
+    const pending = new Set<string>();
     const stopAll = Promise.all(
-      [...this.engines.values()].map((e) => e.stop().catch(() => undefined)),
+      [...this.engines.entries()].map(async ([id, e]) => {
+        pending.add(id);
+        try {
+          await (e.shutdown ? e.shutdown() : e.stop());
+        } catch {
+          /* melhor esforço — o processo está encerrando */
+        } finally {
+          pending.delete(id);
+        }
+      }),
     );
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<void>((resolve) => {
@@ -103,6 +118,14 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       await Promise.race([stopAll, timeout]);
     } finally {
       if (timer) clearTimeout(timer);
+    }
+    const elapsedMs = Date.now() - startedAt;
+    if (pending.size > 0) {
+      this.logger.warn(
+        `Shutdown estourou o teto de 15s (${elapsedMs}ms); sessões ainda fechando: ${[...pending].join(', ')} — Chromium pode morrer sujo com o container e invalidar o LocalAuth (P-015)`,
+      );
+    } else {
+      this.logger.log(`Shutdown: todas as engines fecharam em ${elapsedMs}ms`);
     }
   }
 

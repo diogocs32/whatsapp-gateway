@@ -14,12 +14,18 @@
 | 2026-07-19-0332-auth-refresh-rotation | 19/07 03:32 | Fix 401 `/auth/me`: refresh-token rotation (sessão não expira no meio do trabalho) | módulo `iam` (auth) + `apps/dashboard` (auth/api) + **`schema.prisma`** (refresh_tokens) + **`packages/contracts`** + config.ts + docs | feature/auth-refresh-rotation |
 | 2026-08-13-1630-wwebjs-proxy-anonimizado | 13/08 16:30 | Incidente wweb em prod: diagnóstico build 1045 (B-002, rollback) + fix proxy autenticado no Chromium via forwarder local proxy-chain (B-001) | `wwebjs.engine.ts` + teste + `apps/gateway/package.json` (dep proxy-chain) + docs | feature/wwebjs-proxy-anonimizado |
 | 2026-08-13-2100-wwebjs-store-travado | 13/08 21:00 | 🟢 FASE FINAL — P-014: causa cravada (injeção concorrente pós-QR + sync de conta pesada), teto/probe EM PROD (`3e74d25`), pesquisa completa (`pesquisa-wwebjs-2026-08.md`), **dep wwebjs pinada no commit `1780711` (D-012, foco só wwebjs)** — resta merge+deploy+validação de ciclos de QR | feature/wwebjs-store-travado |
+| 2026-08-14-0707-wwebjs-p015-shutdown-limpo | 14/08 07:07 | P-015 — shutdown limpo do wwebjs: bypass do mutex no shutdown do processo + teto no `logout()` + log de duração/estouro do stopAll + marcador "fechado limpo" no perfil | `wwebjs.engine.ts` (ciclo de vida) + `engine.port.ts` + `session-manager.service.ts` (onModuleDestroy) + teste + docs | feature/wwebjs-p015-shutdown-limpo |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
+- **14/08 · wwebjs-p015-shutdown-limpo:** esta sessão **assume a P-015** e toca
+  `wwebjs.engine.ts` (ciclo de vida/shutdown) — escopo que pertencia à sessão
+  `wwebjs-store-travado`. O arquivo ATIVA- da store-travado declara a rodada **ENCERRÁVEL**
+  (P-014 resolvida na prática 14/08 ~01:45 UTC); quando ela encerrar (R9), remover este aviso.
+  Se ela reabrir trabalho em `wwebjs.engine.ts`, coordenar antes (escopos deixaram de ser disjuntos).
 - **13/08 · wwebjs-store-travado:** leitura da env de PROD no Dokploy (~23h UTC) achou
   **`GUARDRAIL_ENFORCE=true`** (linha 63) — **diverge do ESTADO.md/M2**, que dizem modo observação
   (`false`). Quem precisa saber: sessão **M2** (se o dono ligou de propósito, a onda M2 está de

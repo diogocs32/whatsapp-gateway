@@ -244,6 +244,12 @@ export interface IEngine {
   readonly engineName: 'baileys' | 'wwebjs';
   start(): Promise<void>;
   stop(): Promise<void>;
+  // P-015 — encerramento do PROCESSO (SIGTERM de redeploy), distinto do stop(): NÃO passa pelo
+  // mutex de ciclo de vida da engine (uma operação pendurada segurando a fila não pode impedir o
+  // fechamento limpo do browser dentro do grace period) e NÃO persiste status (a sessão precisa
+  // reidratar no container novo — findAutostart não inclui STOPPED). Opcional: engines cujo stop()
+  // já é rápido e sem risco de perfil sujo (Baileys, socket puro) não precisam implementar.
+  shutdown?(): Promise<void>;
   logout(): Promise<void>;
   requestPairingCode(phoneNumber: string): Promise<string>;
   sendText(
