@@ -6,6 +6,36 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado (14/08 — sessão `wwebjs-p015-shutdown-limpo`)
+
+- **Patch `$1` do WA Web** (`patches/whatsapp-web.js+1.34.7.patch`, patch-package no postinstall +
+  Dockerfiles + teste que acusa ausência): builds ≥2.3000.104x deixam de quebrar
+  sendMessage/getChats/downloadMedia. Build pinada `2.3000.1045101284-alpha` validada em produção
+  (leads 99/99 com phone); default do código atualizado. Expira 13/10 (D-013).
+- **Shutdown limpo do processo (P-015)**: `shutdown()` na engine wwebjs fecha o Chromium POR FORA
+  do mutex de ciclo de vida (teto 7s < grace de 10s do Docker), teto de 8s no `logout()`,
+  `stopped` síncrono, marcador `.gateway-clean-shutdown` no perfil (diagnóstico de encerramento
+  sujo no boot) e log de duração/estouro no `onModuleDestroy`.
+- **Blindagem contra mídia pesada (P-017)**: teto de 24MB para baixar mídia recebida
+  (`WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES`; acima segue só metadados) + heal imediato quando o renderer
+  crasha (`Target crashed`) em QUALQUER caminho (probe, operações, mídia) + retry da build pinada
+  antes do fallback live no init.
+- **Probe no caminho de envio (P-016)**: sendText/sendMedia/sendLocation/sendPoll falham em ~10s
+  com erro acionável (e disparam o heal) quando a página está travada — fim do envio que "não faz
+  nada" no painel.
+- **Watchdog de sync (P-019 — na main, AGUARDA DEPLOY)**: sonda a página a cada 60s; 3 falhas →
+  status DEGRADED com "re-escaneie o QR" (fim do WORKING falso); recupera WORKING sozinho.
+
+### Corrigido / Operação (14/08)
+
+- **P-015 (QR a cada deploy) — causa raiz**: o app no Dokploy estava SEM volume; criado
+  `gateway-wwebjs` → `/data/wwebjs` (perfil persiste; validado: 2 trocas de container sem QR).
+  Runbook `deploy-dokploy.md` revisado: mount = passo crítico; Update Config **stop-first**
+  (start-first com volume compartilhado corrompe o perfil). Memory Limit 2GB → **4GB** (D-014).
+- **Regra operacional registrada**: re-sincronização de RECONEXÃO empaca em 99% nas builds atuais
+  (bootstrap pós-QR completa sempre) ⇒ deploys do gateway em lote, janela com re-scan aceitável.
+
+
 ### Desempenho
 
 - **wwebjs — extração de leads em LOTE** (sessão `2026-08-12-2043-wwebjs-qualidade-max`): `GET

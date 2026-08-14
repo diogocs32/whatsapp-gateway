@@ -22,18 +22,15 @@
 ## Estado de produção
 
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
-- **Último deploy confirmado:** 13/08/2026 **23:56 UTC** — push `3e74d25` (teto/probe nas operações
-  de Store do wwebjs, P-014) → build **1m03s** DONE, container `cd9041d1efe3` saudável. **Validou o
-  Teste 2 do Watch Paths** (push de código dispara build sozinho). Sequência do dia 13/08 (todas
-  confirmadas): ~13:44 env `WWEBJS_WEB_VERSION=1045101284` (B-002) · ~19:50 **ROLLBACK** da env p/
-  `1042271047` (build 1045 quebra a lib — é o rename `_serialized`→`$1`, ver
-  [pesquisa-wwebjs-2026-08.md](pesquisa-wwebjs-2026-08.md)) · ~20:01 deploy `7e05fc1` (fix proxy
-  forwarder proxy-chain) · ~23:20 redeploy de env (**`WA_LOG_LEVEL=info`** — destravou o
-  diagnóstico do P-014; era `warn` e escondia TODOS os logs info das engines) · 23:56 `3e74d25`.
-  **Env de prod também tem:** `WA_REQUIRE_PROXY=true` (B-001 ✅ na prática) e
-  `GUARDRAIL_ENFORCE=true` (⚠️ diverge da M2 — confirmar com o dono, ver 📢 em SESSOES.md).
-  **Sessão DIOGO (wwebjs):** proxy dedicado **#27** (fim do compartilhamento com a Baileys),
-  re-logada por QR 14/08 ~00:10 UTC, sync 100%, 175 grupos validados.
+- **Último deploy confirmado:** 14/08/2026 **~15:45 UTC** — Deploy manual aplicando **Memory
+  Limit 4GB** sobre o código `ccc17b1` (P-017c). Cadeia do dia 14/08 (todas confirmadas):
+  `13a2de8` shutdown limpo P-015 → **Volume Mount `gateway-wwebjs`→`/data/wwebjs` criado**
+  (~10:39, causa raiz da P-015; 2 trocas de container SEM QR validadas) → `a6b05ea` **patch `$1`**
+  + destroy 7s → env `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha` (expira **13/10**; B-002 ✅
+  leads 99/99 com phone) → `1595ac7` teto mídia 24MB + probe envio + retry pinada → `ccc17b1`
+  heal em Target crashed → **4GB**. Sessão DIOGO re-pareada ~15:35 UTC, estável ("após QR tudo
+  ok"). **Regra nova (D-014): deploy do gateway pode exigir re-scan do QR da wwebjs** (re-sync
+  incremental empaca em 99% nas builds atuais) — deploys em LOTE, janela combinada.
 - **Auditoria 07/2026: 100% ENCERRADA** — código (itens 3–26) e operacionais (O1–O4) todos ✅; detalhes em [auditoria-2026-07.md](auditoria-2026-07.md)
 - **Proxies:** pool Webshare re-sincronizado (10/07), todos ALIVE de verdade (health-tester só aceita 2xx), sessões WORKING
 - **DNS:** validado verde no Dokploy (10/07)
@@ -47,7 +44,7 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main local ↔ origin/main | **Sincronizado** (`7cec2ed`, push 14/08) — em prod está o `3e74d25` (teto/probe); docs posteriores não deployam (Watch Paths). |
+| main local ↔ origin/main | main local **1 commit à frente**: `25cad0c` (P-019 watchdog, código) NÃO pushado de propósito — push = deploy = possível re-scan (D-014). origin/main = `62470d1`; em prod roda `ccc17b1` + 4GB. |
 | feature/wwebjs-store-travado | Sessão ativa (P-014): **dep wwebjs pinada no commit `1780711`** (D-012) — merge+deploy pendente de validação final |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda. ⚠️ env de prod tem `GUARDRAIL_ENFORCE=true` (divergência a reconciliar) |
 | feature/auth-refresh-rotation | Sessão auth-refresh ativa (D-009) — merge no fechamento                                   |
@@ -77,6 +74,10 @@ sendo a mais urgente: produção SEM backup do banco.
 
 ## Próximos passos
 
+0. **Lote de deploy pendente (janela com re-scan aceitável — dono escolhe):** push do `25cad0c`
+   (P-019 watchdog anti-"WORKING falso"). Junto: pausar/desligar autostart das Baileys não-pareadas
+   (P-018, painel), rotacionar a `X-Api-Key` (exposta 2× em chat) e tirar `Webshare 20 proxies.txt`
+   da raiz. Revalidar a build do WA Web ~início out/2026 (expira 13/10 — procedimento no B-002).
 1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
 1b. **Estabilidade de sessão — P0 ENTREGUE 21/07** (sessão `DONE-2026-07-21-1730-estabilidade-sessoes`): mutex Baileys · creds limpas no loggedOut · `POST /:id/new-qr` + botão do painel · 401 → /login. Restam P1/P2 (watchdog, auto-heal DEGRADED, DisconnectReason, reconexão wwebjs — backlog no arquivo DONE da sessão; vira sessão nova quando priorizado)
 1c. **Anti-flag de sessão — CÓDIGO ENTREGUE 22/07** (sessão `DONE-2026-07-22-1700-hardening-antiban`): fingerprint realista por sessão · log de conexão sem proxy · `WA_REQUIRE_PROXY` (default false). Diagnóstico: proxies eram Webshare DATACENTER (`mode=direct`) — flag na conexão. **AÇÃO OPERACIONAL do usuário (em curso):** migrar p/ proxy RESIDENCIAL BR (adquirido — Webshare static residential, 20 IPs SP), importar em massa (`user:pass@ip:porta`, source MANUAL), atribuir 1 IP/sessão (Proxy fixo), ligar `WA_REQUIRE_PROXY=true` no Dokploy, re-vincular. Backlog: health-tester só testa ipify (não prova reputação WhatsApp).

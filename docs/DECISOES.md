@@ -198,3 +198,33 @@
   `issued high` sem resposta); pinar HEAD da main (rejeitado: o `1780711` exato tem
   precedente de produção por terceiro — menos variáveis); bisect de build "estável" do
   wa-version (rejeitado: premissa furada — não há curadoria de estabilidade, ver pesquisa §0.4).
+
+## D-013 — 2026-08-14 — Patch `$1` via patch-package + política de build do WA Web pinada
+
+- **Decisão:** o repo passa a carregar `patches/whatsapp-web.js+1.34.7.patch` (aplicado por
+  `patch-package` no `postinstall` da raiz; `COPY patches` antes do `npm ci` nos 2 Dockerfiles;
+  teste e2e acusa patch ausente). O patch tolera o rename `_serialized`→`$1` das builds
+  ≥2.3000.104x do WA Web (receita comunitária validada em produção — issue #201852 do repo da lib,
+  sem fix mergeado upstream). Build pinada: **`2.3000.1045101284-alpha`** (env + default do código),
+  validada 14/08 em produção (grupos, envio, leads 99/99 com phone). Expira **13/10/2026** —
+  revalidar ~início de outubro (procedimento no B-002/PENDENCIAS).
+- **Motivo:** a `1042271047` expirava 28/08 e o perfil "catracado" pelas builds novas nem a reabria;
+  sem o patch, QUALQUER build recente quebra sendMessage/getChats/downloadMedia (Modo B da
+  pesquisa). Patch + build nova é o único caminho com evidência enquanto a lib não mergear fix.
+- **Alternativas:** bisect de build "estável" (rejeitado — wa-version não tem curadoria);
+  migração wa-js/wppconnect (fora de escopo por D-012; segue como opção futura).
+
+## D-014 — 2026-08-14 — Operação wwebjs: volume + stop-first + 4GB + regra "deploy pode custar re-scan"
+
+- **Decisão:** (a) app gateway no Dokploy com **Volume Mount `gateway-wwebjs` → `/data/wwebjs`**
+  (perfil persiste entre containers — raiz da P-015) e **Update Config SEM start-first** (default
+  stop-first; start-first com volume compartilhado = 2 Chromium no mesmo perfil); (b) **Memory
+  Limit 4GB** (2GB estourava com Chromium + mídia de grupos pesados — OOM matou o container em
+  14/08); (c) regra operacional: **todo deploy/troca de container do gateway pode exigir re-scan
+  do QR da sessão wwebjs** — a RE-sincronização de reconexão (caminho incremental) empaca em 99%
+  nas builds atuais (bootstrap pós-scan completa sempre; incremental falhou ~10× em 3 builds em
+  14/08). Deploys entram em LOTE, em janela com re-scan aceitável.
+- **Motivo:** evidência de produção de 14/08 (mapa completo no DONE da sessão
+  `wwebjs-p015-shutdown-limpo`); o "zero-downtime" nunca valeu para a sessão WhatsApp.
+- **Alternativas:** start-first (rejeitado — corrompe perfil compartilhado); reduzir grupos da
+  sessão (paliativo fraco — refutado pela contra-evidência do dono: pós-scan a mesma conta roda leve).

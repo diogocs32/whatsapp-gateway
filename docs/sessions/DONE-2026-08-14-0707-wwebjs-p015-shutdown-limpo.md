@@ -306,3 +306,42 @@ LID→PN em lote). `DEFAULT_WEB_VERSION` do código só sobe após essa validaç
 
 - Este arquivo (novo) · `SESSOES.md` (registro + 📢) · (no encerramento: `PENDENCIAS.md` P-015,
   `ESTADO.md`, `CHANGELOG` se houver)
+
+---
+
+## 🏁 CHECKPOINT DE ENCERRAMENTO (R9 v4.3) — 14/08/2026 ~16:10 UTC
+
+**Status final:** ✅ ENCERRADA. Produção estável (dono: "após QR tudo ok" ~15:35 UTC).
+
+**Entregue (tudo em prod, exceto onde marcado):**
+- P-015 ✅ volume `gateway-wwebjs` + shutdown limpo (bypass mutex, teto logout 8s, destroy 7s,
+  marcador de fechamento, logs de estouro) — 2 trocas de container SEM QR validadas.
+- B-002 ✅ patch `$1` (patch-package) + build `2.3000.1045101284-alpha` (leads 99/99 com phone;
+  expira 13/10). P-007 ✅ por consequência. DEFAULT_WEB_VERSION atualizado.
+- P-016 ✅ probe no envio · P-017 ✅ teto de mídia 24MB + heal em crash (todos os caminhos) +
+  retry da pinada · Memory Limit 4GB · runbook deploy-dokploy revisado (mount crítico, stop-first).
+- P-019 **codada, NÃO deployada** (`25cad0c` na main local) — watchdog anti-"WORKING falso".
+- Decisões: D-013 (patch/build) e D-014 (operação + regra deploy=re-scan).
+- Descobertas operacionais: env do Dokploy salvar≠aplicar (e edição pode não persistir — conferir);
+  deployment manual reusa título do último commit; Watch Paths OK; re-sync INCREMENTAL de
+  reconexão empaca em 99% nas builds atuais (bootstrap pós-QR completa 3/3 — contra-evidência do
+  dono refinou o diagnóstico: não é peso de conta).
+
+**Reconciliação documental (diff × R3):** ESTADO (deploy/divergência/próximos passos), SESSOES
+(histórico + 📢 novo sobre deploy=re-scan e main local à frente), PENDENCIAS (B-002/P-007/P-015/
+P-016/P-017 fechadas; P-018/P-019 registradas), DECISOES (D-013/D-014), CHANGELOG (bloco 14/08),
+deploy-dokploy.md (revisado de manhã). Nada do diff ficou sem doc.
+
+**BLOQUEADO EM VOCÊ (dono):**
+1. Janela para o lote de deploy: push do `25cad0c` (P-019) — 1 troca de container, possível 1
+   re-scan do QR. Avisar qual momento.
+2. P-018 alívio: pausar/desligar autostart das sessões Baileys não-pareadas (`contatoX`) no painel.
+3. Segurança: rotacionar a `X-Api-Key` (exposta 2× em chat) · remover `Webshare 20 proxies.txt`
+   da raiz do repo (untracked com credenciais).
+4. ~Início de outubro: revalidar a build do WA Web (expira 13/10) — procedimento no B-002.
+5. Reverter `WA_LOG_LEVEL` para `warn` SÓ depois do P-019 em prod (o info é o diagnóstico até lá).
+
+**DOCS TOCADAS nesta sessão:** este arquivo · ESTADO.md · SESSOES.md · PENDENCIAS.md ·
+DECISOES.md (D-013/D-014) · CHANGELOG.md · deploy-dokploy.md · código: `wwebjs.engine.ts`,
+`engine.port.ts`, `session-manager.service.ts`, Dockerfiles (2), `package.json`/lock,
+`patches/whatsapp-web.js+1.34.7.patch`, `wwebjs-engine.e2e-spec.ts` (52 testes).
