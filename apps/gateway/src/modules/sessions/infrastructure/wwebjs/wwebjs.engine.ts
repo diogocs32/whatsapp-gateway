@@ -1426,11 +1426,19 @@ export class WWebJSEngine implements IEngine {
     if (this.client) {
       // Estado em si não importa (o .catch cobre client ainda sem pupPage — segue para o fn(),
       // cujo erro real cai no retry abaixo); só a RESPONSIVIDADE da página interessa aqui.
-      await raceStoreOp(
-        this.client.getState().catch(() => null),
-        probeTimeoutMs,
-        `Página do WhatsApp Web não responde${this.syncHint()} — provável sincronização travada após reconexão (P-014). Reinicie a sessão`,
-      );
+      try {
+        await raceStoreOp(
+          this.client.getState().catch(() => null),
+          probeTimeoutMs,
+          `Página do WhatsApp Web não responde${this.syncHint()} — provável sincronização travada após reconexão (P-014). Recuperação automática disparada; tente novamente em ~1 min`,
+        );
+      } catch (e) {
+        // Página presa não se recupera sozinha (evidência P-014: event loop fica preso PARA
+        // SEMPRE após um getContacts tardio). Dispara o auto-heal em background e devolve o
+        // erro acionável imediatamente.
+        void this.healWedgedPage();
+        throw e;
+      }
     }
     let lastErr: unknown;
     for (let i = 0; i < attempts; i++) {
@@ -1466,6 +1474,43 @@ export class WWebJSEngine implements IEngine {
     return this.lastLoadingPct != null
       ? ` (sincronização vista em ${this.lastLoadingPct}%)`
       : '';
+  }
+
+  // Auto-heal do P-014: a página com event loop preso NÃO volta sozinha — um reload (F5 via CDP,
+  // que age pelo processo do browser mesmo com o renderer ocupado) refaz a página, e a re-injeção
+  // pós-navegação (fix do commit 1780711 — main-frame filter no framenavigated) recoloca o Store.
+  // SEM QR: o pareamento persiste no perfil. Single-flight + cooldown para não flapar; disparado
+  // pelo probe do withStoreReady quando a página não responde.
+  private lastHealAt = 0;
+  private healing = false;
+  private static readonly HEAL_COOLDOWN_MS = 120_000;
+
+  private async healWedgedPage(): Promise<void> {
+    const page = this.client?.pupPage;
+    if (!page || this.healing || this.stopped) return;
+    const now = Date.now();
+    if (now - this.lastHealAt < WWebJSEngine.HEAL_COOLDOWN_MS) return;
+    this.healing = true;
+    this.lastHealAt = now;
+    this.deps.logger.warn(
+      { sessionId: this.deps.sessionId },
+      'wwebjs: página sem resposta — auto-heal via reload da página (sem QR)',
+    );
+    try {
+      await page.reload({ waitUntil: 'load', timeout: 60_000 });
+      this.lastLoadingPct = null; // sincronização recomeça — o hint volta a valer do zero
+      this.deps.logger.info(
+        { sessionId: this.deps.sessionId },
+        'wwebjs: reload do auto-heal concluído — Store re-injetando',
+      );
+    } catch (e) {
+      this.deps.logger.error(
+        { err: (e as Error)?.message, sessionId: this.deps.sessionId },
+        'wwebjs: auto-heal falhou — se persistir, reinicie a sessão',
+      );
+    } finally {
+      this.healing = false;
+    }
   }
 
   // ---- W7: inbox/histórico (backfill do banco a partir do store do WhatsApp Web) ----
@@ -1619,38 +1664,23 @@ export class WWebJSEngine implements IEngine {
   private static readonly LID_BATCH = 50;
 
   // Resolve número + nome de TODOS os participantes — a extração de leads é a razão de existir
-  // desta engine e era o maior gargalo dela: 1 getContactById (round-trip CDP no Chromium) POR
-  // participante + 1 evaluate POR @lid ⇒ grupo de 500 levava minutos e o comentário mandava não
-  // paralelizar (correto: CDP concorrente trava o Chromium). A resposta não é paralelizar, é
-  // REDUZIR round-trips: 1 getContacts() (mapa id→contato — o Store conhece os participantes) +
-  // getContactLidAndPhone em CHUNKS para os @lid ainda sem número (via oficial da lib,
-  // Client.js:3307) + getContactById individual SÓ se o lote de contatos falhar. Round-trips:
-  // O(N) → O(N/50). Nomes, telefones e o registro no diretório saem idênticos aos de antes.
+  // desta engine. P-014 (14/08): o `getContacts()` em lote que enriquecia nomes aqui é EXATAMENTE
+  // a chamada que TRAVA o event loop da página nesta build (funciona só imediatamente após login
+  // fresco — evidência: agenda 1696 ok às 00:43 UTC; qualquer chamada tardia pendura para sempre,
+  // inclusive em perfil virgem). E o fallback getContactById um-a-um eram N round-trips CDP numa
+  // página já doente. AMBOS REMOVIDOS: o telefone (o dado que importa) nunca veio deles — vem do
+  // `p.id` (c.us), do cache LID→PN e do lote oficial `getContactLidAndPhone` (1 evaluate por 50,
+  // inofensivo). Os NOMES agora vêm do diretório persistente (`deps.contacts.resolveNames`, banco
+  // — populado pelo syncAddressBook pós-login, quando o getContacts é seguro). Zero CDP extra.
   private async resolveParticipantsBatch(
     list: GroupParticipant[],
   ): Promise<GroupParticipantInfo[]> {
     if (!list.length) return [];
-    const byId = new Map<string, Contact>();
-    try {
-      for (const c of await this.withStoreReady(() =>
-        this.req().getContacts(),
-      )) {
-        const id = c.id?._serialized;
-        if (id) byId.set(id, c);
-      }
-    } catch (e) {
-      this.deps.logger.warn(
-        { err: (e as Error)?.message },
-        'wwebjs: getContacts falhou — resolvendo participantes um a um',
-      );
-    }
     type Row = {
       id: string;
       role: GroupParticipantRole;
       lid: string | null;
       phone: string | null;
-      savedName: string | null;
-      pushName: string | null;
     };
     const rows: Row[] = [];
     for (const p of list) {
@@ -1662,44 +1692,44 @@ export class WWebJSEngine implements IEngine {
           : 'member';
       const lid = p.id.server === 'lid' || id.endsWith('@lid') ? id : null;
       let phone = p.id.server === 'c.us' ? p.id.user : null;
-      let contact = byId.get(id);
-      if (!contact && byId.size === 0) {
-        // Lote de contatos indisponível: caminho um-a-um (o comportamento pré-otimização).
-        try {
-          contact = await this.req().getContactById(id);
-        } catch {
-          /* contato pode não ser resolvível pelo Store — segue com o que já temos */
-        }
-      }
-      const savedName = (contact?.name || '').trim() || null;
-      const pushName = (contact?.pushname || '').trim() || null;
-      if (!phone && contact) {
-        const num = (contact.number || '').replace(/\D/g, '');
-        const idNum = p.id.user.replace(/\D/g, '');
-        // contact.number de um @lid às vezes devolve o próprio LID — só aceita se diferir.
-        if (num && num !== idNum) phone = num;
-      }
       if (!phone && lid) {
         const cached = this.lidToPnCache.get(lid);
         if (cached) phone = cached.replace(/\D/g, '');
       }
-      rows.push({ id, role, lid, phone, savedName, pushName });
+      rows.push({ id, role, lid, phone });
     }
     await this.resolvePendingLids(rows.filter((r) => !r.phone && r.lid));
+    // Nomes do BANCO (agenda sincronizada pelo syncAddressBook) — sem tocar o Store.
+    const nameKeys = rows.flatMap((r) =>
+      [r.id, r.lid, r.phone].filter((k): k is string => !!k),
+    );
+    const names =
+      (await this.deps.contacts?.resolveNames(nameKeys).catch(() => null)) ??
+      new Map<string, never>();
     return rows.map((r) => {
-      const name = r.savedName ?? r.pushName;
-      if (r.phone || name) {
+      const known =
+        names.get(r.id) ??
+        (r.lid ? names.get(r.lid) : undefined) ??
+        (r.phone ? names.get(r.phone) : undefined);
+      const savedName = known?.name ?? null;
+      const pushName = known?.pushName ?? null;
+      if (r.phone || savedName || pushName) {
         this.deps.contacts?.record({
           waId: r.id,
           jid: r.phone ? `${r.phone}@s.whatsapp.net` : null,
           lid: r.lid,
           phone: r.phone,
-          name: r.savedName,
-          pushName: r.pushName,
+          name: savedName,
+          pushName,
           source: 'wwebjs-group',
         });
       }
-      return { id: r.id, role: r.role, phone: r.phone, name };
+      return {
+        id: r.id,
+        role: r.role,
+        phone: r.phone,
+        name: savedName ?? pushName,
+      };
     });
   }
 

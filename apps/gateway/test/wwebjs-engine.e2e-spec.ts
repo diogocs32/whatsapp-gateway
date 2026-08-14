@@ -415,7 +415,7 @@ describe('raceStoreOp + withStoreReady com teto (P-014 — página do Store trav
         20,
       ),
     ).rejects.toThrow(
-      /Página do WhatsApp Web não responde.*P-014.*Reinicie a sessão/,
+      /Página do WhatsApp Web não responde.*P-014.*Recuperação automática disparada/,
     );
     expect(fnCalled).toBe(false);
   });
@@ -477,5 +477,91 @@ describe('raceStoreOp + withStoreReady com teto (P-014 — página do Store trav
     const { deps } = makeDeps({});
     const engine = new WWebJSEngine(deps);
     await expect(engine.listChats(5)).rejects.toThrow('Sessão não conectada');
+  });
+});
+
+describe('resolveParticipantsBatch SEM getContacts + auto-heal (P-014, 14/08)', () => {
+  type EngineInternals = {
+    client: unknown;
+    lastHealAt: number;
+    withStoreReady<T>(
+      fn: () => Promise<T>,
+      attempts?: number,
+      delayMs?: number,
+      opTimeoutMs?: number,
+      probeTimeoutMs?: number,
+    ): Promise<T>;
+    resolveParticipantsBatch(
+      list: unknown[],
+    ): Promise<
+      { id: string; role: string; phone: string | null; name: string | null }[]
+    >;
+  };
+  const internals = (e: WWebJSEngine) => e as unknown as EngineInternals;
+  const participant = (id: string, server: string) => ({
+    id: { _serialized: id, server, user: id.split('@')[0] },
+    isAdmin: false,
+    isSuperAdmin: false,
+  });
+
+  it('participantes resolvem phone/nome SEM chamar getContacts (getContacts ausente no client não explode)', async () => {
+    const { deps } = makeDeps({
+      contacts: {
+        record: () => undefined,
+        recordMany: () => undefined,
+        loadLidMap: async () => [],
+        resolveNames: async (keys: string[]) =>
+          new Map(
+            keys
+              .filter((k) => k === '5511888@c.us')
+              .map((k) => [k, { name: 'Fulano Agenda', pushName: null }]),
+          ),
+      },
+    } as never);
+    const engine = new WWebJSEngine(deps);
+    // client SEM getContacts/getContactById: se o caminho antigo existisse, TypeError na hora.
+    internals(engine).client = {
+      getContactLidAndPhone: async (lids: string[]) =>
+        lids.map((lid) => ({ lid, pn: '5511777000111@c.us' })),
+    };
+    const out = await internals(engine).resolveParticipantsBatch([
+      participant('5511888@c.us', 'c.us'),
+      participant('9999000111222@lid', 'lid'),
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ phone: '5511888', name: 'Fulano Agenda' });
+    expect(out[1]).toMatchObject({ phone: '5511777000111' }); // @lid resolvido pelo LOTE oficial
+  });
+
+  it('probe de página morta dispara o auto-heal (pupPage.reload) com cooldown single-flight', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    let reloads = 0;
+    internals(engine).client = {
+      getState: () => new Promise(() => undefined), // página presa
+      pupPage: {
+        reload: async () => {
+          reloads++;
+        },
+      },
+    };
+    await expect(
+      internals(engine).withStoreReady(async () => 1, 1, 1, 100, 20),
+    ).rejects.toThrow(/Recuperação automática disparada/);
+    await new Promise((r) => setTimeout(r, 20)); // o heal roda em background
+    expect(reloads).toBe(1);
+    // Dentro do cooldown: novo probe-timeout NÃO re-dispara o reload.
+    await expect(
+      internals(engine).withStoreReady(async () => 1, 1, 1, 100, 20),
+    ).rejects.toThrow(/não responde/);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(reloads).toBe(1);
+    // Cooldown vencido: dispara de novo.
+    internals(engine).lastHealAt = Date.now() - 300_000;
+    await expect(
+      internals(engine).withStoreReady(async () => 1, 1, 1, 100, 20),
+    ).rejects.toThrow(/não responde/);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(reloads).toBe(2);
   });
 });
