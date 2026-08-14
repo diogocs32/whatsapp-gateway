@@ -9,8 +9,10 @@
   `session-manager.service.ts` (onModuleDestroy) + teste e2e + docs. ⚠️ Sobreposição com o escopo
   da sessão `wwebjs-store-travado` (ATIVA, mas o próprio arquivo dela declara a rodada ENCERRÁVEL
   com P-014 resolvida) — aviso registrado em SESSOES.md 📢.
-- **Status:** 🟡 CÓDIGO ENTREGUE (14/08 ~07:20) — resta merge+deploy (janela calma, R0) + validação
-  de 2 trocas de container em prod (ver "Validação em prod" abaixo)
+- **Status:** 🟡 EM PROD (mergeado na main e **pushado 14/08 ~10:25 UTC**, `13a2de8` — deploy
+  disparado pelo Watch Paths, autorizado pelo dono) — resta a validação de 2 trocas de container
+  (ver "Validação em prod" abaixo; a troca deste deploy é a "1ª" — ainda encerra pelo código velho
+  e pode pedir QR)
 
 ## Diagnóstico (herdado da P-015 + leitura do código)
 
