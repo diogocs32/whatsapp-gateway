@@ -137,6 +137,31 @@ quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct
   sessão → o cliente destrava → Logout no painel (purga LocalAuth) → Conectar → **um** scan
   de QR num perfil 100% virgem, sincronizado só pela build 1042 + lib pinada.
 
+### 🔬 RODADA FINAL 14/08 00:50–01:35 UTC — ASSASSINO IDENTIFICADO + otimização/auto-heal deployados
+- **Perfil VIRGEM testado** (dono desconectou pelo celular → Reload do Dokploy matou o Chromium
+  zumbi → QR limpo ~01:17): grupos carregaram RÁPIDO (getChats ✓)… e o **clique no grupo travou a
+  página de novo** ⇒ perfil envenenado NÃO era a causa única.
+- **ASSASSINO CRAVADO: `getContacts()` tardio.** `groupInfo` → `resolveParticipantsBatch` →
+  `getContacts()` (enriquecia NOMES) trava o event loop da página para sempre — só funciona
+  imediatamente pós-login (agenda 1696 às 00:43). Com o teto de 45s, caía no fallback
+  `getContactById` um-a-um (N round-trips) → o "chegou mas demorou MUITO" do dono. O TELEFONE dos
+  leads nunca veio daí (vem do `p.id` + cache + lote `getContactLidAndPhone`, inofensivo).
+- **Correções deployadas (`0e89017`, push 01:24 UTC — commit direto na main, nota de processo):**
+  1. `resolveParticipantsBatch` SEM `getContacts`/`getContactById` — nomes via
+     `deps.contacts.resolveNames` (BANCO, zero CDP); phone inalterado (lote LID). groupInfo em
+     segundos.
+  2. **Auto-heal**: probe de página morta dispara `pupPage.reload()` automático em background
+     (sem QR; re-injeção garantida pelo commit 1780711), single-flight + cooldown 120s.
+  3. Testes 36/36 · tsc · eslint · prettier.
+- **P-015 REGISTRADA**: QR exigido a CADA troca de container (4 ocorrências) mesmo com perfil
+  virgem; restart interno reconecta sem QR. Suspeita: shutdown com mutex de ciclo de vida preso
+  estoura o teto de 15s do `onModuleDestroy` → Chromium morre sujo → perfil rejeitado. Correção
+  proposta na pendência (bypass do mutex no shutdown + logs).
+- **Decisão do dono registrada**: build nova do WA Web (passo 2 — patch `$1` + pinar recente)
+  fica para a PRÓXIMA janela calma, antes de 28/08.
+- **Pendente para fechar a rodada**: dono escanear o QR pós-deploy e validar clique no grupo
+  (agora deve responder em segundos) + auto-heal em ação.
+
 ### 🚀 DEPLOY DO FIX TETO/PROBE 13/08 23:56 UTC (merge `3e74d25` → push → build 1m03s DONE)
 - **Watch Paths Teste 2 VALIDADO**: push de código disparou o build automaticamente.
 - Container novo `cd9041d1efe3` saudável; teto/probe EM PRODUÇÃO.
