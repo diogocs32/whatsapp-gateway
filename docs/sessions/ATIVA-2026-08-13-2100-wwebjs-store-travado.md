@@ -112,6 +112,31 @@ quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct
   grupos) → depois evaluates pendurando com o teto novo respondendo em 10-45s com o % na mensagem
   (comportamento esperado do código novo; o hang de fundo é o que o pin do `1780711` ataca).
 
+### 📊 VALIDAÇÃO DO PIN `1780711` EM PROD (14/08 00:38–01:15 UTC) — vitória parcial + 2 achados novos
+- Deploy `4e30159` DONE (1m57s — `npm ci` com o tarball do GitHub passou; integridade OK).
+- Container `1bd4656aa2a7` (00:38 UTC): log agora mostra **"Reidratando sessão DIOGO (WWEBJS)"**
+  (auto-restore do wwebjs EXISTE) com proxy #27 + forwarder ✓ — mas a reidratação não vingou
+  (QR exigido; **3ª vez seguida** que troca de container invalida o LocalAuth — suspeita: perfil
+  gravado pela build 1045 com chaves `$1` misturadas + shutdowns sujos).
+- Dono escaneou QR ~00:43 UTC → `loading_screen` **direto a 100%** (00:43:31) →
+  🎉 **"agenda sincronizada para o diretório" count=1696** (00:43:55) — **o `getContacts` que
+  SEMPRE estourava 240s FUNCIONOU com a lib pinada.** Evidência forte de que o `1780711` age.
+- 00:50 UTC: um `syncAddressBook` posterior falhou com **erro VAZIO** (`e:{}`) — é o **reload
+  interno** que o WhatsApp Web faz pós-pareamento ("Execution context was destroyed" nos probes
+  do painel). Depois do reload a página segue instável (probes 10s/45s estouram intermitentes;
+  um `getChats` retornara 175 grupos antes, na rodada anterior).
+- **ACHADO/GAP nosso**: `Logout`/`Parar` do painel PRESOS — o `client.logout()` da lib faz
+  evaluates SEM teto na página travada e segura o **mutex de ciclo de vida** (W1); o Parar
+  enfileira atrás. **Correção a fazer (próximo incremento): teto também no ciclo de vida**
+  (race no `logout()` com fallback direto para `destroy()`+purge).
+- **Suspeita a investigar**: possível troca extra de container (`cd9041d1efe3` → `1bd4656aa2a7`,
+  ~00:41→00:38?) sem novo deployment — se confirmado crash de processo, o PR **#201893** (aberto,
+  serializa inject e evita unhandled rejection do exposeFunction derrubar o Node) vira candidato.
+- **Plano acordado com o dono (perfil zerado sem excluir a sessão)**: desconectar o aparelho
+  PELO CELULAR (Aparelhos conectados → sair do "Chrome (Linux)") → lado servidor derruba a
+  sessão → o cliente destrava → Logout no painel (purga LocalAuth) → Conectar → **um** scan
+  de QR num perfil 100% virgem, sincronizado só pela build 1042 + lib pinada.
+
 ### 🚀 DEPLOY DO FIX TETO/PROBE 13/08 23:56 UTC (merge `3e74d25` → push → build 1m03s DONE)
 - **Watch Paths Teste 2 VALIDADO**: push de código disparou o build automaticamente.
 - Container novo `cd9041d1efe3` saudável; teto/probe EM PRODUÇÃO.
