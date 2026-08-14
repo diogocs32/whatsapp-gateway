@@ -53,13 +53,15 @@ const AUTH_PATH = process.env.WWEBJS_DATA_PATH || 'auth/wwebjs';
 // Versão do WhatsApp Web a FIXAR. Sem fixar, o wwebjs baixa a versão "ao vivo" do web.whatsapp.com a
 // cada conexão e a renegocia (é o "fica atualizando muito tempo") — e uma build ruim do WhatsApp Web
 // quebra getChats/getContacts (o wwebjs depende do Store interno). Fixar acelera e estabiliza.
-// DEFAULT = versão VALIDADA em produção para a extração de leads COM telefone (builds mais novas
-// avançam o rollout do LID da Meta e tendem a ESCONDER o número dos participantes — item 23).
-// ⚠️ A Meta expira versões em ~2 meses (esta: ~fim de agosto/2026) → revalidar uma mais nova antes
-// de trocar o default; se expirar sem troca, o retry 'live' + warn seguram a operação.
+// DEFAULT = versão VALIDADA em produção (14/08/2026, B-002): grupos + envio + leads 99/99 COM
+// telefone E nome — EXIGE o patch `$1` (patches/whatsapp-web.js+1.34.7.patch; sem ele, builds
+// ≥2.3000.104x quebram sendMessage/getChats/downloadMedia com erro minificado `r`/`reading 'id'`).
+// ⚠️ A Meta expira builds em ~2 meses (esta: 13/10/2026) → revalidar uma mais nova antes disso
+// (leads com phone + sync 100% + envio); se expirar sem troca, o retry 'live' + warn seguram a
+// operação (o patch continua valendo na live).
 // WWEBJS_WEB_VERSION aceita: versão explícita | 'auto' (currentVersion do wa-version — MAIS NOVA,
 // risco de LID-only nos contatos) | 'live' (não fixa).
-const DEFAULT_WEB_VERSION = '2.3000.1042271047-alpha';
+const DEFAULT_WEB_VERSION = '2.3000.1045101284-alpha';
 const WEB_VERSION_MODE = process.env.WWEBJS_WEB_VERSION || DEFAULT_WEB_VERSION;
 const WEB_VERSION_REMOTE =
   'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html';
