@@ -159,8 +159,16 @@ quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct
   proposta na pendência (bypass do mutex no shutdown + logs).
 - **Decisão do dono registrada**: build nova do WA Web (passo 2 — patch `$1` + pinar recente)
   fica para a PRÓXIMA janela calma, antes de 28/08.
-- **Pendente para fechar a rodada**: dono escanear o QR pós-deploy e validar clique no grupo
-  (agora deve responder em segundos) + auto-heal em ação.
+- **✅ VALIDADO EM PRODUÇÃO 14/08 ~01:45 UTC** (sessão DIOGO recriada pelo dono, id novo
+  `01KZYXFPRKD6JB3S513HEPNYS2`, proxy fixo **#30** `104.165.159.16:5149`):
+  - `getChats` (175 grupos) em <10s ✓
+  - **Clique no grupo — o teste que SEMPRE travava — respondeu em segundos**: grupo pequeno
+    `[DOCTA] Contas a Pagar` (5 membros COM telefone, nomes Dudu/LM/Samuel/Yuri e papéis
+    admin/superadmin) E grupo grande `!519 Inteligência Artificial` (**253 membros**) — ambos
+    listaram participantes com número. **P-014 RESOLVIDO na prática.**
+  - A otimização (`groupInfo` sem `getContacts`) eliminou o travamento E a lentidão de minutos.
+- **P-014 → resolvido operacionalmente.** Resta o passo 2 (build nova + patch `$1` antes de 28/08)
+  e a P-015 (QR a cada troca de container). Rodada da sessão store-travado ENCERRÁVEL (R9).
 
 ### 🚀 DEPLOY DO FIX TETO/PROBE 13/08 23:56 UTC (merge `3e74d25` → push → build 1m03s DONE)
 - **Watch Paths Teste 2 VALIDADO**: push de código disparou o build automaticamente.
