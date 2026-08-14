@@ -104,6 +104,42 @@ Runbook `deploy-dokploy.md` será atualizado após a mudança confirmada.
 atada à identidade do container (Chromium sem `--password-store=basic` nos args usa keyring
 derivado do ambiente; container novo = chave nova). Fix de 1 linha nos args, se preciso.
 
+## 🎯 CAUSA RAIZ CRAVADA 14/08 ~10:40 UTC — VOLUME NUNCA FOI MONTADO (operação via navegador, dono logado)
+
+Inspeção do app `conexozenvo` no Dokploy (projeto campanha/production, id `B2ComxiJzaEbaOiLBH_Rv`):
+
+- **Advanced → Volumes: "No volumes/mounts configured"** — o passo do runbook
+  (`deploy-dokploy.md` §2: Volume Mount `gateway-wwebjs` → `/data/wwebjs`) **nunca foi executado**.
+  O perfil LocalAuth vivia no filesystem EFÊMERO do container: restart interno (mesmo container)
+  preserva a writable layer → reconecta sem QR; **troca de container descarta tudo → perfil
+  virgem → QR SEMPRE**. Explica as 6+ ocorrências, inclusive "mesmo com perfil virgem".
+- **Swarm Settings → Update Config: VAZIO** (Order "Select order") — a hipótese do overlap
+  start-first estava ERRADA (runbook recomenda start-first, mas nunca foi aplicado; default do
+  Swarm = stop-first, sem overlap). Lição: runbook ≠ estado real — auditar o painel antes de
+  teorizar.
+- Shutdown sujo (fix de hoje) = co-fator teórico; o código fica (higiene + observabilidade do
+  marcador, que segue útil no volume).
+
+**EXECUTADO (com autorização do dono, via navegador):**
+1. Volume Mount criado no app gateway: `VOLUME · gateway-wwebjs · /data/wwebjs` ✓ (persistido,
+   visível na lista).
+2. Deploy manual disparado ~10:39 UTC → **Done em 48s** → container novo `d92e3599c91a` healthy.
+3. **Prova do mount no log do boot:** `[entrypoint] corrigindo dono de /data/wwebjs para node
+   (uid 1000)...` (volume recém-criado nasce root; o chown condicional rodou). Baileys
+   reidratando normalmente na sequência.
+4. Watch Paths do gateway CONFERIDO no painel: chips `apps/gateway/**`, `packages/contracts/**`,
+   `package.json`, `package-lock.json` presentes (config de 13/08 intacta). O deployment com
+   título do commit de docs era provavelmente o Redeploy manual do dono (reusa o título do
+   último build) — sem evidência de furo no filtro; observar no próximo push doc-only.
+
+**RESTA (validação final):**
+1. (Dono) Escanear o QR da DIOGO — **última vez** (o volume começou vazio; o perfil antigo morreu
+   com o container efêmero). Aguardar sync 100% + grupos ok. Remover aparelhos "Chrome (Linux)"
+   zumbis no celular, se sobrarem.
+2. Uma troca de container (Redeploy único, janela calma) → esperado: **volta SEM QR** + no
+   encerramento `shutdown fechou o Chromium limpo` + no boot `perfil fechado limpo na última
+   execução`. Isso fecha a P-015 de vez.
+
 ## Validação em prod (roteiro original — SUPERSEDIDO pelo achado acima; 1ª troca executada)
 
 1. Deploy em janela calma. **A 1ª troca de container ainda pode pedir QR** (o container VELHO

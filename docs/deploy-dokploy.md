@@ -36,20 +36,33 @@ WWEBJS_DATA_PATH=/data/wwebjs
 
 **Domains**: `api.conexozenvo.com` → porta **3000**, HTTPS On, certificado **letsencrypt**.
 
-**Advanced → Volumes/Mounts** (persistir a sessão do WWEBJS):
+**Advanced → Volumes/Mounts** — ⚠️ **PASSO CRÍTICO** (persistir a sessão do WWEBJS):
 - Tipo **Volume Mount** · Name `gateway-wwebjs` · Mount Path `/data/wwebjs`
+- **Sem este mount, o LocalAuth do wwebjs vive no filesystem EFÊMERO do container e TODA troca
+  de container (qualquer deploy) apaga o perfil → o WhatsApp exige QR de novo.** Foi exatamente
+  a P-015 (6+ re-pareamentos em 13-14/08): o passo ficou de fora na configuração original e só
+  foi aplicado em **14/08/2026** (volume criado + redeploy; prova no log do boot:
+  `[entrypoint] corrigindo dono de /data/wwebjs para node`).
 
-**Advanced → Swarm Settings → Health Check** (zero-downtime):
+**Advanced → Swarm Settings → Health Check** (opcional; o Dockerfile já traz HEALTHCHECK):
 ```json
 { "Test": ["CMD","curl","-f","http://localhost:3000/health"],
   "Interval": 30000000000, "Timeout": 10000000000, "StartPeriod": 60000000000, "Retries": 3 }
 ```
 > Valores em nanosegundos (30s / 10s / 60s). StartPeriod 60s cobre boot do Nest + migrations + Chrome.
 
-**Advanced → Swarm Settings → Update Config** (rolling sem downtime):
+**Advanced → Swarm Settings → Update Config** — ⚠️ **NÃO configurar `start-first` no gateway.**
+Deixar VAZIO (default do Swarm = `stop-first`) ou, se preencher, usar:
 ```json
-{ "Parallelism": 1, "Delay": 10000000000, "FailureAction": "rollback", "Order": "start-first" }
+{ "Parallelism": 1, "Delay": 10000000000, "FailureAction": "rollback", "Order": "stop-first" }
 ```
+> Recomendação REVISADA em 14/08/2026 (P-015). A versão anterior deste runbook sugeria
+> `start-first` (zero-downtime), mas com o volume `gateway-wwebjs` compartilhado isso faz o
+> container NOVO subir com o VELHO ainda vivo: o boot novo remove os SingletonLock do Chromium
+> AINDA ATIVO (`clearStaleSingletonLocks` assume lock remanescente = processo morto) e DOIS
+> Chromium abrem o mesmo perfil → corrupção/conflito → o WhatsApp invalida a sessão (QR).
+> O gateway é stateful (1 réplica, sessão WhatsApp): ~30–90s de API fora por deploy é o custo
+> certo para a sessão sobreviver. Zero-downtime real nunca existiu para o WhatsApp aqui.
 
 > As migrations rodam sozinhas no start (o entrypoint chama `prisma migrate deploy` antes do app).
 > Mantenha **1 réplica** (a sessão do WhatsApp é stateful — volume local ao nó).
