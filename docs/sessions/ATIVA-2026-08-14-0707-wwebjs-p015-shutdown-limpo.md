@@ -140,6 +140,35 @@ Inspeção do app `conexozenvo` no Dokploy (projeto campanha/production, id `B2C
    encerramento `shutdown fechou o Chromium limpo` + no boot `perfil fechado limpo na última
    execução`. Isso fecha a P-015 de vez.
 
+## ✅ VALIDAÇÃO FINAL 14/08 ~10:51–10:56 UTC — TROCA DE CONTAINER **SEM QR** (P-015 resolvida)
+
+Dono escaneou o QR (~10:45), sync 100%, e autorizou o redeploy de validação (executado via
+navegador ~10:50; Done em 3s — cache total, só service update). Container novo `c0cc32f058ac`:
+
+- **Boot SEM linha de chown** → o dono de `/data/wwebjs` já era `node` = **o MESMO volume
+  atravessou a troca** (prova de persistência).
+- `Reidratando sessão "DIOGO" (WWEBJS)` → proxy #30 + forwarder ✓ → **NENHUM evento de QR** →
+  `loading_screen 0% → 95% → 99%` = **o WhatsApp ACEITOU o perfil do volume**. 🎉
+- **QR a cada troca de container: RESOLVIDO.** (Baileys todas reconectaram normal; conflito
+  `replaced` transitório no swap = esperado no stop-first.)
+
+### Residuais registrados (não bloqueiam a P-015)
+
+1. **Shutdown do container velho ainda fechou SUJO** (WARN `SEM marca de fechamento limpo` no
+   boot novo): grace period do Docker (10s default) < teto do destroy (12s) — o SIGKILL corta o
+   destroy antes do marcador. O perfil sobreviveu MESMO sujo (LevelDB aguentou), mas para o
+   marcador funcionar como detector fino: **reduzir `destroyTimeoutMs` para ~7s** (1 linha) no
+   próximo incremento de código (juntar com o passo 2 do B-002 antes de 28/08 — evita swap só
+   para isso).
+2. **Sessão atual caiu na webVersion LIVE**: a 1ª tentativa de init estourou
+   (`Waiting failed: 30000ms` — provável recuperação lenta do perfil sujo) e o fallback subiu
+   SEM a versão pinada `1042271047`. Risco: build live = rename `$1` (B-002) → leads podem vir
+   LID-only e Store pode instabilizar (teto/probe/auto-heal cobrem). **Recomendação: 1
+   "Reiniciar" interno da DIOGO no painel em janela calma** (sem QR — restart interno preserva) →
+   volta à build pinada. Conferir grupos + leads com `phone` depois.
+3. Loading parou em 99% no log (padrão P-014 da sync); sem erro até 10:56. Se grupos travarem, o
+   auto-heal (reload) atua; senão, é cosmético da build live.
+
 ## Validação em prod (roteiro original — SUPERSEDIDO pelo achado acima; 1ª troca executada)
 
 1. Deploy em janela calma. **A 1ª troca de container ainda pode pedir QR** (o container VELHO
