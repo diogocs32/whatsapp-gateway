@@ -171,3 +171,30 @@
 - **Alternativas:** manter os dois universais lado a lado (rejeitado: duas fontes
   divergem — lei 7); aplicar só as regras "baratas" e adiar R19–R21 (rejeitado: a BASE
   é o contrato completo; o que custa código vira onda, não omissão).
+
+## D-012 — 2026-08-14 — Foco exclusivo na engine wwebjs; dep pinada em commit da main (fix pós-QR fora do npm)
+
+- **Decisão (dono, 14/08):** o trabalho de engine foca SOMENTE no wwebjs (Baileys rc14 e
+  migração wa-js ficam FORA do escopo atual — registrados como opções em
+  `docs/pesquisa-wwebjs-2026-08.md`). A dependência `whatsapp-web.js` sai do npm
+  (`^1.34.7`, release 24/04/2026) e passa a ser **tarball do commit
+  `1780711a1c86dfeca7c5ba6a66f950eac93dde28`** da main do repo `wwebjs/whatsapp-web.js`
+  (`https://github.com/wwebjs/whatsapp-web.js/archive/<sha>.tar.gz`).
+- **Por quê:** o commit contém o **PR #201653** ("fix: prevent duplicate ready events on
+  SPA re-injection", mergeado 25/06/2026, AUSENTE de qualquer release do npm) — corrige a
+  injeção concorrente do Store após ciclos de QR/destroy/re-init (3-4 sets de listeners
+  Backbone por scan), a causa com melhor evidência para o P-014 (Store travado pós-QR).
+  Evidência completa com URLs em `docs/pesquisa-wwebjs-2026-08.md` §1.
+- **Forma tarball (não git URL):** o stage de build do Docker não tem `git`, e dep git
+  rodaria o `prepare` (`is-ci || husky`) da lib. Tarball de commit não roda scripts e o
+  lockfile grava URL + integrity sha512. Risco aceito: regeneração de archive pelo GitHub
+  poderia quebrar a integridade no `npm ci` (incidente de 2023, revertido) — remediação:
+  rodar `npm install` de novo e commitar o lock.
+- **Verificação:** commit confere na API do GitHub (só `src/Client.js`, +347/−288);
+  código instalado contém o filtro de main-frame (`frame.parentFrame() !== null`),
+  `_framenavigatedRegistered` e `_wwjsListeners`; versão declarada segue `1.34.7`;
+  deps idênticas (puppeteer 24.38.0). 34/34 testes do engine · tsc · eslint OK.
+- **Alternativas:** esperar release oficial (rejeitado: 3,5 meses sem release e issues
+  `issued high` sem resposta); pinar HEAD da main (rejeitado: o `1780711` exato tem
+  precedente de produção por terceiro — menos variáveis); bisect de build "estável" do
+  wa-version (rejeitado: premissa furada — não há curadoria de estabilidade, ver pesquisa §0.4).

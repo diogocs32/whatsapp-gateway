@@ -22,7 +22,18 @@
 ## Estado de produção
 
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
-- **Último deploy confirmado:** 13/08/2026 ~13:44 UTC — redeploy que **aplicou `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha`** (B-002: o DONO colou a linha na env Environment Settings, salvou e deployou — a tentativa anterior do Claude via navegador não tinha persistido). Build ✅ (`prisma generate` + `nest build` OK, imagem `sha256:ff6cea38…`). Container novo e **saudável**: `/health` = `ok` às 13:46:09 UTC, `uptimeSeconds: 81`, `memoryUsedPct: 0.26`, `heapUsedPct: 0.07`, checks true, version 0.1.0. O build log NÃO mostra env (é runtime); a env foi confirmada pelo dono ao colar. Deploys anteriores: ~12:52 (redeploy sem a env) · ~11:22 (W7, `f983c83`) · ~05:32 (W1–W8 + qualidade-max, `9cb5686`). **Pendente:** teste de PN do B-002 (leads com `phone`) + smoke funcional das rotas novas — runbooks em [how-to/smoke-test-wwebjs-w8-qualidade.md](how-to/smoke-test-wwebjs-w8-qualidade.md).
+- **Último deploy confirmado:** 13/08/2026 **23:56 UTC** — push `3e74d25` (teto/probe nas operações
+  de Store do wwebjs, P-014) → build **1m03s** DONE, container `cd9041d1efe3` saudável. **Validou o
+  Teste 2 do Watch Paths** (push de código dispara build sozinho). Sequência do dia 13/08 (todas
+  confirmadas): ~13:44 env `WWEBJS_WEB_VERSION=1045101284` (B-002) · ~19:50 **ROLLBACK** da env p/
+  `1042271047` (build 1045 quebra a lib — é o rename `_serialized`→`$1`, ver
+  [pesquisa-wwebjs-2026-08.md](pesquisa-wwebjs-2026-08.md)) · ~20:01 deploy `7e05fc1` (fix proxy
+  forwarder proxy-chain) · ~23:20 redeploy de env (**`WA_LOG_LEVEL=info`** — destravou o
+  diagnóstico do P-014; era `warn` e escondia TODOS os logs info das engines) · 23:56 `3e74d25`.
+  **Env de prod também tem:** `WA_REQUIRE_PROXY=true` (B-001 ✅ na prática) e
+  `GUARDRAIL_ENFORCE=true` (⚠️ diverge da M2 — confirmar com o dono, ver 📢 em SESSOES.md).
+  **Sessão DIOGO (wwebjs):** proxy dedicado **#27** (fim do compartilhamento com a Baileys),
+  re-logada por QR 14/08 ~00:10 UTC, sync 100%, 175 grupos validados.
 - **Auditoria 07/2026: 100% ENCERRADA** — código (itens 3–26) e operacionais (O1–O4) todos ✅; detalhes em [auditoria-2026-07.md](auditoria-2026-07.md)
 - **Proxies:** pool Webshare re-sincronizado (10/07), todos ALIVE de verdade (health-tester só aceita 2xx), sessões WORKING
 - **DNS:** validado verde no Dokploy (10/07)
@@ -36,8 +47,9 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main local ↔ origin/main | **Sincronizado** (`3f7c611`, push 13/08) — nada pendente de push. O deploy no Dokploy é a confirmação operacional que falta (não é divergência de código). |
-| feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda              |
+| main local ↔ origin/main | **Sincronizado** (`7cec2ed`, push 14/08) — em prod está o `3e74d25` (teto/probe); docs posteriores não deployam (Watch Paths). |
+| feature/wwebjs-store-travado | Sessão ativa (P-014): **dep wwebjs pinada no commit `1780711`** (D-012) — merge+deploy pendente de validação final |
+| feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda. ⚠️ env de prod tem `GUARDRAIL_ENFORCE=true` (divergência a reconciliar) |
 | feature/auth-refresh-rotation | Sessão auth-refresh ativa (D-009) — merge no fechamento                                   |
 
 ## Pendências operacionais
