@@ -91,6 +91,15 @@ mensagem, em vez de 240s mudo); (b) operacional: restart re-rola a loteria até 
 testar grupos+leads+phone E a sync 100% na mesma janela; (d) futuro (P-001 watchdog): auto-reload
 quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct`) para isso.
 
+### 🚀 DEPLOY DO FIX 13/08 23:56 UTC (merge `3e74d25` → push → build 1m03s DONE)
+- **Watch Paths Teste 2 VALIDADO**: push de código disparou o build automaticamente.
+- Container novo `cd9041d1efe3` saudável; teto/probe EM PRODUÇÃO.
+- ⚠️ **DIOGO subiu pedindo QR** ("Aguardando QR") no boot novo — o LocalAuth não foi aceito
+  (sequela provável: sync morta em 99% + gateway reiniciado no meio). **BLOQUEADO NO DONO:
+  escanear o QR** (celular do 5517988340999). Pós-scan, a sync re-rola a loteria: grupos
+  respondendo rápido = ok; erro novo citando "sincronização vista em X%" = travou → Reiniciar
+  e repetir (ou antecipar o bisect da build).
+
 ## 🎯 PLANO REVISADO (substitui a ordem antiga; passos antigos mantidos abaixo para contexto)
 
 1. **(Dono, 2 min — R0)** Dokploy → conexozenvo → Environment: mudar `WA_LOG_LEVEL=warn` →
