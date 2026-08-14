@@ -63,6 +63,14 @@
   na lib). Caminho com evidência: **build nova + patch `$1` via patch-package** (receita validada em
   produção por terceiros na issue #201852) — testar PN/leads + sync 100% numa sessão de teste ANTES
   de 28/08 (expiração da `1042271047`). NUNCA `auto`/`live` sem o patch.
+- **⚡ ANTECIPADO E IMPLEMENTADO 14/08 ~13h UTC** (sessão `wwebjs-p015-shutdown-limpo`, branch
+  `feature/wwebjs-b002-patch-s1`): pós-P-015 a DIOGO ficou NA BUILD LIVE (init pinado estoura 30s —
+  perfil "migrado" pela live não reabre na build velha; efeito catraca) e o Modo B ativou em prod
+  (envio entrega mas erra `reading 'id'`; leads 400; grupos não abrem). **Patch `$1` implementado**
+  (`patches/whatsapp-web.js+1.34.7.patch` + patch-package no postinstall da raiz + `COPY patches`
+  nos 2 Dockerfiles + teste que acusa patch ausente; 42/42 · tsc · eslint). **RESTA:** deploy →
+  env `WWEBJS_WEB_VERSION=2.3000.1045204510-alpha` (expira 14/10) → teste de PN/leads na DIOGO
+  ("B-002 feito" quando leads vierem com `phone`).
 
 - **✅ Aplicado 13/08 ~13:44 UTC (pelo DONO):** `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha`
   (`currentVersion` do wa-version, expira **~13/10/2026** — ~2 meses de folga) colada na env

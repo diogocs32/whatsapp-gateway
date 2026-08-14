@@ -169,6 +169,40 @@ navegador ~10:50; Done em 3s — cache total, só service update). Container nov
 3. Loading parou em 99% no log (padrão P-014 da sync); sem erro até 10:56. Se grupos travarem, o
    auto-heal (reload) atua; senão, é cosmético da build live.
 
+## 🔧 INCREMENTO B-002 (14/08 ~12:30–13:00 UTC) — patch `$1` + build nova (branch `feature/wwebjs-b002-patch-s1`)
+
+**Gatilho:** pós-validação da P-015, o restart interno reconectou sem QR MAS a sessão ficou na
+webVersion **LIVE** (o init com a pinada `1042271047` estourou 30s 2×— perfil "migrado" pela build
+nova não reabre na antiga; efeito catraca). Sintomas em prod relatados pelo dono: envio do painel
+ENTREGA mas erra na volta (`Cannot read properties of undefined (reading 'id')` — serialização da
+key com `$1`), texto fica no input; `GET /groups/:g/leads` → 400; grupos não abrem. Baileys ok
+(não passa pelo WA Web) — descarta API/código nosso. **É o Modo B da pesquisa (rename
+`_serialized`→`$1`), agora ativo na nossa sessão.** Antecipado o passo 2 do plano (era "antes de
+28/08"; virou AGORA).
+
+**Implementado (receita da issue #201852, patch de @choudharyabdullah, validado em produção por
+terceiros — colada nos comentários da issue; buscada via `gh api`):**
+- `patches/whatsapp-web.js+1.34.7.patch` (gerado com `patch-package` a partir das edições reais na
+  lib instalada — o tarball do commit `1780711` só difere no `Client.js`, os arquivos-alvo são os
+  do 1.34.7): helper `window.WWebJS.getMsgKeyId` (`_serialized` OU `$1`) usado em
+  sendMessage/editMessage/lastReceivedKey · restauração de `_serialized` no `getMessageModel` ·
+  `getChats` sequencial com isolamento por chat · guard no `groupMetadata.update` · try/catch
+  "already exists" no `exposeFunctionIfAbsent`.
+- Raiz: `patch-package` em devDependencies + script `postinstall`. **Fidelidade testada:** rm da
+  lib + `npm install` limpo → "Applying patches… ✔" e edições presentes.
+- Dockerfiles (gateway + dashboard): `COPY patches ./patches` ANTES do `npm ci` (sem isso o
+  postinstall rodaria sem a pasta e a imagem subiria SEM o patch).
+- Residual P-015 embarcado: `destroyTimeoutMs` 12s → **7s** (< grace de 10s do Docker; era o que
+  impedia o marcador de "fechado limpo" de ser gravado no swap).
+- Teste novo: spec falha alto se a lib instalada não tiver o patch (pega `patches/` fora do COPY).
+- 42/42 testes · tsc · eslint · prettier.
+
+**Plano de aplicação:** push (deploy do gateway com patch) → mudar env
+`WWEBJS_WEB_VERSION=2.3000.1045204510-alpha` (currentVersion, expira **14/10**) no Dokploy
+(navegador, autorizado) → validar na DIOGO: envio sem erro no painel, grupos abrem,
+`GET /groups/:g/leads` com `phone` (o teste de PN decide o B-002; o motor tem resolução ativa
+LID→PN em lote). `DEFAULT_WEB_VERSION` do código só sobe após essa validação.
+
 ## Validação em prod (roteiro original — SUPERSEDIDO pelo achado acima; 1ª troca executada)
 
 1. Deploy em janela calma. **A 1ª troca de container ainda pode pedir QR** (o container VELHO

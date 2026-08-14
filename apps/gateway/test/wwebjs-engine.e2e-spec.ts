@@ -695,3 +695,28 @@ describe('WWebJSEngine — shutdown limpo do processo (P-015)', () => {
     expect(events.at(-1)?.status).toBe('STOPPED');
   });
 });
+
+describe('patch `$1` do WhatsApp Web aplicado na lib (B-002)', () => {
+  // O WA Web ≥2.3000.104x renomeou `_serialized` → `$1` nas message keys; sem o patch
+  // (patches/whatsapp-web.js+1.34.7.patch, aplicado pelo postinstall via patch-package) a lib
+  // quebra em getChats/sendMessage/downloadMedia nas builds novas. Este teste falha ALTO se o
+  // install rodou sem aplicar o patch (ex.: patches/ fora do COPY do Dockerfile).
+  it('Utils.js instalado contém o helper getMsgKeyId e Puppeteer.js o guard de exposeFunction', async () => {
+    const { createRequire } = await import('node:module');
+    const { readFile } = await import('node:fs/promises');
+    const { dirname, join: joinPath } = await import('node:path');
+    const req = createRequire(import.meta.url);
+    const libRoot = dirname(req.resolve('whatsapp-web.js/package.json'));
+    const utils = await readFile(
+      joinPath(libRoot, 'src/util/Injected/Utils.js'),
+      'utf8',
+    );
+    expect(utils).toContain('window.WWebJS.getMsgKeyId');
+    expect(utils).toContain('key?._serialized ?? key?.$1');
+    const pup = await readFile(
+      joinPath(libRoot, 'src/util/Puppeteer.js'),
+      'utf8',
+    );
+    expect(pup).toMatch(/already exists/);
+  });
+});

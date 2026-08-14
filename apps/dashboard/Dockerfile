@@ -16,6 +16,8 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json package-lock.json ./
 COPY apps/dashboard/package.json apps/dashboard/
 COPY packages/contracts/package.json packages/contracts/
+# patches/ antes do npm ci — o postinstall da raiz roda patch-package (ver Dockerfile do gateway).
+COPY patches ./patches
 RUN npm ci
 
 COPY . .

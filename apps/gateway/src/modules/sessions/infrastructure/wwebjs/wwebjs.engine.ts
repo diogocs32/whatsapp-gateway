@@ -248,7 +248,10 @@ export class WWebJSEngine implements IEngine {
   // Tetos de ciclo de vida (P-015) — campos (e não constantes inline) para os testes injetarem
   // valores curtos, como o withStoreReady faz com os tetos de Store.
   private logoutTimeoutMs = LOGOUT_TIMEOUT_MS;
-  private destroyTimeoutMs = 12_000;
+  // 7s < grace period do Docker (10s default): com 12s, o SIGKILL cortava o destroy ANTES do teto
+  // e o marcador de "fechado limpo" nunca era gravado (validado em prod 14/08 — WARN de
+  // encerramento sujo em todo swap). 7s dá folga para destroy + marcador + resto do shutdown.
+  private destroyTimeoutMs = 7_000;
 
   constructor(private readonly deps: BaileysEngineDeps) {}
 
@@ -816,7 +819,7 @@ export class WWebJSEngine implements IEngine {
         timeout,
       ]);
     } finally {
-      if (timer) clearTimeout(timer); // não deixa o timer vivo 12s após um destroy rápido
+      if (timer) clearTimeout(timer); // não deixa o timer vivo após um destroy rápido
     }
   }
 

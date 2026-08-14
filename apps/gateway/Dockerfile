@@ -22,6 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl \
 COPY package.json package-lock.json ./
 COPY apps/gateway/package.json apps/gateway/
 COPY packages/contracts/package.json packages/contracts/
+# patches/ ANTES do npm ci: o postinstall da raiz roda patch-package (fix `$1` do whatsapp-web.js,
+# B-002) e sem a pasta presente o install passaria SEM aplicar o patch — a lib subiria quebrada
+# nas builds novas do WA Web.
+COPY patches ./patches
 RUN npm ci
 
 # Código → gera o Prisma client (src/generated/prisma) → build (dist/main.js)
