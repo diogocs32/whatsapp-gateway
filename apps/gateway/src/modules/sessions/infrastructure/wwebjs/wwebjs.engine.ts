@@ -298,6 +298,78 @@ export class WWebJSEngine implements IEngine {
   ): void {
     this.status = status;
     this.deps.onEvent('session.status', { status, ...extra });
+    // P-019 — o watchdog de sync acompanha a sessão enquanto ela se diz utilizável e morre com ela.
+    if (status === 'WORKING') this.startSyncWatchdog();
+    else if (status === 'STOPPED' || status === 'FAILED')
+      this.stopSyncWatchdog();
+  }
+
+  // P-019 — fim do "WORKING falso": nas builds atuais do WA Web, a RE-sincronização de reconexão
+  // (caminho incremental, delta acumulado) frequentemente empaca em 99% e a página fica com os
+  // evaluates mortos — mas o WS segue conectado e o status mentia WORKING (14/08: pós-scan o
+  // bootstrap SEMPRE completa; pós-reconexão o incremental empacou em ~10 de 10 tentativas ruins).
+  // O watchdog sonda a página a cada 60s: 3 falhas seguidas → DEGRADED com instrução acionável
+  // (painel e n8n enxergam a verdade) + heal em background; voltou a responder → WORKING de novo.
+  private watchdogTimer: ReturnType<typeof setInterval> | undefined;
+  private watchdogFails = 0;
+  private watchdogDegraded = false;
+  private static readonly WATCHDOG_INTERVAL_MS = 60_000;
+  private static readonly WATCHDOG_FAILS_TO_DEGRADE = 3;
+
+  private startSyncWatchdog(): void {
+    if (this.watchdogTimer) return;
+    this.watchdogFails = 0;
+    const t = setInterval(
+      () => void this.syncWatchdogTick(),
+      WWebJSEngine.WATCHDOG_INTERVAL_MS,
+    );
+    t.unref?.(); // não segura o processo no shutdown
+    this.watchdogTimer = t;
+  }
+
+  private stopSyncWatchdog(): void {
+    if (this.watchdogTimer) clearInterval(this.watchdogTimer);
+    this.watchdogTimer = undefined;
+    this.watchdogFails = 0;
+    this.watchdogDegraded = false;
+  }
+
+  private async syncWatchdogTick(): Promise<void> {
+    if (this.stopped || !this.client || this.healing) return;
+    try {
+      await raceStoreOp(
+        this.client.getState().then(
+          () => null,
+          (err: Error) => {
+            if (isPageCrashError(err?.message)) throw err;
+            return null; // outros erros não são veredito de página morta
+          },
+        ),
+        STORE_PROBE_TIMEOUT_MS,
+        'watchdog: página não responde',
+      );
+      this.watchdogFails = 0;
+      if (this.watchdogDegraded) {
+        this.watchdogDegraded = false;
+        this.deps.logger.info(
+          'wwebjs: watchdog — página voltou a responder, sessão utilizável de novo',
+        );
+        this.setStatus('WORKING', { error: null });
+      }
+    } catch {
+      this.watchdogFails += 1;
+      void this.healWedgedPage();
+      if (
+        this.watchdogFails >= WWebJSEngine.WATCHDOG_FAILS_TO_DEGRADE &&
+        !this.watchdogDegraded &&
+        this.status === 'WORKING'
+      ) {
+        this.watchdogDegraded = true;
+        this.setStatus('DEGRADED', {
+          error: `página do WhatsApp Web sem resposta${this.syncHint()} — a re-sincronização da reconexão não completou (P-019). Recuperação automática tentada; se persistir, re-escaneie o QR (POST /new-qr) ou reinicie a sessão`,
+        });
+      }
+    }
   }
 
   // Remove locks de perfil órfãos do Chromium (SingletonLock/Socket/Cookie) no userDataDir desta
@@ -913,6 +985,7 @@ export class WWebJSEngine implements IEngine {
   // impediria a sessão de voltar no container novo.
   async shutdown(): Promise<void> {
     this.stopped = true;
+    this.stopSyncWatchdog();
     const startedAt = Date.now();
     const hadClient = this.client !== null;
     const clean = await this.destroyWithTimeout();

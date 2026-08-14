@@ -950,3 +950,81 @@ describe('P-017c — página CRASHADA (rejeita rápido) também dispara o heal',
     expect(reloads).toBe(1);
   });
 });
+
+describe('P-019 — watchdog de sync: fim do WORKING falso', () => {
+  type Internals = {
+    client: unknown;
+    status: string;
+    watchdogTimer: unknown;
+    watchdogFails: number;
+    watchdogDegraded: boolean;
+    setStatus(status: string, extra?: Record<string, unknown>): void;
+    syncWatchdogTick(): Promise<void>;
+    stopSyncWatchdog(): void;
+  };
+  const internals = (e: WWebJSEngine) => e as unknown as Internals;
+
+  it('3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal', async () => {
+    const { deps, events } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    let reloads = 0;
+    internals(engine).client = {
+      getState: async () => {
+        throw new Error(
+          'Protocol error (Runtime.callFunctionOn): Target crashed',
+        );
+      },
+      pupPage: {
+        reload: async () => {
+          reloads++;
+        },
+      },
+    };
+    internals(engine).setStatus('WORKING'); // liga o watchdog
+    try {
+      await internals(engine).syncWatchdogTick();
+      await internals(engine).syncWatchdogTick();
+      expect(internals(engine).status).toBe('WORKING'); // 2 falhas ainda não rebaixam
+      await internals(engine).syncWatchdogTick();
+      expect(internals(engine).status).toBe('DEGRADED');
+      const degraded = events.find((e) => e.status === 'DEGRADED');
+      expect(degraded?.error).toMatch(/re-sincronização.*P-019|P-019/);
+      expect(degraded?.error).toMatch(/re-escaneie o QR/);
+      expect(reloads).toBeGreaterThanOrEqual(1); // heal tentado em background
+    } finally {
+      internals(engine).stopSyncWatchdog();
+    }
+  });
+
+  it('página volta a responder → status retorna a WORKING sozinho', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    const client = {
+      getState: async (): Promise<string> => {
+        throw new Error('Session closed.');
+      },
+      pupPage: { reload: async () => undefined },
+    };
+    internals(engine).client = client;
+    internals(engine).setStatus('WORKING');
+    try {
+      for (let i = 0; i < 3; i++) await internals(engine).syncWatchdogTick();
+      expect(internals(engine).status).toBe('DEGRADED');
+      client.getState = async () => 'CONNECTED'; // página ressuscitou
+      await internals(engine).syncWatchdogTick();
+      expect(internals(engine).status).toBe('WORKING');
+      expect(internals(engine).watchdogDegraded).toBe(false);
+    } finally {
+      internals(engine).stopSyncWatchdog();
+    }
+  });
+
+  it('watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)', () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    internals(engine).setStatus('WORKING');
+    expect(internals(engine).watchdogTimer).toBeTruthy();
+    internals(engine).setStatus('STOPPED');
+    expect(internals(engine).watchdogTimer).toBeUndefined();
+  });
+});
