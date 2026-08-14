@@ -345,3 +345,15 @@ deploy-dokploy.md (revisado de manhã). Nada do diff ficou sem doc.
 DECISOES.md (D-013/D-014) · CHANGELOG.md · deploy-dokploy.md · código: `wwebjs.engine.ts`,
 `engine.port.ts`, `session-manager.service.ts`, Dockerfiles (2), `package.json`/lock,
 `patches/whatsapp-web.js+1.34.7.patch`, `wwebjs-engine.e2e-spec.ts` (52 testes).
+
+
+### Adendo pós-checkpoint (~16:35 UTC) — 2 correções de registro
+
+1. **Errata minha:** o push das docs (`62470d1`) carregou junto o commit de código do P-019
+   (`25cad0c`) — a intenção era mantê-lo local. Efeito colateral POSITIVO descoberto: o Watch
+   Paths avalia só o commit de TOPO do push, então NÃO deployou (uptime do container atravessou o
+   push). Estado real: **P-019 no origin/main, não deployado; o próximo deploy do gateway o ativa**
+   (anotado no runbook watch-paths e no 📢 de SESSOES).
+2. **Frota no fim do dia:** a sessão wwebjs foi **REMOVIDA** (lista da API = 18 Baileys; a
+   "DIOGO" `01KZYX…` não existe mais — o DELETE purga o perfil do volume, como projetado na W3).
+   Recriar quando precisar de leads: 1 QR, bootstrap sempre completa.

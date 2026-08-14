@@ -23,9 +23,11 @@
 - **14/08 · wwebjs-p015-shutdown-limpo (ENCERRADA):** regra nova que afeta TODA sessão que
   deployar o gateway (D-014): **troca de container pode exigir re-scan do QR da sessão wwebjs**
   (re-sync incremental empaca em 99% nas builds atuais; bootstrap pós-QR completa sempre) —
-  agrupar deploys e combinar a janela com o dono. Também: main local está 1 commit de CÓDIGO à
-  frente (`25cad0c`, P-019) — NÃO pushar sem essa janela; `WA_LOG_LEVEL=info` fica de propósito
-  (diagnóstico) até P-019 em prod. Quem absorver o push do P-019 remove este aviso.
+  agrupar deploys e combinar a janela com o dono. O código do P-019 JÁ está no origin/main mas
+  NÃO deployado (o Watch Paths avalia só o commit de TOPO do push — push com topo doc-only não
+  deploya): **o próximo deploy do gateway o ativa automaticamente**. `WA_LOG_LEVEL=info` fica de
+  propósito (diagnóstico) até P-019 em prod. A sessão wwebjs foi REMOVIDA no fim de 14/08 —
+  recriar quando precisar. Quem fizer o próximo deploy do gateway remove este aviso.
 - **13/08 · wwebjs-store-travado:** leitura da env de PROD no Dokploy (~23h UTC) achou
   **`GUARDRAIL_ENFORCE=true`** (linha 63) — **diverge do ESTADO.md/M2**, que dizem modo observação
   (`false`). Quem precisa saber: sessão **M2** (se o dono ligou de propósito, a onda M2 está de

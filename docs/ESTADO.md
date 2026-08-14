@@ -44,7 +44,7 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main local ↔ origin/main | main local **1 commit à frente**: `25cad0c` (P-019 watchdog, código) NÃO pushado de propósito — push = deploy = possível re-scan (D-014). origin/main = `62470d1`; em prod roda `ccc17b1` + 4GB. |
+| main local ↔ origin/main | **Sincronizado** (`f0e4bac`). ⚠️ O código do P-019 (`25cad0c`) ESTÁ no origin/main mas **NÃO deployado**: o Watch Paths avalia só o COMMIT DE TOPO do push (evidência 14/08 — push com topo doc-only não deployou). **O próximo deploy do gateway ativa o P-019 automaticamente** (e pode exigir re-scan, D-014). Em prod roda `ccc17b1` + 4GB. |
 | feature/wwebjs-store-travado | Sessão ativa (P-014): **dep wwebjs pinada no commit `1780711`** (D-012) — merge+deploy pendente de validação final |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda. ⚠️ env de prod tem `GUARDRAIL_ENFORCE=true` (divergência a reconciliar) |
 | feature/auth-refresh-rotation | Sessão auth-refresh ativa (D-009) — merge no fechamento                                   |
@@ -74,10 +74,12 @@ sendo a mais urgente: produção SEM backup do banco.
 
 ## Próximos passos
 
-0. **Lote de deploy pendente (janela com re-scan aceitável — dono escolhe):** push do `25cad0c`
-   (P-019 watchdog anti-"WORKING falso"). Junto: pausar/desligar autostart das Baileys não-pareadas
-   (P-018, painel), rotacionar a `X-Api-Key` (exposta 2× em chat) e tirar `Webshare 20 proxies.txt`
-   da raiz. Revalidar a build do WA Web ~início out/2026 (expira 13/10 — procedimento no B-002).
+0. **Próximo deploy do gateway ativa o P-019** (já no origin/main; janela com re-scan aceitável —
+   dono escolhe; um Deploy manual no Dokploy basta). Junto: pausar/desligar autostart das Baileys
+   não-pareadas (P-018, painel), rotacionar a `X-Api-Key` (exposta 2× em chat) e tirar
+   `Webshare 20 proxies.txt` da raiz. Revalidar a build do WA Web ~início out/2026 (expira 13/10 —
+   B-002). **Sessão wwebjs: REMOVIDA da frota no fim de 14/08** (frota atual = 18 Baileys);
+   recriar quando precisar de leads (1 QR; bootstrap sempre completa).
 1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
 1b. **Estabilidade de sessão — P0 ENTREGUE 21/07** (sessão `DONE-2026-07-21-1730-estabilidade-sessoes`): mutex Baileys · creds limpas no loggedOut · `POST /:id/new-qr` + botão do painel · 401 → /login. Restam P1/P2 (watchdog, auto-heal DEGRADED, DisconnectReason, reconexão wwebjs — backlog no arquivo DONE da sessão; vira sessão nova quando priorizado)
 1c. **Anti-flag de sessão — CÓDIGO ENTREGUE 22/07** (sessão `DONE-2026-07-22-1700-hardening-antiban`): fingerprint realista por sessão · log de conexão sem proxy · `WA_REQUIRE_PROXY` (default false). Diagnóstico: proxies eram Webshare DATACENTER (`mode=direct`) — flag na conexão. **AÇÃO OPERACIONAL do usuário (em curso):** migrar p/ proxy RESIDENCIAL BR (adquirido — Webshare static residential, 20 IPs SP), importar em massa (`user:pass@ip:porta`, source MANUAL), atribuir 1 IP/sessão (Proxy fixo), ligar `WA_REQUIRE_PROXY=true` no Dokploy, re-vincular. Backlog: health-tester só testa ipify (não prova reputação WhatsApp).

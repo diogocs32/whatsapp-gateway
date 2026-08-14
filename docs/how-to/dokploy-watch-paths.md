@@ -118,3 +118,13 @@ Config não-destrutiva e reversível a qualquer momento.
   R0). Será confirmado no **próximo push de código real** — deve aparecer uma deployment
   nova no app correspondente. Se NÃO aparecer, a lista está incompleta: adicione o path
   que você mexeu.
+
+
+## ⚠️ Comportamento observado em produção (14/08/2026)
+
+O filtro avalia **o commit de TOPO do push** (não o diff acumulado): um push com vários commits
+onde o topo é doc-only **NÃO dispara deploy, mesmo com commits de código abaixo** (evidência:
+push `ccc17b1..62470d1` levou o código `25cad0c` e não buildou — uptime do container atravessou o
+push). Corolários: (a) nunca "esconder" código sob um commit de docs achando que deploya;
+(b) para segurar um deploy, garanta que o commit de topo seja doc-only — mas o código fica
+pendente e o PRÓXIMO deploy (manual ou push com topo de código) o ativa junto.
