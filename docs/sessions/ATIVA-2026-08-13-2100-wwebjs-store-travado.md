@@ -91,7 +91,28 @@ mensagem, em vez de 240s mudo); (b) operacional: restart re-rola a loteria até 
 testar grupos+leads+phone E a sync 100% na mesma janela; (d) futuro (P-001 watchdog): auto-reload
 quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct`) para isso.
 
-### 🚀 DEPLOY DO FIX 13/08 23:56 UTC (merge `3e74d25` → push → build 1m03s DONE)
+### 📌 GO DO DONO 14/08 — FOCO SOMENTE WWEBJS (D-012) + PIN DO COMMIT `1780711`
+- Dono decidiu (~00:30 UTC): **escopo de engine = somente wwebjs** (Baileys rc14 e wa-js fora,
+  registrados como opções na pesquisa). GO para o item 1 do plano da pesquisa.
+- **Implementado nesta branch**: `apps/gateway/package.json` → `whatsapp-web.js` sai do npm
+  `^1.34.7` e vira **tarball do commit `1780711a1c86dfeca7c5ba6a66f950eac93dde28`** (main do
+  `wwebjs/whatsapp-web.js`, contém o PR #201653 — fix da injeção concorrente pós-QR, AUSENTE do
+  npm). Tarball (não git URL) porque o stage de build do Docker não tem `git` e tarball não roda o
+  `prepare` da lib. Lockfile atualizado (URL + integrity sha512).
+- **Verificação**: commit confere na API GitHub (só `src/Client.js` +347/−288); código instalado
+  tem filtro main-frame (`frame.parentFrame() !== null`), `_framenavigatedRegistered`,
+  `_wwjsListeners`; versão segue 1.34.7; deps idênticas (puppeteer 24.38.0). 34/34 testes ·
+  tsc · eslint OK. Racional completo: D-012 em `DECISOES.md` + `pesquisa-wwebjs-2026-08.md` §4.
+- **Validação em prod (após merge+deploy)**: subir a DIOGO, fazer 1-2 ciclos de QR (o gatilho do
+  P-014) e confirmar: sem hang de Store, `ready` único, grupos respondendo. Se ainda oscilar logo
+  pós-login (sync pesada legítima), o teto/probe segue cobrindo a UX.
+- **Próximo passo depois desta validação (B-002)**: build nova + patch `$1` via patch-package
+  ANTES de 28/08 (expiração da `1042271047`).
+- Validação da rodada anterior (pós-scan ~00:10-00:20 UTC): sync 100% → 1º `getChats` OK (175
+  grupos) → depois evaluates pendurando com o teto novo respondendo em 10-45s com o % na mensagem
+  (comportamento esperado do código novo; o hang de fundo é o que o pin do `1780711` ataca).
+
+### 🚀 DEPLOY DO FIX TETO/PROBE 13/08 23:56 UTC (merge `3e74d25` → push → build 1m03s DONE)
 - **Watch Paths Teste 2 VALIDADO**: push de código disparou o build automaticamente.
 - Container novo `cd9041d1efe3` saudável; teto/probe EM PRODUÇÃO.
 - ⚠️ **DIOGO subiu pedindo QR** ("Aguardando QR") no boot novo — o LocalAuth não foi aceito

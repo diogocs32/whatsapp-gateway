@@ -93,20 +93,19 @@ aceitando `_serialized` OU `$1` + try/catch no exposeFunction). Confirmação de
   via confiável de PN. Baileys nunca vai substituí-la.**
 - Baileys 7.0.0 stable: sem cronograma (busca em issues/milestones = 0). rc14 sem release notes.
 
-## 4. Plano recomendado (derivado da evidência — aguarda GO do dono)
+## 4. Plano recomendado — GO do dono em 14/08: **foco SOMENTE wwebjs** (D-012)
 
-1. **Curto prazo (destrava P-014)** — pinar a dependência no commit `1780711` da main
-   (`github:wwebjs/whatsapp-web.js#1780711…`), que corrige a injeção concorrente pós-QR (Modo A).
-   Riscos: dep via git no build Docker (precisa `git` no stage de build) + levar junto os outros 4
-   commits da main (auditáveis, são poucos). Complementos baratos e com evidência: preferir
-   `getChatById` a `getChats` onde possível (#3485) e manter nosso teto/probe (já em prod).
-2. **Antes de 28/08 (B-002 reformulado)** — abandonar o "bisect de build estável" (premissa morta).
+1. ✅ **EXECUTADO 14/08 (D-012)** — dep pinada no commit `1780711` via **tarball**
+   (`https://github.com/wwebjs/whatsapp-web.js/archive/1780711a1c86dfeca7c5ba6a66f950eac93dde28.tar.gz`)
+   — sem `git` no build Docker e sem rodar o `prepare` da lib. Verificado no código instalado:
+   filtro main-frame + `_framenavigatedRegistered` + `_wwjsListeners`. 34/34 testes · tsc · eslint.
+   Complemento pendente (barato, com evidência #3485): preferir `getChatById` a `getChats` onde couber.
+2. **Antes de 28/08 (B-002 reformulado)** — abandonado o "bisect de build estável" (premissa morta).
    Caminho com evidência: build nova (ex.: a atual do wa-version) **+ patch `$1` via patch-package**
-   (receita validada em produção por terceiros) — testar PN/leads + sync numa sessão de teste.
-3. **Médio prazo (decisão de arquitetura)** — avaliar migrar a perna browser wwebjs → **wa-js/wppconnect**
-   (API PN explícita, cadência semanal, 11 issues) mantendo Baileys principal. Custo real de
-   migração; limitar ao módulo de extração de leads se for.
-4. **Paralelo independente** — upgrade Baileys rc13 → rc14 (sessão própria, com teste).
+   (receita validada em produção por terceiros, issue #201852) — testar PN/leads + sync numa sessão
+   de teste. É o PRÓXIMO passo depois de validar o item 1 em produção.
+3. ~~Migração wa-js/wppconnect~~ e ~~upgrade Baileys rc14~~ — **FORA DE ESCOPO por decisão do dono
+   (14/08, D-012: foco somente wwebjs)**. Registrados aqui como opções futuras com a evidência.
 
 ## Não encontrado (registrado para não re-pesquisar à toa)
 - Consenso de comunidade (Discord/Reddit/SO) sobre extração de participantes com PN — não há.
