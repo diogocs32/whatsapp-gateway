@@ -203,6 +203,63 @@ terceiros — colada nos comentários da issue; buscada via `gh api`):**
 `GET /groups/:g/leads` com `phone` (o teste de PN decide o B-002; o motor tem resolução ativa
 LID→PN em lote). `DEFAULT_WEB_VERSION` do código só sobe após essa validação.
 
+## ✅✅ DESFECHO 14/08 ~14:00 UTC — TUDO FUNCIONANDO (B-002 VALIDADA) + mapa minucioso do dia
+
+### Estado final validado em produção
+
+- **Build viva:** `WWEBJS_WEB_VERSION=2.3000.1045101284-alpha` (env linha 65, conferida com zoom
+  pós-deploy; o dono a colocou — sobrescreveu a `1043890899` que eu havia salvo; o deploy aplicou
+  a dele). **Expira 13/10/2026** → revalidar ~início de outubro.
+- **Validação funcional (dono + curl):** grupos listam e abrem ✓ · envio pela inbox ✓ (sem o erro
+  `reading 'id'`, texto não fica preso) · **leads do grupo real: `total:99, withNumber:99,
+  withoutNumber:0`** com nome e papel ✓ · reconexão SEM QR ✓ · dono relata tudo "bem mais rápido".
+- **Combinação vencedora:** lib pinada commit `1780711` (fix injeção concorrente, D-012) + **patch
+  `$1`** (patch-package, receita #201852) + build 104x pinada + volume `gateway-wwebjs` (perfil
+  persistente) + teto/probe/auto-heal (P-014) + shutdown limpo (P-015).
+- **Prova do valor do patch:** a MESMA build `1045101284` que em 13/08 (sem patch) quebrou
+  downloadMedia/getContacts/getChats hoje roda 100% (com patch).
+
+### Cadeia de causas do dia (cada uma cravada com evidência)
+
+1. **P-015 (QR a cada deploy)** → app SEM volume montado ("No volumes/mounts configured");
+   perfil no FS efêmero. Fix: Volume Mount `gateway-wwebjs`→`/data/wwebjs`. Validado: 2 trocas de
+   container SEM QR.
+2. **Shutdown sujo** (co-fator) → stop() atrás do mutex + logout sem teto + grace 10s < teto 12s.
+   Fix: `shutdown()` bypass do mutex + teto 8s no logout + `destroyTimeoutMs` 7s + marcador
+   `.gateway-clean-shutdown` (diagnóstico que guiou o dia inteiro).
+3. **Catraca de perfil** → perfil sincronizado por build nova não reabre na `1042271047` (init
+   estoura 30s → fallback live). Explicou os "reconectou mas quebrado".
+4. **Rename `$1`** (Modo B) → na live sem patch: envio entrega mas erra `reading 'id'`, leads 400,
+   grupos mudos. Fix: patch `$1` embarcado (postinstall + COPY patches nos 2 Dockerfiles + teste
+   que acusa patch ausente).
+5. **Sync 99% na reconexão** (Modo A) → na `1045204510` empacou 4× seguidas (boot, 2 auto-heals,
+   1 restart); na `1045101284` completou e liberou tudo. Auto-heal e probe funcionaram como
+   projetados (erro acionável em 10s, reload automático com cooldown).
+
+### Aprendizados operacionais registrados (para não repetir)
+
+- Editor de env do Dokploy: **salvar ≠ aplicar** (env só entra com Deploy manual) e a edição via
+  navegador pode não persistir — SEMPRE reabrir e conferir a linha após Save (2 ocorrências: 13/08
+  e hoje).
+- Watch Paths OK (push doc-only não deploya — reconfirmado); deployment manual reusa o título do
+  último commit (não confundir com webhook).
+- `docs/deploy-dokploy.md` corrigido: mount = passo crítico; stop-first (start-first com volume
+  compartilhado = 2 Chromium no mesmo perfil).
+
+### Melhorias mapeadas (backlog — "seguimos procurando")
+
+1. **Probe no caminho de envio** (`sendText`/`sendMedia` etc.): hoje página travada = silêncio na
+   inbox (front aborta). Probe leve ANTES do envio (nunca teto no envio — duplicata). → P-016.
+2. **Watchdog de sync** (P-001, agora com sinal): `lastLoadingPct` <100 por N min → auto-heal
+   preventivo (hoje o heal só dispara quando uma operação falha).
+3. **Rotacionar a `X-Api-Key`** (exposta 2× em chat — pendente desde 13/08) + tirar
+   `Webshare 20 proxies.txt` da raiz do repo (untracked com credenciais).
+4. **Revalidação da build ~início out/2026** (expira 13/10) — procedimento: pinar candidata em
+   sessão de teste → sync 100% + leads com phone + envio → trocar env + default.
+5. Reverter `WA_LOG_LEVEL` para `warn`? MANTER `info` enquanto watchdog/P-016 não existem (o
+   diagnóstico de hoje só foi possível com info).
+6. `getChatById` em vez de `getChats` onde couber (#3485, barato) — pendente da pesquisa.
+
 ## Validação em prod (roteiro original — SUPERSEDIDO pelo achado acima; 1ª troca executada)
 
 1. Deploy em janela calma. **A 1ª troca de container ainda pode pedir QR** (o container VELHO
