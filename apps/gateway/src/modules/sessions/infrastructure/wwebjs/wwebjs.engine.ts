@@ -75,6 +75,12 @@ const AUTO_WEB_VERSION_TTL_MS = 6 * 60 * 60 * 1000;
 // baixa o HTML do GitHub a CADA initialize (persist() é no-op); com o arquivo pré-baixado aqui,
 // o LocalWebCache lê do disco e o start não depende de rede para a versão.
 const WEB_CACHE_DIR = join(resolve(AUTH_PATH), '.webcache');
+// P-017 — teto para BAIXAR mídia recebida da página: o downloadMedia converte o binário em base64
+// DENTRO do renderer do Chromium; mídia grande estoura a memória da página ("Target crashed",
+// incidente 14/08 num grupo de promo) e pode derrubar o container inteiro (OOM do cgroup de 2GB).
+// Acima do teto, a mensagem segue só com metadados (sem mediaKey) — mesmo fallback do erro.
+const WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES =
+  Number(process.env.WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES) || 24 * 1024 * 1024;
 // P-012 anti-flag — UA realista, ESTÁVEL POR SESSÃO (paridade com o browser-fingerprint do
 // Baileys): determinístico pelo sessionId — estável entre reconexões (trocar UA a cada conexão é
 // suspeito) e distinto entre sessões (frota inteira com UA idêntico denuncia automação). Varia SÓ a
@@ -718,11 +724,18 @@ export class WWebJSEngine implements IEngine {
       pinnedVersion &&
       attempt < 2
     ) {
+      // Cascata de 14/08: o gate de ~30s do initialize ("Waiting failed") falha ESPORADICAMENTE
+      // em boot lento (proxy + host carregado) mesmo com build pinada VÁLIDA — e o fallback
+      // imediato para a live derrubava a sessão na build mais nova (sync trava em 99%, B-002).
+      // Agora: 1ª falha → retenta a MESMA build pinada; 2ª falha → aí sim tenta a live.
+      const retryLive = attempt >= 1;
       this.deps.logger.warn(
-        { pinnedVersion },
-        'wwebjs: init falhou com a webVersion fixa — possível versão expirada; tentando com a versão live. Atualize WWEBJS_WEB_VERSION (use "auto" ou a currentVersion de github.com/wppconnect-team/wa-version).',
+        { pinnedVersion, attempt },
+        retryLive
+          ? 'wwebjs: init falhou DE NOVO com a webVersion fixa — possível versão expirada; tentando com a versão live. Atualize WWEBJS_WEB_VERSION (use "auto" ou a currentVersion de github.com/wppconnect-team/wa-version).'
+          : 'wwebjs: init falhou com a webVersion fixa — retentando com a MESMA build (gate de init falha esporadicamente em boot lento; live só em último caso)',
       );
-      return this.doStart(attempt + 1, true);
+      return this.doStart(attempt + 1, retryLive);
     }
     const error = isProxyAuth
       ? `Proxy rejeitou a autenticação (ERR_INVALID_AUTH_CREDENTIALS): credencial do proxy desta sessão está incorreta. Sincronize o pool (Webshare) ou troque/remova o proxy.`
@@ -966,6 +979,7 @@ export class WWebJSEngine implements IEngine {
     opts?: SendOptions,
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
+    await this.assertPageResponsive(); // P-016: página travada → erro em ~10s, não silêncio
     const jid = this.toChatId(to);
     const mentions = this.toMentionIds(opts?.mentions);
     const sent = await c.sendMessage(jid, text, mentions ? { mentions } : {});
@@ -991,6 +1005,7 @@ export class WWebJSEngine implements IEngine {
     input: SendMediaInput,
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
+    await this.assertPageResponsive(); // P-016: página travada → erro em ~10s, não silêncio
     const jid = this.toChatId(to);
     const media = new MessageMedia(
       input.mimetype,
@@ -1062,6 +1077,7 @@ export class WWebJSEngine implements IEngine {
     input: SendLocationInput,
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
+    await this.assertPageResponsive(); // P-016: página travada → erro em ~10s, não silêncio
     const jid = this.toChatId(to);
     const loc = new Location(input.latitude, input.longitude, {
       name: input.name ?? undefined,
@@ -1087,6 +1103,7 @@ export class WWebJSEngine implements IEngine {
     input: SendPollInput,
   ): Promise<{ keyId: string; jid: string }> {
     const c = this.req();
+    await this.assertPageResponsive(); // P-016: página travada → erro em ~10s, não silêncio
     const jid = this.toChatId(to);
     const poll = new Poll(input.name, input.options, {
       allowMultipleAnswers: input.multi ?? false,
@@ -1238,6 +1255,34 @@ export class WWebJSEngine implements IEngine {
   ): Promise<void> {
     const mediaType = mapInboundMediaType(msg.type);
     const caption = msg.body || null;
+    // P-017 — checa o tamanho DECLARADO antes de baixar (o download roda no renderer; ver
+    // WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES). Sem size declarado, segue o fluxo normal.
+    const declaredSize =
+      (msg as unknown as { _data?: { size?: number } })._data?.size ?? null;
+    if (
+      declaredSize != null &&
+      declaredSize > WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES
+    ) {
+      this.deps.logger.warn(
+        {
+          declaredSize,
+          cap: WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES,
+          chatJid: base.chatJid,
+          mediaType,
+        },
+        'wwebjs: mídia acima do teto de download — seguirá SEM mediaKey (P-017)',
+      );
+      this.deps.onEvent('message', {
+        ...base,
+        type: mediaType,
+        text: caption,
+        mediaType,
+        mimetype: null,
+        fileName: null,
+        fileSize: declaredSize,
+      });
+      return;
+    }
     try {
       // O d.ts diz Promise<MessageMedia>, mas em runtime devolve undefined quando a mídia expirou
       // ou está sendo reprocessada — daí o cast + guard.
@@ -1264,10 +1309,16 @@ export class WWebJSEngine implements IEngine {
         mediaKey: key,
       });
     } catch (e) {
+      const reason = (e as Error)?.message ?? '';
       this.deps.logger.error(
-        { err: e, reason: (e as Error)?.message },
+        { err: e, reason },
         'wwebjs: falha ao baixar/armazenar mídia recebida — seguirá SEM mediaKey',
       );
+      // P-017 — o download pode MATAR o renderer ("Target crashed", 14/08): sem heal imediato a
+      // página fica morta até o próximo probe. O heal tem single-flight + cooldown, é seguro.
+      if (/Target crashed|Target closed|Session closed/i.test(reason)) {
+        void this.healWedgedPage();
+      }
       this.deps.onEvent('message', {
         ...base,
         type: mediaType,
@@ -1546,23 +1597,7 @@ export class WWebJSEngine implements IEngine {
     opTimeoutMs = STORE_OP_TIMEOUT_MS,
     probeTimeoutMs = STORE_PROBE_TIMEOUT_MS,
   ): Promise<T> {
-    if (this.client) {
-      // Estado em si não importa (o .catch cobre client ainda sem pupPage — segue para o fn(),
-      // cujo erro real cai no retry abaixo); só a RESPONSIVIDADE da página interessa aqui.
-      try {
-        await raceStoreOp(
-          this.client.getState().catch(() => null),
-          probeTimeoutMs,
-          `Página do WhatsApp Web não responde${this.syncHint()} — provável sincronização travada após reconexão (P-014). Recuperação automática disparada; tente novamente em ~1 min`,
-        );
-      } catch (e) {
-        // Página presa não se recupera sozinha (evidência P-014: event loop fica preso PARA
-        // SEMPRE após um getContacts tardio). Dispara o auto-heal em background e devolve o
-        // erro acionável imediatamente.
-        void this.healWedgedPage();
-        throw e;
-      }
-    }
+    await this.assertPageResponsive(probeTimeoutMs);
     let lastErr: unknown;
     for (let i = 0; i < attempts; i++) {
       try {
@@ -1589,6 +1624,27 @@ export class WWebJSEngine implements IEngine {
     throw new Error(
       `WhatsApp Web ainda sincronizando (Store indisponível após ${attempts} tentativas) — tente em alguns segundos. Causa: ${(lastErr as Error)?.message ?? 'desconhecida'}`,
     );
+  }
+
+  // P-016 — probe de responsividade da página, compartilhado entre withStoreReady e o caminho de
+  // ENVIO. Sem ele no envio, uma página travada fazia o sendMessage pendurar no CDP e o painel
+  // abortar em SILÊNCIO ("não envia e não dá erro", 14/08). Estado em si não importa (o .catch
+  // cobre client ainda sem pupPage); só a RESPONSIVIDADE interessa. Página presa não volta sozinha
+  // (evidência P-014) → dispara o auto-heal em background e devolve erro acionável na hora.
+  private async assertPageResponsive(
+    probeTimeoutMs = STORE_PROBE_TIMEOUT_MS,
+  ): Promise<void> {
+    if (!this.client) return;
+    try {
+      await raceStoreOp(
+        this.client.getState().catch(() => null),
+        probeTimeoutMs,
+        `Página do WhatsApp Web não responde${this.syncHint()} — provável sincronização travada após reconexão (P-014). Recuperação automática disparada; tente novamente em ~1 min`,
+      );
+    } catch (e) {
+      void this.healWedgedPage();
+      throw e;
+    }
   }
 
   // Contexto de sincronização para as mensagens de erro do P-014: "em 37%" = sincronizando de
