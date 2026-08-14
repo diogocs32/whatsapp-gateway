@@ -9,10 +9,14 @@
   `session-manager.service.ts` (onModuleDestroy) + teste e2e + docs. ⚠️ Sobreposição com o escopo
   da sessão `wwebjs-store-travado` (ATIVA, mas o próprio arquivo dela declara a rodada ENCERRÁVEL
   com P-014 resolvida) — aviso registrado em SESSOES.md 📢.
-- **Status:** 🟡 EM PROD (mergeado na main e **pushado 14/08 ~10:25 UTC**, `13a2de8` — deploy
-  disparado pelo Watch Paths, autorizado pelo dono) — resta a validação de 2 trocas de container
-  (ver "Validação em prod" abaixo; a troca deste deploy é a "1ª" — ainda encerra pelo código velho
-  e pode pedir QR)
+- **Status:** 🟡 EM VALIDAÇÃO (mergeado na main e **pushado 14/08 ~10:15 UTC**, `13a2de8` — deploy
+  rodou; passo 1 da validação executado, ver abaixo) — resta a 2ª troca de container
+- **Validação passo 1 EXECUTADO 14/08 ~10:20 UTC:** deploy trocou o container e a DIOGO **pediu QR
+  como previsto** (1ª troca — o container velho encerrou pelo código SEM o fix; 5ª ocorrência da
+  P-015, a última esperada). Dono escaneou. Próximo: aguardar sync 100% + sessão estável → conferir
+  o WARN `perfil existente SEM marca de fechamento limpo` no log do boot → **2ª troca** (Redeploy
+  único no Dokploy) → esperado: `shutdown fechou o Chromium limpo` no encerramento e volta **SEM
+  QR** com `perfil fechado limpo na última execução` no boot novo.
 
 ## Diagnóstico (herdado da P-015 + leitura do código)
 
