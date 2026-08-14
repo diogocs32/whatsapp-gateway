@@ -71,7 +71,40 @@ WORKING/STARTING/SCAN_QR/PAIRING/DEGRADED — o caminho novo de shutdown **não 
   **41/41** · `tsc --noEmit` OK · eslint OK · prettier OK. Bateria e2e completa NÃO rodou
   (Docker/infra local parados — mesma convenção das sessões wwebjs anteriores: spec da engine).
 
-## Validação em prod (após merge+deploy — dono, R0)
+## 🔴 2ª TROCA FALHOU (14/08 ~10:3x UTC) — QR pedido de novo → CAUSA REVISADA: overlap start-first
+
+O dono fez o redeploy de validação e a DIOGO **pediu QR de novo**. Releitura do repo achou o
+mecanismo que o fix do shutdown não cobre — **`docs/deploy-dokploy.md` §2 configura o Update
+Config do Swarm com `"Order": "start-first"`** (zero-downtime):
+
+1. No deploy, o container NOVO sobe (StartPeriod 60s) **enquanto o velho ainda roda** — ambos com
+   o volume `/data/wwebjs` montado.
+2. O boot novo reidrata a DIOGO e roda `clearStaleSingletonLocks` (`wwebjs.engine.ts:~287`), que
+   **apaga o SingletonLock do Chromium AINDA VIVO do container velho** — a premissa do código
+   ("1 container por volume → lock remanescente é sempre de processo morto") é violada pelo
+   start-first.
+3. **Dois Chromium abrem o MESMO perfil ao mesmo tempo** → corrupção (LevelDB/IndexedDB) e/ou o
+   WhatsApp vê duas conexões da mesma sessão → invalida → QR.
+4. Só depois de o novo ficar healthy o velho recebe SIGTERM — o shutdown limpo (fix de hoje) roda
+   TARDE DEMAIS. O shutdown sujo era real, mas é CO-FATOR, não a causa dominante.
+
+Explica tudo: QR a CADA troca (overlap em todo deploy, mesmo perfil virgem) e restart interno sem
+QR (mesmo container, sem overlap). Assinatura esperada nos logs (confirmação): boot novo com WARN
+`perfil existente SEM marca de fechamento limpo` (o velho ainda nem encerrou quando o novo lê o
+perfil) e `Reidratando sessão "DIOGO"` com timestamp ANTERIOR ao `Shutdown: todas as engines
+fecharam` do container velho.
+
+**Correção (dono, Dokploy — R0):** gateway → Advanced → Swarm Settings → Update Config →
+`"Order": "stop-first"` (mantém Parallelism 1, Delay, FailureAction rollback). Trade-off: deploys
+ganham ~30–90s de API fora (boot+migrations); em troca a sessão wwebjs sobrevive ao deploy. O
+"zero-downtime" nunca valeu para o WhatsApp — todo deploy invalidava a sessão e exigia QR.
+Runbook `deploy-dokploy.md` será atualizado após a mudança confirmada.
+
+**Se stop-first + shutdown limpo AINDA pedir QR:** próximo suspeito = criptografia de perfil
+atada à identidade do container (Chromium sem `--password-store=basic` nos args usa keyring
+derivado do ambiente; container novo = chave nova). Fix de 1 linha nos args, se preciso.
+
+## Validação em prod (roteiro original — SUPERSEDIDO pelo achado acima; 1ª troca executada)
 
 1. Deploy em janela calma. **A 1ª troca de container ainda pode pedir QR** (o container VELHO
    encerra sem o fix e o perfil atual pode já estar sujo) — escanear e deixar sincronizar 100%.
