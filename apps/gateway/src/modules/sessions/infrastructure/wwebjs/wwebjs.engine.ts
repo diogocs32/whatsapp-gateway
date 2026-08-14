@@ -75,6 +75,13 @@ const AUTO_WEB_VERSION_TTL_MS = 6 * 60 * 60 * 1000;
 // baixa o HTML do GitHub a CADA initialize (persist() é no-op); com o arquivo pré-baixado aqui,
 // o LocalWebCache lê do disco e o start não depende de rede para a versão.
 const WEB_CACHE_DIR = join(resolve(AUTH_PATH), '.webcache');
+// P-017 — assinatura de renderer/página MORTA (crash), distinta de página travada (hang): o
+// crash rejeita chamadas CDP na hora. Compartilhada por probe, withStoreReady e mídia recebida.
+// Exportada para teste.
+export function isPageCrashError(message: string | undefined): boolean {
+  return /Target crashed|Target closed|Session closed/i.test(message ?? '');
+}
+
 // P-017 — teto para BAIXAR mídia recebida da página: o downloadMedia converte o binário em base64
 // DENTRO do renderer do Chromium; mídia grande estoura a memória da página ("Target crashed",
 // incidente 14/08 num grupo de promo) e pode derrubar o container inteiro (OOM do cgroup de 2GB).
@@ -1316,7 +1323,7 @@ export class WWebJSEngine implements IEngine {
       );
       // P-017 — o download pode MATAR o renderer ("Target crashed", 14/08): sem heal imediato a
       // página fica morta até o próximo probe. O heal tem single-flight + cooldown, é seguro.
-      if (/Target crashed|Target closed|Session closed/i.test(reason)) {
+      if (isPageCrashError(reason)) {
         void this.healWedgedPage();
       }
       this.deps.onEvent('message', {
@@ -1608,6 +1615,13 @@ export class WWebJSEngine implements IEngine {
         );
       } catch (e) {
         const msg = (e as Error)?.message ?? '';
+        // Renderer morto no meio da operação: mesma recuperação do probe (reload em background),
+        // erro segue para o chamador na hora — sem heal aqui a página ficava morta até a próxima
+        // mídia recebida acionar o heal do handleIncomingMedia.
+        if (isPageCrashError(msg)) {
+          void this.healWedgedPage();
+          throw e;
+        }
         const storeNotReady =
           /undefined|getChats|getContact|Evaluation failed|Cannot read/i.test(
             msg,
@@ -1637,7 +1651,16 @@ export class WWebJSEngine implements IEngine {
     if (!this.client) return;
     try {
       await raceStoreOp(
-        this.client.getState().catch(() => null),
+        // Página TRAVADA pendura (o teto pega); página CRASHADA rejeita RÁPIDO — sem este filtro
+        // o catch(() => null) mascarava o crash, o probe "passava" e o heal só disparava na
+        // próxima mídia recebida (visto 14/08 ~15:15). Crash = página morta = mesmo tratamento.
+        this.client.getState().then(
+          () => null,
+          (err: Error) => {
+            if (isPageCrashError(err?.message)) throw err;
+            return null; // demais erros: comportamento antigo (segue para a operação real)
+          },
+        ),
         probeTimeoutMs,
         `Página do WhatsApp Web não responde${this.syncHint()} — provável sincronização travada após reconexão (P-014). Recuperação automática disparada; tente novamente em ~1 min`,
       );

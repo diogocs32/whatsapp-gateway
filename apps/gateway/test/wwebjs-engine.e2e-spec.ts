@@ -860,3 +860,93 @@ describe('P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)
     expect(reloads).toBe(1);
   });
 });
+
+describe('P-017c — página CRASHADA (rejeita rápido) também dispara o heal', () => {
+  type Internals = {
+    client: unknown;
+    withStoreReady<T>(
+      fn: () => Promise<T>,
+      attempts?: number,
+      delayMs?: number,
+      opTimeoutMs?: number,
+      probeTimeoutMs?: number,
+    ): Promise<T>;
+  };
+  const internals = (e: WWebJSEngine) => e as unknown as Internals;
+
+  it('isPageCrashError reconhece as assinaturas de crash e ignora o resto', async () => {
+    const { isPageCrashError } =
+      await import('../src/modules/sessions/infrastructure/wwebjs/wwebjs.engine');
+    expect(
+      isPageCrashError(
+        'Protocol error (Runtime.callFunctionOn): Target crashed',
+      ),
+    ).toBe(true);
+    expect(isPageCrashError('Session closed. Most likely the page')).toBe(true);
+    expect(isPageCrashError('Evaluation failed: x')).toBe(false);
+    expect(isPageCrashError(undefined)).toBe(false);
+  });
+
+  it('probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    let reloads = 0;
+    internals(engine).client = {
+      getState: async () => {
+        throw new Error(
+          'Protocol error (Runtime.callFunctionOn): Target crashed',
+        );
+      },
+      pupPage: {
+        reload: async () => {
+          reloads++;
+        },
+      },
+    };
+    let fnCalled = false;
+    await expect(
+      internals(engine).withStoreReady(
+        async () => {
+          fnCalled = true;
+          return 1;
+        },
+        1,
+        1,
+        100,
+        100,
+      ),
+    ).rejects.toThrow(/Target crashed/);
+    expect(fnCalled).toBe(false); // crash detectado no probe, operação nem roda
+    await new Promise((r) => setTimeout(r, 20));
+    expect(reloads).toBe(1);
+  });
+
+  it('operação que morre com Target crashed dispara o heal (probe passou antes do crash)', async () => {
+    const { deps } = makeDeps({});
+    const engine = new WWebJSEngine(deps);
+    let reloads = 0;
+    internals(engine).client = {
+      getState: async () => 'CONNECTED',
+      pupPage: {
+        reload: async () => {
+          reloads++;
+        },
+      },
+    };
+    await expect(
+      internals(engine).withStoreReady(
+        async () => {
+          throw new Error(
+            'Protocol error (Runtime.callFunctionOn): Target crashed',
+          );
+        },
+        3,
+        1,
+        100,
+        100,
+      ),
+    ).rejects.toThrow(/Target crashed/);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(reloads).toBe(1);
+  });
+});
