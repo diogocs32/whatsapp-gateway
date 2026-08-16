@@ -20,15 +20,16 @@
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
-- **16/08 · otimizacao-deps-hotpaths (ENCERRADA):** deps atualizadas (D-016) na branch
-  `feature/otimizacao-deps-hotpaths` — **aguarda merge+deploy do dono**. O deploy embarca
-  **Baileys rc13→rc14** (bugfixes, sem breaking) e uma **migration aditiva** (índice
-  `wa_contacts (sessionId, phone)` — o `migrate deploy` do entrypoint aplica sozinho). No 1º
-  deploy: conferir a reconexão da frota Baileys (rc14) e o boot limpo do pino 10. Envs novos
-  OPCIONAIS (todos com default): `DB_POOL_MAX`/`DB_POOL_CONNECT_TIMEOUT_MS`/`DB_POOL_IDLE_TIMEOUT_MS`
-  e `WEBHOOK_CONCURRENCY`. Qualquer sessão que mexa em deps segue a D-016 (fastify = o exato do
-  platform-fastify; majors bloqueados em P-021). Quem fizer o próximo deploy do gateway remove
-  este aviso.
+- **16/08 · otimizacao-deps-hotpaths (ENCERRADA · MERGEADA E PUSHADA):** deps atualizadas
+  (D-016) já na main/origin (ff `59c37a6`, autorizado pelo dono) — **falta só o Deploy manual**
+  (o topo do push é doc-only → Watch Paths não dispara build). O deploy embarca **Baileys
+  rc13→rc14** (bugfixes, sem breaking), a **migration aditiva** do índice `wa_contacts
+  (sessionId, phone)` (o `migrate deploy` do entrypoint aplica sozinho) e, de carona, o P-019 +
+  P-020 que já esperavam. No 1º boot: conferir a reconexão da frota Baileys (rc14) e os logs
+  (pino 10). Envs novos OPCIONAIS (todos com default): `DB_POOL_MAX`/`DB_POOL_CONNECT_TIMEOUT_MS`/
+  `DB_POOL_IDLE_TIMEOUT_MS` e `WEBHOOK_CONCURRENCY`. Deployar TAMBÉM o dashboard (code-splitting +
+  nginx). Qualquer sessão que mexa em deps segue a D-016 (fastify = o exato do platform-fastify;
+  majors bloqueados em P-021). Quem fizer o deploy remove este aviso.
 - **16/08 · dedup-status-alertas (ENCERRADA):** o gateway agora **deduplica `session.status`
   idêntico consecutivo** (D-015, P-020) — só publica webhook/SSE/timeline quando `(status, error)`
   MUDA. Afeta QUALQUER consumidor do webhook: **não conte "quantos WORKING chegaram"** para inferir
