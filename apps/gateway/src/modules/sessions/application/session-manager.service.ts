@@ -50,6 +50,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SessionManager.name);
   private readonly engines = new Map<string, IEngine>();
   private readonly names = new Map<string, string>();
+  // Última chave `status|erro` publicada por sessão — base do dedup de status idêntico consecutivo
+  // (ver handleEngineEvent). Limpa junto com todo engines.delete para não vazar nem reter chave
+  // velha quando uma engine nova assume a mesma sessão.
+  private readonly lastStatusKey = new Map<string, string>();
 
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly repo: SessionRepository,
@@ -184,6 +188,20 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     const engine = this.engines.get(sessionId)?.engineName ?? 'baileys';
     if (name === 'session.status') {
       await this.persistStatus(sessionId, payload as SessionStatePayload);
+      // Dedup de status idêntico consecutivo. As engines RE-emitem session.status sem que nada
+      // tenha mudado: o Baileys dispara WORKING em TODO connection 'open' (baileys.engine.ts:628),
+      // então cada reconexão transitória de rede/proxy reemite WORKING já sendo WORKING; o wwebjs
+      // reemite WORKING a cada heal (o 'ready' re-dispara). Sem dedup, cada uma dessas vira um
+      // webhook → alerta no n8n (zap/telegram) dizendo "está WORKING" de novo — o "muitos alertas,
+      // mas nada mudou". Chave = status + erro (meJid/mePushName continuam persistidos acima por
+      // persistStatus, INDEPENDENTE do dedup do evento). persistStatus roda SEMPRE (antes deste
+      // gate): mantém wa_sessions atualizado e a detecção de engine órfã (discardOrphan) intacta.
+      // Não altera o contrato: um status idêntico não é uma transição — consumidor nenhum precisa
+      // da duplicata (o timeline em wa_session_events também para de acumular linhas repetidas).
+      const p = payload as SessionStatePayload;
+      const key = `${p.status}|${p.error ?? ''}`;
+      if (this.lastStatusKey.get(sessionId) === key) return;
+      this.lastStatusKey.set(sessionId, key);
     }
     // Mídia: anexa uma URL pré-assinada (efêmera) ao payload para SSE/webhooks consumirem direto.
     if (name === 'message') {
@@ -244,6 +262,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     const engine = this.engines.get(sessionId);
     this.engines.delete(sessionId);
     this.names.delete(sessionId);
+    this.lastStatusKey.delete(sessionId);
     this.logger.warn(
       `Sessão ${sessionId} não existe mais no banco — encerrando engine órfã.`,
     );
@@ -347,6 +366,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     if (engine) {
       await this.withTimeout(engine.logout(), 12_000);
       this.engines.delete(sessionId);
+      this.lastStatusKey.delete(sessionId);
       return;
     }
     await this.prisma.waAuthKey.deleteMany({ where: { sessionId } });
@@ -375,6 +395,8 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     // Fora do mapa ANTES do stop: o guard de onEvent passa a ignorar eventos tardios da engine
     // velha, e o start abaixo cria uma instância nova em vez de reaproveitar a antiga.
     this.engines.delete(sessionId);
+    // Esquece o dedup de status: a engine nova (QR → STARTING → WORKING) deve publicar do zero.
+    this.lastStatusKey.delete(sessionId);
     await this.withTimeout(engine?.stop(), 10_000);
     await this.prisma.waAuthKey.deleteMany({ where: { sessionId } });
     // updateMany: se a sessão já foi removida, não lança P2025 (segue como no-op).
@@ -395,6 +417,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     // evento tardio desta engine (a sessão vai deixar de existir).
     this.engines.delete(sessionId);
     this.names.delete(sessionId);
+    this.lastStatusKey.delete(sessionId);
     // Para a engine com teto de tempo — não deixa um Chromium/socket travado pendurar a exclusão.
     await this.withTimeout(engine?.stop(), 8_000);
     // Remove o perfil do Chromium do disco (wwebjs) — sem isto, cada sessão WWEBJS criada e removida
