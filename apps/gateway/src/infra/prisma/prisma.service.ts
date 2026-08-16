@@ -25,9 +25,21 @@ export class PrismaService
   constructor(config: ConfigService<Env, true>) {
     // Prisma 7 usa driver adapter (@prisma/adapter-pg sobre node-postgres).
     // Aceita DATABASE_URL OU as partes (DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME/DB_SSL).
+    // Tuning do pool: sem isto o pg fica com connect timeout 0 (espera infinita na aquisição
+    // com o pool saturado — o Prisma 6 usava 5s) e idle infinito. Ver bootstrap/config.ts.
     const url = config.get('DATABASE_URL', { infer: true });
+    const tuning: Pick<
+      PoolConfig,
+      'max' | 'connectionTimeoutMillis' | 'idleTimeoutMillis'
+    > = {
+      max: config.get('DB_POOL_MAX', { infer: true }),
+      connectionTimeoutMillis: config.get('DB_POOL_CONNECT_TIMEOUT_MS', {
+        infer: true,
+      }),
+      idleTimeoutMillis: config.get('DB_POOL_IDLE_TIMEOUT_MS', { infer: true }),
+    };
     const pool: PoolConfig = url
-      ? { connectionString: url }
+      ? { connectionString: url, ...tuning }
       : {
           host: config.get('DB_HOST', { infer: true }),
           port: config.get('DB_PORT', { infer: true }),
@@ -37,6 +49,7 @@ export class PrismaService
           ssl: config.get('DB_SSL', { infer: true })
             ? { rejectUnauthorized: false }
             : undefined,
+          ...tuning,
         };
     super({ adapter: new PrismaPg(pool) });
   }

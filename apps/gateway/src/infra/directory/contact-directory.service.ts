@@ -60,14 +60,87 @@ export class ContactDirectory {
     });
   }
 
+  // Lote em UM statement por chunk: INSERT ... ON CONFLICT (sessionId, waId) DO UPDATE SET
+  // col = COALESCE(EXCLUDED.col, atual) — mesma semântica do record() (campo novo só entra se
+  // não-nulo; nunca sobrescreve dado conhecido com null). Antes era 1 upsert por contato em
+  // série: o sync de agenda do Baileys e a extração de leads (centenas–milhares de registros)
+  // viravam N round-trips ao Postgres. Doc: PostgreSQL 18 sql-insert (ON CONFLICT/EXCLUDED;
+  // o mesmo comando não pode afetar a MESMA linha 2× → dedup por waId dentro do lote).
   async recordMany(sessionId: string, list: ContactRecord[]): Promise<void> {
+    // Dedup + merge in-batch por waId (último valor não-nulo/não-vazio de cada campo vence).
+    const pick = (a?: string | null, b?: string | null) =>
+      a !== undefined && a !== null && a !== '' ? a : b;
+    const merged = new Map<string, ContactRecord>();
     for (const c of list) {
+      if (!c.waId) continue;
+      const prev = merged.get(c.waId);
+      merged.set(
+        c.waId,
+        prev
+          ? {
+              waId: c.waId,
+              jid: pick(c.jid, prev.jid),
+              lid: pick(c.lid, prev.lid),
+              phone: pick(c.phone, prev.phone),
+              pushName: pick(c.pushName, prev.pushName),
+              name: pick(c.name, prev.name),
+              verifiedName: pick(c.verifiedName, prev.verifiedName),
+              imgUrl: pick(c.imgUrl, prev.imgUrl),
+              status: pick(c.status, prev.status),
+              source: pick(c.source, prev.source) ?? undefined,
+              data: c.data ?? prev.data,
+            }
+          : c,
+      );
+    }
+    const rows = [...merged.values()];
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
       try {
-        await this.record(sessionId, c);
+        await this.upsertChunk(sessionId, chunk);
       } catch {
-        /* não interrompe o lote por um registro problemático */
+        // Fallback: chunk problemático cai no caminho antigo, registro a registro.
+        for (const c of chunk) {
+          try {
+            await this.record(sessionId, c);
+          } catch {
+            /* não interrompe o lote por um registro problemático */
+          }
+        }
       }
     }
+  }
+
+  private async upsertChunk(
+    sessionId: string,
+    chunk: ContactRecord[],
+  ): Promise<void> {
+    const nul = (v: string | null | undefined) =>
+      v === undefined || v === null || v === '' ? null : v;
+    const values = chunk.map((c) => {
+      const phone =
+        c.phone ??
+        (c.jid?.includes('@s.whatsapp.net') ? c.jid.split('@')[0] : undefined);
+      return Prisma.sql`(${newId()}, ${sessionId}, ${c.waId}, ${nul(c.jid)}, ${nul(c.lid)}, ${nul(phone)}, ${nul(c.pushName)}, ${nul(c.name)}, ${nul(c.verifiedName)}, ${nul(c.imgUrl)}, ${nul(c.status)}, ${nul(c.source)}, ${JSON.stringify(c.data ?? {})}::jsonb, now())`;
+    });
+    // `data` (jsonb) entra só no INSERT (o update nunca o tocou — comportamento preservado).
+    await this.prisma.$executeRaw`
+      INSERT INTO "wa_contacts"
+        ("id", "sessionId", "waId", "jid", "lid", "phone", "pushName", "name",
+         "verifiedName", "imgUrl", "status", "source", "data", "updatedAt")
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT ("sessionId", "waId") DO UPDATE SET
+        "jid"          = COALESCE(EXCLUDED."jid", "wa_contacts"."jid"),
+        "lid"          = COALESCE(EXCLUDED."lid", "wa_contacts"."lid"),
+        "phone"        = COALESCE(EXCLUDED."phone", "wa_contacts"."phone"),
+        "pushName"     = COALESCE(EXCLUDED."pushName", "wa_contacts"."pushName"),
+        "name"         = COALESCE(EXCLUDED."name", "wa_contacts"."name"),
+        "verifiedName" = COALESCE(EXCLUDED."verifiedName", "wa_contacts"."verifiedName"),
+        "imgUrl"       = COALESCE(EXCLUDED."imgUrl", "wa_contacts"."imgUrl"),
+        "status"       = COALESCE(EXCLUDED."status", "wa_contacts"."status"),
+        "source"       = COALESCE(EXCLUDED."source", "wa_contacts"."source"),
+        "updatedAt"    = now()`;
   }
 
   // Nomes conhecidos para um conjunto de chaves (waId, lid, jid ou telefone) numa única query.
@@ -78,7 +151,10 @@ export class ContactDirectory {
     sessionId: string,
     keys: string[],
   ): Promise<Map<string, { name: string | null; pushName: string | null }>> {
-    const map = new Map<string, { name: string | null; pushName: string | null }>();
+    const map = new Map<
+      string,
+      { name: string | null; pushName: string | null }
+    >();
     const unique = [...new Set(keys.filter(Boolean))];
     if (!unique.length) return map;
     const rows = await this.prisma.waContact.findMany({
@@ -91,7 +167,14 @@ export class ContactDirectory {
           { phone: { in: unique } },
         ],
       },
-      select: { waId: true, lid: true, jid: true, phone: true, name: true, pushName: true },
+      select: {
+        waId: true,
+        lid: true,
+        jid: true,
+        phone: true,
+        name: true,
+        pushName: true,
+      },
     });
     for (const r of rows) {
       const val = { name: r.name ?? null, pushName: r.pushName ?? null };

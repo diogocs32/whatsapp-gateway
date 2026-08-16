@@ -53,6 +53,9 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
       (job) => this.deliver(job.data as WebhookJob),
       {
         connection,
+        // Entregas em paralelo (I/O puro): sem isto o default do BullMQ é 1 e um endpoint lento
+        // (até 10s de timeout) segura TODAS as entregas da fila (head-of-line blocking).
+        concurrency: this.config.get('WEBHOOK_CONCURRENCY', { infer: true }),
       },
     );
     this.worker.on('failed', (job, err) => {

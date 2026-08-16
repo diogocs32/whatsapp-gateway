@@ -334,6 +334,10 @@ model WaContact {
   @@unique([sessionId, waId])
   @@index([sessionId, lid])
   @@index([sessionId, jid])
+  // namesFor (hot path de leads/grupos) busca por OR em waId/lid/jid/phone — phone era a única
+  // chave SEM índice, impedindo o BitmapOr completo do planner (a busca de contatos por telefone
+  // no painel também usa). Índice aditivo (migration indice_wa_contacts_phone).
+  @@index([sessionId, phone])
   @@map("wa_contacts")
 }
 

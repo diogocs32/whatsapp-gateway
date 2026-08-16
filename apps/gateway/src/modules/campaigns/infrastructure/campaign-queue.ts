@@ -30,14 +30,30 @@ function sleep(ms: number): Promise<void> {
 async function fetchMedia(
   url: string,
   fallbackMime: string | null,
+  maxBytes: number,
 ): Promise<{ buffer: Buffer; mime: string }> {
   const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`mídia respondeu HTTP ${res.status}`);
+  // Teto de tamanho (MEDIA_MAX_BYTES): sem ele, uma URL de mídia gigante era bufferizada inteira
+  // na memória do worker. Checa o content-length antes de baixar e o tamanho real depois
+  // (servidores nem sempre mandam o header).
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new Error(
+      `mídia excede o teto de ${maxBytes} bytes (content-length ${declared})`,
+    );
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.byteLength > maxBytes) {
+    throw new Error(
+      `mídia excede o teto de ${maxBytes} bytes (${buffer.byteLength} baixados)`,
+    );
+  }
   const mime =
     fallbackMime ||
     res.headers.get('content-type')?.split(';')[0] ||
     'application/octet-stream';
-  return { buffer: Buffer.from(await res.arrayBuffer()), mime };
+  return { buffer, mime };
 }
 
 // Fila de disparo de campanhas (BullMQ) com anti-ban: cada destinatário é agendado com
@@ -120,7 +136,11 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
           .keyId;
       } else {
         if (!c.mediaUrl) throw new Error('campanha de mídia sem mediaUrl');
-        const { buffer, mime } = await fetchMedia(c.mediaUrl, c.mediaMime);
+        const { buffer, mime } = await fetchMedia(
+          c.mediaUrl,
+          c.mediaMime,
+          this.config.get('MEDIA_MAX_BYTES', { infer: true }),
+        );
         keyId = (
           await this.manager.sendMedia(c.sessionId, r.to, {
             buffer,

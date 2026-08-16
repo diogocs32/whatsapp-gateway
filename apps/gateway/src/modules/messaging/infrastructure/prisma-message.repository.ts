@@ -133,19 +133,28 @@ export class PrismaMessageRepository implements MessageRepository {
     keyId: string,
     status: string,
   ): Promise<void> {
-    const current = await this.prisma.waMessage.findFirst({
-      where: { sessionId, keyId },
-      select: { id: true, status: true },
-      orderBy: { timestamp: 'desc' },
-    });
-    if (!current) return; // ACK de mensagem que ainda não persistimos (eco pode chegar depois)
-    const rank = PrismaMessageRepository.ACK_RANK;
-    const cur = current.status ? (rank[current.status] ?? 0) : 0;
-    if ((rank[status] ?? 0) <= cur) return; // mesmo nível ou regressão → ignora
-    await this.prisma.waMessage.update({
-      where: { id: current.id },
-      data: { status },
-    });
+    const rank = PrismaMessageRepository.ACK_RANK[status] ?? 0;
+    if (rank === 0) return; // status desconhecido nunca persiste (mesma regra de antes)
+    // UM statement atômico no lugar de findFirst+update: além de cortar o round-trip (ACK é hot
+    // path — todo delivered/read passa aqui), a guarda de ranking DENTRO do UPDATE elimina a
+    // corrida read-modify-write entre ACKs concorrentes (um `delivered` atrasado não sobrescreve
+    // mais um `read` que commitou entre a leitura e a escrita). Alvo = linha mais recente de
+    // (sessionId, keyId), como no findFirst anterior (usa o índice [sessionId, keyId]).
+    // ACK de mensagem ainda não persistida (eco tardio) → 0 linhas, no-op — comportamento igual.
+    await this.prisma.$executeRaw`
+      UPDATE "wa_messages" SET "status" = ${status}
+      WHERE "id" = (
+        SELECT "id" FROM "wa_messages"
+        WHERE "sessionId" = ${sessionId} AND "keyId" = ${keyId}
+        ORDER BY "timestamp" DESC
+        LIMIT 1
+      )
+      AND (CASE "status"
+             WHEN 'sent' THEN 1
+             WHEN 'delivered' THEN 2
+             WHEN 'read' THEN 3
+             ELSE 0
+           END) < ${rank}`;
   }
 
   private toStored(r: {

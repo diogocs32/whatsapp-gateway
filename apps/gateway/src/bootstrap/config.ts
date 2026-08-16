@@ -28,10 +28,7 @@ const envBool = (def: boolean) =>
 // String opcional de env com vazio = ausente (uma `VAR=` sobrando no compose se comporta como VAR
 // não definida, em vez de virar string vazia que quebra downstream de forma críptica).
 const envStr = () =>
-  z.preprocess(
-    (v) => (v === '' ? undefined : v),
-    z.string().min(1).optional(),
-  );
+  z.preprocess((v) => (v === '' ? undefined : v), z.string().min(1).optional());
 
 const base = z.object({
   NODE_ENV: z
@@ -47,6 +44,15 @@ const base = z.object({
   DB_PASSWORD: z.string().optional(),
   DB_NAME: z.string().optional(),
   DB_SSL: envBool(false),
+  // ---- Pool do Postgres (Prisma 7 → driver adapter pg) ----
+  // Doc oficial (Upgrade to v7 → Breaking changes → Driver adapters): o adapter herda os defaults
+  // do node-postgres — connect timeout 0 (= espera INFINITA na aquisição com o pool saturado; o
+  // Prisma 6 usava 5s) e idle infinito. Defaults abaixo reproduzem o Prisma 6 conforme a própria
+  // doc (connection-pool: connectionTimeoutMillis 5s, idleTimeoutMillis 300s); DB_POOL_MAX mantém
+  // o default 10 do pg — suba em prod se a frota de sessões + polling saturarem o pool.
+  DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+  DB_POOL_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(0).default(5000),
+  DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().min(0).default(300000),
 
   // ---- Redis ----
   REDIS_URL: z.string().min(1).optional(),
@@ -110,6 +116,12 @@ const base = z.object({
   S3_FORCE_PATH_STYLE: envBool(true), // true p/ MinIO/R2/B2; false p/ AWS S3
   MEDIA_URL_TTL: z.coerce.number().int().positive().default(3600), // validade do URL pré-assinado (s)
   MEDIA_MAX_BYTES: z.coerce.number().int().positive().default(67108864), // 64 MB
+  // ---- Filas (BullMQ) ----
+  // Entrega de webhook é I/O puro (fetch com teto de 10s). O default do Worker do BullMQ é 1 job
+  // por vez (doc guide/workers/concurrency) — um endpoint lento segurava TODAS as entregas
+  // (head-of-line blocking). A ordem de entrega nunca foi contratual (retries com backoff já
+  // reordenam); consumidores ordenam pelo timestamp do envelope.
+  WEBHOOK_CONCURRENCY: z.coerce.number().int().positive().default(8),
 });
 
 export const envSchema = base.superRefine((env, ctx) => {
