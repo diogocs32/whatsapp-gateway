@@ -48,6 +48,10 @@ Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`,
 > **Handoff (G2):** `source: "phone"` num `fromMe` = o humano respondeu pelo celular → pause a IA.
 > **C4:** o webhook OUT tem retry + **dead-letter** — se o n8n cair, o evento não some (ver §6).
 > **C5:** NÃO existe evento de "bloqueado/denunciou" (impossível detectar no WhatsApp).
+> **C6 (dedup de status — D-015):** `session.status` só é entregue quando o estado MUDA de fato —
+> um status idêntico consecutivo (mesmo `status` + mesmo `error`) NÃO é reenviado. Uma reconexão
+> transitória que volta a `WORKING` não gera novo evento. **Trate a transição, não a repetição** —
+> não conte "quantos WORKING chegaram" para inferir reconexões (use `message.ack`/timeline p/ isso).
 
 ### 3.1 Mídia recebida — obter os BYTES (voz/imagem/PDF) — contrato CP-149 (GAP 2)
 

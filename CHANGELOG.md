@@ -6,6 +6,17 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Alterado (16/08 — sessão `dedup-status-alertas`)
+
+- **Dedup de `session.status` na fonte (P-020, D-015)**: o gateway só publica um evento
+  `session.status` (webhook + SSE + timeline) quando o par `(status, error)` MUDA. As engines
+  reemitiam `WORKING` sem mudança real (Baileys em todo `connection 'open'` → cada reconexão
+  transitória; wwebjs no `ready` a cada heal), e o notificador n8n repassava cada uma como alerta
+  no zap/telegram — o "muitos alertas, mas nada mudou". `persistStatus` (status atual + detecção de
+  engine órfã) segue rodando sempre, antes do gate. Contrato preservado (nota C6 em `INTEGRACAO.md`):
+  um status idêntico não é uma transição. `wa_session_events` também para de acumular linhas
+  repetidas. 5/5 testes novos (`session-status-dedup.e2e-spec.ts`).
+
 ### Adicionado (14/08 — sessão `wwebjs-p015-shutdown-limpo`)
 
 - **Patch `$1` do WA Web** (`patches/whatsapp-web.js+1.34.7.patch`, patch-package no postinstall +

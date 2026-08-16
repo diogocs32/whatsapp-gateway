@@ -45,6 +45,7 @@
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
 | main local ↔ origin/main | **Sincronizado** (`f0e4bac`). ⚠️ O código do P-019 (`25cad0c`) ESTÁ no origin/main mas **NÃO deployado**: o Watch Paths avalia só o COMMIT DE TOPO do push (evidência 14/08 — push com topo doc-only não deployou). **O próximo deploy do gateway ativa o P-019 automaticamente** (e pode exigir re-scan, D-014). Em prod roda `ccc17b1` + 4GB. |
+| feature/dedup-status-alertas | Sessão 16/08 (P-020): **dedup de `session.status` idêntico consecutivo** (D-015) — mata o spam de alerta zap/telegram "sem mudança". 5/5 testes. **Merge+deploy pendente do dono** (embarca junto o P-019; por D-014 pode custar re-scan do QR wwebjs) — o alívio dos alertas só aparece nesse deploy |
 | feature/wwebjs-store-travado | Sessão ativa (P-014): **dep wwebjs pinada no commit `1780711`** (D-012) — merge+deploy pendente de validação final |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda. ⚠️ env de prod tem `GUARDRAIL_ENFORCE=true` (divergência a reconciliar) |
 | feature/auth-refresh-rotation | Sessão auth-refresh ativa (D-009) — merge no fechamento                                   |

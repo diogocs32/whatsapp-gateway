@@ -228,3 +228,27 @@
   `wwebjs-p015-shutdown-limpo`); o "zero-downtime" nunca valeu para a sessão WhatsApp.
 - **Alternativas:** start-first (rejeitado — corrompe perfil compartilhado); reduzir grupos da
   sessão (paliativo fraco — refutado pela contra-evidência do dono: pós-scan a mesma conta roda leve).
+
+## D-015 — 2026-08-16 — Dedup de `session.status` idêntico consecutivo na fonte (fim do spam de alerta)
+
+- **Decisão:** o gateway só publica um evento `session.status` (webhook + timeline + SSE) quando o
+  par **(status, error) MUDA**. Um status idêntico ao último publicado da sessão é descartado no
+  `SessionManager.handleEngineEvent` (chave `status|error` por sessão, limpa em todo `engines.delete`).
+  `persistStatus` continua rodando SEMPRE, antes do gate — o `wa_sessions.status` e a detecção de
+  engine órfã (`discardOrphan`) não dependem do dedup.
+- **Motivo (EP):** as duas engines RE-emitem `session.status` sem mudança real — o Baileys dispara
+  `WORKING` em **todo** `connection 'open'` (`baileys.engine.ts:628`), então cada reconexão
+  transitória de rede/proxy reemitia `WORKING` já sendo `WORKING`; o wwebjs reemite `WORKING` a cada
+  heal (`ready` re-dispara). Sem dedup, cada uma virava webhook → o workflow n8n do dono repassava
+  como alerta no zap/telegram dizendo "está WORKING" de novo. Sintoma relatado pelo dono (16/08):
+  "muitos alertas, mas quando vejo não mudou nada". A M5 (canal de alertas) segue AUSENTE — este é o
+  critério de ruído na FONTE, aproveitado pelo notificador n8n que já existe.
+- **Contrato (R0):** NÃO é breaking — um status idêntico não é uma transição; consumidor nenhum
+  precisa da duplicata. Documentado em `INTEGRACAO.md §3` (nota C6). O `session.status` continua com
+  o mesmo shape e semântica "avisa em mudança de estado".
+- **Alternativas:** histerese/debounce no gateway (rejeitado por ora — atrasa DEGRADED para TODOS os
+  consumidores, muda o timing do contrato; fica como opção futura junto do P-001); filtrar só no n8n
+  (rejeitado como solução única — não corrige a fonte, e o timeline em `wa_session_events` seguiria
+  acumulando linhas repetidas). O dedup na fonte beneficia todos os consumidores de uma vez.
+- **Rollback:** reverter o commit e redeployar (sem flag — a mudança é comprovadamente segura e a
+  troca de env no Dokploy também exige restart, então um flag não daria rollback mais rápido).

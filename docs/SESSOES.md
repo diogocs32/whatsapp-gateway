@@ -20,6 +20,12 @@
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
+- **16/08 · dedup-status-alertas (ENCERRADA):** o gateway agora **deduplica `session.status`
+  idêntico consecutivo** (D-015, P-020) — só publica webhook/SSE/timeline quando `(status, error)`
+  MUDA. Afeta QUALQUER consumidor do webhook: **não conte "quantos WORKING chegaram"** para inferir
+  reconexões (nota C6 em INTEGRACAO.md). Código na branch `feature/dedup-status-alertas`, **aguarda
+  merge+deploy do dono** (o deploy embarca junto o P-019 watchdog; por D-014 pode custar re-scan do
+  QR wwebjs). Quem fizer o próximo deploy do gateway remove este aviso.
 - **14/08 · wwebjs-p015-shutdown-limpo (ENCERRADA):** regra nova que afeta TODA sessão que
   deployar o gateway (D-014): **troca de container pode exigir re-scan do QR da sessão wwebjs**
   (re-sync incremental empaca em 99% nas builds atuais; bootstrap pós-QR completa sempre) —
@@ -45,6 +51,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-16-1430-dedup-status-alertas | 16/08 | Fim do spam de alerta zap/telegram "sem mudança": dedup de `session.status` idêntico consecutivo na fonte (`SessionManager`, D-015, P-020) — só publica em mudança real de `(status, error)`; `persistStatus`/detecção de órfã intactos; contrato preservado (C6). 5/5 testes novos. Aguarda merge+deploy | feature/dedup-status-alertas |
 | 2026-08-14-0707-wwebjs-p015-shutdown-limpo | 14/08 | **Dia inteiro de wwebjs em prod**: P-015 ✅ (volume gateway-wwebjs + shutdown limpo), B-002 ✅ (patch `$1` + build 1045101284, leads 99/99), P-016 ✅ (probe no envio), P-017 ✅ (teto mídia 24MB + heal em crash), 4GB, P-019 codada (aguarda deploy), D-013/D-014 | feature/wwebjs-p015-shutdown-limpo + feature/wwebjs-b002-patch-s1 |
 | 2026-08-13-0810-wwebjs-w7c-search      | 13/08 | W7 searchMessages (P-011, ÚLTIMO item — **fecha o W7**): busca no banco `GET /messages/search`, agnóstica de engine | feature/wwebjs-w7c-search |
 | 2026-08-13-0744-wwebjs-w7b-chat-mgmt   | 13/08 | W7 gestão de chat (P-011): `setChatFlag` archive/pin/mute/unread (`POST /messages/:chatId/flag`) — wwebjs, 501 no Baileys | feature/wwebjs-w7b-chat-mgmt |
