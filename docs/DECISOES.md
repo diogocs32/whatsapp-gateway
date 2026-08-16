@@ -101,7 +101,7 @@
   (revoga a família = `sessionId`), + **silent refresh** no dashboard (interceptor de 401 anti-corrida
   que renova e refaz o request; falha → redirect limpo pro login). Nova tabela `refresh_tokens`
   (guarda só `sha512`), endpoint `POST /api/auth/refresh`. Baseado em OWASP Session/JWT Cheat Sheets
-  + RFC 9700 §4.14. Parâmetros aprovados pelo usuário: access 15min, refresh 30d.
+  - RFC 9700 §4.14. Parâmetros aprovados pelo usuário: access 15min, refresh 30d.
 - **Motivo:** o 401 em `/api/auth/me` derrubava o usuário no meio do trabalho a cada 12h (sem refresh,
   sem tratamento gracioso). Ganho de segurança de brinde: janela de token vazado cai de 12h → 15min +
   revogação real de sessão (que não existia com JWT stateless).
@@ -252,3 +252,23 @@
   acumulando linhas repetidas). O dedup na fonte beneficia todos os consumidores de uma vez.
 - **Rollback:** reverter o commit e redeployar (sem flag — a mudança é comprovadamente segura e a
   troca de env no Dokploy também exige restart, então um flag não daria rollback mais rápido).
+
+## D-016 — 2026-08-16 — Política de atualização de dependências (sessão otimizacao-deps-hotpaths)
+
+- **Decisão:** manter as deps **o mais atualizadas possível dentro da compatibilidade**: (a) tudo
+  que é minor/patch dentro do range sobe junto (`npm update` + bump dos ranges declarados);
+  (b) o **fastify segue SEMPRE o exato que o `@nestjs/platform-fastify` instalado declara**
+  (regra do pin de ca0629d — hoje 5.11.3; nunca "latest do fastify"); (c) **majors só entram com
+  evidência de compatibilidade** na cadeia inteira de dependentes — os bloqueados viraram P-021.
+- **Aplicado nesta sessão:** NestJS 11.2.1 · Prisma 7.9.1 (fix de connection leak no adapter pg) ·
+  fastify 5.11.3 · **Baileys rc13→rc14** (8 commits de bugfix — Long import, view-once Android,
+  token de foto de perfil, bump WA Web; sem breaking; validar reconexão da frota no 1º deploy) ·
+  BullMQ 5.81.3 (dedupa ioredis 5.11.1) · **pino 9→10** (breaking = só drop de Node 18; unifica
+  as 2 cópias que existiam — pino-http@11 exige ^10; fastify 5.11.3 aceita ^9.14||^10.1;
+  nestjs-pino aceita ^10 nos peers) · pg/aws-sdk/@fastify/vite/react/etc minors.
+- **Majors deferidos (motivo técnico, não preguiça):** zod 4 (migração das bordas inteiras),
+  bullmq 6 (major recém-saído), ioredis 6 (bullmq 5 pina ^5 → criaria cópia dupla de novo),
+  @hapi/boom 10 (**Baileys pina ^9.1.3** — subir des-dedupa e quebra instanceof nos erros do
+  socket), proxy-chain 3 (usado no wwebjs.engine — arquivo de sessão ativa), ulid 3 (ESM-only,
+  zero ganho funcional), dotenv 17 (sem ganho; usado pelo prisma.config no entrypoint).
+- **Rollback:** reverter o commit de deps (lockfile junto) e redeployar.

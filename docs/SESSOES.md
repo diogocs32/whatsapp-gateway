@@ -20,6 +20,15 @@
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
+- **16/08 · otimizacao-deps-hotpaths (ENCERRADA):** deps atualizadas (D-016) na branch
+  `feature/otimizacao-deps-hotpaths` — **aguarda merge+deploy do dono**. O deploy embarca
+  **Baileys rc13→rc14** (bugfixes, sem breaking) e uma **migration aditiva** (índice
+  `wa_contacts (sessionId, phone)` — o `migrate deploy` do entrypoint aplica sozinho). No 1º
+  deploy: conferir a reconexão da frota Baileys (rc14) e o boot limpo do pino 10. Envs novos
+  OPCIONAIS (todos com default): `DB_POOL_MAX`/`DB_POOL_CONNECT_TIMEOUT_MS`/`DB_POOL_IDLE_TIMEOUT_MS`
+  e `WEBHOOK_CONCURRENCY`. Qualquer sessão que mexa em deps segue a D-016 (fastify = o exato do
+  platform-fastify; majors bloqueados em P-021). Quem fizer o próximo deploy do gateway remove
+  este aviso.
 - **16/08 · dedup-status-alertas (ENCERRADA):** o gateway agora **deduplica `session.status`
   idêntico consecutivo** (D-015, P-020) — só publica webhook/SSE/timeline quando `(status, error)`
   MUDA. Afeta QUALQUER consumidor do webhook: **não conte "quantos WORKING chegaram"** para inferir
@@ -51,6 +60,7 @@
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 2026-08-16-1652-otimizacao-deps-hotpaths | 16/08 | Deps atualizadas na compatibilidade (D-016: NestJS 11.2.1, Prisma 7.9.1, fastify 5.11.3, Baileys rc14, pino 10, BullMQ 5.81.3) + otimizações doc-backed: pool pg com timeout (paridade Prisma 6), recordMany em LOTE (ON CONFLICT), ACK atômico, WEBHOOK_CONCURRENCY=8, teto de mídia em campanha, índice wa_contacts(sessionId,phone), code-splitting do dashboard (16 chunks). 170/170 testes · tsc · lint · 2 builds · boot smoke. Aguarda merge+deploy | feature/otimizacao-deps-hotpaths |
 | 2026-08-16-1430-dedup-status-alertas | 16/08 | Fim do spam de alerta zap/telegram "sem mudança": dedup de `session.status` idêntico consecutivo na fonte (`SessionManager`, D-015, P-020) — só publica em mudança real de `(status, error)`; `persistStatus`/detecção de órfã intactos; contrato preservado (C6). 5/5 testes novos. Aguarda merge+deploy | feature/dedup-status-alertas |
 | 2026-08-14-0707-wwebjs-p015-shutdown-limpo | 14/08 | **Dia inteiro de wwebjs em prod**: P-015 ✅ (volume gateway-wwebjs + shutdown limpo), B-002 ✅ (patch `$1` + build 1045101284, leads 99/99), P-016 ✅ (probe no envio), P-017 ✅ (teto mídia 24MB + heal em crash), 4GB, P-019 codada (aguarda deploy), D-013/D-014 | feature/wwebjs-p015-shutdown-limpo + feature/wwebjs-b002-patch-s1 |
 | 2026-08-13-0810-wwebjs-w7c-search      | 13/08 | W7 searchMessages (P-011, ÚLTIMO item — **fecha o W7**): busca no banco `GET /messages/search`, agnóstica de engine | feature/wwebjs-w7c-search |

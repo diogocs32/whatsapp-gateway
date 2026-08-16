@@ -6,6 +6,41 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Alterado (16/08 — sessão `otimizacao-deps-hotpaths`)
+
+- **Dependências atualizadas dentro da compatibilidade (D-016)**: NestJS 11.1.27→11.2.1 (fixes de
+  SSE: teardown no disconnect e abort — o gateway TEM endpoint SSE), Prisma 7.8→7.9.1 (fix oficial
+  de **connection leak em transações interativas no adapter Postgres**), fastify 5.8.5→**5.11.3**
+  (o exato que o `@nestjs/platform-fastify@11.2.1` declara — mesma regra do pin de ca0629d; traz
+  "reduced per-request overhead" do 5.10 e cache de content-type na serialização do 5.11),
+  Baileys rc13→**rc14** (8 commits de bugfix, sem breaking; validar reconexão da frota no deploy),
+  BullMQ 5.79→5.81.3 (**dedupa o ioredis** — antes havia 5.10.1 aninhada + 5.11.1 raiz),
+  pino 9→**10.3.1** (único breaking = drop de Node 18; **unifica as cópias** — o pino-http@11 exige
+  pino 10 e mantinha uma segunda cópia aninhada), pg 8.23, @fastify/* minors, aws-sdk 3.1111,
+  vitest 4.1.10, react 19.2.8, react-router 7.18.2, vite 8.2.1, tailwind 4.3.3. Majors deferidos
+  com motivo documentado → P-021.
+- **Pool do Postgres com tuning explícito**: o driver adapter do Prisma 7 herda os defaults do
+  node-postgres — connect timeout **0** (espera infinita na aquisição com o pool saturado; o
+  Prisma 6 usava 5s). Novos envs `DB_POOL_MAX` (default 10), `DB_POOL_CONNECT_TIMEOUT_MS` (5000)
+  e `DB_POOL_IDLE_TIMEOUT_MS` (300000) — defaults = paridade Prisma 6 conforme a doc oficial.
+- **`recordMany` (diretório de contatos) em LOTE**: sync de agenda/leads fazia 1 upsert POR
+  contato em série; agora `INSERT ... ON CONFLICT (sessionId, waId) DO UPDATE SET col =
+COALESCE(EXCLUDED.col, atual)` em chunks de 200 (round-trips O(N)→O(N/200)), mesma semântica
+  de merge (nunca sobrescreve dado conhecido com null); fallback por registro se um chunk falhar.
+- **ACK de mensagem atômico**: `updateStatusByKey` (hot path — todo delivered/read) era
+  findFirst+update (2 round-trips + corrida read-modify-write entre ACKs concorrentes); virou UM
+  UPDATE com a guarda de ranking no SQL (um `delivered` atrasado não sobrescreve mais um `read`).
+- **Worker de webhooks com concorrência** (`WEBHOOK_CONCURRENCY`, default 8): o default 1 do
+  BullMQ fazia um endpoint lento (teto 10s) segurar TODAS as entregas (head-of-line blocking).
+- **Teto de mídia nas campanhas**: `fetchMedia` do worker baixava a URL sem limite de tamanho;
+  agora aplica `MEDIA_MAX_BYTES` (content-length antes + tamanho real depois).
+- **Índice `wa_contacts (sessionId, phone)`** (migration `indice_wa_contacts_phone`, aditiva):
+  `namesFor` (hot path de leads/grupos) busca por OR em waId/lid/jid/**phone** — phone era a única
+  chave sem índice; a busca de contatos por telefone no painel também usa.
+- **Dashboard com code-splitting por rota** (`React.lazy` + `Suspense`): as 16 telas viram chunks
+  próprios do Vite (Login 1,9 kB; vendor 241 kB) em vez de um bundle único; `gzip_vary on` no
+  nginx (`Vary: Accept-Encoding` com Traefik/CDN na frente).
+
 ### Alterado (16/08 — sessão `dedup-status-alertas`)
 
 - **Dedup de `session.status` na fonte (P-020, D-015)**: o gateway só publica um evento
@@ -46,11 +81,10 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 - **Regra operacional registrada**: re-sincronização de RECONEXÃO empaca em 99% nas builds atuais
   (bootstrap pós-QR completa sempre) ⇒ deploys do gateway em lote, janela com re-scan aceitável.
 
-
 ### Desempenho
 
 - **wwebjs — extração de leads em LOTE** (sessão `2026-08-12-2043-wwebjs-qualidade-max`): `GET
-  /groups/{id}` (e `/leads`) resolvia número+nome com **1 round-trip CDP por participante** +
+/groups/{id}` (e `/leads`) resolvia número+nome com **1 round-trip CDP por participante** +
   1 `evaluate` por `@lid` — grupo de 500 levava minutos. Agora usa **1 `getContacts()`** (mapa
   id→contato) + **`getContactLidAndPhone` em blocos de 50** (via oficial da lib para o par
   LID↔telefone). Round-trips O(N) → O(N/50); nomes, telefones e o registro no diretório saem
@@ -108,9 +142,9 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
   `POST …/settings` (`{announce?, restrict?}` — travar envio/edição para admins) e
   `POST …/photo` (`{url}` — foto do grupo, o gateway baixa a imagem ≤10 MB). wwebjs via
   `getGroupMembershipRequests`/`approve`/`reject` + `setMessagesAdminsOnly`/`setInfoAdminsOnly`
-  + `setPicture`; Baileys via `groupRequestParticipantsList`/`Update` + `groupSettingUpdate`
-  + `updateProfilePicture`. Sem migration/env/breaking. Documentado em `INTEGRACAO.md` §9.2;
-  contracts em P-013.
+  - `setPicture`; Baileys via `groupRequestParticipantsList`/`Update` + `groupSettingUpdate`
+  - `updateProfilePicture`. Sem migration/env/breaking. Documentado em `INTEGRACAO.md` §9.2;
+    contracts em P-013.
 - **Anti-flag wwebjs — User-Agent realista e estável por sessão** (sessão
   `…-2043-wwebjs-qualidade-max`, P-012): o UA do Chromium passa a variar por sessão de forma
   **determinística** (paridade com o `browser-fingerprint` do Baileys) — estável entre reconexões,
@@ -128,7 +162,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 - **W6 — webhook mais rico: reações recebidas** (sessão `2026-08-12-1921-wwebjs-w6-webhook-reacoes`,
   P-011): novo evento **`message.reaction`** no webhook — quando o contato (ou você, em outro device)
   reage a uma mensagem. Payload `{ keyId (msg-alvo), chatJid, senderJid, emoji ('' = reação removida),
-  fromMe, timestamp }`. Capturado nas DUAS engines (wwebjs `message_reaction`, Baileys
+fromMe, timestamp }`. Capturado nas DUAS engines (wwebjs `message_reaction`, Baileys
   `messages.reaction`) e roteado ao webhook pelo fluxo existente (dedup por id de envelope, filtro por
   nome de evento — assine `*` ou `message.reaction`). Completa o round-trip de reações da W5. Sem
   migration/env/breaking. Documentado em `INTEGRACAO.md`; contracts em P-013. Edição/revogação/votos
