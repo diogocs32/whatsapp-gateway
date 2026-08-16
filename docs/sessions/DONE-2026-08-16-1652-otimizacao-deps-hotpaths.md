@@ -121,3 +121,24 @@ redis:true, storage:true}`; pino 10 + pino-pretty renderizando; entregas de webh
   3. (opcional) Tunar `DB_POOL_MAX` (ex.: 20) e `WEBHOOK_CONCURRENCY` no Dokploy se necessário —
      defaults já são seguros.
 - **Não deployei nada** (R0) · **não pushei** (branch local; push na janela do merge).
+
+## Adendo — 16/08 ~22:30 UTC — hotfix do deploy (zod aninhado fora da imagem)
+
+O dono fez o Deploy manual dos 2 apps (~22:11 UTC). **Dashboard OK de primeira** (validado por
+fora: build novo, chunks por rota respondendo, gzip+Vary, cache imutável). **Gateway: build Done
+e migration `indice_wa_contacts_phone` APLICADA em prod, mas o container novo morria no boot**
+com `Error: Cannot find module 'zod'` (require stack: dist/bootstrap/config.js) — o Swarm
+segurou o container antigo servindo (produção nunca caiu; /health seguiu ok com uptime antigo).
+
+- **Causa raiz** (diagnóstico pelo painel Dokploy via navegador + npm ls local): o `npm update`
+  fez o `eslint-plugin-react-hooks` (devDep da RAIZ) exigir zod@4 → zod@4 tomou o slot da raiz e
+  o zod@3 do gateway foi ANINHADO em `apps/gateway/node_modules`. O Dockerfile copiava só
+  `/app/node_modules` (raiz) para o runtime, e o `npm prune --omit=dev` removia o zod@4 da raiz
+  (é dev) → imagem final SEM zod nenhum.
+- **Fix**: runtime copia também `apps/gateway/node_modules` (+ `mkdir -p` no build p/ hoisting
+  total não quebrar o COPY). Cobre qualquer dep futura nessa situação.
+- **Validação nova (lição aprendida)**: build LOCAL da imagem real + smoke de require do grafo
+  completo (`dist/app.module.js`) dentro do container — o gap da 1ª rodada era validar só com o
+  node_modules do dev, onde o aninhado existe e o require resolve.
+- **Descoberta colateral**: o deploy anterior (~17:50 UTC, `d75eab3`) já tinha posto P-019 +
+  P-020 em produção — o uptime de ~4h28 do container "antigo" era desse deploy.

@@ -35,7 +35,9 @@ RUN npm run gateway:generate && npm run gateway:build
 # Item 17 (prune): derruba as devDependencies antes da cópia para o runtime. O que o boot ainda
 # precisa (Prisma CLI + dotenv, usados pelo migrate deploy via prisma.config.ts) virou dependency
 # no package.json do gateway. Corta @nestjs/cli, @swc/core, typescript, vitest etc. da imagem.
-RUN npm prune --omit=dev
+# mkdir: garante o node_modules ANINHADO do workspace mesmo quando o hoisting for total — o COPY
+# dele no estágio runtime não pode falhar por pasta ausente.
+RUN npm prune --omit=dev && mkdir -p apps/gateway/node_modules
 
 # ============================ Stage 2: runtime ==============================
 FROM node:26-bookworm-slim AS production
@@ -58,6 +60,12 @@ WORKDIR /app/apps/gateway
 # node_modules já SEM devDependencies (prune no build). Prisma CLI + dotenv são dependencies —
 # o entrypoint precisa deles no `migrate deploy` (prisma.config.ts).
 COPY --from=build /app/node_modules /app/node_modules
+# node_modules ANINHADO do workspace (hoisting parcial do npm): quando uma devDep da RAIZ exige
+# outra major de uma dep do gateway (ex.: 16/08 — eslint-plugin-react-hooks puxou zod@4 p/ a raiz
+# e o zod@3 do gateway ficou em apps/gateway/node_modules), copiar SÓ a raiz deixava a imagem sem
+# a dep (o prune remove a cópia da raiz por ser dev) → MODULE_NOT_FOUND no boot e deploy que não
+# troca o container (Swarm segura o antigo). Copiar o aninhado cobre QUALQUER dep nessa situação.
+COPY --from=build /app/apps/gateway/node_modules ./node_modules
 COPY --from=build /app/package.json /app/package.json
 COPY --from=build /app/apps/gateway/dist ./dist
 COPY --from=build /app/apps/gateway/prisma ./prisma

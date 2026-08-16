@@ -6,6 +6,18 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido (16/08 — hotfix pós-deploy da sessão `otimizacao-deps-hotpaths`)
+
+- **Imagem do gateway sem deps ANINHADAS do workspace → boot morria com `Cannot find module
+  'zod'`** (deploy de 22:11 UTC: build Done, migration aplicada, mas o container novo saía com
+  Exited(1) e o Swarm segurava o antigo — produção nunca ficou fora). Causa: o `npm update`
+  levou o `eslint-plugin-react-hooks` (devDep da RAIZ) a exigir **zod@4**, que tomou o slot da
+  raiz; o **zod@3 do gateway** foi aninhado em `apps/gateway/node_modules` — que o Dockerfile
+  NÃO copiava (só `/app/node_modules`), e o `npm prune --omit=dev` ainda removia o zod@4 da raiz
+  por ser dev. Fix: o estágio runtime agora copia TAMBÉM `apps/gateway/node_modules` (cobre
+  qualquer dep nessa situação; `mkdir -p` no build garante a pasta mesmo com hoisting total).
+  Validado com **build local da imagem real** + smoke de require do grafo completo do dist.
+
 ### Alterado (16/08 — sessão `otimizacao-deps-hotpaths`)
 
 - **Dependências atualizadas dentro da compatibilidade (D-016)**: NestJS 11.1.27→11.2.1 (fixes de
