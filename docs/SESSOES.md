@@ -20,30 +20,15 @@
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
-- **16/08 · otimizacao-deps-hotpaths (deploy em andamento):** dono deployou os 2 apps ~22:11 UTC.
-  **Dashboard OK** (code-splitting + gzip validados por fora). **Gateway: 1ª tentativa FALHOU no
-  boot** — `Cannot find module 'zod'` (npm update aninhou o zod@3 do gateway em
-  `apps/gateway/node_modules`, que a imagem não copiava; ver adendo no DONE da sessão). O Swarm
-  segurou o container antigo (produção nunca caiu); a **migration do índice já foi APLICADA** no
-  banco de prod nessa tentativa. **Fix no Dockerfile validado com build local da imagem real** e
-  pushado — o push toca `apps/gateway/**` → auto-deploy dispara. No boot novo: conferir reconexão
-  da frota Baileys (rc14) e logs (pino 10). P-019 + P-020 JÁ estavam em prod desde o deploy de
-  ~17:50 UTC (`d75eab3`). Quem confirmar o boot novo saudável remove este aviso e atualiza o
-  "Último deploy" do ESTADO.
-- **16/08 · dedup-status-alertas (ENCERRADA):** o gateway agora **deduplica `session.status`
-  idêntico consecutivo** (D-015, P-020) — só publica webhook/SSE/timeline quando `(status, error)`
-  MUDA. Afeta QUALQUER consumidor do webhook: **não conte "quantos WORKING chegaram"** para inferir
-  reconexões (nota C6 em INTEGRACAO.md). Código na branch `feature/dedup-status-alertas`, **aguarda
-  merge+deploy do dono** (o deploy embarca junto o P-019 watchdog; por D-014 pode custar re-scan do
-  QR wwebjs). Quem fizer o próximo deploy do gateway remove este aviso.
-- **14/08 · wwebjs-p015-shutdown-limpo (ENCERRADA):** regra nova que afeta TODA sessão que
-  deployar o gateway (D-014): **troca de container pode exigir re-scan do QR da sessão wwebjs**
-  (re-sync incremental empaca em 99% nas builds atuais; bootstrap pós-QR completa sempre) —
-  agrupar deploys e combinar a janela com o dono. O código do P-019 JÁ está no origin/main mas
-  NÃO deployado (o Watch Paths avalia só o commit de TOPO do push — push com topo doc-only não
-  deploya): **o próximo deploy do gateway o ativa automaticamente**. `WA_LOG_LEVEL=info` fica de
-  propósito (diagnóstico) até P-019 em prod. A sessão wwebjs foi REMOVIDA no fim de 14/08 —
-  recriar quando precisar. Quem fizer o próximo deploy do gateway remove este aviso.
+- **16/08 · otimizacao-deps-hotpaths (deploy CONCLUÍDO ~23:43 UTC):** produção = main
+  (`d172b78`). **Ativos agora:** P-019 watchdog · P-020 dedup de status (não conte "quantos
+  WORKING chegaram" — nota C6 em INTEGRACAO.md) · deps D-016 (Baileys **rc14**, NestJS 11.2.1,
+  Prisma 7.9.1, fastify 5.11.3, pino 10, BullMQ 5.81.3) · índice `wa_contacts (sessionId, phone)`
+  · `WEBHOOK_CONCURRENCY=8` (entregas de webhook em paralelo). D-014 segue valendo como REGRA
+  (deploy pode custar re-scan de sessão wwebjs — hoje a frota é 100% Baileys). Lição p/ quem
+  mexer em deps: valide com **build local da imagem** (o zod aninhado passou por tsc+testes+boot
+  local e só quebrou na imagem — adendo no DONE da sessão). `WA_LOG_LEVEL=info` pode voltar a
+  `warn` quando o dono quiser (P-019 já está em prod).
 - **13/08 · wwebjs-store-travado:** leitura da env de PROD no Dokploy (~23h UTC) achou
   **`GUARDRAIL_ENFORCE=true`** (linha 63) — **diverge do ESTADO.md/M2**, que dizem modo observação
   (`false`). Quem precisa saber: sessão **M2** (se o dono ligou de propósito, a onda M2 está de

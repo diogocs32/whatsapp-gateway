@@ -22,7 +22,17 @@
 ## Estado de produção
 
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
-- **Último deploy confirmado:** 14/08/2026 **~15:45 UTC** — Deploy manual aplicando **Memory
+- **Último deploy confirmado:** 16/08/2026 **~23:43 UTC** — gateway no `d172b78` (auto-deploy do
+  hotfix do Dockerfile; boot validado: Nest started, migration `indice_wa_contacts_phone` aplicada,
+  1ª sessão Baileys conectada no **rc14** com pre-keys + LID, zero "Falha ao reidratar") e
+  dashboard no `c96940c` (~22:11 UTC, Deploy manual — code-splitting + gzip_vary validados por
+  fora). Cadeia do dia 16/08: ~17:50 Deploy manual `d75eab3` (**ativa P-019 watchdog + P-020
+  dedup**) → ~22:11 Deploy manual `c96940c` nos 2 apps (dashboard OK; gateway Exited(1) por
+  `Cannot find module 'zod'` — zod aninhado fora da imagem; Swarm segurou o antigo, SEM outage;
+  migration ficou aplicada) → 23:36 push `d172b78` fix → auto-deploy → **23:43 container novo
+  healthy**. Watch Paths "Teste 2" ✅ (código no topo → deploya). Deps agora em prod: NestJS
+  11.2.1 · Prisma 7.9.1 · fastify 5.11.3 · **Baileys rc14** · pino 10 · BullMQ 5.81.3 (D-016).
+- **Deploy anterior:** 14/08/2026 **~15:45 UTC** — Deploy manual aplicando **Memory
   Limit 4GB** sobre o código `ccc17b1` (P-017c). Cadeia do dia 14/08 (todas confirmadas):
   `13a2de8` shutdown limpo P-015 → **Volume Mount `gateway-wwebjs`→`/data/wwebjs` criado**
   (~10:39, causa raiz da P-015; 2 trocas de container SEM QR validadas) → `a6b05ea` **patch `$1`**
@@ -44,9 +54,9 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main local ↔ origin/main | **Sincronizado** (push 16/08, sessão otimizacao-deps-hotpaths). ⚠️ Acumulado na main e **NÃO deployado**: P-019 watchdog (`25cad0c`) + P-020 dedup de status (`4c74f4d`) + deps/otimizações D-016 (`dfa2500..59c37a6`, inclui **Baileys rc14** e migration aditiva do índice de contatos). O topo do push de 16/08 é doc-only → **o Watch Paths NÃO dispara build** (avalia só o commit de topo — evidência 14/08): ativar tudo = **Deploy manual no Dokploy** (gateway + dashboard), janela do dono. Em prod roda `ccc17b1` + 4GB. |
-| feature/dedup-status-alertas | Sessão 16/08 (P-020): **dedup de `session.status` idêntico consecutivo** (D-015) — mata o spam de alerta zap/telegram "sem mudança". 5/5 testes. **JÁ MERGEADO na main local** (`4c74f4d`); deploy pendente (embarca junto o P-019; por D-014 pode custar re-scan do QR wwebjs) — o alívio dos alertas só aparece nesse deploy |
-| feature/otimizacao-deps-hotpaths | Sessão 16/08 (D-016): **deps atualizadas na compatibilidade** (NestJS 11.2.1 c/ fixes de SSE, Prisma 7.9.1 c/ fix de connection leak, fastify 5.11.3, **Baileys rc14**, pino 10 unificado, BullMQ 5.81.3 dedupa ioredis) + otimizações doc-backed (pool pg c/ timeout, recordMany em lote, ACK atômico, WEBHOOK_CONCURRENCY, teto de mídia, índice wa_contacts(sessionId,phone) via migration ADITIVA, code-splitting do dashboard). 170/170 testes · builds ok · boot smoke ok. **MERGEADA na main (ff `59c37a6`) e PUSHADA 16/08** — resta o Deploy manual; no 1º boot validar reconexão da frota Baileys (rc14) |
+| main local ↔ origin/main | **Sincronizado** (`d172b78`) e **PRODUÇÃO = MAIN** (deploy 16/08 ~23:43 UTC): P-019, P-020, deps/otimizações D-016 e o hotfix do Dockerfile TODOS ativos. Nada pendente de deploy. |
+| ~~feature/dedup-status-alertas~~ | ✅ **EM PRODUÇÃO 16/08** (P-020/D-015, deploy ~17:50 UTC): dedup de `session.status` idêntico consecutivo — fim do spam de alerta zap/telegram |
+| ~~feature/otimizacao-deps-hotpaths~~ | ✅ **EM PRODUÇÃO 16/08 ~23:43 UTC** (D-016): deps atualizadas (NestJS 11.2.1, Prisma 7.9.1, fastify 5.11.3, Baileys rc14, pino 10, BullMQ 5.81.3) + otimizações (pool pg, recordMany em lote, ACK atômico, WEBHOOK_CONCURRENCY, teto de mídia, índice wa_contacts, code-splitting). Precisou de hotfix `d172b78` (zod aninhado fora da imagem — ver adendo no DONE da sessão). Majors deferidos → P-021 |
 | feature/wwebjs-store-travado | Sessão ativa (P-014): **dep wwebjs pinada no commit `1780711`** (D-012) — merge+deploy pendente de validação final |
 | feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda. ⚠️ env de prod tem `GUARDRAIL_ENFORCE=true` (divergência a reconciliar) |
 | feature/auth-refresh-rotation | Sessão auth-refresh ativa (D-009) — merge no fechamento                                   |
@@ -76,16 +86,12 @@ sendo a mais urgente: produção SEM backup do banco.
 
 ## Próximos passos
 
-0. **Próximo deploy do gateway ativa o P-019** (já no origin/main; janela com re-scan aceitável —
-   dono escolhe; um Deploy manual no Dokploy basta). Junto: pausar/desligar autostart das Baileys
-   não-pareadas (P-018, painel), rotacionar a `X-Api-Key` (exposta 2× em chat) e tirar
-   `Webshare 20 proxies.txt` da raiz. Revalidar a build do WA Web ~início out/2026 (expira 13/10 —
-   B-002). **Sessão wwebjs: REMOVIDA da frota no fim de 14/08** (frota atual = 18 Baileys);
-   recriar quando precisar de leads (1 QR; bootstrap sempre completa).
-0b. **Candidata ao MESMO deploy: `feature/otimizacao-deps-hotpaths`** (D-016, sessão 16/08) —
-   mergear na main e deployar junto do P-019/P-020 agrupa tudo numa janela só (D-014). Embarca
-   Baileys rc14 (validar reconexão da frota no boot) e a migration aditiva do índice de contatos
-   (o `migrate deploy` do entrypoint aplica). Majors de deps deferidos rastreados na P-021.
+0. ✅ **P-019 + P-020 + D-016 ATIVADOS 16/08** (deploys de ~17:50 e ~23:43 UTC — ver "Último
+   deploy"). Ações do dono que RESTAM: pausar/desligar autostart das Baileys não-pareadas (P-018,
+   painel), rotacionar a `X-Api-Key` (exposta 2× em chat) e tirar `Webshare 20 proxies.txt` da
+   raiz. Revalidar a build do WA Web ~início out/2026 (expira 13/10 — B-002). **Sessão wwebjs:
+   REMOVIDA da frota no fim de 14/08** (frota atual = 18 Baileys); recriar quando precisar de
+   leads (1 QR; bootstrap sempre completa).
 1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
 1b. **Estabilidade de sessão — P0 ENTREGUE 21/07** (sessão `DONE-2026-07-21-1730-estabilidade-sessoes`): mutex Baileys · creds limpas no loggedOut · `POST /:id/new-qr` + botão do painel · 401 → /login. Restam P1/P2 (watchdog, auto-heal DEGRADED, DisconnectReason, reconexão wwebjs — backlog no arquivo DONE da sessão; vira sessão nova quando priorizado)
 1c. **Anti-flag de sessão — CÓDIGO ENTREGUE 22/07** (sessão `DONE-2026-07-22-1700-hardening-antiban`): fingerprint realista por sessão · log de conexão sem proxy · `WA_REQUIRE_PROXY` (default false). Diagnóstico: proxies eram Webshare DATACENTER (`mode=direct`) — flag na conexão. **AÇÃO OPERACIONAL do usuário (em curso):** migrar p/ proxy RESIDENCIAL BR (adquirido — Webshare static residential, 20 IPs SP), importar em massa (`user:pass@ip:porta`, source MANUAL), atribuir 1 IP/sessão (Proxy fixo), ligar `WA_REQUIRE_PROXY=true` no Dokploy, re-vincular. Backlog: health-tester só testa ipify (não prova reputação WhatsApp).

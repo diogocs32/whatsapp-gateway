@@ -142,3 +142,17 @@ segurou o container antigo servindo (produção nunca caiu; /health seguiu ok co
   node_modules do dev, onde o aninhado existe e o require resolve.
 - **Descoberta colateral**: o deploy anterior (~17:50 UTC, `d75eab3`) já tinha posto P-019 +
   P-020 em produção — o uptime de ~4h28 do container "antigo" era desse deploy.
+
+## Validação FINAL em produção — 16/08 ~23:45 UTC
+
+- **23:36 UTC** push `d172b78` (fix Dockerfile) → webhook disparou na hora → auto-deploy
+  (**Teste 2 do Watch Paths ✅**: código no topo → deploya; doc-only → não).
+- **23:43:37 UTC** container novo `652625a0f74a` no ar, **healthy**; `/health` uptime resetou,
+  `database/redis/storage: true`, memória 6%.
+- Log do boot (Dokploy): `Nest application successfully started` · migrations sem erro (a do
+  índice já estava aplicada da 1ª tentativa) · pino 10 logando normal · **Baileys rc14
+  conectando**: sessão "Diogo" reidratada com `uploaded pre-keys successfully` + `Own LID
+session created successfully` · busca por "Falha ao reidratar" = **zero resultados**
+  (reidratação escalonada da frota em curso, sem falhas).
+- Produção NUNCA ficou fora durante o incidente do zod (o Swarm segurou o container antigo até
+  o novo ficar healthy).
