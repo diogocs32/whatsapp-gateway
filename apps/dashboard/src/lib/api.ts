@@ -137,7 +137,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
-
 // Upload multipart (mídia): NÃO definir Content-Type — o browser põe o boundary.
 async function requestForm<T>(path: string, form: FormData): Promise<T> {
   const res = await coreFetch(path, { method: 'POST', body: form });

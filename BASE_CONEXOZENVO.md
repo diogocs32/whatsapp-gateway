@@ -115,6 +115,7 @@ ENCONTRA em segundos, em que se CONFIA sem verificar e que se USA sem
 tradução.
 
 PRINCÍPIOS (as leis — tudo abaixo é consequência delas):
+
 1. Docs-as-code: a doc vive NO repo, muda no MESMO commit do comportamento
    que descreve. Doc que chega depois já nasce errada
 2. Um documento, um propósito — precisou de "e também", são dois documentos
@@ -130,24 +131,25 @@ PRINCÍPIOS (as leis — tudo abaixo é consequência delas):
 8. Estrutura organizada pela PERGUNTA do leitor, nunca pelo organograma
 
 FIDEDIGNIDADE — A DEFINITION OF DONE DOCUMENTAL (v4.3):
+
 - Uma mudança está COMPLETA quando NENHUMA frase da doc ficou FALSA por
   causa dela. A pergunta de fechamento não é "atualizei a doc?" — é
   **"O QUE ESTE DIFF TORNOU FALSO?"** (verificável, mecânica)
 - MAPA DE GATILHOS (mudança no diff → doc obrigatória no MESMO commit/PR;
   o gate docs-drift do R6 fiscaliza quando instalado — A9):
 
-  | Se o diff contém...                                   | Então toca junto                                             |
-  | ----------------------------------------------------- | ------------------------------------------------------------ |
-  | migration que cria/renomeia/move tabela               | `ARQUITETURA.md` § tabelas donas (R10)                       |
-  | provider público de módulo ou evento novo/mudado      | `ARQUITETURA.md` § expõe/consome + 📢 aviso em SESSOES (R9)  |
-  | rota/payload de `/api` novo ou mudado                 | `packages/contracts` NO MESMO commit (R4) + `INTEGRACAO.md`  |
-  | env nova ou renomeada                                 | `env.example` do app (R11)                                   |
-  | script/comando novo em package.json                   | `CLAUDE.md` § comandos (+ README quando houver seção)        |
-  | procedimento de operação mudado                       | how-to/runbook correspondente + `revisado_em`                |
-  | decisão cara de reverter                              | `DECISOES.md` (+ ADR em `docs/decisions/` pelo gatilho abaixo) |
-  | onda concluída / rumo mudou                           | `ESTADO.md` (no encerramento — R9)                           |
-  | incidente de produção                                 | postmortem + runbook (R15)                                   |
-  | regra da base mudada (R18)                            | BASE + `CLAUDE.md` (projeção) no MESMO commit (R6)           |
+  | Se o diff contém...                              | Então toca junto                                               |
+  | ------------------------------------------------ | -------------------------------------------------------------- |
+  | migration que cria/renomeia/move tabela          | `ARQUITETURA.md` § tabelas donas (R10)                         |
+  | provider público de módulo ou evento novo/mudado | `ARQUITETURA.md` § expõe/consome + 📢 aviso em SESSOES (R9)    |
+  | rota/payload de `/api` novo ou mudado            | `packages/contracts` NO MESMO commit (R4) + `INTEGRACAO.md`    |
+  | env nova ou renomeada                            | `env.example` do app (R11)                                     |
+  | script/comando novo em package.json              | `CLAUDE.md` § comandos (+ README quando houver seção)          |
+  | procedimento de operação mudado                  | how-to/runbook correspondente + `revisado_em`                  |
+  | decisão cara de reverter                         | `DECISOES.md` (+ ADR em `docs/decisions/` pelo gatilho abaixo) |
+  | onda concluída / rumo mudou                      | `ESTADO.md` (no encerramento — R9)                             |
+  | incidente de produção                            | postmortem + runbook (R15)                                     |
+  | regra da base mudada (R18)                       | BASE + `CLAUDE.md` (projeção) no MESMO commit (R6)             |
 
 - EXCEÇÃO DECLARADA, NUNCA SILENCIOSA: gatilho disparado sem a doc só passa
   com trailer `Docs-n/a: <motivo>` no commit; o encerramento (R9) lista os
@@ -159,12 +161,14 @@ FIDEDIGNIDADE — A DEFINITION OF DONE DOCUMENTAL (v4.3):
   o hook Stop PERGUNTA (R19, quando existir) · o gate docs-drift DECIDE (R6/A9)
 
 TRÊS CICLOS DE VIDA (pastas diferentes para ciclos diferentes):
+
 - PERENE (reescrito no lugar): how-to, runbooks, ARQUITETURA, INTEGRACAO
 - APPEND-ONLY (só acrescenta — é história): DECISOES/ADRs, postmortems, CHANGELOG
 - EFÊMERO (status no nome + arquivamento): ESTADO, SESSOES, sessions/,
   PENDENCIAS, briefings/, ADOCAO
 
 ESTRUTURA em `docs/` (estado real + alvo v4.3):
+
 - Âncoras: PROJETO.md · ESTADO.md · **MAPA.md** (índice canônico: siglas +
   "Quero → abro") · ARQUITETURA.md · AUDITORIAS.md (R17) · SESSOES.md +
   sessions/ (R9) · **PENDENCIAS.md** (quadro central P-xxx/B-xxx — v4.3) ·
@@ -224,10 +228,11 @@ REGRA: código sem documentação atualizada = onda incompleta.
 ### R4 — VERSIONAMENTO (código + banco + API)
 
 Código:
+
 - SemVer + tags git a cada release · Conventional Commits em pt-BR
 - main protegida; TODO trabalho em branches `feature/*` no checkout principal
   e, em sessões paralelas simultâneas, a branch do worktree (base do R9)
-Banco (Prisma — forward-only):
+  Banco (Prisma — forward-only):
 - NUNCA editar migration aplicada (quando houver hooks R19, também BLOQUEADO
   por hook) · correção = migration nova · em prod SEMPRE
   `prisma migrate deploy` · toda migration roda nos e2e do CI · seeds idempotentes
@@ -239,7 +244,7 @@ Banco (Prisma — forward-only):
 - **Índice em tabela JÁ populada em produção**: criar SEM lock de escrita
   (`CREATE INDEX CONCURRENTLY` — não roda dentro de transação; validar o
   mecanismo do Prisma da versão instalada ANTES de usar, documentation-first R8)
-API:
+  API:
 - O `/api` atual É a v1 de fato (node n8n publicado consome). Aditivo ok;
   breaking = `/api/v1` novo mantendo o atual (R0).
 - `packages/contracts` é a fonte dos tipos — mudou payload, mudou contracts
@@ -248,12 +253,13 @@ API:
 ### R5 — SEGURANÇA (defesa em camadas)
 
 Já em produção (manter e testar, não recriar):
+
 - IAM: X-Api-Key por integração, RBAC, seats, licença Ed25519, audit log
 - JWT do painel: access 15min + refresh rotation 30d (D-009), cookies
   httpOnly/Secure/SameSite=Lax (zero localStorage)
 - helmet + rate limit (login 10/min) · `/metrics` por token · logs com
   credenciais redigidas · retenção (raw 7d, msgs 90d, eventos 30d, audit 180d)
-Criptografia e rotação (adaptação do "2 níveis" do universal):
+  Criptografia e rotação (adaptação do "2 níveis" do universal):
 - Nível 1 (obrigatório): TODO segredo persistido (tokens de engine, credenciais
   META_CLOUD futuras, senhas de proxy) cifrado via `shared-kernel/crypto`, chave
   em env dedicada; rotação SEM perda: aceitar chave anterior
@@ -261,19 +267,19 @@ Criptografia e rotação (adaptação do "2 níveis" do universal):
   `docs/runbooks/rotacao-de-chaves.md` (M4)
 - Nível 2 (CipherSweet/blind-index): ➖ não se aplica enquanto
   "Dados sensíveis: não" — reavaliar se o produto passar a tratar saúde/biometria
-Modo teste → go-live (casa com o que o projeto JÁ faz):
+  Modo teste → go-live (casa com o que o projeto JÁ faz):
 - Gates de segurança/proteção só relaxam via env com default SEGURO; relaxamento
   explícito, registrado em DECISOES.md e reversível por env
   (exemplo vivo: `GUARDRAIL_ENFORCE=false` em observação — D-005/D-007)
 - Checklist de virada (quando nascer fluxo novo de go-live) inclui os B-xxx
   abertos que impedem o go-live (R9/v3.8) e o relógio/NTP do servidor (R13)
-Backup (M4/A1): Postgres → S3 off-site cifrado, agendado, com NOTIFICAÇÃO de
-sucesso/falha e TESTE DE RESTAURAÇÃO documentado antes de considerar entregue.
-O SCRIPT de backup é automação que implementa regra: tem teste de
-comportamento (gera E restaura), não só de sintaxe (R6/v3.7).
-CSP (adaptado): dashboard estático atrás de proxy — política CSP definida
-nos headers do proxy/nginx; se apertar, validar que Vite/React não dependem de
-inline não-nonce (CSP declarado que quebra o app acaba desligado).
+  Backup (M4/A1): Postgres → S3 off-site cifrado, agendado, com NOTIFICAÇÃO de
+  sucesso/falha e TESTE DE RESTAURAÇÃO documentado antes de considerar entregue.
+  O SCRIPT de backup é automação que implementa regra: tem teste de
+  comportamento (gera E restaura), não só de sintaxe (R6/v3.7).
+  CSP (adaptado): dashboard estático atrás de proxy — política CSP definida
+  nos headers do proxy/nginx; se apertar, validar que Vite/React não dependem de
+  inline não-nonce (CSP declarado que quebra o app acaba desligado).
 
 ### R6 — QUALIDADE (gates que quebram o CI)
 
@@ -283,6 +289,7 @@ gateway e dashboard.
 Regra de ouro (item 25): efeito crítico (webhook/evento/job) exige teste e2e
 DE EFEITO — nunca fire-and-forget com catch silencioso.
 Deltas a instalar (plano em `docs/ADOCAO.md` — A2 herdada da v3.2, A9–A10 da v4.3):
+
 - **Secret scanning** (gitleaks) no pre-commit e CI — determinístico
   (`--no-git`, allowlist versionada); gate vermelho por segredo, nunca por ruído
 - **Gate de drift env ↔ env.example** no pre-commit (toda env ativa documentada
@@ -297,8 +304,8 @@ Deltas a instalar (plano em `docs/ADOCAO.md` — A2 herdada da v3.2, A9–A10 da
   meta de redução trimestral registrada (R17)
 - **Suíte 100% executável no ambiente canônico (CI)**; falha local conhecida
   (ex.: Chromium do wwebjs em ARM) documentada ≠ ignorável no CI
-Gates de DOCUMENTAÇÃO (v4.2/v4.3 — entram na A9, caminho do gitleaks:
-avisam primeiro, calibram, só então bloqueiam):
+  Gates de DOCUMENTAÇÃO (v4.2/v4.3 — entram na A9, caminho do gitleaks:
+  avisam primeiro, calibram, só então bloqueiam):
 - **Integridade da doc viva**: links quebrados em docs/ = gate vermelho ·
   todo arquivo de docs/ presente no MAPA (e vice-versa) · frontmatter válido
   e frescor vencido avisa
@@ -318,10 +325,10 @@ avisam primeiro, calibram, só então bloqueiam):
 - **Catracas da varredura** (R21): duplicação não CRESCE vs baseline (jscpd),
   cobertura não CAI entre varreduras, complexidade nova dentro do teto
   (lizard ou ESLint complexity), morto não VOLTA (knip no CI)
-**AUTOMAÇÃO QUE IMPLEMENTA REGRA TAMBÉM É GATEADA** (v3.7 — guard-rail sem
-teste é comentário que roda): script/job que SUSTENTA regra (backup A1,
-hook de agente R19, retenção, rotação de chave, smoke do artefato, coletor
-guardrail-observe) recebe:
+  **AUTOMAÇÃO QUE IMPLEMENTA REGRA TAMBÉM É GATEADA** (v3.7 — guard-rail sem
+  teste é comentário que roda): script/job que SUSTENTA regra (backup A1,
+  hook de agente R19, retenção, rotação de chave, smoke do artefato, coletor
+  guardrail-observe) recebe:
 - PISO custo zero: `bash -n` em todo .sh versionado no pre-commit/CI;
   shellcheck como camada do CI (avisa local, exige no CI)
 - FRACASSO SILENCIOSO exige teste de COMPORTAMENTO: backup prova que gerou
@@ -332,13 +339,13 @@ guardrail-observe) recebe:
   a lista de alvos une rastreados + não rastreados
 - Cada gate NOMEIA no título a regra que implementa ("Gate timestamptz (R13)")
   — é o que torna auditável a matriz regra × gate (R17)
-**Higiene de custo do CI** (repo privado = minutos cotados): `paths-ignore`
-poupa os jobs caros (build, e2e) em mudança só de docs — o gate de docs
-continua rodando nelas; `concurrency` com cancel-in-progress por ref; job
-novo no workflow = custo novo, declarar o porquê.
-**Revisão adversarial** (OPCIONAL — custa tokens/minutos): REVIEW.md com o
-recorte de maior risco (R4 N-1, R5 segredos, R10 fronteiras, R13 timestamptz,
-contrato do node n8n) + review de PR por segundo agente; entra NÃO-bloqueante.
+  **Higiene de custo do CI** (repo privado = minutos cotados): `paths-ignore`
+  poupa os jobs caros (build, e2e) em mudança só de docs — o gate de docs
+  continua rodando nelas; `concurrency` com cancel-in-progress por ref; job
+  novo no workflow = custo novo, declarar o porquê.
+  **Revisão adversarial** (OPCIONAL — custa tokens/minutos): REVIEW.md com o
+  recorte de maior risco (R4 N-1, R5 segredos, R10 fronteiras, R13 timestamptz,
+  contrato do node n8n) + review de PR por segundo agente; entra NÃO-bloqueante.
 
 ### R7 — MONITORAMENTO COM NOTIFICAÇÕES
 
@@ -383,6 +390,7 @@ e afins — nasce na A8). Atenção ao custo real: worktree é checkout novo
 precisa de portas próprias (R11).
 
 ABERTURA (obrigatório em TODA conversa, antes de qualquer trabalho):
+
 1. Ler `docs/ESTADO.md` (estado global)
 2. Ler `docs/SESSOES.md` COMPLETO: ativas + seção 📢 Avisos + as últimas 5
    linhas do Histórico — o que acabou de concluir é onde nasce o desencontro
@@ -392,12 +400,13 @@ ABERTURA (obrigatório em TODA conversa, antes de qualquer trabalho):
    (sessões ativas vistas, conclusões absorvidas, avisos lidos, P-xxx que
    assume). Eco vazio ou genérico = abertura INVÁLIDA
 5. Adicionar linha na tabela "Sessões ativas" de SESSOES.md
-ISOLAMENTO: só na própria branch, nunca na main · escopos DISJUNTOS (ideal:
-1 sessão = 1 módulo) · pontos de contato globais (schema.prisma,
-packages/contracts, app.module.ts, docker-compose.yml, ci.yml, CLAUDE.md)
-declarados no escopo · arquivo no escopo de outra sessão ativa = PARAR e
-avisar · ESTADO.md global só no encerramento.
-DURANTE:
+   ISOLAMENTO: só na própria branch, nunca na main · escopos DISJUNTOS (ideal:
+   1 sessão = 1 módulo) · pontos de contato globais (schema.prisma,
+   packages/contracts, app.module.ts, docker-compose.yml, ci.yml, CLAUDE.md)
+   declarados no escopo · arquivo no escopo de outra sessão ativa = PARAR e
+   avisar · ESTADO.md global só no encerramento.
+   DURANTE:
+
 - Progresso datado no arquivo da sessão a cada checkpoint (objetivo/escopo
   vivem no ARQUIVO, nunca só na conversa — conversa longa é COMPACTADA e o
   combinado do início some do contexto; reler o ATIVA- após compactação)
@@ -405,7 +414,8 @@ DURANTE:
   env nova, rota/contrato) → registrar NA HORA na seção 📢 Avisos de SESSOES.md
 - Pendência descoberta FORA do escopo → P-xxx em PENDENCIAS.md NA HORA e
   seguir no escopo; não segurar até o fim
-ENCERRAMENTO:
+  ENCERRAMENTO:
+
 1. Bloco Encerramento no arquivo da sessão: commits, status ✅ e RESULTADO
    escrito para quem NÃO participou (outra conversa entende sem perguntar?)
 2. **RECONCILIAÇÃO DOCUMENTAL** (v4.3): rodar
@@ -421,16 +431,16 @@ ENCERRAMENTO:
 6. Merge/PR e SÓ ENTÃO atualizar ESTADO.md → checkpoint final com frase de
    retomada (lembrete R0: push na main dispara deploy no Dokploy — nunca em
    rajada com sessão WhatsApp real conectada)
-BLOQUEIO EXTERNO (B-xxx — v3.8): ato que exige o dono/terceiro (gerar
-credencial em painel, comprar proxy, aprovar mudança de DNS, publicar o node
-n8n no npm — repo separado) NÃO é pendência técnica: é BLOQUEIO, vive no
-TOPO do PENDENCIAS.md com: AÇÃO no imperativo · QUEM · O QUE BLOQUEIA ·
-o que JÁ ESTÁ PRONTO esperando · O QUE DEVOLVER e ONDE no formato exato ·
-CONTORNO em vigor + o P-xxx que o REMOVE · datas. Sessão não inicia trabalho
-que dependa de B-xxx aberto; TODO checkpoint repete os B-xxx abertos.
-SESSÃO INTERROMPIDA: permanece 🟢; retomar via arquivo ATIVA (e
-`claude --resume` quando disponível); descartar = ⚠️ ABANDONADA com motivo +
-pendências do arquivo viram P-xxx.
+   BLOQUEIO EXTERNO (B-xxx — v3.8): ato que exige o dono/terceiro (gerar
+   credencial em painel, comprar proxy, aprovar mudança de DNS, publicar o node
+   n8n no npm — repo separado) NÃO é pendência técnica: é BLOQUEIO, vive no
+   TOPO do PENDENCIAS.md com: AÇÃO no imperativo · QUEM · O QUE BLOQUEIA ·
+   o que JÁ ESTÁ PRONTO esperando · O QUE DEVOLVER e ONDE no formato exato ·
+   CONTORNO em vigor + o P-xxx que o REMOVE · datas. Sessão não inicia trabalho
+   que dependa de B-xxx aberto; TODO checkpoint repete os B-xxx abertos.
+   SESSÃO INTERROMPIDA: permanece 🟢; retomar via arquivo ATIVA (e
+   `claude --resume` quando disponível); descartar = ⚠️ ABANDONADA com motivo +
+   pendências do arquivo viram P-xxx.
 
 ### R10 — ARQUITETURA: MONOLITO MODULAR + DDD (preservar e endurecer)
 
@@ -456,6 +466,7 @@ pendências do arquivo viram P-xxx.
 ### R11 — VARIÁVEIS DE AMBIENTE (.env)
 
 Contrato e organização:
+
 - `.env` NUNCA commitado; **`env.example` de cada app é o CONTRATO versionado**
   (`apps/gateway/env.example` + `env.production.example`); env nova entra no
   example NO MESMO commit — gate de drift no pre-commit verifica (R6)
@@ -463,18 +474,18 @@ Contrato e organização:
   Redis, JWT/painel, storage, engines, guard-rail, proxies, métricas...)
 - Booleans com a semântica D-007: `true/1/yes/on` liga · `false/0/no/off`
   desliga · inválido DERRUBA O BOOT com o nome da variável (fail-fast)
-Uso no código:
+  Uso no código:
 - env lida SÓ na camada de config (zod schema no boot); o app consome o config
   tipado — obrigatória ausente quebra o BOOT, não runtime de madrugada
 - Knob de negócio ajustável sem redeploy (ex.: tuning do guard-rail por sessão)
   vive no BANCO/config de sessão, não em env; env é para infraestrutura e defaults
-Segredos:
+  Segredos:
 - No example: valor VAZIO ou placeholder + comentário de onde obter; jamais real
 - Produção: env do Dokploy (secrets), nunca arquivo no repo
 - Prefixo `VITE_` vai para o BROWSER: nunca segredo com esse prefixo
 - Edição do `.env` pelo AGENTE: mudança de env é ato do dono — quando a
   projeção `.claude/` existir (R19/A8), negada em permissão e bloqueada por hook
-Multi-projeto na mesma máquina (regra viva — portas ÚNICAS por projeto):
+  Multi-projeto na mesma máquina (regra viva — portas ÚNICAS por projeto):
 - ConexoZenvo local: Postgres **5436** · Redis **6382** · dashboard **5174** ·
   gateway **3000** — overrides locais fora do versionamento
 - Worktree é checkout novo (R9): `.env` e afins chegam via `.worktreeinclude`
@@ -483,6 +494,7 @@ Multi-projeto na mesma máquina (regra viva — portas ÚNICAS por projeto):
 ### R12 — ACESSIBILIDADE E INCLUSÃO (condicional)
 
 O dashboard é painel interno B2B → nível RECOMENDADO (não bloqueante):
+
 - Semântica antes de estilo (labels, foco visível, headings) ao TOCAR telas
 - `eslint-plugin-jsx-a11y` quando entrar, entra como warning → error por área
 - Estado nunca SÓ por cor (ex.: status de sessão = cor + texto/ícone — já é o padrão)
@@ -522,6 +534,7 @@ Estado ATUAL (registrado, não escondido): auto-deploy via webhook Git na main +
 build NO SERVIDOR (Dokploy) — viola "build once, promote" e "produção gated".
 Migração é a onda A5 do ADOCAO.md (produção não para; nada de big-bang).
 ALVO (princípios do universal, traduzidos):
+
 1. Paridade: o que se testa é a IMAGEM (Dockerfile, entrypoint) — não só o código
 2. Build once, promote: imagem buildada 1× no CI, tag = SHA, registry (GHCR);
    rebuild em servidor PROIBIDO quando o fluxo migrar. **Retenção no registry**
@@ -536,7 +549,7 @@ ALVO (princípios do universal, traduzidos):
 4. Promoção gated para produção (manual/approval) quando houver registry;
    staging com dados SINTÉTICOS quando viável
 5. Sequência de produção: backup (pg_dump) ANTES de migrations → `migrate
-   deploy` → rolling update com health-gate
+deploy` → rolling update com health-gate
 6. **Graceful shutdown** (crítico AQUI): SIGTERM → parar de aceitar
    envios → fechar workers BullMQ (`worker.close()` espera o job atual) →
    desconectar sessões Baileys/wwebjs LIMPO (sem logout!) → sair. Stop timeout
@@ -550,12 +563,12 @@ ALVO (princípios do universal, traduzidos):
    commit/imagem novos no `/health` ou log do container recriado; push que não
    deployou em ~5 min = runbook do webhook (GitHub → Recent Deliveries +
    deploy manual)
-PÓS-INCIDENTE (v4.2 — formaliza a regra de ouro do R6): todo incidente de
-produção abre POSTMORTEM BLAMELESS em `docs/postmortems/AAAA-MM-DD-sintoma.md`
-(resumo, linha do tempo, impacto, causa raiz de SISTEMA, ações com DONO e
-PRAZO — ação sem dono e data é desejo). Bug de produção só fecha com:
-(1) teste que o reproduz, (2) entrada no smoke se for infra/rota,
-(3) parágrafo de runbook: sintoma → causa → detecção → reversão.
+   PÓS-INCIDENTE (v4.2 — formaliza a regra de ouro do R6): todo incidente de
+   produção abre POSTMORTEM BLAMELESS em `docs/postmortems/AAAA-MM-DD-sintoma.md`
+   (resumo, linha do tempo, impacto, causa raiz de SISTEMA, ações com DONO e
+   PRAZO — ação sem dono e data é desejo). Bug de produção só fecha com:
+   (1) teste que o reproduz, (2) entrada no smoke se for infra/rota,
+   (3) parágrafo de runbook: sintoma → causa → detecção → reversão.
 
 ### R16 — HARDENING DA IMAGEM DE PRODUÇÃO
 
@@ -574,6 +587,7 @@ PRAZO — ação sem dono e data é desejo). Bug de produção só fecha com:
 Auditoria sem agenda = auditoria morta (a auditoria-2026-07 foi 1× — virou foto).
 Agenda viva em `docs/AUDITORIAS.md`: cada linha com dono, última execução e
 próxima. Cadências:
+
 - CONTÍNUO (CI): npm audit · gitleaks · integridade de docs + docs-drift +
   consistência BASE↔CLAUDE.md (R6/A9) · catracas da varredura (R21) — conforme
   forem instalados
@@ -617,6 +631,7 @@ ela alcança, ela alcança sozinha. R0/R1 confirmam comandos; esta regra
 governa a CONFIG do agente.
 
 CREDENCIAL E ALCANCE:
+
 - Ferramenta de agente que fala com banco (ex.: MCP postgres): SÓ banco
   LOCAL (Postgres 5436 do dev), SÓ leitura — apontar agente para o banco de
   PRODUÇÃO do Dokploy é PROIBIDO (não há confirmação por query; viola R0)
@@ -628,6 +643,7 @@ CREDENCIAL E ALCANCE:
   padrão (Dokploy é ação operacional do dono — R0)
 
 ALLOWLIST, NÃO HERANÇA (artefatos versionados por repo — nascem na A8):
+
 - `.mcp.json` — o que EXISTE · `.claude/settings.json` — o que é PERMITIDO
   (permissions allow/deny/ask por ferramenta E argumento; deny de settings
   vence hook e modo de permissão) · `.claude/hooks/` — o que é FISCALIZADO
@@ -638,6 +654,7 @@ ALLOWLIST, NÃO HERANÇA (artefatos versionados por repo — nascem na A8):
 
 ENFORCEMENT — REGRA QUE PRECISA VALER SEMPRE TEM HOOK (instrução é pedido;
 hook é garantia). Catálogo mínimo do projeto (implementação na A8):
+
 - Edit/Write → bloquear: `.env`, `prisma/migrations/*` já aplicadas (R4),
   arquivo fora do escopo da sessão (docs/ e .claude/ sempre permitidos — R9)
 - Bash → bloquear: `prisma migrate reset` · `db push` destrutivo · `DROP` ·
@@ -654,6 +671,7 @@ hook é garantia). Catálogo mínimo do projeto (implementação na A8):
   bash -n/shellcheck/mutação que prova a recusa
 
 AUTO MEMORY (memória automática do agente — LOCAL por máquina):
+
 - A VERDADE é `docs/` versionado; auto memory é cache local — conflito →
   docs/ vence, SEMPRE. Decisão NUNCA vive só na memória do agente (é
   DECISOES.md); segredo jamais
@@ -676,8 +694,7 @@ escreve o briefing e para. Escrever briefing é SEMPRE permitido, mesmo fora
 do escopo; editar não é.
 
 QUANDO (as três, juntas): 1. evidência reproduzível (arquivo/comando/log —
-"seria bom se" não vale) · 2. corrigir exige sair do escopo declarado ·
-3. nenhuma regra existente cobre (conferir antes).
+"seria bom se" não vale) · 2. corrigir exige sair do escopo declarado · 3. nenhuma regra existente cobre (conferir antes).
 ONDE: `docs/briefings/BRIEFING-<assunto>.md` (UM assunto por arquivo) +
 linha P-xxx em PENDENCIAS.md apontando para ele.
 ESTRUTURA (teto ~2 páginas): cabeçalho (para quem, sessão, data, "proposta,
@@ -713,6 +730,7 @@ comportamento (refactor funcional vira P-xxx) · auto-fix só DEPOIS do
 diagnóstico revisado e OK, por tipo, em commits atômicos.
 
 FASES:
+
 - V0 abertura: R9 completo + branch própria; varredura conflita com toda
   sessão (escopo largo) → janela sem outras sessões ou por módulo (R10);
   definir DIFF-ALVO (desde a última varredura; 1ª vez = repo inteiro);
@@ -801,25 +819,25 @@ PARA CONTINUAR EM NOVA CONVERSA:
 
 ## MAPA DE ADAPTAÇÃO (universal v4.3 → ConexoZenvo)
 
-| Universal (Laravel, greenfield)      | ConexoZenvo (Node/TS, produção)                                  |
-| ------------------------------------ | ----------------------------------------------------------------- |
-| Fases F0–F8                          | Ondas M0–M6 + ondas de adoção (ADOCAO.md)                        |
-| — (não existia)                      | **R0 Produção Primeiro** (contrato público do node n8n)          |
-| Pest 4 + Larastan + Pint + Rector    | Vitest 4 + typescript-eslint + Prettier (Rector ➖ sem equivalente adotado) |
-| Pest arch()                          | dependency-cruiser no CI (M3)                                     |
-| composer check (bateria única)       | `npm run check` agregado (A10)                                    |
-| encrypted casts + CipherSweet        | shared-kernel/crypto p/ segredos persistidos; nível 2 ➖          |
+| Universal (Laravel, greenfield)      | ConexoZenvo (Node/TS, produção)                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| Fases F0–F8                          | Ondas M0–M6 + ondas de adoção (ADOCAO.md)                                     |
+| — (não existia)                      | **R0 Produção Primeiro** (contrato público do node n8n)                       |
+| Pest 4 + Larastan + Pint + Rector    | Vitest 4 + typescript-eslint + Prettier (Rector ➖ sem equivalente adotado)   |
+| Pest arch()                          | dependency-cruiser no CI (M3)                                                 |
+| composer check (bateria única)       | `npm run check` agregado (A10)                                                |
+| encrypted casts + CipherSweet        | shared-kernel/crypto p/ segredos persistidos; nível 2 ➖                      |
 | MFA Filament + WebAuthn              | JWT httpOnly + refresh rotation (D-009) + RBAC/seats; MFA = candidato a D-xxx |
-| Pulse + Sentry + /up                 | pino + prom-client + /health; alertas M5; Sentry = decisão M5    |
-| spatie/laravel-backup                | pg_dump → S3 off-site + restore testado (M4/A1)                  |
-| timestampTz() migrations             | Prisma `@db.Timestamptz` + migração forward-only das naive (A3)  |
-| Vite::asset() Blade                  | import de asset no Vite/React (hash automático)                  |
-| config:cache + Env::getOrFail        | zod fail-fast no boot (D-007)                                     |
-| horizon:terminate                    | BullMQ `worker.close()` + desconexão limpa das engines           |
-| Feature flag = Pennant               | config por sessão no banco (tuning sem redeploy)                 |
-| php -l / view:cache no pre-commit    | typecheck rápido no pre-commit (A2)                               |
-| knip/jscpd/lizard (varredura JS)     | os MESMOS — ecossistema é JS/TS nativo aqui (R21)                |
-| /security-review · plugin security   | os MESMOS — Claude Code é a ferramenta do projeto (R21 V7)       |
-| skills .claude/ (/abrir-sessao etc.) | alvo A8; até lá, o protocolo roda por instrução (R9 manual)      |
-| worktree por sessão paralela         | worktree quando 2+ sessões tocam CÓDIGO; checkout principal na sessão única |
-| GHCR + delete-package-versions       | GHCR na A5; retenção junto (R15 item 2)                          |
+| Pulse + Sentry + /up                 | pino + prom-client + /health; alertas M5; Sentry = decisão M5                 |
+| spatie/laravel-backup                | pg_dump → S3 off-site + restore testado (M4/A1)                               |
+| timestampTz() migrations             | Prisma `@db.Timestamptz` + migração forward-only das naive (A3)               |
+| Vite::asset() Blade                  | import de asset no Vite/React (hash automático)                               |
+| config:cache + Env::getOrFail        | zod fail-fast no boot (D-007)                                                 |
+| horizon:terminate                    | BullMQ `worker.close()` + desconexão limpa das engines                        |
+| Feature flag = Pennant               | config por sessão no banco (tuning sem redeploy)                              |
+| php -l / view:cache no pre-commit    | typecheck rápido no pre-commit (A2)                                           |
+| knip/jscpd/lizard (varredura JS)     | os MESMOS — ecossistema é JS/TS nativo aqui (R21)                             |
+| /security-review · plugin security   | os MESMOS — Claude Code é a ferramenta do projeto (R21 V7)                    |
+| skills .claude/ (/abrir-sessao etc.) | alvo A8; até lá, o protocolo roda por instrução (R9 manual)                   |
+| worktree por sessão paralela         | worktree quando 2+ sessões tocam CÓDIGO; checkout principal na sessão única   |
+| GHCR + delete-package-versions       | GHCR na A5; retenção junto (R15 item 2)                                       |

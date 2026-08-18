@@ -182,12 +182,7 @@ export class GroupsController {
   ) {
     const d = parse(membershipSchema, body);
     await this.run(() =>
-      this.manager.groupMembershipAction(
-        id,
-        groupId,
-        d.action,
-        d.participants,
-      ),
+      this.manager.groupMembershipAction(id, groupId, d.action, d.participants),
     );
     return { ok: true };
   }

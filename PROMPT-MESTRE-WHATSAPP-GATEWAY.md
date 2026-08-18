@@ -557,13 +557,9 @@ Contatos: `check-exists` (regra BR §23.11), foto, info, bloquear/desbloquear. G
   "timestamp": 1718800000000,
   "event": "message", // tipo
   "session": "proxy-3",
-  "metadata": {
-    /* metadata da sessão */
-  },
+  "metadata": {/* metadata da sessão */},
   "me": { "id": "...", "pushName": "..." },
-  "payload": {
-    /* específico do evento */
-  },
+  "payload": {/* específico do evento */},
   "engine": "baileys",
 }
 ```

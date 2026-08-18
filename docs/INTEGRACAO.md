@@ -36,14 +36,14 @@ POST /api/webhooks
 Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`, assinada com
 **HMAC-SHA512** no header `x-webhook-signature` (se houver `secret`). Catálogo:
 
-| Evento                                                       | Quando                   | Payload-chave                                                          |
-| ------------------------------------------------------------ | ------------------------ | ---------------------------------------------------------------------- |
-| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`** — base do handoff IA×celular   |
-| `message.ack`                                                | entrega/leitura          | `{ msg_id, status: sent\|delivered\|read }`                            |
+| Evento                                                       | Quando                   | Payload-chave                                                                                    |
+| ------------------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------ |
+| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`** — base do handoff IA×celular                             |
+| `message.ack`                                                | entrega/leitura          | `{ msg_id, status: sent\|delivered\|read }`                                                      |
 | `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid, emoji ('' = removida), fromMe, timestamp }` — 2 engines |
-| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }` |
-| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                           |
-| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                    |
+| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                           |
+| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                                                     |
+| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                                              |
 
 > **Handoff (G2):** `source: "phone"` num `fromMe` = o humano respondeu pelo celular → pause a IA.
 > **C4:** o webhook OUT tem retry + **dead-letter** — se o n8n cair, o evento não some (ver §6).

@@ -30,13 +30,13 @@
   helpers já existentes: `withStoreReady`, `toGroupId`, `toChatId`, `groupInfo`.
 
 - [12/08 20:40] Implementados os 14: grupos via `getGroupChat` (refatorado do groupInfo)
-  + `createGroup`/`updateParticipants`/`leaveGroup`/`setGroupSubject`/`setGroupDescription`/
-  `groupInviteCode`/`groupRevokeInvite`; contatos `checkNumbers` (getNumberId sequencial),
-  `profilePicture` (getProfilePicUrl), `setBlock` (Contact.block/unblock); canais
-  `createChannel`/`channelInfo`/`followChannel`/`unfollowChannel`. `nope()` removido (morto)
-  + import órfão do erro tipado removido; comentário do cabeçalho atualizado. O erro tipado
-  `UnsupportedEngineOperationError` + guards 501 nos controllers FICAM (contrato de
-  capacidade — útil para META_CLOUD/M6, hoje dormente).
+  - `createGroup`/`updateParticipants`/`leaveGroup`/`setGroupSubject`/`setGroupDescription`/
+    `groupInviteCode`/`groupRevokeInvite`; contatos `checkNumbers` (getNumberId sequencial),
+    `profilePicture` (getProfilePicUrl), `setBlock` (Contact.block/unblock); canais
+    `createChannel`/`channelInfo`/`followChannel`/`unfollowChannel`. `nope()` removido (morto)
+  - import órfão do erro tipado removido; comentário do cabeçalho atualizado. O erro tipado
+    `UnsupportedEngineOperationError` + guards 501 nos controllers FICAM (contrato de
+    capacidade — útil para META_CLOUD/M6, hoje dormente).
 - [12/08 20:42] Gates: typecheck 0 · lint 0 · build 0 · teste 10/10 (createGroup/
   checkNumbers/setBlock/followChannel agora vão à lib real — sem client → "Sessão não
   conectada", provando que deixaram de ser nope).
@@ -57,9 +57,9 @@
   `false` em `listGroups`/`groupInfo` (o d.ts da lib não tipa `groupMetadata`) — P2 menor,
   não é um dos 14; fica registrado. Dashboard sinalizar capacidade por engine = W8.
 - **Reconciliação documental:** diff = wwebjs.engine.ts + teste + CHANGELOG + PENDENCIAS
-  + análise + ESTADO + sessão. Gatilho do mapa (R3): comportamento novo → CHANGELOG
-  (feito); nenhuma rota/contrato mudou de forma (as rotas já existiam — passaram de
-  501→execução). `Docs-n/a`: nenhum.
+  - análise + ESTADO + sessão. Gatilho do mapa (R3): comportamento novo → CHANGELOG
+    (feito); nenhuma rota/contrato mudou de forma (as rotas já existiam — passaram de
+    501→execução). `Docs-n/a`: nenhum.
 - **Efeito de deploy:** comportamento novo — **exige deploy**. Sem migration/env/contrato.
 - **Pendências geradas:** nenhuma. **P-010 concluída.** Resta do plano wwebjs só a P-011
   (recursos NOVOS W5–W8, aditivos).

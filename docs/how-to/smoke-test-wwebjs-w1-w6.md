@@ -56,7 +56,7 @@ status: ativo
 ## 3. W1 — Estabilidade e segurança do motor
 
 - [ ] **Reconexão automática (P0-1):** com uma sessão wwebjs de teste WORKING, force uma
-      queda (ex.: no celular, *Aparelhos conectados → desconectar* essa sessão, OU derrube
+      queda (ex.: no celular, _Aparelhos conectados → desconectar_ essa sessão, OU derrube
       a rede do proxy). Observe `GET {API}/api/sessions/{S}` → deve ir a DEGRADED com
       "reconectando (tentativa n/5)" e **voltar sozinha** (ou parar em DEGRADED após 5
       tentativas, aí `restart`). Antes desta onda ficava DEGRADED para sempre.

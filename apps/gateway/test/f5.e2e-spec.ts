@@ -130,7 +130,11 @@ describe('F5 grupos/contatos/canais (e2e)', () => {
       method: 'POST',
       url: '/api/sessions/s1/contacts/save',
       headers: jsonAuth(),
-      payload: { number: '5511999999999', firstName: 'João', syncToPhone: true },
+      payload: {
+        number: '5511999999999',
+        firstName: 'João',
+        syncToPhone: true,
+      },
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().ok).toBe(true);

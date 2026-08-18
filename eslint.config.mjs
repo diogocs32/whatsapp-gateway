@@ -11,6 +11,12 @@ export default tseslint.config(
       'apps/gateway/src/generated/**',
       '**/*.config.*',
       'scripts/**',
+      // diretórios de RUNTIME (gitignorados) que podem conter .js do Chromium/LocalAuth —
+      // sem estes ignores o `eslint .` quebra quando uma sessão wwebjs roda em dev (P-004)
+      'apps/gateway/auth/**',
+      '**/.wwebjs_auth/**',
+      // saída de coverage do vitest (M3)
+      '**/coverage/**',
     ],
   },
   ...tseslint.configs.recommended,

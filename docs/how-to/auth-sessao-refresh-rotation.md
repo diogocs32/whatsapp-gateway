@@ -10,15 +10,16 @@ gracioso de 401**. A cada 12h a sessão morria no meio do trabalho: `GET /api/au
 o console enchia de erros e o usuário era efetivamente deslogado sem aviso (o sintoma reportado em
 18/07 ao "conectar sessão parada"). Não era bug de CORS/cookie — foi confirmado em produção que a
 entrega do cookie cross-subdomínio está correta (`Access-Control-Allow-Origin: https://conexozenvo.com`
-+ `credentials: true`). Era **design de ciclo de vida de sessão**.
+
+- `credentials: true`). Era **design de ciclo de vida de sessão**.
 
 ## Arquitetura (OWASP Session/JWT Cheat Sheets + RFC 9700 §4.14)
 
 Dois tokens, ambos em cookies httpOnly emitidos pela própria API:
 
-| Token | Formato | Vida (env) | Cookie | Onde vive |
-| --- | --- | --- | --- | --- |
-| **Access** | JWT (secret `JWT_SECRET`) | `JWT_ACCESS_TTL` (15 min) | `token` · `Path=/` · HttpOnly · SameSite=Lax · Secure(prod) | só no cookie |
+| Token       | Formato                     | Vida (env)                  | Cookie                                                                      | Onde vive                                          |
+| ----------- | --------------------------- | --------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Access**  | JWT (secret `JWT_SECRET`)   | `JWT_ACCESS_TTL` (15 min)   | `token` · `Path=/` · HttpOnly · SameSite=Lax · Secure(prod)                 | só no cookie                                       |
 | **Refresh** | opaco `rt_<base64url(32B)>` | `JWT_REFRESH_TTL` (30 dias) | `refresh_token` · `Path=/api/auth` · HttpOnly · SameSite=Lax · Secure(prod) | cookie + linha em `refresh_tokens` (só o `sha512`) |
 
 - **O cookie de access continua chamado `token`** — o `JwtAuthGuard` e o `SseAuthGuard` leem
@@ -60,13 +61,13 @@ anti-loop). Se o refresh falhar, chama `onUnauthorized()` → o `AuthProvider` l
 
 ## Config (envs) — Dokploy
 
-| Env | Default | Papel |
-| --- | --- | --- |
-| `JWT_SECRET` | (obrigatória) | assina o access JWT |
-| `JWT_ACCESS_TTL` | `900` (15 min) | vida do access |
-| `JWT_REFRESH_TTL` | `2592000` (30 d) | vida do refresh / "ficar logado" |
-| `JWT_EXPIRES_IN` | — | **DEPRECATED**, ignorado; pode remover |
-| `CORS_ORIGIN` | — | Origin EXATO do painel (prod = `https://conexozenvo.com`) |
+| Env               | Default          | Papel                                                     |
+| ----------------- | ---------------- | --------------------------------------------------------- |
+| `JWT_SECRET`      | (obrigatória)    | assina o access JWT                                       |
+| `JWT_ACCESS_TTL`  | `900` (15 min)   | vida do access                                            |
+| `JWT_REFRESH_TTL` | `2592000` (30 d) | vida do refresh / "ficar logado"                          |
+| `JWT_EXPIRES_IN`  | —                | **DEPRECATED**, ignorado; pode remover                    |
+| `CORS_ORIGIN`     | —                | Origin EXATO do painel (prod = `https://conexozenvo.com`) |
 
 ## Checklist de deploy (Dokploy)
 
@@ -88,7 +89,8 @@ anti-loop). Se o refresh falhar, chama `onUnauthorized()` → o `AuthProvider` l
 O código é aditivo e o contrato compatível — o rollback padrão é **redeploy da imagem anterior**
 (a tabela `refresh_tokens` pode ficar; é inofensiva). NÃO há env de feature-flag para desligar só
 isto. Se precisar invalidar todas as sessões (ex.: suspeita de vazamento): `DELETE FROM refresh_tokens`
-+ os usuários refazem login.
+
+- os usuários refazem login.
 
 ## Segurança (checklist OWASP atendido)
 

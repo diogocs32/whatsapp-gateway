@@ -13,8 +13,12 @@ const privPath = join(dir, 'private.pem');
 const pubPath = join(dir, 'public.pem');
 
 if (existsSync(privPath)) {
-  console.error(`JÁ EXISTE um par em ${dir}. Abortando para não invalidar licenças emitidas.`);
-  console.error('Apague manualmente se realmente quiser gerar um novo par (invalida tudo).');
+  console.error(
+    `JÁ EXISTE um par em ${dir}. Abortando para não invalidar licenças emitidas.`,
+  );
+  console.error(
+    'Apague manualmente se realmente quiser gerar um novo par (invalida tudo).',
+  );
   process.exit(1);
 }
 

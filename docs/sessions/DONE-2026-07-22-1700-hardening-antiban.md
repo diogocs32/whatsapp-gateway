@@ -31,7 +31,7 @@
   proxy-resolver.resolveAgent loga WARN quando conecta sem proxy, distinguindo
   NONE intencional × SINGLE-sem-vivo × candidatos DEAD; (3) `WA_REQUIRE_PROXY`
   (envBool default false) → deps.requireProxy → baileys recusa conectar (FAILED
-  + stopped) se sem agent; documentado nos 2 env.example.
+  - stopped) se sem agent; documentado nos 2 env.example.
 - [22/07 17:25] Validação: typecheck ok · lint ok · prettier ok · e2e 91/91
   (4 novos do fingerprint) · builds gateway+dashboard ok.
 

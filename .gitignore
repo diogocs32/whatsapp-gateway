@@ -47,3 +47,5 @@ npm-debug.log*
 auth/
 .wwebjs_auth/
 .wwebjs_cache/
+# saída de coverage do vitest (M3)
+coverage/

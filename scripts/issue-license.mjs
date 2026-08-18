@@ -28,7 +28,9 @@ const claims = {
 const keyPath = arg('key', join(homedir(), '.conexo-license', 'private.pem'));
 const privateKey = readFileSync(keyPath, 'utf8');
 const payloadB64 = Buffer.from(JSON.stringify(claims)).toString('base64url');
-const sig = sign(null, Buffer.from(payloadB64), privateKey).toString('base64url');
+const sig = sign(null, Buffer.from(payloadB64), privateKey).toString(
+  'base64url',
+);
 
 console.error('Licença emitida:', JSON.stringify(claims, null, 2));
 console.log(`CZL1.${payloadB64}.${sig}`);

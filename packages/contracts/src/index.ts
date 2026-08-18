@@ -274,10 +274,7 @@ export type ProxySource = 'MANUAL' | 'WEBSHARE';
 export type ProxyStatus = 'UNTESTED' | 'ALIVE' | 'DEAD';
 export type ProxyMode = 'NONE' | 'SINGLE' | 'RANGE' | 'GLOBAL_ROUND_ROBIN';
 export type ProxyStrategy =
-  | 'STICKY'
-  | 'ROUND_ROBIN'
-  | 'LEAST_LATENCY'
-  | 'RANDOM';
+  'STICKY' | 'ROUND_ROBIN' | 'LEAST_LATENCY' | 'RANDOM';
 
 export interface ProxyDto {
   id: string;
@@ -434,22 +431,11 @@ export interface CreateChannelRequest {
 
 // ---- Campanhas em massa + anti-ban (F6) ----
 export type CampaignStatus =
-  | 'DRAFT'
-  | 'RUNNING'
-  | 'PAUSED'
-  | 'DONE'
-  | 'CANCELLED';
+  'DRAFT' | 'RUNNING' | 'PAUSED' | 'DONE' | 'CANCELLED';
 export type CampaignMessageType =
-  | 'text'
-  | 'image'
-  | 'video'
-  | 'audio'
-  | 'document';
+  'text' | 'image' | 'video' | 'audio' | 'document';
 export type CampaignRecipientStatus =
-  | 'PENDING'
-  | 'SENT'
-  | 'FAILED'
-  | 'CANCELLED';
+  'PENDING' | 'SENT' | 'FAILED' | 'CANCELLED';
 
 export interface CampaignDto {
   id: string;

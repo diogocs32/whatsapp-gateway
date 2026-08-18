@@ -26,7 +26,7 @@
 ## Progresso
 
 - [12/08 22:02] Abertura R9. Assinaturas conferidas: Baileys `{location:{degreesLatitude,
-  degreesLongitude,name,address}}` e `{poll:{name,values,selectableCount}}`; wwebjs
+degreesLongitude,name,address}}` e `{poll:{name,values,selectableCount}}`; wwebjs
   `new Location(lat,lng,{name,address})` e `new Poll(name, options[])`.
 
 - [12/08 22:08] Implementado nas 2 engines: `SendLocationInput`/`SendPollInput` +

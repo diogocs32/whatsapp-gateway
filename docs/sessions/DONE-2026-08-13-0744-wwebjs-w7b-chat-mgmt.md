@@ -37,7 +37,7 @@
 - **Resultado (para quem NÃO participou):** dá para **gerenciar uma conversa** por API numa
   sessão wwebjs: arquivar, fixar, silenciar e marcar como não-lido (ou lido). Uma rota nova —
   `POST /api/sessions/{s}/messages/{chatId}/flag` com `{flag, enabled}`. Ex.: `{"flag":"pin",
-  "enabled":true}` fixa; `{"flag":"unread","enabled":false}` marca como lido. Idempotente. Numa
+"enabled":true}` fixa; `{"flag":"unread","enabled":false}` marca como lido. Idempotente. Numa
   sessão **Baileys** responde **501** (arquivar/marcar-lido exigem sincronização de app-state com
   o histórico — não implementado por ora; não quis embarcar um caminho que falharia em silêncio,
   R6). **Isso fecha o W7**, exceto o `searchMessages`.
@@ -53,5 +53,5 @@
 - **DOCS TOCADAS:** `INTEGRACAO.md`, `CHANGELOG.md`, `PENDENCIAS.md`, `analise-wwebjs-2026-08.md`,
   `ESTADO.md`, `SESSOES.md`, este arquivo.
 - **Classe de erro introduzível e gate:** (a) Baileys aceitar e falhar em silêncio → 501 explícito
-  + teste unit + comentário citando R6; (b) `unread=false` não marcar lido → mapeado para `sendSeen`
-  (não `markChatUnread`), coberto pelo teste unit dos 4 flags; (c) flag inválido → enum zod + e2e 400.
+  - teste unit + comentário citando R6; (b) `unread=false` não marcar lido → mapeado para `sendSeen`
+    (não `markChatUnread`), coberto pelo teste unit dos 4 flags; (c) flag inválido → enum zod + e2e 400.

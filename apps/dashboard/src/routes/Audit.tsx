@@ -72,7 +72,10 @@ export function Audit() {
             <tbody className="divide-y divide-zinc-800">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-10 text-center text-zinc-500"
+                  >
                     Nenhum registro ainda.
                   </td>
                 </tr>

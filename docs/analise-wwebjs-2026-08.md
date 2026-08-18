@@ -97,36 +97,36 @@ subir N Chromium de uma vez), teto de 15s no start/destroy.
 
 **28 métodos do contrato `IEngine`.** Estado (evidência em `wwebjs.engine.ts` salvo nota):
 
-| # | Método | Estado | Evidência / observação |
-| -- | ------ | ------ | ---------------------- |
-| 1 | `start` | ✅ | `133-135`→`doStart 139-295`. Mas ver P0-1 (no-op após queda). |
-| 2 | `stop` | 🟡 | `456-465`: fecha Chromium, mas **não zera `qrBase64` nem caches**. |
-| 3 | `logout` | 🟡 | `471-485`: apaga userDataDir — **só se `logout()` não lançar** (catch vazio `475-481`). |
-| 4 | `requestPairingCode` | 🟡 | `487-489`: não seta status `PAIRING_CODE`, não ouve o evento `code` (renova a cada 3 min). |
-| 5 | `sendText` | ✅ | `491-514`. Sem `raw` (retry anti-"Aguardando mensagem" é Baileys-only). |
-| 6 | `sendMedia` | 🟡 | `516-550`: só `caption`+`ptt`. **Sem document/sticker corretos, sem upload S3.** |
-| 7 | `sendPresence` | 🟡 | `552-558`: composing/recording ok; **paused/available/unavailable → `clearState`** (2 globais errados). |
-| 8 | `markRead` | 🟡 | `561-564`: `chat.sendSeen()` marca o **chat inteiro**; `msgId` ignorado. |
-| 9 | `getQrBase64` | ✅ | `101-103`. Nunca zerado no stop (serve QR morto). |
-| 10 | `getStatus` | ✅ | `98-100`. |
-| 11 | `listGroups` | 🟡 | `853-870`: `announce`/`restrict` **hardcoded false**, `participants:[]`. |
-| 12 | `groupInfo` | 🟡 | `873-894`: **é a razão de existir da engine** (leads). `announce`/`restrict` falsos; participantes 1-a-1 sequencial. |
-| 13 | `createGroup` | ❌ `nope()` | `944`. Lib tem `Client.createGroup`. |
-| 14 | `updateParticipants` | ❌ `nope()` | `947`. Lib tem add/remove/promote/demoteParticipants. |
-| 15 | `leaveGroup` | ❌ `nope()` | `950`. Lib tem `GroupChat.leave`. |
-| 16 | `setGroupSubject` | ❌ `nope()` | `953`. Lib tem `setSubject`. |
-| 17 | `setGroupDescription` | ❌ `nope()` | `956`. Lib tem `setDescription`. |
-| 18 | `groupInviteCode` | ❌ `nope()` | `959`. Lib tem `getInviteCode`. |
-| 19 | `groupRevokeInvite` | ❌ `nope()` | `962`. Lib tem `revokeInvite`. |
-| 20 | `checkNumbers` | ❌ `nope()` | `965`. Lib tem `isRegisteredUser`/`getNumberId`. |
-| 21 | `profilePicture` | ❌ `nope()` | `968`. Lib tem `getProfilePicUrl`. |
-| 22 | `setBlock` | ❌ `nope()` | `971`. Lib tem `Contact.block`/`unblock`. |
-| 23 | `saveContact` | ✅ | `975-985`: `saveOrEditAddressbookContact` nativo + `syncToPhone`. |
-| 24 | `removeContact` | ✅ | `986-989`: `deleteAddressbookContact`. |
-| 25 | `createChannel` | ❌ `nope()` | `990`. Lib tem `Client.createChannel`. |
-| 26 | `channelInfo` | ❌ `nope()` | `993`. Lib tem `getChannels`/`getChannelByInviteCode`. |
-| 27 | `followChannel` | ❌ `nope()` | `996`. Lib tem `subscribeToChannel`. |
-| 28 | `unfollowChannel` | ❌ `nope()` | `999`. Lib tem `unsubscribeFromChannel`. |
+| #   | Método                | Estado      | Evidência / observação                                                                                               |
+| --- | --------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| 1   | `start`               | ✅          | `133-135`→`doStart 139-295`. Mas ver P0-1 (no-op após queda).                                                        |
+| 2   | `stop`                | 🟡          | `456-465`: fecha Chromium, mas **não zera `qrBase64` nem caches**.                                                   |
+| 3   | `logout`              | 🟡          | `471-485`: apaga userDataDir — **só se `logout()` não lançar** (catch vazio `475-481`).                              |
+| 4   | `requestPairingCode`  | 🟡          | `487-489`: não seta status `PAIRING_CODE`, não ouve o evento `code` (renova a cada 3 min).                           |
+| 5   | `sendText`            | ✅          | `491-514`. Sem `raw` (retry anti-"Aguardando mensagem" é Baileys-only).                                              |
+| 6   | `sendMedia`           | 🟡          | `516-550`: só `caption`+`ptt`. **Sem document/sticker corretos, sem upload S3.**                                     |
+| 7   | `sendPresence`        | 🟡          | `552-558`: composing/recording ok; **paused/available/unavailable → `clearState`** (2 globais errados).              |
+| 8   | `markRead`            | 🟡          | `561-564`: `chat.sendSeen()` marca o **chat inteiro**; `msgId` ignorado.                                             |
+| 9   | `getQrBase64`         | ✅          | `101-103`. Nunca zerado no stop (serve QR morto).                                                                    |
+| 10  | `getStatus`           | ✅          | `98-100`.                                                                                                            |
+| 11  | `listGroups`          | 🟡          | `853-870`: `announce`/`restrict` **hardcoded false**, `participants:[]`.                                             |
+| 12  | `groupInfo`           | 🟡          | `873-894`: **é a razão de existir da engine** (leads). `announce`/`restrict` falsos; participantes 1-a-1 sequencial. |
+| 13  | `createGroup`         | ❌ `nope()` | `944`. Lib tem `Client.createGroup`.                                                                                 |
+| 14  | `updateParticipants`  | ❌ `nope()` | `947`. Lib tem add/remove/promote/demoteParticipants.                                                                |
+| 15  | `leaveGroup`          | ❌ `nope()` | `950`. Lib tem `GroupChat.leave`.                                                                                    |
+| 16  | `setGroupSubject`     | ❌ `nope()` | `953`. Lib tem `setSubject`.                                                                                         |
+| 17  | `setGroupDescription` | ❌ `nope()` | `956`. Lib tem `setDescription`.                                                                                     |
+| 18  | `groupInviteCode`     | ❌ `nope()` | `959`. Lib tem `getInviteCode`.                                                                                      |
+| 19  | `groupRevokeInvite`   | ❌ `nope()` | `962`. Lib tem `revokeInvite`.                                                                                       |
+| 20  | `checkNumbers`        | ❌ `nope()` | `965`. Lib tem `isRegisteredUser`/`getNumberId`.                                                                     |
+| 21  | `profilePicture`      | ❌ `nope()` | `968`. Lib tem `getProfilePicUrl`.                                                                                   |
+| 22  | `setBlock`            | ❌ `nope()` | `971`. Lib tem `Contact.block`/`unblock`.                                                                            |
+| 23  | `saveContact`         | ✅          | `975-985`: `saveOrEditAddressbookContact` nativo + `syncToPhone`.                                                    |
+| 24  | `removeContact`       | ✅          | `986-989`: `deleteAddressbookContact`.                                                                               |
+| 25  | `createChannel`       | ❌ `nope()` | `990`. Lib tem `Client.createChannel`.                                                                               |
+| 26  | `channelInfo`         | ❌ `nope()` | `993`. Lib tem `getChannels`/`getChannelByInviteCode`.                                                               |
+| 27  | `followChannel`       | ❌ `nope()` | `996`. Lib tem `subscribeToChannel`.                                                                                 |
+| 28  | `unfollowChannel`     | ❌ `nope()` | `999`. Lib tem `unsubscribeFromChannel`.                                                                             |
 
 **Resumo:** ✅ 6 · 🟡 10 · ❌ 12. Os 12 `nope()` **têm API na lib** (mapa em §8 do
 relatório do motor) — são wrappers finos a escrever, não bloqueios.
@@ -151,23 +151,23 @@ com custo real em: `code` (renovação do pairing), `change_state`
 
 ### 🔴 P0 — corrigir ANTES do uso intenso
 
-| # | Achado | Evidência | Impacto no uso intenso |
-| - | ------ | --------- | ---------------------- |
-| P0-1 | **Sem reconexão + `start()` no-op após queda.** `disconnected` só troca status; a lib destrói o browser mas `this.client` fica non-null → `doStart` retorna cedo. | `wwebjs.engine.ts:140`, `:269-273` (vs Baileys `:642-664`) | Sessão cai no meio de uma campanha e **não volta** — nem sozinha, nem por `POST /start` (responde 200 e nada). Só `restart` recupera. |
-| P0-2 | **`WA_REQUIRE_PROXY` ignorado.** `deps.requireProxy` nunca é lido no wwebjs. | `wwebjs.engine.ts:139-295` (guard só em `baileys.engine.ts:489`) | Com o guard ligado p/ anti-flag, sessão wwebjs sem proxy sobe pelo **IP do datacenter** → risco de flag exatamente no período de uso pesado. Casa com **B-001** (migração p/ proxy residencial). |
-| P0-3 | **Mídia recebida descartada + mídia enviada não vai ao S3.** `type:'other'`, sem `downloadMedia`, sem `storeMedia`. | `wwebjs.engine.ts:590`, `:516-550`; `GET media` 404 em `messages.controller.ts:186-210` | Qualquer imagem/áudio/documento que o lead mandar é **irrecuperável**; o inbox e o n8n não recebem o binário. |
-| P0-4 | **webVersion a semanas de expirar.** Pin `2.3000.104227…` com aviso "Meta expira ~fim de agosto/2026". | `wwebjs.engine.ts:39-40,43`; `env.production.example:112-115` | Se expirar durante o uso intenso, o fallback `live` traz build que **esconde o número dos leads** — quebra a razão de usar wwebjs. Precisa **revalidar/pinar versão nova válida ANTES**. |
+| #    | Achado                                                                                                                                                            | Evidência                                                                               | Impacto no uso intenso                                                                                                                                                                           |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| P0-1 | **Sem reconexão + `start()` no-op após queda.** `disconnected` só troca status; a lib destrói o browser mas `this.client` fica non-null → `doStart` retorna cedo. | `wwebjs.engine.ts:140`, `:269-273` (vs Baileys `:642-664`)                              | Sessão cai no meio de uma campanha e **não volta** — nem sozinha, nem por `POST /start` (responde 200 e nada). Só `restart` recupera.                                                            |
+| P0-2 | **`WA_REQUIRE_PROXY` ignorado.** `deps.requireProxy` nunca é lido no wwebjs.                                                                                      | `wwebjs.engine.ts:139-295` (guard só em `baileys.engine.ts:489`)                        | Com o guard ligado p/ anti-flag, sessão wwebjs sem proxy sobe pelo **IP do datacenter** → risco de flag exatamente no período de uso pesado. Casa com **B-001** (migração p/ proxy residencial). |
+| P0-3 | **Mídia recebida descartada + mídia enviada não vai ao S3.** `type:'other'`, sem `downloadMedia`, sem `storeMedia`.                                               | `wwebjs.engine.ts:590`, `:516-550`; `GET media` 404 em `messages.controller.ts:186-210` | Qualquer imagem/áudio/documento que o lead mandar é **irrecuperável**; o inbox e o n8n não recebem o binário.                                                                                    |
+| P0-4 | **webVersion a semanas de expirar.** Pin `2.3000.104227…` com aviso "Meta expira ~fim de agosto/2026".                                                            | `wwebjs.engine.ts:39-40,43`; `env.production.example:112-115`                           | Se expirar durante o uso intenso, o fallback `live` traz build que **esconde o número dos leads** — quebra a razão de usar wwebjs. Precisa **revalidar/pinar versão nova válida ANTES**.         |
 
 ### 🟠 P1 — alto (defeitos que degradam silenciosamente)
 
-| # | Achado | Evidência |
-| - | ------ | --------- |
-| P1-1 | **Envelope de webhook rotula toda sessão wwebjs como `engine:'baileys'`** (hardcoded); `guardrail.service.ts:180` faz certo → o mesmo consumidor recebe rótulos contraditórios. Contrato público (node n8n). Um teste **cristaliza o bug**. | `session-manager.service.ts:172`; `webhooks.e2e-spec.ts:102` |
-| P1-2 | **`POST /:id/new-qr` é no-op de credencial no wwebjs** (limpa só o Postgres; a credencial está no disco/LocalAuth). O botão do painel "gerar novo QR" não recupera sessão wwebjs desconectada pelo celular. | `session-manager.service.ts:340-345` vs `wwebjs.engine.ts:173-176` |
-| P1-3 | **`DELETE /sessions/:id` vaza perfil Chromium** (dezenas–centenas de MB) órfão no volume, para sempre, a cada sessão wwebjs criada+removida. | `session-manager.service.ts:349-358`; nada apaga `/data/wwebjs/session-<id>/` |
-| P1-4 | **Zero cobertura e2e do caminho wwebjs**; o `fakeSessionManager` faz as 14 operações não suportadas passarem verdes → 18 arquivos e2e dão impressão de paridade inexistente. | `apps/gateway/test/setup-app.ts:11-53`; `f5.e2e-spec.ts` |
-| P1-5 | **`recordHardSignal` nunca é chamado** → `signal.463` e `signal.restriction` são catálogo público morto (nas DUAS engines); `ultimoSinal` sempre null. | `guardrail.service.ts:350` (única ocorrência = a definição) |
-| P1-6 | **12 `nope()` → HTTP 400 genérico** (não 501/422): para o n8n, "engine não suporta" é indistinguível de "payload inválido". | `wwebjs.engine.ts:813-815`; controllers de groups/contacts/channels |
+| #    | Achado                                                                                                                                                                                                                                      | Evidência                                                                     |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| P1-1 | **Envelope de webhook rotula toda sessão wwebjs como `engine:'baileys'`** (hardcoded); `guardrail.service.ts:180` faz certo → o mesmo consumidor recebe rótulos contraditórios. Contrato público (node n8n). Um teste **cristaliza o bug**. | `session-manager.service.ts:172`; `webhooks.e2e-spec.ts:102`                  |
+| P1-2 | **`POST /:id/new-qr` é no-op de credencial no wwebjs** (limpa só o Postgres; a credencial está no disco/LocalAuth). O botão do painel "gerar novo QR" não recupera sessão wwebjs desconectada pelo celular.                                 | `session-manager.service.ts:340-345` vs `wwebjs.engine.ts:173-176`            |
+| P1-3 | **`DELETE /sessions/:id` vaza perfil Chromium** (dezenas–centenas de MB) órfão no volume, para sempre, a cada sessão wwebjs criada+removida.                                                                                                | `session-manager.service.ts:349-358`; nada apaga `/data/wwebjs/session-<id>/` |
+| P1-4 | **Zero cobertura e2e do caminho wwebjs**; o `fakeSessionManager` faz as 14 operações não suportadas passarem verdes → 18 arquivos e2e dão impressão de paridade inexistente.                                                                | `apps/gateway/test/setup-app.ts:11-53`; `f5.e2e-spec.ts`                      |
+| P1-5 | **`recordHardSignal` nunca é chamado** → `signal.463` e `signal.restriction` são catálogo público morto (nas DUAS engines); `ultimoSinal` sempre null.                                                                                      | `guardrail.service.ts:350` (única ocorrência = a definição)                   |
+| P1-6 | **12 `nope()` → HTTP 400 genérico** (não 501/422): para o n8n, "engine não suporta" é indistinguível de "payload inválido".                                                                                                                 | `wwebjs.engine.ts:813-815`; controllers de groups/contacts/channels           |
 
 ### 🟡 P2 — médio (paridade e robustez)
 
@@ -182,6 +182,7 @@ com custo real em: `code` (renovação do pairing), `change_state`
 - **Dashboard não sinaliza capacidade por engine**: numa sessão wwebjs o painel oferece criar grupo, checar número, foto, bloquear, canais — cada clique volta 400. `Groups.tsx`/`Contacts.tsx` sem condicional.
 
 ### 🟢 P3 — baixo / recurso novo
+
 - Recursos da lib ainda não expostos (reações, reply, edição, revogação, poll, localização, vCard, forward, perfil, chats/labels) — backlog de produto, não defeito.
 - `raw` (proto) ausente no wwebjs — provavelmente inerente (não há proto); o retry anti-"Aguardando mensagem" é Baileys-only por natureza.
 
@@ -209,6 +210,7 @@ conectada). Ordem por risco × custo:
 > `WWEBJS_WEB_VERSION` — ação operacional no Dokploy, **B-002**).
 
 **W1 — Estabilidade e segurança do motor (P0) — a mais urgente.**
+
 - P0-1: `disconnected` zera `this.client` (1 linha destrava o `start`) + reconexão com
   backoff espelhando o Baileys (`:642-664`).
 - P0-2: honrar `deps.requireProxy` no `doStart` (após `:150`) + log de "conexão sem
@@ -225,6 +227,7 @@ conectada). Ordem por risco × custo:
 > guard de `sent` null.
 
 **W2 — Mídia e fidelidade de envio (P0-3 + P1).**
+
 - P0-3: `msg.downloadMedia()` + `deps.storeMedia` no `onMessageCreate` (`:590`) e
   `mediaType` real a partir de `msg.type`; upload S3 no `sendMedia` com `mediaKey` no
   eco (paridade com Baileys `:896-912`).
@@ -237,6 +240,7 @@ conectada). Ordem por risco × custo:
 > `qrBase64`/cache com teto, `nope()`→HTTP 501.
 
 **W3 — Ciclo de vida e paridade de recuperação (P1/P2).**
+
 - P1-2: `new-qr`/`logout`/`remove` limpam o LocalAuth em disco no wwebjs (não só o
   Postgres) — inclui P1-3 (fim do vazamento de perfil no DELETE).
 - P2: timeout no `destroy()`; zerar `qrBase64` e caches no stop; teto no `lidToPnCache`.
@@ -248,6 +252,7 @@ conectada). Ordem por risco × custo:
 > anti-flag, announce/restrict) → **P-012**.
 
 **W4 — Completar a superfície (os 12 `nope()`) + higiene.**
+
 - Implementar os 12 métodos (a API existe na lib — §8 do relatório do motor). Maior
   retorno imediato: `checkNumbers` e `profilePicture`. Grupos completos e canais
   fecham a paridade com o Baileys.
@@ -298,65 +303,65 @@ Para o uso intenso "nos próximos dias", independentemente das ondas W1–W4:
 
 ### 7.1 Envio e mensagens ricas (o maior ganho para outreach)
 
-| Capacidade | API da lib | Gateway | O que habilita |
-| ---------- | ---------- | ------- | -------------- |
-| Texto / mídia / caption / ptt | `Client.sendMessage:1386` | 🟡 (§2: falta document/sticker/gif corretos, S3) | base |
-| **Responder citando** (quote) | `sendMessage(opts.quotedMessageId)` / `Message.reply:461` | ❌ | conversa humana ("respondendo à sua msg…") — alto valor no funil |
-| **Menções** (@contato / @grupo) | `opts.mentions` / `opts.groupMentions` `:1442-1472` | ❌ | avisos em grupo, engajamento |
-| **Reagir** a mensagem (emoji) | `Client.sendReaction:1567` / `Message.react:479` | ❌ | micro-interação humana barata; "curtir" resposta do lead |
-| **Editar** mensagem enviada | `Message.edit:875` | ❌ | corrigir erro sem reenviar |
-| **Apagar** (revoke everyone/me) | `Message.delete:604` | ❌ | retirar mensagem errada |
-| **Encaminhar** | `Message.forward:497` | ❌ | repassar material a vários leads |
-| **Fixar** mensagem no chat | `Message.pin:718`/`unpin:736` | ❌ | destacar CTA |
-| **Estrelar** | `Message.star:670`/`unstar:693` | ❌ | organização interna |
-| **Enquete** + ler votos | `new Poll` + `opts.poll` · `Client.getPollVotes:3403` · evento `vote_update` | ❌ | **engajamento de campanha** — qualificação rápida de lead |
-| **Localização** | `new Location` + `opts.location` `:Location.js` | ❌ | enviar endereço (evento presencial) |
-| **Cartão de contato** (vCard) | `opts.contactCard`/`contactCardList` | ❌ | passar contato de vendedor/parceiro |
-| **View-once** | `opts.isViewOnce` | ❌ | mídia que some |
-| **Sticker** com nome/autor | `opts.sendMediaAsSticker/stickerName/Author` | ❌ (hoje vira imagem) | branding |
-| Link preview on/off | `opts.linkPreview` | ❌ | controle de layout |
-| Info de entrega detalhada | `Message.getInfo:758` (delivery/read/played por contato) | ❌ | quem leu numa lista |
+| Capacidade                      | API da lib                                                                   | Gateway                                          | O que habilita                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| Texto / mídia / caption / ptt   | `Client.sendMessage:1386`                                                    | 🟡 (§2: falta document/sticker/gif corretos, S3) | base                                                             |
+| **Responder citando** (quote)   | `sendMessage(opts.quotedMessageId)` / `Message.reply:461`                    | ❌                                               | conversa humana ("respondendo à sua msg…") — alto valor no funil |
+| **Menções** (@contato / @grupo) | `opts.mentions` / `opts.groupMentions` `:1442-1472`                          | ❌                                               | avisos em grupo, engajamento                                     |
+| **Reagir** a mensagem (emoji)   | `Client.sendReaction:1567` / `Message.react:479`                             | ❌                                               | micro-interação humana barata; "curtir" resposta do lead         |
+| **Editar** mensagem enviada     | `Message.edit:875`                                                           | ❌                                               | corrigir erro sem reenviar                                       |
+| **Apagar** (revoke everyone/me) | `Message.delete:604`                                                         | ❌                                               | retirar mensagem errada                                          |
+| **Encaminhar**                  | `Message.forward:497`                                                        | ❌                                               | repassar material a vários leads                                 |
+| **Fixar** mensagem no chat      | `Message.pin:718`/`unpin:736`                                                | ❌                                               | destacar CTA                                                     |
+| **Estrelar**                    | `Message.star:670`/`unstar:693`                                              | ❌                                               | organização interna                                              |
+| **Enquete** + ler votos         | `new Poll` + `opts.poll` · `Client.getPollVotes:3403` · evento `vote_update` | ❌                                               | **engajamento de campanha** — qualificação rápida de lead        |
+| **Localização**                 | `new Location` + `opts.location` `:Location.js`                              | ❌                                               | enviar endereço (evento presencial)                              |
+| **Cartão de contato** (vCard)   | `opts.contactCard`/`contactCardList`                                         | ❌                                               | passar contato de vendedor/parceiro                              |
+| **View-once**                   | `opts.isViewOnce`                                                            | ❌                                               | mídia que some                                                   |
+| **Sticker** com nome/autor      | `opts.sendMediaAsSticker/stickerName/Author`                                 | ❌ (hoje vira imagem)                            | branding                                                         |
+| Link preview on/off             | `opts.linkPreview`                                                           | ❌                                               | controle de layout                                               |
+| Info de entrega detalhada       | `Message.getInfo:758` (delivery/read/played por contato)                     | ❌                                               | quem leu numa lista                                              |
 
 ### 7.2 Inbox, histórico e busca (onboarding de sessão)
 
-| Capacidade | API | Gateway | Uso |
-| ---------- | --- | ------- | --- |
-| Listar todas as conversas | `Client.getChats:1668` | ❌ | popular inbox ao conectar (hoje o inbox só tem o que chega ao vivo) |
-| **Puxar histórico** de um chat | `Chat.fetchMessages({limit,fromMe}):203` | ❌ | recuperar conversa anterior de um lead |
-| Sincronizar histórico | `Client.syncHistory:3173`/`Chat.syncHistory` | ❌ | idem, sob demanda |
-| Buscar mensagens | `Client.searchMessages:1645` | ❌ | achar lead por termo |
-| Mensagens fixadas | `Client.getPinnedMessages:1778` | ❌ | — |
-| Arquivar / fixar / silenciar / marcar não-lido | `archiveChat:2007`, `pinChat:2035`, `muteChat:2081`, `markChatUnread:2131` | ❌ | gestão de inbox |
+| Capacidade                                     | API                                                                        | Gateway | Uso                                                                 |
+| ---------------------------------------------- | -------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------- |
+| Listar todas as conversas                      | `Client.getChats:1668`                                                     | ❌      | popular inbox ao conectar (hoje o inbox só tem o que chega ao vivo) |
+| **Puxar histórico** de um chat                 | `Chat.fetchMessages({limit,fromMe}):203`                                   | ❌      | recuperar conversa anterior de um lead                              |
+| Sincronizar histórico                          | `Client.syncHistory:3173`/`Chat.syncHistory`                               | ❌      | idem, sob demanda                                                   |
+| Buscar mensagens                               | `Client.searchMessages:1645`                                               | ❌      | achar lead por termo                                                |
+| Mensagens fixadas                              | `Client.getPinnedMessages:1778`                                            | ❌      | —                                                                   |
+| Arquivar / fixar / silenciar / marcar não-lido | `archiveChat:2007`, `pinChat:2035`, `muteChat:2081`, `markChatUnread:2131` | ❌      | gestão de inbox                                                     |
 
 ### 7.3 Contatos e perfil próprio
 
-| Capacidade | API | Gateway | Nota |
-| ---------- | --- | ------- | ---- |
-| Número está no WhatsApp / wid | `isRegisteredUser:2214` / `getNumberId:2224` | ❌ `nope()` (P0/W4 já prevê) | validação de lista antes de disparar — **crítico p/ campanha** |
-| Foto de perfil | `getProfilePicUrl:2145` | ❌ `nope()` (W4) | — |
-| Recado ("about") | `Contact.getAbout:206` | ❌ | enriquecimento de lead |
-| Grupos em comum | `getCommonGroups:2166` | ❌ | contexto de relacionamento |
-| Nº de devices do contato | `getContactDeviceCount:3149` | ❌ | diagnóstico |
-| LID↔telefone em lote (oficial) | `getContactLidAndPhone:3307` | ❌ (hoje faz artesanal) | **substituiria** o `page.evaluate` manual de LID |
-| Bloqueados | `getBlockedContacts:2870` · `Contact.block/unblock` | ❌ `nope()` (W4) | — |
-| Salvar/remover na agenda | `saveOrEditAddressbookContact:3260`/`delete:3291` | ✅ | já exposto |
-| **Meu status/recado** | `setStatus:1944` | ❌ | perfil da conta |
-| **Meu nome de exibição** | `setDisplayName:1958` | ❌ | perfil |
-| **Minha foto** | `setProfilePicture:2891`/`delete:2907` | ❌ | perfil/branding |
-| Presença global online/offline | `sendPresenceAvailable:1984`/`Unavailable:1995` | 🟡 (hoje vira `clearState`) | corrigir os 2 estados globais (P2) |
+| Capacidade                     | API                                                 | Gateway                      | Nota                                                           |
+| ------------------------------ | --------------------------------------------------- | ---------------------------- | -------------------------------------------------------------- |
+| Número está no WhatsApp / wid  | `isRegisteredUser:2214` / `getNumberId:2224`        | ❌ `nope()` (P0/W4 já prevê) | validação de lista antes de disparar — **crítico p/ campanha** |
+| Foto de perfil                 | `getProfilePicUrl:2145`                             | ❌ `nope()` (W4)             | —                                                              |
+| Recado ("about")               | `Contact.getAbout:206`                              | ❌                           | enriquecimento de lead                                         |
+| Grupos em comum                | `getCommonGroups:2166`                              | ❌                           | contexto de relacionamento                                     |
+| Nº de devices do contato       | `getContactDeviceCount:3149`                        | ❌                           | diagnóstico                                                    |
+| LID↔telefone em lote (oficial) | `getContactLidAndPhone:3307`                        | ❌ (hoje faz artesanal)      | **substituiria** o `page.evaluate` manual de LID               |
+| Bloqueados                     | `getBlockedContacts:2870` · `Contact.block/unblock` | ❌ `nope()` (W4)             | —                                                              |
+| Salvar/remover na agenda       | `saveOrEditAddressbookContact:3260`/`delete:3291`   | ✅                           | já exposto                                                     |
+| **Meu status/recado**          | `setStatus:1944`                                    | ❌                           | perfil da conta                                                |
+| **Meu nome de exibição**       | `setDisplayName:1958`                               | ❌                           | perfil                                                         |
+| **Minha foto**                 | `setProfilePicture:2891`/`delete:2907`              | ❌                           | perfil/branding                                                |
+| Presença global online/offline | `sendPresenceAvailable:1984`/`Unavailable:1995`     | 🟡 (hoje vira `clearState`)  | corrigir os 2 estados globais (P2)                             |
 
 ### 7.4 Grupos avançados
 
 Além dos 7 `nope()` já previstos no W4 (create/participants/leave/subject/desc/invite/revoke):
 
-| Capacidade | API | Uso |
-| ---------- | --- | --- |
-| Criar grupo com opções | `createGroup(opts):2310` (messageTimer, parentGroupId=comunidade, memberAddMode, membershipApprovalMode, isRestrict, isAnnounce) | grupo já nasce configurado |
-| **Aprovar/rejeitar entrada** | `getGroupMembershipRequests:2975` · `approve:3007`/`reject:3029` (com `sleep` anti-flood) | **crescimento de grupo** — moderar fila de entrada em massa |
-| Admin-only toggles | `setAddMembersAdminsOnly:447` · `setMessagesAdminsOnly:483` · `setInfoAdminsOnly:518` | travar grupo durante campanha |
-| Foto do grupo | `setPicture:561`/`deletePicture:548` | branding |
-| Info/aceitar convite | `getInviteInfo:1821` · `acceptInvite:1834` · `acceptGroupV4Invite:1922` | entrar em grupos |
-| Comunidades | via `parentGroupId` no createGroup | estrutura de comunidade |
+| Capacidade                   | API                                                                                                                              | Uso                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Criar grupo com opções       | `createGroup(opts):2310` (messageTimer, parentGroupId=comunidade, memberAddMode, membershipApprovalMode, isRestrict, isAnnounce) | grupo já nasce configurado                                  |
+| **Aprovar/rejeitar entrada** | `getGroupMembershipRequests:2975` · `approve:3007`/`reject:3029` (com `sleep` anti-flood)                                        | **crescimento de grupo** — moderar fila de entrada em massa |
+| Admin-only toggles           | `setAddMembersAdminsOnly:447` · `setMessagesAdminsOnly:483` · `setInfoAdminsOnly:518`                                            | travar grupo durante campanha                               |
+| Foto do grupo                | `setPicture:561`/`deletePicture:548`                                                                                             | branding                                                    |
+| Info/aceitar convite         | `getInviteInfo:1821` · `acceptInvite:1834` · `acceptGroupV4Invite:1922`                                                          | entrar em grupos                                            |
+| Comunidades                  | via `parentGroupId` no createGroup                                                                                               | estrutura de comunidade                                     |
 
 ### 7.5 Canais (newsletter) — hoje 100% `nope()`
 
@@ -372,17 +377,17 @@ de uso plausível no "uso intenso").
 O motor ouve 7 eventos; a lib emite ~31. Capturar estes vira **evento novo no webhook**
 (aditivo ao contrato — R0):
 
-| Evento da lib | Habilita | Prioridade |
-| ------------- | -------- | ---------- |
-| `message_reaction` | saber que o lead reagiu | alta (sinal de engajamento) |
-| `vote_update` | resposta de enquete em tempo real | alta (qualificação) |
-| `message_edit` | atualizar texto no banco (hoje guarda o velho) | média |
-| `message_revoke_everyone`/`_me` | marcar msg apagada | média |
-| `call` (+ `Call.reject:69`) | registrar/rejeitar chamada | média |
-| `change_state` | CONFLICT/UNPAIRED/TIMEOUT antes do disconnect (diagnóstico) | alta (estabilidade) |
-| `code` | renovação do pairing code (a cada 3 min) | alta (login por código) |
-| `group_join`/`_leave`/`_admin_changed`/`_update` | timeline de grupo | média |
-| `contact_changed`, `unread_count`, `media_uploaded` | — | baixa |
+| Evento da lib                                       | Habilita                                                    | Prioridade                  |
+| --------------------------------------------------- | ----------------------------------------------------------- | --------------------------- |
+| `message_reaction`                                  | saber que o lead reagiu                                     | alta (sinal de engajamento) |
+| `vote_update`                                       | resposta de enquete em tempo real                           | alta (qualificação)         |
+| `message_edit`                                      | atualizar texto no banco (hoje guarda o velho)              | média                       |
+| `message_revoke_everyone`/`_me`                     | marcar msg apagada                                          | média                       |
+| `call` (+ `Call.reject:69`)                         | registrar/rejeitar chamada                                  | média                       |
+| `change_state`                                      | CONFLICT/UNPAIRED/TIMEOUT antes do disconnect (diagnóstico) | alta (estabilidade)         |
+| `code`                                              | renovação do pairing code (a cada 3 min)                    | alta (login por código)     |
+| `group_join`/`_leave`/`_admin_changed`/`_update`    | timeline de grupo                                           | média                       |
+| `contact_changed`, `unread_count`, `media_uploaded` | —                                                           | baixa                       |
 
 ### 7.7 ⛔ Bloqueado / não vale a pena (registrar para não tentar de novo)
 
@@ -407,6 +412,7 @@ O motor ouve 7 eventos; a lib emite ~31. Capturar estes vira **evento novo no we
 **W5 — Mensagens ricas (maior ROI para conversa humana):**
 `reply`/quote · `mentions`/groupMentions · `sendReaction` · `poll` + `vote_update` no
 webhook · `location` · `contactCard`/vCard. São os que mais humanizam e engajam o funil.
+
 > **Atualização 12/08:** ENTREGUES **reações + menções** (sessão `wwebjs-w5-mensagens-ricas`)
 > e **localização + enquete** (sessão `wwebjs-w5b-location-poll`), nas duas engines, aditivo.
 > Restam neste W5: **reply/quote** (deferido — Baileys não persiste `raw` inbound),
@@ -427,6 +433,7 @@ capturar `message_reaction`, `vote_update`, `message_edit`, `message_revoke_*`,
 `getChats` + `fetchMessages` (popular o inbox ao conectar e puxar histórico de um lead) ·
 `searchMessages` · gestão (archive/pin/mute/markUnread). Fecha o gap "inbox só tem o que
 chega ao vivo".
+
 > **Atualização 13/08 (sessão `wwebjs-w7-inbox`):** 1º incremento ENTREGUE — **backfill**.
 > Descoberta que redefiniu o escopo: a LEITURA da inbox JÁ existia e é agnóstica de engine
 > (`GET /messages/conversations` + `GET /messages`, servidas de `wa_messages`). O W7 virou

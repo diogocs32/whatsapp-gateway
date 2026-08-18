@@ -62,10 +62,7 @@ export interface ReactionPayload {
 }
 
 export type EngineEventName =
-  | 'session.status'
-  | 'message'
-  | 'message.ack'
-  | 'message.reaction';
+  'session.status' | 'message' | 'message.ack' | 'message.reaction';
 export type EngineEventHandler = (
   name: EngineEventName,
   payload: unknown,
@@ -98,11 +95,7 @@ export interface WaEventEnvelope {
 }
 
 export type MediaSendType =
-  | 'image'
-  | 'video'
-  | 'audio'
-  | 'document'
-  | 'sticker';
+  'image' | 'video' | 'audio' | 'document' | 'sticker';
 
 // G1: opções de envio comuns a texto e mídia. `cold` é repassado ao eco; `idempotencyKey`
 // dá dedup forte (o gateway é o juiz — ver MessagesController).
@@ -222,11 +215,7 @@ export interface HistoryMessage {
 
 // G8 — estados de presença. composing/recording/paused são por chat; available/unavailable globais.
 export type PresenceState =
-  | 'composing'
-  | 'paused'
-  | 'recording'
-  | 'available'
-  | 'unavailable';
+  'composing' | 'paused' | 'recording' | 'available' | 'unavailable';
 
 // Erro de operação NÃO suportada pela engine ativa (ex.: grupos/canais no wwebjs, cujo `nope()` o
 // lança). O controller mapeia para HTTP 501 (Not Implemented) — distinto de payload inválido (400):

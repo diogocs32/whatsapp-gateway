@@ -36,8 +36,7 @@ export function Dashboard() {
           {branding.logoUrl && (
             <img src={branding.logoUrl} alt="" className="h-6 object-contain" />
           )}
-          {branding.productName}{' '}
-          <span className="text-zinc-500">· painel</span>
+          {branding.productName} <span className="text-zinc-500">· painel</span>
         </h1>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-zinc-400">
@@ -172,8 +171,8 @@ export function Dashboard() {
           >
             <h2 className="mb-2 font-medium text-zinc-100">Marca →</h2>
             <p className="text-sm text-zinc-400">
-              White-label: nome do produto, logo, cor do tema e favicon.
-              Visível só para OWNER.
+              White-label: nome do produto, logo, cor do tema e favicon. Visível
+              só para OWNER.
             </p>
           </Link>
         )}
@@ -185,8 +184,8 @@ export function Dashboard() {
           >
             <h2 className="mb-2 font-medium text-zinc-100">Auditoria →</h2>
             <p className="text-sm text-zinc-400">
-              Histórico de ações que alteram estado (quem, o quê, quando).
-              OWNER e ADMIN.
+              Histórico de ações que alteram estado (quem, o quê, quando). OWNER
+              e ADMIN.
             </p>
           </Link>
         )}

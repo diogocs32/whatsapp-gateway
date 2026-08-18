@@ -9,7 +9,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 ### Corrigido (16/08 — hotfix pós-deploy da sessão `otimizacao-deps-hotpaths`)
 
 - **Imagem do gateway sem deps ANINHADAS do workspace → boot morria com `Cannot find module
-  'zod'`** (deploy de 22:11 UTC: build Done, migration aplicada, mas o container novo saía com
+'zod'`** (deploy de 22:11 UTC: build Done, migration aplicada, mas o container novo saía com
   Exited(1) e o Swarm segurava o antigo — produção nunca ficou fora). Causa: o `npm update`
   levou o `eslint-plugin-react-hooks` (devDep da RAIZ) a exigir **zod@4**, que tomou o slot da
   raiz; o **zod@3 do gateway** foi aninhado em `apps/gateway/node_modules` — que o Dockerfile

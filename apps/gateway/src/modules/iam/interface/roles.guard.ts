@@ -40,7 +40,8 @@ export class RolesGuard implements CanActivate {
     >();
 
     const method = (req.method ?? 'GET').toUpperCase();
-    const isRead = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+    const isRead =
+      method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
     const required: Role = explicit ?? (isRead ? 'VIEWER' : 'OPERATOR');
 
     const role: Role | undefined = req.apiKey

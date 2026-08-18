@@ -68,7 +68,8 @@ export function Users() {
   }
 
   function remove(id: string, uname: string) {
-    if (!confirm(`Remover o usuário "${uname}"? Esta ação é irreversível.`)) return;
+    if (!confirm(`Remover o usuário "${uname}"? Esta ação é irreversível.`))
+      return;
     act(() => api.users.remove(id));
   }
 
@@ -99,8 +100,8 @@ export function Users() {
             {data
               ? `${data.usedSeats}/${data.maxSeats} assentos usados`
               : 'carregando…'}{' '}
-            — papéis: OWNER (gere tudo) · ADMIN (administra) · OPERATOR (opera) ·
-            VIEWER (lê)
+            — papéis: OWNER (gere tudo) · ADMIN (administra) · OPERATOR (opera)
+            · VIEWER (lê)
           </p>
           <button
             onClick={() => {
@@ -191,7 +192,10 @@ export function Users() {
             <tbody className="divide-y divide-zinc-800">
               {data?.users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-10 text-center text-zinc-500"
+                  >
                     Nenhum usuário.
                   </td>
                 </tr>
@@ -224,7 +228,9 @@ export function Users() {
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3 text-zinc-400">{fmt(u.createdAt)}</td>
+                  <td className="px-4 py-3 text-zinc-400">
+                    {fmt(u.createdAt)}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <button

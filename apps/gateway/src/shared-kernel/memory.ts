@@ -50,7 +50,9 @@ export function memoryStats(): MemoryStats {
 
   const limit = constrainedMemory() || 0; // 0 quando não há limite de cgroup
   const containerLimitBytes = limit > 0 ? limit : null;
-  const containerUsedBytes = containerLimitBytes ? readCgroupWorkingSet() : null;
+  const containerUsedBytes = containerLimitBytes
+    ? readCgroupWorkingSet()
+    : null;
   const memoryUsedPct =
     containerLimitBytes && containerUsedBytes
       ? containerUsedBytes / containerLimitBytes

@@ -92,9 +92,13 @@ export class ReplyRateService {
         (SELECT count(*)::int FROM cold WHERE "status" IN ('delivered','read')) AS "delivered",
         (SELECT count(*)::int FROM cold WHERE "status" = 'read') AS "readCnt"
     `;
-    const r =
-      rows[0] ??
-      { coldTotal: 0, coldMature: 0, responded: 0, delivered: 0, readCnt: 0 };
+    const r = rows[0] ?? {
+      coldTotal: 0,
+      coldMature: 0,
+      responded: 0,
+      delivered: 0,
+      readCnt: 0,
+    };
 
     const replyRate = r.coldMature > 0 ? r.responded / r.coldMature : 0;
     const deliveryRate = r.coldTotal > 0 ? r.delivered / r.coldTotal : 0;

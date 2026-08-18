@@ -81,10 +81,7 @@ export class UserService {
 
   async remove(id: string): Promise<void> {
     const user = await this.require(id);
-    if (
-      user.role === 'OWNER' &&
-      (await this.users.countByRole('OWNER')) <= 1
-    ) {
+    if (user.role === 'OWNER' && (await this.users.countByRole('OWNER')) <= 1) {
       throw new ForbiddenException('Não é possível remover o último OWNER.');
     }
     await this.users.delete(id);

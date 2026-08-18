@@ -8,7 +8,7 @@
   importado). Sem tocar nas engines: só repositório + rota.
 - **Escopo (pode tocar):** `messaging/domain/message.repository` (método) ·
   `messaging/infrastructure/prisma-message.repository` (impl) · `messaging/interface/
-  messages.controller` (rota GET /search) · test · docs (INTEGRACAO, CHANGELOG, PENDENCIAS,
+messages.controller` (rota GET /search) · test · docs (INTEGRACAO, CHANGELOG, PENDENCIAS,
   ESTADO, analise).
 - **Fora do escopo:** engines (busca é DB, não store) · `packages/contracts` (P-013) ·
   `schema.prisma` (sem migration; usa `text` existente). Índice trigram/FTS = melhoria futura

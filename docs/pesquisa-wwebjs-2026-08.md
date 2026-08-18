@@ -21,6 +21,7 @@
 ## 1. Dois modos de falha distintos na comunidade
 
 ### Modo A — HANG até o protocolTimeout (o NOSSO caso)
+
 Sintoma: pós-QR, `loading_screen` completa (ou trava em 99%), `ready` dispara, WS vivo, mas os
 evaluates penduram até o `protocolTimeout` → `Runtime.callFunctionOn timed out`.
 
@@ -36,6 +37,7 @@ evaluates penduram até o `protocolTimeout` → `Runtime.callFunctionOn timed ou
   https://github.com/wwebjs/whatsapp-web.js/issues/5758
 
 ### ⭐ O fix do NOSSO sintoma existe e NÃO está em release: commit `1780711`
+
 **PR #201653 — "fix: prevent duplicate ready events on SPA re-injection" — MERGED 25/06/2026**,
 DOIS MESES depois do release 1.34.7 (24/04). Ausente de qualquer versão do npm.
 https://github.com/wwebjs/whatsapp-web.js/pull/201653
@@ -50,6 +52,7 @@ Precedente de produção: terceiro rodando `"whatsapp-web.js": "github:wwebjs/wh
 Complemento ainda aberto: PR #201893 (serializa inject; evita crash de processo por exposeFunction duplicado).
 
 ### Modo B — throw RÁPIDO `r: r` / `t: t` (o que a build 1045 fez com a gente em 13/08)
+
 WA Web `2.3000.104x` **renomeou `_serialized` → `$1`** nas message keys → a lib lê `undefined` →
 `DataError` minificado `r`. **NÃO é o nosso hang** (é determinístico e instantâneo; aumentar
 protocolTimeout comprovadamente não muda — #201845). Issues abertas SEM fix mergeado: #201845,
@@ -72,14 +75,14 @@ aceitando `_serialized` OU `$1` + try/catch no exposeFunction). Confirmação de
 
 ## 3. Panorama de ferramentas (números GitHub API 13/08/2026)
 
-| Projeto | Stars | Issues abertas | Último release |
-|---|---|---|---|
-| whatsapp-web.js (org wwebjs) | 22.398 | 99 | 1.34.7 — 24/04/2026 |
-| **wa-js (wppconnect)** | 783 | **11** | **4.5.0 — 31/07/2026** (release ~semanal) |
-| wppconnect (lib) | — | — | 2.2.7 — 10/08/2026 |
-| Baileys | 10.698 | 349 | **7.0.0-rc14 — 29/07/2026** (nós: rc13) |
-| venom | 6.571 | 63 | 5.3.0 — 11/2024 (hiato 26 meses; v6 não lançada) |
-| open-wa | 3.641 | 181 | 5.0.0-alpha.8 (licença paga £10/mês/número p/ função-chave) |
+| Projeto                      | Stars  | Issues abertas | Último release                                              |
+| ---------------------------- | ------ | -------------- | ----------------------------------------------------------- |
+| whatsapp-web.js (org wwebjs) | 22.398 | 99             | 1.34.7 — 24/04/2026                                         |
+| **wa-js (wppconnect)**       | 783    | **11**         | **4.5.0 — 31/07/2026** (release ~semanal)                   |
+| wppconnect (lib)             | —      | —              | 2.2.7 — 10/08/2026                                          |
+| Baileys                      | 10.698 | 349            | **7.0.0-rc14 — 29/07/2026** (nós: rc13)                     |
+| venom                        | 6.571  | 63             | 5.3.0 — 11/2024 (hiato 26 meses; v6 não lançada)            |
+| open-wa                      | 3.641  | 181            | 5.0.0-alpha.8 (licença paga £10/mês/número p/ função-chave) |
 
 - **wa-js/wppconnect**: único com API LID↔PN explícita e versionada — `lidPnCache` (7 funções),
   `WPP.contact.getPnLidEntry` (com fallback `queryExists` NO SERVIDOR), `WPP.chat.requestPhoneNumber`
@@ -108,6 +111,7 @@ aceitando `_serialized` OU `$1` + try/catch no exposeFunction). Confirmação de
    (14/08, D-012: foco somente wwebjs)**. Registrados aqui como opções futuras com a evidência.
 
 ## Não encontrado (registrado para não re-pesquisar à toa)
+
 - Consenso de comunidade (Discord/Reddit/SO) sobre extração de participantes com PN — não há.
 - Roadmap do Baileys 7 stable — não há.
 - Curadoria/estabilidade de builds no wa-version — não existe (é espelho automático).

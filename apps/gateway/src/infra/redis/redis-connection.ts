@@ -13,7 +13,9 @@ export interface RedisConnection {
   maxRetriesPerRequest: null; // recomendado quando o mesmo Redis serve filas (BullMQ)
 }
 
-export function redisConnection(config: ConfigService<Env, true>): RedisConnection {
+export function redisConnection(
+  config: ConfigService<Env, true>,
+): RedisConnection {
   const url = config.get('REDIS_URL', { infer: true });
   if (url) {
     const u = new URL(url);
@@ -32,7 +34,9 @@ export function redisConnection(config: ConfigService<Env, true>): RedisConnecti
     host: config.get('REDIS_HOST', { infer: true }) ?? 'localhost',
     port: config.get('REDIS_PORT', { infer: true }),
     // username só com senha (ACL Redis 6+); sem senha = sem AUTH.
-    username: password ? config.get('REDIS_USERNAME', { infer: true }) : undefined,
+    username: password
+      ? config.get('REDIS_USERNAME', { infer: true })
+      : undefined,
     password: password || undefined,
     db: config.get('REDIS_DB', { infer: true }),
     maxRetriesPerRequest: null,

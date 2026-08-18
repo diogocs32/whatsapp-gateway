@@ -51,7 +51,7 @@
   423 no n8n APROVADO em definitivo (critério 4)** — override → 423 SESSION_QUARANTINED antes da
   engine → requeue N7 provado com `RETURNING id` (+ achado `continueOnQuarantine` opt-in corrigido
   no fluxo de envio) · **`GUARDRAIL_ENFORCE=true` ATIVO em produção** (constatado na env 13/08;
-  >1 mês de enforcement sem NENHUM incidente/falso-positivo registrado).
+  > 1 mês de enforcement sem NENHUM incidente/falso-positivo registrado).
 - **Justificativa do fechamento:** critérios 2–5 cumpridos com evidência; critério 1 parcial
   (janela de 5 dias, não 7 — coletas pararam em 14/07), SUPRIDO por >1 mês de enforcement real em
   produção sem incidente — validação mais forte que o restante da janela formal. A divergência do

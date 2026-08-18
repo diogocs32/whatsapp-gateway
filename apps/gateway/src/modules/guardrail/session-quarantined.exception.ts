@@ -9,7 +9,8 @@ export class SessionQuarantinedException extends HttpException {
         code: 'SESSION_QUARANTINED',
         state,
         message:
-          reason ?? `Sessão em "${state}": envio cold bloqueado pelo guard-rail.`,
+          reason ??
+          `Sessão em "${state}": envio cold bloqueado pelo guard-rail.`,
       },
       HttpStatus.LOCKED,
     );

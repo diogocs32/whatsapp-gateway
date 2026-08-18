@@ -13,18 +13,18 @@
 - **ESTADO.md:** prod = main `d172b78` (16/08); 4 sessões listadas como ativas; divergência
   GUARDRAIL_ENFORCE pendente de reconciliação; M2 dada como "próxima onda".
 - **SESSOES.md:** 4 ativas (M2 · auth-refresh · wwebjs-proxy-anonimizado · wwebjs-store-travado)
-  + 3 avisos (16/08 deploy D-016 · 13/08 enforce=true · 12/08 base v4.3).
+  - 3 avisos (16/08 deploy D-016 · 13/08 enforce=true · 12/08 base v4.3).
 - **PENDENCIAS.md:** P-013 travada na sessão auth-refresh; P-014 "resolvido na prática";
   P-021 recém-corrigida (17/08, condição bullmq 6/ioredis 6).
 
 ## Auditoria (evidência de git/registry — nada de achismo)
 
-| Sessão "ativa" | Estado REAL constatado | Veredito |
-| -------------- | ---------------------- | -------- |
-| auth-refresh-rotation | Código COMPLETO na main desde **19/07** (`ce204d1`, ancestral do deploy `d172b78`); branch deletada; schema/migration/TokenService/silent-refresh conferidos no working tree | ✅ fechar retroativo |
-| wwebjs-proxy-anonimizado | Merge `7e05fc1` deployado e validado 13/08 (túnel proxy-chain funcionando); branch deletada | ✅ fechar retroativo |
-| wwebjs-store-travado | P-014 resolvido e VALIDADO em prod 14/08 (pin `1780711` no package.json da main; `3e74d25`/`4e30159`/`0e89017` ancestrais de prod); o próprio ATIVA dizia "ENCERRÁVEL" | ✅ fechar |
-| m2-guardrail-ativo | Branch tinha 11 commits doc-only NÃO mergeados (coletas 1–6 + teste 423 APROVADO); `GUARDRAIL_ENFORCE=true` em prod desde ≤13/08, >1 mês sem falso-positivo | ✅ mergear docs + fechar a ONDA (D-017) |
+| Sessão "ativa"           | Estado REAL constatado                                                                                                                                                       | Veredito                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| auth-refresh-rotation    | Código COMPLETO na main desde **19/07** (`ce204d1`, ancestral do deploy `d172b78`); branch deletada; schema/migration/TokenService/silent-refresh conferidos no working tree | ✅ fechar retroativo                    |
+| wwebjs-proxy-anonimizado | Merge `7e05fc1` deployado e validado 13/08 (túnel proxy-chain funcionando); branch deletada                                                                                  | ✅ fechar retroativo                    |
+| wwebjs-store-travado     | P-014 resolvido e VALIDADO em prod 14/08 (pin `1780711` no package.json da main; `3e74d25`/`4e30159`/`0e89017` ancestrais de prod); o próprio ATIVA dizia "ENCERRÁVEL"       | ✅ fechar                               |
+| m2-guardrail-ativo       | Branch tinha 11 commits doc-only NÃO mergeados (coletas 1–6 + teste 423 APROVADO); `GUARDRAIL_ENFORCE=true` em prod desde ≤13/08, >1 mês sem falso-positivo                  | ✅ mergear docs + fechar a ONDA (D-017) |
 
 ## Entregue
 

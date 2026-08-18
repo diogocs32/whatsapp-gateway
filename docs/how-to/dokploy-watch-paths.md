@@ -38,10 +38,10 @@ São **2 apps** no Dokploy (cada um com seu Dockerfile, ambos auto-deployam no m
 
 Configure o Watch Paths **nos dois** (o que não configurar continua redeployando em doc).
 
-**Aba:** **General** do app, perto do toggle "Auto Deploy". *(A doc confirma que o Auto
+**Aba:** **General** do app, perto do toggle "Auto Deploy". _(A doc confirma que o Auto
 Deploy fica na General e descarta a aba Advanced; não afirma com todas as letras que o
 campo Watch Paths está na General — confirmar visualmente. Se não estiver lá, procurar em
-Deployments.)*
+Deployments.)_
 
 ## 2. Valores (lista de inclusão, um padrão por linha/entrada)
 
@@ -88,7 +88,7 @@ Logo após salvar, valide nos DOIS sentidos:
 
 - **GitHub funciona out-of-the-box** — não precisa reconectar/reconfigurar o webhook
   (provider da produção é GitHub). ✅ (`watch-paths.mdx:57-59`)
-- **Botão "Deploy" manual × Watch Paths:** *não documentado* se o deploy manual respeita ou
+- **Botão "Deploy" manual × Watch Paths:** _não documentado_ se o deploy manual respeita ou
   ignora os padrões → tratar o botão manual como "sempre deploya" (é o escape para forçar).
 - Padrões são **relativos à raiz do repo** (sem prefixo do nome do repo). (`watch-paths.mdx:41-53`)
 - Engine de glob e case-sensitivity: **não documentados**. Features confirmadas: `**`
@@ -118,7 +118,6 @@ Config não-destrutiva e reversível a qualquer momento.
   R0). Será confirmado no **próximo push de código real** — deve aparecer uma deployment
   nova no app correspondente. Se NÃO aparecer, a lista está incompleta: adicione o path
   que você mexeu.
-
 
 ## ⚠️ Comportamento observado em produção (14/08/2026)
 

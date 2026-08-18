@@ -12,7 +12,7 @@
 - **Escopo (pode tocar):** `sessions/application/engine.port` (2 métodos novos +
   tipos) · `sessions/infrastructure/wwebjs/wwebjs.engine` (impl real) ·
   `sessions/infrastructure/baileys/baileys.engine` (501) · `sessions/application/
-  session-manager` (delegators) · `messaging/**` (serviço de backfill + repo +
+session-manager` (delegators) · `messaging/**` (serviço de backfill + repo +
   rota) · `test/**` · docs (INTEGRACAO, CHANGELOG, PENDENCIAS, analise-wwebjs).
 - **Fora do escopo:** `packages/contracts` (P-013, sessão auth-refresh é dona) ·
   `schema.prisma` (o backfill usa colunas existentes; sem migration) · gestão de chat
@@ -26,7 +26,7 @@
 - **Sessões ativas vistas:** M2 (docs/scripts) · auth-refresh (iam + contracts + prisma)
   — sem interseção; `packages/contracts` evitado de propósito (P-013).
 - **Avisos absorvidos:** base v4.3 (PENDENCIAS na abertura, eco de leitura, reconciliação
-  + checkpoint no fim).
+  - checkpoint no fim).
 - **Pendências assumidas:** P-011 (parte W7 inbox/histórico).
 - **Estado de produção:** deploy 13/08 confirmado (`/health` ok). Watch Paths ativo nos
   2 apps do Dokploy (docs não redeployam). O push desta onda dispara deploy — R0.
@@ -79,4 +79,4 @@
   `saveHistorical` deduplica por keyId (existente + dentro do lote) + `createMany skipDuplicates`;
   (b) backfill disparar webhook/reply-rate de mensagem velha → grava DIRETO no repo, fora do
   EventBus (coberto por design + comentário); (c) Baileys aceitar sync e quebrar → 501 explícito
-  + teste unit (`UnsupportedEngineOperationError`) + 4 casos e2e da rota.
+  - teste unit (`UnsupportedEngineOperationError`) + 4 casos e2e da rota.

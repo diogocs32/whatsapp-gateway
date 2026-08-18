@@ -49,7 +49,11 @@ export function ApiKeys() {
   }
 
   async function revoke(id: string) {
-    if (!confirm('Revogar esta chave? Integrações que a usam vão parar de funcionar.'))
+    if (
+      !confirm(
+        'Revogar esta chave? Integrações que a usam vão parar de funcionar.',
+      )
+    )
       return;
     try {
       await api.apiKeys.revoke(id);
@@ -184,8 +188,12 @@ export function ApiKeys() {
             <tbody className="divide-y divide-zinc-800">
               {keys.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
-                    Nenhuma chave. Crie uma para autenticar integrações externas.
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-zinc-500"
+                  >
+                    Nenhuma chave. Crie uma para autenticar integrações
+                    externas.
                   </td>
                 </tr>
               )}
@@ -200,7 +208,9 @@ export function ApiKeys() {
                     <td className="px-4 py-3 text-zinc-400">
                       {fmt(k.lastUsedAt)}
                     </td>
-                    <td className="px-4 py-3 text-zinc-400">{fmt(k.createdAt)}</td>
+                    <td className="px-4 py-3 text-zinc-400">
+                      {fmt(k.createdAt)}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs ${

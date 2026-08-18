@@ -36,9 +36,7 @@ export class SessionConfigService {
   async update(sessionId: string, patch: SessionConfigPatch) {
     const { device, ...rest } = patch;
     const deviceData =
-      device !== undefined
-        ? { device: device as Prisma.InputJsonValue }
-        : {};
+      device !== undefined ? { device: device as Prisma.InputJsonValue } : {};
     return this.prisma.sessionConfig.upsert({
       where: { sessionId },
       create: { id: newId(), sessionId, ...rest, ...deviceData },

@@ -18,33 +18,33 @@ Blueprint completo do produto: **[`PROMPT-MESTRE-WHATSAPP-GATEWAY.md`](./PROMPT-
 
 ## Roadmap (ver §20 do blueprint)
 
-| Fase | Escopo | Status |
-| --- | --- | --- |
-| **F0** | Fundação (monorepo, NestJS+Fastify, Postgres/Redis, EventBus, IAM mínimo) | ✅ |
-| **F1** | Sessão + QR/Pairing + Auth store Postgres + reconexão | ✅ |
-| **F2** | Mensagens texto + webhooks (HMAC/retries) + Event Monitor (SSE) | ✅ |
-| **F3** ⭐ | Proxy + Webshare + faixas por instância + rotação/sticky/health-test | ✅ |
-| **F4** | Mídia (imagem/vídeo/voz/doc) + storage S3/MinIO + download on-demand | ✅ |
-| **F5** | Grupos / Contatos (`onWhatsApp` BR + LID) / Canais (newsletter) | ✅ |
-| **F6** | Campanhas + anti-ban (BullMQ, rate-limit por chip, humanização, relatório) | ✅ |
-| **F7** | Observability (`/metrics`, timeline, tela Logs & saúde) + isolamento de falhas | 🟡 F7.1+F7.2 ✅ · F7.3 (sharding) adiada |
-| **F8** | Engine plugável: WWebJS (whatsapp-web.js) por sessão, mesmo `IEngine` | ✅ |
-| **F9** | IAM completo (RBAC, team seats, API keys) + licença offline + deploy Dokploy | ⏳ **próxima** |
+| Fase      | Escopo                                                                         | Status                                   |
+| --------- | ------------------------------------------------------------------------------ | ---------------------------------------- |
+| **F0**    | Fundação (monorepo, NestJS+Fastify, Postgres/Redis, EventBus, IAM mínimo)      | ✅                                       |
+| **F1**    | Sessão + QR/Pairing + Auth store Postgres + reconexão                          | ✅                                       |
+| **F2**    | Mensagens texto + webhooks (HMAC/retries) + Event Monitor (SSE)                | ✅                                       |
+| **F3** ⭐ | Proxy + Webshare + faixas por instância + rotação/sticky/health-test           | ✅                                       |
+| **F4**    | Mídia (imagem/vídeo/voz/doc) + storage S3/MinIO + download on-demand           | ✅                                       |
+| **F5**    | Grupos / Contatos (`onWhatsApp` BR + LID) / Canais (newsletter)                | ✅                                       |
+| **F6**    | Campanhas + anti-ban (BullMQ, rate-limit por chip, humanização, relatório)     | ✅                                       |
+| **F7**    | Observability (`/metrics`, timeline, tela Logs & saúde) + isolamento de falhas | 🟡 F7.1+F7.2 ✅ · F7.3 (sharding) adiada |
+| **F8**    | Engine plugável: WWebJS (whatsapp-web.js) por sessão, mesmo `IEngine`          | ✅                                       |
+| **F9**    | IAM completo (RBAC, team seats, API keys) + licença offline + deploy Dokploy   | ⏳ **próxima**                           |
 
 ---
 
 ## Stack (versões confirmadas)
 
-| Camada     | Versão                                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------- |
-| Runtime    | Node **26.3.1**                                                                                            |
-| Backend    | NestJS **11** (adapter Fastify **5**)                                                                      |
-| WhatsApp   | **@whiskeysockets/baileys 7.0.0-rc13**                                                                     |
-| Config/JWT | `@nestjs/config` **4** · `@nestjs/jwt` **11**                                                              |
-| ORM        | **Prisma 7.8** (generator `prisma-client` + driver adapter `@prisma/adapter-pg`)                           |
-| DB / Cache | PostgreSQL **18** · Redis **7** (`ioredis` 5) · filas **BullMQ**                                           |
-| Mídia      | MinIO / S3 (`@aws-sdk/client-s3`)                                                                          |
-| Frontend   | React **19** · Vite **8** · Tailwind **4** · react-router **7**                                            |
+| Camada     | Versão                                                                           |
+| ---------- | -------------------------------------------------------------------------------- |
+| Runtime    | Node **26.3.1**                                                                  |
+| Backend    | NestJS **11** (adapter Fastify **5**)                                            |
+| WhatsApp   | **@whiskeysockets/baileys 7.0.0-rc13**                                           |
+| Config/JWT | `@nestjs/config` **4** · `@nestjs/jwt` **11**                                    |
+| ORM        | **Prisma 7.8** (generator `prisma-client` + driver adapter `@prisma/adapter-pg`) |
+| DB / Cache | PostgreSQL **18** · Redis **7** (`ioredis` 5) · filas **BullMQ**                 |
+| Mídia      | MinIO / S3 (`@aws-sdk/client-s3`)                                                |
+| Frontend   | React **19** · Vite **8** · Tailwind **4** · react-router **7**                  |
 
 ---
 
@@ -97,19 +97,19 @@ Depois:
 
 ## Scripts úteis (raiz)
 
-| Comando                           | O que faz                                                           |
-| --------------------------------- | ------------------------------------------------------------------- |
-| `npm run infra:up` / `infra:down` | sobe/derruba Postgres+Redis+MinIO                                   |
-| `npm run dev`                     | backend + frontend juntos                                           |
-| `npm run gateway:dev`             | só o backend (watch)                                                |
-| `npm run dashboard:dev`           | só o frontend                                                       |
-| `npm run gateway:generate`        | regenera o Prisma Client                                            |
-| `npm run gateway:migrate`         | `prisma migrate dev`                                                |
-| `npm run lint` / `lint:fix`       | ESLint (typescript-eslint + react-hooks)                            |
-| `npm run format`                  | Prettier (formata o repo)                                           |
-| `npm run test`                    | testes do gateway (Vitest) — requer `infra:up` (Postgres/Redis)     |
-| `bash scripts/status.sh`          | status das sessões (psql)                                           |
-| `bash scripts/diag-aguardando.sh` | diagnóstico read-only de descriptografia/"Aguardando mensagem"      |
+| Comando                           | O que faz                                                       |
+| --------------------------------- | --------------------------------------------------------------- |
+| `npm run infra:up` / `infra:down` | sobe/derruba Postgres+Redis+MinIO                               |
+| `npm run dev`                     | backend + frontend juntos                                       |
+| `npm run gateway:dev`             | só o backend (watch)                                            |
+| `npm run dashboard:dev`           | só o frontend                                                   |
+| `npm run gateway:generate`        | regenera o Prisma Client                                        |
+| `npm run gateway:migrate`         | `prisma migrate dev`                                            |
+| `npm run lint` / `lint:fix`       | ESLint (typescript-eslint + react-hooks)                        |
+| `npm run format`                  | Prettier (formata o repo)                                       |
+| `npm run test`                    | testes do gateway (Vitest) — requer `infra:up` (Postgres/Redis) |
+| `bash scripts/status.sh`          | status das sessões (psql)                                       |
+| `bash scripts/diag-aguardando.sh` | diagnóstico read-only de descriptografia/"Aguardando mensagem"  |
 
 ---
 

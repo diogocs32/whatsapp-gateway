@@ -121,11 +121,12 @@ Inspeção do app `conexozenvo` no Dokploy (projeto campanha/production, id `B2C
   marcador, que segue útil no volume).
 
 **EXECUTADO (com autorização do dono, via navegador):**
+
 1. Volume Mount criado no app gateway: `VOLUME · gateway-wwebjs · /data/wwebjs` ✓ (persistido,
    visível na lista).
 2. Deploy manual disparado ~10:39 UTC → **Done em 48s** → container novo `d92e3599c91a` healthy.
 3. **Prova do mount no log do boot:** `[entrypoint] corrigindo dono de /data/wwebjs para node
-   (uid 1000)...` (volume recém-criado nasce root; o chown condicional rodou). Baileys
+(uid 1000)...` (volume recém-criado nasce root; o chown condicional rodou). Baileys
    reidratando normalmente na sequência.
 4. Watch Paths do gateway CONFERIDO no painel: chips `apps/gateway/**`, `packages/contracts/**`,
    `package.json`, `package-lock.json` presentes (config de 13/08 intacta). O deployment com
@@ -133,12 +134,13 @@ Inspeção do app `conexozenvo` no Dokploy (projeto campanha/production, id `B2C
    último build) — sem evidência de furo no filtro; observar no próximo push doc-only.
 
 **RESTA (validação final):**
+
 1. (Dono) Escanear o QR da DIOGO — **última vez** (o volume começou vazio; o perfil antigo morreu
    com o container efêmero). Aguardar sync 100% + grupos ok. Remover aparelhos "Chrome (Linux)"
    zumbis no celular, se sobrarem.
 2. Uma troca de container (Redeploy único, janela calma) → esperado: **volta SEM QR** + no
    encerramento `shutdown fechou o Chromium limpo` + no boot `perfil fechado limpo na última
-   execução`. Isso fecha a P-015 de vez.
+execução`. Isso fecha a P-015 de vez.
 
 ## ✅ VALIDAÇÃO FINAL 14/08 ~10:51–10:56 UTC — TROCA DE CONTAINER **SEM QR** (P-015 resolvida)
 
@@ -182,6 +184,7 @@ key com `$1`), texto fica no input; `GET /groups/:g/leads` → 400; grupos não 
 
 **Implementado (receita da issue #201852, patch de @choudharyabdullah, validado em produção por
 terceiros — colada nos comentários da issue; buscada via `gh api`):**
+
 - `patches/whatsapp-web.js+1.34.7.patch` (gerado com `patch-package` a partir das edições reais na
   lib instalada — o tarball do commit `1780711` só difere no `Client.js`, os arquivos-alvo são os
   do 1.34.7): helper `window.WWebJS.getMsgKeyId` (`_serialized` OU `$1`) usado em
@@ -212,7 +215,7 @@ LID→PN em lote). `DEFAULT_WEB_VERSION` do código só sobe após essa validaç
   a dele). **Expira 13/10/2026** → revalidar ~início de outubro.
 - **Validação funcional (dono + curl):** grupos listam e abrem ✓ · envio pela inbox ✓ (sem o erro
   `reading 'id'`, texto não fica preso) · **leads do grupo real: `total:99, withNumber:99,
-  withoutNumber:0`** com nome e papel ✓ · reconexão SEM QR ✓ · dono relata tudo "bem mais rápido".
+withoutNumber:0`** com nome e papel ✓ · reconexão SEM QR ✓ · dono relata tudo "bem mais rápido".
 - **Combinação vencedora:** lib pinada commit `1780711` (fix injeção concorrente, D-012) + **patch
   `$1`** (patch-package, receita #201852) + build 104x pinada + volume `gateway-wwebjs` (perfil
   persistente) + teto/probe/auto-heal (P-014) + shutdown limpo (P-015).
@@ -314,6 +317,7 @@ LID→PN em lote). `DEFAULT_WEB_VERSION` do código só sobe após essa validaç
 **Status final:** ✅ ENCERRADA. Produção estável (dono: "após QR tudo ok" ~15:35 UTC).
 
 **Entregue (tudo em prod, exceto onde marcado):**
+
 - P-015 ✅ volume `gateway-wwebjs` + shutdown limpo (bypass mutex, teto logout 8s, destroy 7s,
   marcador de fechamento, logs de estouro) — 2 trocas de container SEM QR validadas.
 - B-002 ✅ patch `$1` (patch-package) + build `2.3000.1045101284-alpha` (leads 99/99 com phone;
@@ -333,6 +337,7 @@ P-016/P-017 fechadas; P-018/P-019 registradas), DECISOES (D-013/D-014), CHANGELO
 deploy-dokploy.md (revisado de manhã). Nada do diff ficou sem doc.
 
 **BLOQUEADO EM VOCÊ (dono):**
+
 1. Janela para o lote de deploy: push do `25cad0c` (P-019) — 1 troca de container, possível 1
    re-scan do QR. Avisar qual momento.
 2. P-018 alívio: pausar/desligar autostart das sessões Baileys não-pareadas (`contatoX`) no painel.
@@ -345,7 +350,6 @@ deploy-dokploy.md (revisado de manhã). Nada do diff ficou sem doc.
 DECISOES.md (D-013/D-014) · CHANGELOG.md · deploy-dokploy.md · código: `wwebjs.engine.ts`,
 `engine.port.ts`, `session-manager.service.ts`, Dockerfiles (2), `package.json`/lock,
 `patches/whatsapp-web.js+1.34.7.patch`, `wwebjs-engine.e2e-spec.ts` (52 testes).
-
 
 ### Adendo pós-checkpoint (~16:35 UTC) — 2 correções de registro
 

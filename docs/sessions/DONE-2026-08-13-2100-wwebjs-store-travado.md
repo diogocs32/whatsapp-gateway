@@ -24,14 +24,14 @@ logger GLOBAL `LOG_LEVEL`=info, por isso os "Sessão … → proxy #N" aparecem.
 
 **Evidência colhida no log do container `abe412edcad7` (boot 17:01:43 BRT = 20:01 UTC, janela 5000 linhas cobre o boot):**
 
-| Hora (BRT) | Evento |
-| ---------- | ------ |
-| 17:01:48 | Boot: todas as sessões resolvem proxy; Baileys `01KWJQGVSS…` → **proxy #1** `104.165.153.111:5744` |
-| 17:02:06 | `POST /sessions/01KZXVSMXZZT9EJ4EPRRVPBM4Y/start` (DIOGO wwebjs, browser) → **proxy #1** (compartilhado!) |
-| 17:12:09 | ⚠️ warn: `Runtime.callFunctionOn timed out` (240s) em `getContacts` (syncAddressBook pós-ready do 1º QR ~17:05) |
-| 17:16:15 | `POST /start` DIOGO de novo → **proxy #1** de novo (2ª reconexão de QR) |
-| 17:24:06 | ⚠️ warn: mesmo timeout de `getContacts` (pós-ready do 2º QR ~17:16-17) |
-| 17:58–18:44 | Só re-resoluções de proxy das Baileys (#1 e #2) — nada mais da wwebjs |
+| Hora (BRT)  | Evento                                                                                                          |
+| ----------- | --------------------------------------------------------------------------------------------------------------- |
+| 17:01:48    | Boot: todas as sessões resolvem proxy; Baileys `01KWJQGVSS…` → **proxy #1** `104.165.153.111:5744`              |
+| 17:02:06    | `POST /sessions/01KZXVSMXZZT9EJ4EPRRVPBM4Y/start` (DIOGO wwebjs, browser) → **proxy #1** (compartilhado!)       |
+| 17:12:09    | ⚠️ warn: `Runtime.callFunctionOn timed out` (240s) em `getContacts` (syncAddressBook pós-ready do 1º QR ~17:05) |
+| 17:16:15    | `POST /start` DIOGO de novo → **proxy #1** de novo (2ª reconexão de QR)                                         |
+| 17:24:06    | ⚠️ warn: mesmo timeout de `getContacts` (pós-ready do 2º QR ~17:16-17)                                          |
+| 17:58–18:44 | Só re-resoluções de proxy das Baileys (#1 e #2) — nada mais da wwebjs                                           |
 
 **O que NÃO apareceu (e apareceria, pois são warn/error):** `change_state` (sem CONFLICT/UNPAIRED/
 TIMEOUT), "Store ainda sincronizando" (o retry do `withStoreReady` NUNCA atuou — as chamadas não
@@ -43,6 +43,7 @@ login do zero), ou Store da build antiga travando. Falta o `loading_screen` para
 passo agora é DESTRAVAR A OBSERVABILIDADE (abaixo).
 
 **Envs confirmadas na aba Environment (13/08 ~23h UTC):**
+
 - `WA_LOG_LEVEL=warn` (linha 33) — causa da cegueira acima.
 - `WA_REQUIRE_PROXY=true` (linha 39) — **JÁ LIGADO** (docs diziam pendente; B-001 na prática concluída). ⚠️ Invalida o PASSO 2 como escrito (teste sem-proxy seria BLOQUEADO pelo guard — engine recusa e vira FAILED).
 - `WWEBJS_WEB_VERSION=2.3000.1042271047-alpha` (linha 65) — rollback do B-002 confirmado na env (expira 28/08; bisect ≤1044.x segue com prazo ~25/08).
@@ -58,7 +59,7 @@ passo agora é DESTRAVAR A OBSERVABILIDADE (abaixo).
 - **Restart ÚNICO da DIOGO** (~23:40 UTC): Iniciando → Conectado em ~1 min SEM pedir QR
   (LocalAuth reaproveitado — reconexão W1 ok).
 - **PROBE (painel Grupos, sessão DIOGO): `getChats` pendurou 240s → `Runtime.callFunctionOn
-  timed out`.** 🔴 **O travamento NÃO é rajada de QR nem proxy compartilhado**: persiste com
+timed out`.** 🔴 **O travamento NÃO é rajada de QR nem proxy compartilhado**: persiste com
   restart limpo + proxy dedicado + container novo.
 - **Leitura atualizada da causa:** o teste de PN (leads 99/99, usa o MESMO Store) passou às
   ~19:50 UTC na MESMA build — antes das reconexões. O que mudou foi o **login do ZERO**
@@ -75,6 +76,7 @@ passo agora é DESTRAVAR A OBSERVABILIDADE (abaixo).
   logar de novo.
 
 ### 🎯 CAUSA CRAVADA (13/08 ~23:55 UTC — loading_screen lido com o dono logado)
+
 Progressão no container `4d128e828504` (horários BRT): **20:22 `0%` → 20:27 `100%` ✅** (1ª subida,
 auto-restore no boot — sincronizou COMPLETA) · **20:37:52 `0%` → 20:38:00 `70%` → :01 `87%` →
 :02 `99%` 🔴 e NUNCA progrediu** (2ª subida, o restart da validação). Conclusão: **a
@@ -92,6 +94,7 @@ testar grupos+leads+phone E a sync 100% na mesma janela; (d) futuro (P-001 watch
 quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct`) para isso.
 
 ### 📌 GO DO DONO 14/08 — FOCO SOMENTE WWEBJS (D-012) + PIN DO COMMIT `1780711`
+
 - Dono decidiu (~00:30 UTC): **escopo de engine = somente wwebjs** (Baileys rc14 e wa-js fora,
   registrados como opções na pesquisa). GO para o item 1 do plano da pesquisa.
 - **Implementado nesta branch**: `apps/gateway/package.json` → `whatsapp-web.js` sai do npm
@@ -113,6 +116,7 @@ quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct
   (comportamento esperado do código novo; o hang de fundo é o que o pin do `1780711` ataca).
 
 ### 📊 VALIDAÇÃO DO PIN `1780711` EM PROD (14/08 00:38–01:15 UTC) — vitória parcial + 2 achados novos
+
 - Deploy `4e30159` DONE (1m57s — `npm ci` com o tarball do GitHub passou; integridade OK).
 - Container `1bd4656aa2a7` (00:38 UTC): log agora mostra **"Reidratando sessão DIOGO (WWEBJS)"**
   (auto-restore do wwebjs EXISTE) com proxy #27 + forwarder ✓ — mas a reidratação não vingou
@@ -138,6 +142,7 @@ quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct
   de QR num perfil 100% virgem, sincronizado só pela build 1042 + lib pinada.
 
 ### 🔬 RODADA FINAL 14/08 00:50–01:35 UTC — ASSASSINO IDENTIFICADO + otimização/auto-heal deployados
+
 - **Perfil VIRGEM testado** (dono desconectou pelo celular → Reload do Dokploy matou o Chromium
   zumbi → QR limpo ~01:17): grupos carregaram RÁPIDO (getChats ✓)… e o **clique no grupo travou a
   página de novo** ⇒ perfil envenenado NÃO era a causa única.
@@ -171,6 +176,7 @@ quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct
   e a P-015 (QR a cada troca de container). Rodada da sessão store-travado ENCERRÁVEL (R9).
 
 ### 🚀 DEPLOY DO FIX TETO/PROBE 13/08 23:56 UTC (merge `3e74d25` → push → build 1m03s DONE)
+
 - **Watch Paths Teste 2 VALIDADO**: push de código disparou o build automaticamente.
 - Container novo `cd9041d1efe3` saudável; teto/probe EM PRODUÇÃO.
 - ⚠️ **DIOGO subiu pedindo QR** ("Aguardando QR") no boot novo — o LocalAuth não foi aceito
@@ -209,9 +215,11 @@ quando o loading não atingir 100% em N min — agora há sinal (`lastLoadingPct
 > start sem proxy).
 
 ### PASSO 1 — ler os logs do Dokploy (✅ executado 13/08 ~23h, ver seção acima)
+
 Painel Dokploy `http://187.77.248.160:3000` → projeto **campanha/production** → app **conexozenvo**
 (gateway, id de serviço `B2ComxiJzaEbaOiLBH_Rv`) → aba **Logs** → **Limit 5000** → filtrar por
 `wwebjs`. Procurar, na janela desde a última reconexão da sessão DIOGO (WWEBJS):
+
 - **`loading_screen`** com `percent` — se travou em X% < 100 ⇒ **sincronização não completa**
   (a causa mais provável). Se chegou a 100 ⇒ Store sincronizou e o problema é outro.
 - **`change_state`** — `CONFLICT` (outro WhatsApp Web aberto com a conta) / `UNPAIRED`
@@ -222,8 +230,10 @@ Painel Dokploy `http://187.77.248.160:3000` → projeto **campanha/production** 
   no start; a presença prova que o fix do proxy está ativo).
 
 ### PASSO 2 — se o log NÃO for conclusivo: teste sem-proxy (autorizado pelo dono como plano B)
+
 Isola se o forwarder/proxy é o gargalo do Chromium (o Baileys usa o mesmo proxy e vai bem, mas o
 Chromium baixa MUITO mais na sincronização inicial):
+
 1. `PUT /api/sessions/{DIOGO}/proxy` mode `NONE` (ou painel Proxies → DIOGO → sem proxy) → Salvar.
 2. `POST /api/sessions/{DIOGO}/restart` → aguardar WORKING.
 3. `GET /api/sessions/{DIOGO}/groups` — **se responde rápido ⇒ o proxy/forwarder é o gargalo do
@@ -232,6 +242,7 @@ Chromium baixa MUITO mais na sincronização inicial):
    sem proxy (anti-flag). `WA_REQUIRE_PROXY=false` hoje, então o teste é permitido.
 
 ### PASSO 3 — otimização de código (só DEPOIS de confirmar a causa — não codar às cegas)
+
 - **Timeout próprio no `withStoreReady`** (`wwebjs.engine.ts:~1303`): hoje, se o `fn()` (ex.:
   `getChats`) **pendura** (não lança), o withStoreReady espera o `protocolTimeout` inteiro
   (**240s**, `wwebjs.engine.ts:404`) antes de devolver erro → péssima UX (o dono espera 4min por
@@ -249,6 +260,7 @@ Chromium baixa MUITO mais na sincronização inicial):
   inicialização (antes da sincronização completa em builds recentes).
 
 ### PASSO 4 — higiene (independente da causa)
+
 - **Proxy compartilhado (corrigir):** DIOGO (wwebjs) e "Diogo" (Baileys) estão **no mesmo proxy
   `#1` `5TV5CZ` `104.165.153.111:5744`**. O modelo é 1 proxy = 1 sessão (D-008/STICKY exclusivo).
   Atribuir à DIOGO um IP LIVRE do pool (há 19 ALIVE; os `…5TV5CZ`/`…1NXAR9` já estão em uso pelas
@@ -260,15 +272,15 @@ Chromium baixa MUITO mais na sincronização inicial):
 
 ## 📋 Evidência coletada (13/08 ~21:00 UTC, via navegador)
 
-| Fato | Medição |
-| ---- | ------- |
-| `GET /groups` (DIOGO) | **pendura 240s** → `400 Runtime.callFunctionOn timed out` (protocolTimeout) |
-| `POST /messages/text` (DIOGO, auto-envio) | **pendura** (abort aos 30s) — nem envio funciona |
-| Status DIOGO | `WORKING` (mas página do Chromium travada) |
-| Timeline DIOGO | múltiplos STOPPED→STARTING→SCAN_QR→WORKING (20:05, 20:16-17) = **reconexões repetidas** |
-| Proxy DIOGO | `#1 5TV5CZ` — **MESMO** da Baileys "Diogo" (que está WORKING e enviou em 1,7s) ⇒ **proxy OK** |
-| `/health` | ok · heap **8%** · RAM **22%** · rss 274MB · container 2GB ⇒ **sem pressão de recurso** |
-| summary.sessions | WORKING 3 · DEGRADED 7 · STOPPED 9 |
+| Fato                                      | Medição                                                                                       |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /groups` (DIOGO)                     | **pendura 240s** → `400 Runtime.callFunctionOn timed out` (protocolTimeout)                   |
+| `POST /messages/text` (DIOGO, auto-envio) | **pendura** (abort aos 30s) — nem envio funciona                                              |
+| Status DIOGO                              | `WORKING` (mas página do Chromium travada)                                                    |
+| Timeline DIOGO                            | múltiplos STOPPED→STARTING→SCAN_QR→WORKING (20:05, 20:16-17) = **reconexões repetidas**       |
+| Proxy DIOGO                               | `#1 5TV5CZ` — **MESMO** da Baileys "Diogo" (que está WORKING e enviou em 1,7s) ⇒ **proxy OK** |
+| `/health`                                 | ok · heap **8%** · RAM **22%** · rss 274MB · container 2GB ⇒ **sem pressão de recurso**       |
+| summary.sessions                          | WORKING 3 · DEGRADED 7 · STOPPED 9                                                            |
 
 **Conclusão parcial:** a página do WhatsApp Web da sessão wwebjs travou; **não é proxy** (Baileys
 usa o mesmo e vai bem) **nem memória**. Gatilho provável: sincronização pós-login não completou
@@ -277,6 +289,7 @@ após as reconexões de QR em sequência. **Falta o log do `loading_screen` para
 ---
 
 ## 🔒 Contexto herdado (já resolvido na sessão anterior — não reabrir)
+
 - **Fix do proxy autenticado (proxy-chain):** MERGEADO e em prod (`7e05fc1`). O QR da DIOGO
   apareceu **através do proxy** = o túnel funciona. Este problema é DEPOIS do túnel.
 - **Build 1045 incompatível:** revertida para `2.3000.1042271047-alpha` (default, válida até
@@ -284,16 +297,19 @@ após as reconexões de QR em sequência. **Falta o log do `loading_screen` para
   (≤ série `1044.x`) segue pendente no **B-002** (prazo ~25/08).
 
 ## 🔑 Ação de segurança do dono (fora de código)
+
 - **Rotacionar a `X-Api-Key`** que vazou no chat hoje (`cz_WeeXSF…`) — painel → API keys → revogar
-  + criar nova + atualizar no n8n.
+  - criar nova + atualizar no n8n.
 
 ## ECO DE LEITURA (R9 v4.3)
+
 - ESTADO: W1–W8 wwebjs em prod; deploy `7e05fc1` (fix proxy). B-001/B-002 abertos.
 - PENDENCIAS: B-001 (proxy — 20 IPs importados/atribuídos), B-002 (build/bisect), P-011/012/013 vivas.
 - SESSOES ativas: M2 (docs) e auth-refresh (iam/contracts) — escopos disjuntos.
 - Avisos: base v4.3 (eco de leitura + reconciliação no encerramento).
 
 ## DOCS TOCADAS nesta sessão
+
 - Este arquivo (novo) · `SESSOES.md` (registro) · `PENDENCIAS.md` (P-014 nova).
 
 ## Encerramento — 18/08/2026 (sessão `fechamento-sessoes` — reconciliação R9)

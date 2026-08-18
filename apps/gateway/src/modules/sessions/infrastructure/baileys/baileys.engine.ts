@@ -1034,8 +1034,7 @@ export class BaileysEngine implements IEngine {
   // Eco de um envio nosso (fromMe=api) para o EventBus — persistência + webhook + reply-rate (G1).
   private emitOutbound(
     sent:
-      | { key?: proto.IMessageKey; message?: proto.IMessage | null }
-      | undefined,
+      { key?: proto.IMessageKey; message?: proto.IMessage | null } | undefined,
     jid: string,
     type: string,
     text: string | null,
@@ -1447,8 +1446,7 @@ export class BaileysEngine implements IEngine {
     for (const n of numbers) {
       const digits = n.replace(/[^0-9]/g, '');
       const r = (await sock.onWhatsApp(digits))?.[0] as
-        | { jid?: string; exists?: boolean }
-        | undefined;
+        { jid?: string; exists?: boolean } | undefined;
       out.push({
         number: n,
         exists: !!r?.exists,
