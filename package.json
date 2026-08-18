@@ -25,11 +25,14 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "depcruise": "depcruise apps/gateway/src",
     "test": "npm run test -w apps/gateway",
+    "test:unit": "npm run test:unit -w apps/gateway",
     "postinstall": "patch-package"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
+    "dependency-cruiser": "^18.2.0",
     "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",

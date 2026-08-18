@@ -38,6 +38,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Formatação (prettier --check)
+        run: npm run format:check
+
+      - name: Fronteiras de módulo (dependency-cruiser — ARQUITETURA §Regras)
+        run: npm run depcruise
+
       - name: Typecheck (gateway)
         run: npx tsc --noEmit -p apps/gateway/tsconfig.json
 
@@ -52,8 +58,8 @@ jobs:
       - name: Migrations
         run: npm run prisma:deploy -w apps/gateway
 
-      - name: Testes e2e
-        run: npm test
+      - name: Testes (unit + e2e) com cobertura
+        run: npm run test:cov -w apps/gateway
 
       - name: Build (gateway)
         run: npm run gateway:build
