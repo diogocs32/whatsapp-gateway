@@ -4,8 +4,8 @@
 > Ordem de leitura de toda conversa: 1º este arquivo → 2º [SESSOES.md](SESSOES.md) → 3º o arquivo da sessão ativa em [sessions/](sessions/).
 
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
-- **Onda atual:** M1 · Destravar produção — **CONCLUÍDA em 10/07/2026** (sessão `2026-07-10-1015-m1-destravar-producao`) — auditoria O1–O4 100% ✅
-- **Próxima onda:** M2 · Guard-rail ativo (janela de observação G1–G8 → ligar `GUARDRAIL_ENFORCE`)
+- **Onda atual:** M2 · Guard-rail ativo — **CONCLUÍDA em 18/08/2026** (D-017: `GUARDRAIL_ENFORCE=true` em prod desde ≤13/08, >1 mês sem falso-positivo; janela de observação + teste 423 na sessão `2026-07-10-1040-m2-guardrail-ativo`)
+- **Próxima onda:** M3 · Qualidade (testes unitários de domínio + coverage + boundaries no CI + P-004)
 
 ## Roadmap (R2)
 
@@ -13,7 +13,7 @@
 | ---- | ------------------------------------------------------------------------------------ | ------------- |
 | M0   | Doc viva (ESTADO, SESSOES, DECISOES, ARQUITETURA, PROJETO, CHANGELOG, CLAUDE.md)     | ✅ 10/07/2026 |
 | M1   | Destravar produção: O1–O3 operacionais + confirmar prod = código mais recente        | ✅ 10/07/2026 |
-| M2   | Guard-rail ativo: observação G1–G8 → ligar `GUARDRAIL_ENFORCE`                       | ⬜            |
+| M2   | Guard-rail ativo: observação G1–G8 → ligar `GUARDRAIL_ENFORCE`                       | ✅ 18/08/2026 |
 | M3   | Qualidade: testes unitários de domínio + coverage + boundaries no CI                 | ⬜            |
 | M4   | Segurança: backup testado, rotação de secrets, npm audit no CI                       | ⬜            |
 | M5   | Observabilidade com alertas (canal único + uptime externo)                           | ⬜            |
@@ -44,7 +44,7 @@
 - **Auditoria 07/2026: 100% ENCERRADA** — código (itens 3–26) e operacionais (O1–O4) todos ✅; detalhes em [auditoria-2026-07.md](auditoria-2026-07.md)
 - **Proxies:** pool Webshare re-sincronizado (10/07), todos ALIVE de verdade (health-tester só aceita 2xx), sessões WORKING
 - **DNS:** validado verde no Dokploy (10/07)
-- **Guard-rail G1–G8:** implementado e em produção em modo OBSERVAÇÃO (`GUARDRAIL_ENFORCE=false`) — ligar é a M2
+- **Guard-rail G1–G8:** implementado e **ATIVO em produção** (`GUARDRAIL_ENFORCE=true`, ligado pelo dono ≤13/08 — M2 concluída 18/08, D-017; rollback: `=false` + redeploy, funciona desde o D-007)
 - **Node n8n** `n8n-nodes-conexozenvo-gateway`: publicado no npm (v0.4.1) — repo separado; o contrato `/api` atual é a v1 de fato (R0/R4)
 - **Webhook de deploy do Dokploy:** intermitente no histórico (2 falhas em 03/07), mas disparou normal nos 2 pushes de 10/07 (~4,5 min de ciclo) — seguir observando
 - **Watch Paths (13/08):** configurado nos 2 apps (gateway + dashboard) para NÃO redeployar em commit só de `docs/` — lista de inclusão `apps/<app>/**` + `packages/contracts/**` + `package.json` + `package-lock.json`. **Teste 1 OK** (push doc-only `cca541a` não gerou build em nenhum app). Teste 2 (código deploya) valida no próximo push de código real. Runbook: [how-to/dokploy-watch-paths.md](how-to/dokploy-watch-paths.md).
@@ -54,12 +54,12 @@
 
 | Onde                       | O quê                                                                                        |
 | -------------------------- | -------------------------------------------------------------------------------------------- |
-| main local ↔ origin/main | **Sincronizado** (`d172b78`) e **PRODUÇÃO = MAIN** (deploy 16/08 ~23:43 UTC): P-019, P-020, deps/otimizações D-016 e o hotfix do Dockerfile TODOS ativos. Nada pendente de deploy. |
+| main local ↔ origin/main | **PRODUÇÃO = CÓDIGO DA MAIN** — prod no `d172b78` (16/08 ~23:43 UTC): P-019, P-020, deps/otimizações D-016 e o hotfix do Dockerfile TODOS ativos. Commits posteriores na main são **doc-only** (reconciliação 18/08 — Watch Paths não deploya). Nada de código pendente de deploy. |
 | ~~feature/dedup-status-alertas~~ | ✅ **EM PRODUÇÃO 16/08** (P-020/D-015, deploy ~17:50 UTC): dedup de `session.status` idêntico consecutivo — fim do spam de alerta zap/telegram |
 | ~~feature/otimizacao-deps-hotpaths~~ | ✅ **EM PRODUÇÃO 16/08 ~23:43 UTC** (D-016): deps atualizadas (NestJS 11.2.1, Prisma 7.9.1, fastify 5.11.3, Baileys rc14, pino 10, BullMQ 5.81.3) + otimizações (pool pg, recordMany em lote, ACK atômico, WEBHOOK_CONCURRENCY, teto de mídia, índice wa_contacts, code-splitting). Precisou de hotfix `d172b78` (zod aninhado fora da imagem — ver adendo no DONE da sessão). Majors deferidos → P-021 |
-| feature/wwebjs-store-travado | Sessão ativa (P-014): **dep wwebjs pinada no commit `1780711`** (D-012) — merge+deploy pendente de validação final |
-| feature/m2-guardrail-ativo | Sessão M2 ativa (coletas da janela de observação) — merge no fechamento da onda. ⚠️ env de prod tem `GUARDRAIL_ENFORCE=true` (divergência a reconciliar) |
-| feature/auth-refresh-rotation | Sessão auth-refresh ativa (D-009) — merge no fechamento                                   |
+| ~~feature/wwebjs-store-travado~~ | ✅ **MERGEADA E EM PROD desde 13–14/08** (`3e74d25`/`4e30159`/`0e89017` — teto/probe, pin wwebjs `1780711` D-012, groupInfo sem getContacts + auto-heal; P-014 validado 14/08). Sessão encerrada 18/08 |
+| ~~feature/m2-guardrail-ativo~~ | ✅ **MERGEADA (doc-only) 18/08** (`71d839f` — coletas da janela + teste 423 aprovado). **Onda M2 concluída (D-017)**; a divergência do `GUARDRAIL_ENFORCE` foi RECONCILIADA: `true` é o estado oficial |
+| ~~feature/auth-refresh-rotation~~ | ✅ **EM PROD desde 19/07** (`ce204d1` — refresh-token rotation D-009, fim do 401 de 12h). Sessão encerrada 18/08 (a branch já nem existia) |
 
 ## Pendências operacionais
 
@@ -92,7 +92,7 @@ sendo a mais urgente: produção SEM backup do banco.
    raiz. Revalidar a build do WA Web ~início out/2026 (expira 13/10 — B-002). **Sessão wwebjs:
    REMOVIDA da frota no fim de 14/08** (frota atual = 18 Baileys); recriar quando precisar de
    leads (1 QR; bootstrap sempre completa).
-1. **M2 em curso**: coletas diárias da janela de observação até ~17/07 (sessão `2026-07-10-1040-m2-guardrail-ativo`, branch própria) → ligar `GUARDRAIL_ENFORCE` → monitorar → fechar a onda
+1. ✅ **M2 CONCLUÍDA 18/08** (D-017): enforce ativo em prod desde ≤13/08, janela + teste 423 aprovados, docs mergeados (`71d839f`). Próxima onda de trabalho = **M3** (item 2)
 1b. **Estabilidade de sessão — P0 ENTREGUE 21/07** (sessão `DONE-2026-07-21-1730-estabilidade-sessoes`): mutex Baileys · creds limpas no loggedOut · `POST /:id/new-qr` + botão do painel · 401 → /login. Restam P1/P2 (watchdog, auto-heal DEGRADED, DisconnectReason, reconexão wwebjs — backlog no arquivo DONE da sessão; vira sessão nova quando priorizado)
 1c. **Anti-flag de sessão — CÓDIGO ENTREGUE 22/07** (sessão `DONE-2026-07-22-1700-hardening-antiban`): fingerprint realista por sessão · log de conexão sem proxy · `WA_REQUIRE_PROXY` (default false). Diagnóstico: proxies eram Webshare DATACENTER (`mode=direct`) — flag na conexão. **AÇÃO OPERACIONAL do usuário (em curso):** migrar p/ proxy RESIDENCIAL BR (adquirido — Webshare static residential, 20 IPs SP), importar em massa (`user:pass@ip:porta`, source MANUAL), atribuir 1 IP/sessão (Proxy fixo), ligar `WA_REQUIRE_PROXY=true` no Dokploy, re-vincular. Backlog: health-tester só testa ipify (não prova reputação WhatsApp).
 1d. **Adoção A1 (backup)** → A2 (gates) → A3 (fuso) · da v4.3: A8 (`.claude/`) →

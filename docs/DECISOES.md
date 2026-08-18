@@ -272,3 +272,22 @@
   socket), proxy-chain 3 (usado no wwebjs.engine — arquivo de sessão ativa), ulid 3 (ESM-only,
   zero ganho funcional), dotenv 17 (sem ganho; usado pelo prisma.config no entrypoint).
 - **Rollback:** reverter o commit de deps (lockfile junto) e redeployar.
+
+## D-017 — 2026-08-18 — M2 encerrada por reconciliação: `GUARDRAIL_ENFORCE` ativo é o estado oficial
+
+- **Decisão:** a onda **M2 (guard-rail ativo) está CONCLUÍDA** e `GUARDRAIL_ENFORCE=true` em
+  produção passa a ser o estado documentado/oficial (era divergência: docs diziam "modo
+  observação"). Fechamento por reconciliação: o dono ligou o enforce na env do Dokploy em data
+  ≤13/08 (a leitura da env em 13/08, sessão `wwebjs-store-travado`, o constatou na linha 63) e a
+  operação real por >1 mês sem falso-positivo vale como validação superior ao restante da janela
+  formal de observação.
+- **Evidência:** 6 coletas (10–14/07, `docs/observacao/guardrail-m2.jsonl`) com **zero
+  falso-positivo** · teste do 423 no n8n aprovado ponta a ponta com requeue N7 provado
+  (`RETURNING id` — critério 4 fechado em definitivo em 10/07) · nenhum incidente de guard-rail
+  registrado em PENDENCIAS/avisos/alertas entre 13/08 e 18/08. O critério 1 da janela (≥7 dias)
+  ficou parcial (coletas pararam em 14/07) — suprido pelo mês de enforcement real.
+- **Rollback:** `GUARDRAIL_ENFORCE=false` no Dokploy + redeploy — **FUNCIONA desde o D-007**
+  (`envBool` fail-fast; a pegadinha antiga do `coerce.boolean` não existe mais). Alternativa:
+  remover a env (default `false`).
+- **Consequências:** ESTADO.md roadmap M2 ✅ · próxima onda = M3 (qualidade) · histerese
+  DEGRADED↔WORKING e curadoria de quais status alertam seguem como backlog (P-001 + n8n).

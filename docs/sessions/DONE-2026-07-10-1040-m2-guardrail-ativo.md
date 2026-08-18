@@ -1,6 +1,6 @@
 # Sessão: m2-guardrail-ativo
 
-- **Status:** 🟢 ATIVA
+- **Status:** ✅ ENCERRADA 18/08/2026 (onda M2 concluída por reconciliação — D-017)
 - **Início:** 10/07/2026 10:40
 - **Objetivo:** Onda M2 — guard-rail ativo: (1) instrumentar e conduzir a janela de observação G1–G8 (≥7 dias, coleta diária de targetState vs estado real), (2) testar o 423 nos fluxos n8n via override manual, (3) ligar `GUARDRAIL_ENFORCE=true` no Dokploy (ação do usuário, R0) e monitorar 48–72h. Dependência do node n8n N1–N8 registrada (D-006).
 - **Escopo (pode tocar):** `docs/**` (how-to, DECISOES, observacao/, este arquivo, SESSOES, ESTADO no encerramento), `scripts/guardrail-observe.mjs` (novo, read-only sobre a API), `apps/gateway/env.production.example` e — **ampliação autorizada pelo usuário em 10/07 (fix D-007)** — `apps/gateway/src/bootstrap/config.ts` + `apps/gateway/test/config.e2e-spec.ts`
@@ -42,8 +42,28 @@
   - **Estado da janela:** 4 coletas / ≥5 · dia 3 de ≥7 (10/07 → ~17/07). Falta ≥1 coleta e chegar a 17/07.
   - **Risco para o flip:** amostra da Diogo oscila em torno do Nmin (19→21→14→14). Se ficar < 20 no dia do flip, a Diogo entra como `aquecimento` (sem veredito) e o enforce não protege de fato. **Ação recomendada ao usuário:** manter/retomar volume de cold-sends na Diogo durante a janela para consolidar amostra ≥ 20 `reliable`.
 
-## Encerramento (preencher ao concluir)
+## Encerramento — 18/08/2026 (sessão `fechamento-sessoes` — reconciliação R9)
 
-- **Fim:** — · **Entregue:** — · **Commits:** —
-- **Efeito de deploy:** —
-- **Pendências para próxima sessão:** —
+- **Fim:** 18/08/2026 · **Status final:** ✅ **ONDA M2 CONCLUÍDA** (fechada por reconciliação — D-017)
+- **Entregue:** coletor `scripts/guardrail-observe.mjs` + how-to · fix D-007 (`envBool` fail-fast,
+  em prod desde 10/07 `80b1670`) · janela de observação com **6 coletas em 5 dias** (10–14/07,
+  jsonl em `docs/observacao/guardrail-m2.jsonl`): **zero falso-positivo em todas** · **teste do
+  423 no n8n APROVADO em definitivo (critério 4)** — override → 423 SESSION_QUARANTINED antes da
+  engine → requeue N7 provado com `RETURNING id` (+ achado `continueOnQuarantine` opt-in corrigido
+  no fluxo de envio) · **`GUARDRAIL_ENFORCE=true` ATIVO em produção** (constatado na env 13/08;
+  >1 mês de enforcement sem NENHUM incidente/falso-positivo registrado).
+- **Justificativa do fechamento:** critérios 2–5 cumpridos com evidência; critério 1 parcial
+  (janela de 5 dias, não 7 — coletas pararam em 14/07), SUPRIDO por >1 mês de enforcement real em
+  produção sem incidente — validação mais forte que o restante da janela formal. A divergência do
+  aviso de 13/08 (docs diziam observação, prod tinha enforce ligado) reconciliada: o estado REAL
+  (enforce ativo) vira o documentado (D-017).
+- **Commits:** docs da janela mergeados na main em 18/08 (`71d839f`); fix D-007 + coletor na main
+  desde 10/07.
+- **Efeito de deploy:** nenhum (merge doc-only; o enforce já estava ligado em prod).
+- **BLOQUEADO EM VOCÊ:** nada. Opcional (higiene): apagar as branches `feature/m2-guardrail-ativo`
+  e `coleta-mac` (conteúdo integrado na main).
+- **DOCS TOCADAS:** este arquivo (→DONE) · SESSOES.md · ESTADO.md (onda atual + roadmap M2 ✅ +
+  divergência) · DECISOES.md (D-017) · docs/observacao/guardrail-m2.jsonl (mergeado).
+- **Pendências para próxima sessão:** rollback do enforce hoje é trivial (`GUARDRAIL_ENFORCE=false`
+  FUNCIONA pós-D-007, ou remover a env) · histerese DEGRADED↔WORKING segue no P-001 · backlog do
+  node n8n (`continueOnQuarantine` default true) segue anotado no how-to.

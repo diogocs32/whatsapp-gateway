@@ -33,8 +33,23 @@
 - Typecheck `tsc --noEmit` OK · eslint OK · prettier aplicado.
 - Docs: B-001/B-002 anotadas em PENDENCIAS.md (descobertas + restrições do bisect ≤1044.x).
 
-## Pendente nesta sessão
+## Pendente nesta sessão (✅ tudo cumprido em 13/08 — ver Encerramento)
 
-- Merge na main + push (dispara deploy — R0: janela calma, sessões reconectam) → validar em prod:
-  sessão DIOGO conecta COM proxy (log `forwarder local`), grupos aparecem, envio funciona.
-- Encerramento R9: reconciliação documental + checkpoint + mover para histórico.
+- ~~Merge na main + push → validar em prod~~ ✅ merge `7e05fc1` deployado ~20:01 UTC de 13/08 e
+  validado (QR da DIOGO apareceu ATRAVÉS do proxy = túnel funcionando — registrado no B-001).
+- ~~Encerramento R9~~ ✅ feito em 18/08 (abaixo).
+
+## Encerramento — 18/08/2026 (sessão `fechamento-sessoes` — reconciliação R9)
+
+- **Fim:** 18/08/2026 · **Status final:** ✅ ENTREGUE E VALIDADO EM PRODUÇÃO (fechamento retroativo)
+- **Entregue:** fix do proxy autenticado no Chromium via forwarder local `proxy-chain`
+  (`92b5ea2`) + diagnóstico do incidente da build 1045 (rollback do B-002) — detalhes na seção
+  "Entregue" acima.
+- **Justificativa do fechamento:** os dois itens pendentes foram cumpridos em 13/08 mesmo (merge
+  `7e05fc1` + validação em prod); a branch não existe mais. A continuação do incidente (página do
+  Store travada) virou a sessão própria `wwebjs-store-travado` — também encerrada em 18/08.
+- **Commits:** `92b5ea2` → merge `7e05fc1` (13/08, em prod).
+- **Efeito de deploy:** absorvido em 13/08.
+- **BLOQUEADO EM VOCÊ:** nada próprio (o "B-001 feito" formal segue no quadro B-001).
+- **DOCS TOCADAS:** este arquivo (→DONE) · SESSOES.md · ESTADO.md (divergência).
+- **Pendências para próxima sessão:** nenhuma própria — B-001/B-002 já estavam no quadro central.

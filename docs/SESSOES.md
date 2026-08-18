@@ -8,45 +8,31 @@
 
 ## 🟢 Sessões ativas
 
-| ID                                    | Início      | Objetivo                                            | Escopo                                                                                                              | Branch                        |
-| ------------------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| 2026-07-10-1040-m2-guardrail-ativo    | 10/07 10:40 | M2 — janela de observação → ligar GUARDRAIL_ENFORCE | docs/ + scripts/guardrail-observe.mjs (sem código do gateway)                                                       | feature/m2-guardrail-ativo    |
-| 2026-07-19-0332-auth-refresh-rotation | 19/07 03:32 | Fix 401 `/auth/me`: refresh-token rotation (sessão não expira no meio do trabalho) | módulo `iam` (auth) + `apps/dashboard` (auth/api) + **`schema.prisma`** (refresh_tokens) + **`packages/contracts`** + config.ts + docs | feature/auth-refresh-rotation |
-| 2026-08-13-1630-wwebjs-proxy-anonimizado | 13/08 16:30 | Incidente wweb em prod: diagnóstico build 1045 (B-002, rollback) + fix proxy autenticado no Chromium via forwarder local proxy-chain (B-001) | `wwebjs.engine.ts` + teste + `apps/gateway/package.json` (dep proxy-chain) + docs | feature/wwebjs-proxy-anonimizado |
-| 2026-08-13-2100-wwebjs-store-travado | 13/08 21:00 | 🟢 FASE FINAL — P-014: causa cravada (injeção concorrente pós-QR + sync de conta pesada), teto/probe EM PROD (`3e74d25`), pesquisa completa (`pesquisa-wwebjs-2026-08.md`), **dep wwebjs pinada no commit `1780711` (D-012, foco só wwebjs)** — resta merge+deploy+validação de ciclos de QR | feature/wwebjs-store-travado |
+| ID  | Início | Objetivo | Escopo | Branch |
+| --- | ------ | -------- | ------ | ------ |
+| —   | —      | **Nenhuma sessão ativa** (varredura de fechamento em 18/08 — as 4 que estavam abertas foram encerradas com justificativa; ver histórico abaixo) | — | — |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
-- **16/08 · otimizacao-deps-hotpaths (deploy CONCLUÍDO ~23:43 UTC):** produção = main
-  (`d172b78`). **Ativos agora:** P-019 watchdog · P-020 dedup de status (não conte "quantos
-  WORKING chegaram" — nota C6 em INTEGRACAO.md) · deps D-016 (Baileys **rc14**, NestJS 11.2.1,
-  Prisma 7.9.1, fastify 5.11.3, pino 10, BullMQ 5.81.3) · índice `wa_contacts (sessionId, phone)`
-  · `WEBHOOK_CONCURRENCY=8` (entregas de webhook em paralelo). D-014 segue valendo como REGRA
-  (deploy pode custar re-scan de sessão wwebjs — hoje a frota é 100% Baileys). Lição p/ quem
-  mexer em deps: valide com **build local da imagem** (o zod aninhado passou por tsc+testes+boot
-  local e só quebrou na imagem — adendo no DONE da sessão). `WA_LOG_LEVEL=info` pode voltar a
-  `warn` quando o dono quiser (P-019 já está em prod).
-- **13/08 · wwebjs-store-travado:** leitura da env de PROD no Dokploy (~23h UTC) achou
-  **`GUARDRAIL_ENFORCE=true`** (linha 63) — **diverge do ESTADO.md/M2**, que dizem modo observação
-  (`false`). Quem precisa saber: sessão **M2** (se o dono ligou de propósito, a onda M2 está de
-  fato ativa e precisa reconciliar; se foi engano, desligar). Também constatado
-  `WA_REQUIRE_PROXY=true` (B-001 quase fechada) e `WA_LOG_LEVEL=warn` (logs `info` das engines
-  invisíveis em prod — afeta QUALQUER sessão que dependa de log de engine para diagnóstico).
-- **12/08 · adocao-base-v43:** base universal agora é **v4.3** (R0–R21). Novidades que
-  afetam TODA sessão: abertura passa a incluir `docs/PENDENCIAS.md` (novo quadro
-  central P-xxx/B-xxx) e o **eco de leitura** no arquivo ATIVA-; encerramento ganha
-  **reconciliação documental** (diff × mapa de gatilhos do R3) e checkpoint ganha os
-  campos **BLOQUEADO EM VOCÊ** e **DOCS TOCADAS**. Sessões ativas (M2, auth-refresh)
-  encerram no formato novo.
+- _(vazio — os 3 avisos anteriores foram absorvidos na varredura de 18/08: o de 16/08 (deploy
+  D-016) está incorporado no ESTADO.md § "Último deploy"; o de 13/08 (divergência
+  `GUARDRAIL_ENFORCE`) foi reconciliado pela D-017 (M2 concluída — enforce ativo é o estado
+  oficial; `WA_LOG_LEVEL=info` segue em prod, dono pode voltar a `warn`); o de 12/08 (base v4.3)
+  cumpriu-se: M2 e auth-refresh encerraram no formato novo.)_
 
 ## ✅ Histórico (mais recente primeiro — as 5 do topo são leitura obrigatória na abertura)
 
 | ID                                    | Período | Entregue                                                                                    | Branch/PR                            |
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 2026-08-16-1652-otimizacao-deps-hotpaths | 16/08 | Deps atualizadas na compatibilidade (D-016: NestJS 11.2.1, Prisma 7.9.1, fastify 5.11.3, Baileys rc14, pino 10, BullMQ 5.81.3) + otimizações doc-backed: pool pg com timeout (paridade Prisma 6), recordMany em LOTE (ON CONFLICT), ACK atômico, WEBHOOK_CONCURRENCY=8, teto de mídia em campanha, índice wa_contacts(sessionId,phone), code-splitting do dashboard (16 chunks). 170/170 testes · tsc · lint · 2 builds · boot smoke. Aguarda merge+deploy | feature/otimizacao-deps-hotpaths |
+| 2026-08-18-0522-fechamento-sessoes    | 18/08   | Varredura de fechamento R9: 4 sessões encerradas com justificativa (M2 ✅ onda concluída via D-017 · auth-refresh ✅ em prod desde 19/07 `ce204d1` · proxy-anonimizado ✅ validado 13/08 `7e05fc1` · store-travado ✅ P-014 validado 14/08) + merge doc-only da branch M2 (`71d839f`, coletas+teste 423) + reconciliação de ESTADO/PENDENCIAS/DECISOES (P-013 desbloqueada, P-001 anotada, P-021 corrigida — bullmq 6 destrava ioredis 6 junto) | main (doc-only) |
+| 2026-07-10-1040-m2-guardrail-ativo    | 10/07→18/08 | **ONDA M2 CONCLUÍDA (D-017)**: fix D-007 envBool + coletor + 6 coletas (zero falso-positivo) + teste 423/N7 aprovado ponta a ponta + `GUARDRAIL_ENFORCE=true` ATIVO em prod (≤13/08, >1 mês sem incidente). Fechada por reconciliação | feature/m2-guardrail-ativo (mergeada) |
+| 2026-08-13-2100-wwebjs-store-travado  | 13→14/08 (fechada 18/08) | P-014 ✅: causa cravada (injeção concorrente pós-QR, fix `1780711` fora do npm) → dep pinada via tarball (D-012) + teto/probe + groupInfo sem getContacts + auto-heal. Validado em prod 14/08: 175 grupos <10s, grupo de 253 membros em segundos | feature/wwebjs-store-travado (mergeada) |
+| 2026-08-13-1630-wwebjs-proxy-anonimizado | 13/08 (fechada 18/08) | Fix proxy autenticado no Chromium (forwarder local proxy-chain — Webshare 407+Connection:close quebrava o desafio do Puppeteer) + diagnóstico build 1045. Merge `7e05fc1` validado em prod 13/08 | feature/wwebjs-proxy-anonimizado (mergeada) |
+| 2026-07-19-0332-auth-refresh-rotation | 19/07 (fechada 18/08) | Refresh-token rotation completa (D-009): access 15min + refresh 30d com rotação e reuso→revoga família, silent refresh no dashboard, 5 e2e. Em prod desde 19/07 (`ce204d1`) — fim do 401 de 12h | feature/auth-refresh-rotation (mergeada) |
+| 2026-08-16-1652-otimizacao-deps-hotpaths | 16/08 | Deps atualizadas na compatibilidade (D-016: NestJS 11.2.1, Prisma 7.9.1, fastify 5.11.3, Baileys rc14, pino 10, BullMQ 5.81.3) + otimizações doc-backed: pool pg com timeout (paridade Prisma 6), recordMany em LOTE (ON CONFLICT), ACK atômico, WEBHOOK_CONCURRENCY=8, teto de mídia em campanha, índice wa_contacts(sessionId,phone), code-splitting do dashboard (16 chunks). 170/170 testes · tsc · lint · 2 builds · boot smoke. **Em produção 16/08 ~23:43 UTC** | feature/otimizacao-deps-hotpaths |
 | 2026-08-16-1430-dedup-status-alertas | 16/08 | Fim do spam de alerta zap/telegram "sem mudança": dedup de `session.status` idêntico consecutivo na fonte (`SessionManager`, D-015, P-020) — só publica em mudança real de `(status, error)`; `persistStatus`/detecção de órfã intactos; contrato preservado (C6). 5/5 testes novos. Aguarda merge+deploy | feature/dedup-status-alertas |
 | 2026-08-14-0707-wwebjs-p015-shutdown-limpo | 14/08 | **Dia inteiro de wwebjs em prod**: P-015 ✅ (volume gateway-wwebjs + shutdown limpo), B-002 ✅ (patch `$1` + build 1045101284, leads 99/99), P-016 ✅ (probe no envio), P-017 ✅ (teto mídia 24MB + heal em crash), 4GB, P-019 codada (aguarda deploy), D-013/D-014 | feature/wwebjs-p015-shutdown-limpo + feature/wwebjs-b002-patch-s1 |
 | 2026-08-13-0810-wwebjs-w7c-search      | 13/08 | W7 searchMessages (P-011, ÚLTIMO item — **fecha o W7**): busca no banco `GET /messages/search`, agnóstica de engine | feature/wwebjs-w7c-search |

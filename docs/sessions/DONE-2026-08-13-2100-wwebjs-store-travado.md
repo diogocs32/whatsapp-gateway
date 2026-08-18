@@ -1,4 +1,4 @@
-# Sessão 2026-08-13-2100 · wwebjs-store-travado (INVESTIGAÇÃO EM ABERTO)
+# Sessão 2026-08-13-2100 · wwebjs-store-travado (✅ ENCERRADA 18/08 — P-014 resolvido e validado em prod)
 
 > **Continuação** da sessão `wwebjs-proxy-anonimizado` (fix do proxy JÁ mergeado e em prod —
 > `7e05fc1`). Esta abre um problema NOVO descoberto na validação pós-deploy: a página do
@@ -295,3 +295,26 @@ após as reconexões de QR em sequência. **Falta o log do `loading_screen` para
 
 ## DOCS TOCADAS nesta sessão
 - Este arquivo (novo) · `SESSOES.md` (registro) · `PENDENCIAS.md` (P-014 nova).
+
+## Encerramento — 18/08/2026 (sessão `fechamento-sessoes` — reconciliação R9)
+
+- **Fim:** 18/08/2026 · **Status final:** ✅ P-014 RESOLVIDO E VALIDADO EM PRODUÇÃO
+- **Entregue** (tudo em prod, ancestrais do deploy atual `d172b78`): teto/probe no Store com % da
+  sync na mensagem de erro (`3e74d25`) · **pin da wwebjs no commit `1780711`** via tarball (D-012,
+  deploy `4e30159`) · `groupInfo` SEM `getContacts` (nomes via banco) + auto-heal de página morta
+  (`0e89017`) · validação final 14/08 ~01:45 UTC: 175 grupos <10s, grupo de **253 membros**
+  abrindo em segundos — fim do travamento E da lentidão.
+- **Justificativa do fechamento:** o próprio arquivo registrava "Rodada ENCERRÁVEL (R9)" desde
+  14/08. Tudo que restava virou pendência rastreada e foi RESOLVIDO em sessões seguintes: passo 2
+  (build nova + patch `$1`) = **B-002 ✅ 14/08** · P-015 (QR a cada troca de container) = **✅
+  14/08** (volume `gateway-wwebjs`) · watchdog de sync = **P-019 ✅ em prod 16/08**. A branch não
+  existe mais.
+- **Commits:** `a43fb63`/`3e74d25` · `4e30159` · `0e89017` (13–14/08, todos em prod).
+- **Efeito de deploy:** absorvido nos deploys de 13–14/08.
+- **BLOQUEADO EM VOCÊ (herdado, já listado no ESTADO § próximos passos):** rotacionar a
+  `X-Api-Key` exposta · tirar `Webshare 20 proxies.txt` da raiz (conferido 18/08: o arquivo AINDA
+  está na raiz, untracked) · `WA_LOG_LEVEL` pode voltar a `warn` quando quiser (P-019 em prod).
+- **DOCS TOCADAS:** este arquivo (→DONE) · SESSOES.md · ESTADO.md · PENDENCIAS.md (nota de
+  encerramento no P-014).
+- **Pendências para próxima sessão:** revalidar a build do WA Web ~início out/2026 (B-002) ·
+  P-001 (DisconnectReason granular, histerese) segue aberta.

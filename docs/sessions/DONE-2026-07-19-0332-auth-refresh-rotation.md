@@ -1,6 +1,6 @@
 # Sessão: auth-refresh-rotation
 
-- **Status:** 🟢 ATIVA
+- **Status:** ✅ ENCERRADA 18/08/2026 (entregue e em produção desde 19/07 — fechamento retroativo)
 - **Início:** 19/07/2026 03:32 (06:32 UTC)
 - **Objetivo:** Corrigir de forma definitiva o 401 em `GET /api/auth/me` que derruba o usuário no meio
   do trabalho. Causa raiz: sessão de token ÚNICO com vida fixa de 12h, sem refresh, sem renovação
@@ -73,8 +73,23 @@
   checklist OWASP), D-009 no DECISOES, `env.production.example` corrigido (CORS real = conexozenvo.com +
   novas envs + JWT_EXPIRES_IN deprecated). Falta: commit + encerramento + ESTADO.
 
-## Encerramento (preencher ao concluir)
+## Encerramento — 18/08/2026 (sessão `fechamento-sessoes` — reconciliação R9)
 
-- **Fim:** — · **Entregue:** — · **Commits:** —
-- **Efeito de deploy:** —
-- **Pendências para próxima sessão:** —
+- **Fim:** 18/08/2026 · **Status final:** ✅ ENTREGUE E EM PRODUÇÃO (fechamento retroativo)
+- **Entregue:** refresh-token rotation completa (D-009) — model `RefreshToken` + migration
+  `20260719063643_refresh_tokens` · `TokenService` (access JWT 15min + refresh opaco 30d, rotação
+  atômica em transaction, reuso→revoga a família) · `POST /auth/refresh` + login/logout com 2
+  cookies httpOnly · silent refresh no dashboard (`lib/api.ts`, interceptor 401 anti-corrida) ·
+  5 e2e novos (suíte 84/84 na época) · how-to + `env.production.example` corrigido (CORS real).
+- **Justificativa do fechamento:** o trabalho foi MERGEADO na main no MESMO dia da sessão
+  (`ce204d1`, 19/07 04:08) e está em produção desde então (ancestral do deploy atual `d172b78`);
+  a branch `feature/auth-refresh-rotation` nem existe mais (local ou remoto). Só o encerramento
+  R9 nunca havia sido feito. O 401 de 12h que motivou a sessão não voltou a ser relatado em ~1 mês
+  de operação.
+- **Commits:** `ce204d1` (na main desde 19/07).
+- **Efeito de deploy:** já absorvido nos deploys desde 19/07.
+- **BLOQUEADO EM VOCÊ:** nada.
+- **DOCS TOCADAS:** este arquivo (→DONE) · SESSOES.md · ESTADO.md (divergência) · PENDENCIAS.md
+  (**P-013 DESBLOQUEADA** — a trava era "quando auth-refresh fechar").
+- **Pendências para próxima sessão:** P-005 (job de purge de `refresh_tokens` expirados) segue
+  aberta · P-013 (formalizar contracts da W5) agora livre para qualquer sessão.
