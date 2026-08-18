@@ -291,3 +291,23 @@
   remover a env (default `false`).
 - **Consequências:** ESTADO.md roadmap M2 ✅ · próxima onda = M3 (qualidade) · histerese
   DEGRADED↔WORKING e curadoria de quais status alertam seguem como backlog (P-001 + n8n).
+
+## D-018 — 2026-08-18 — Política de qualidade M3: fronteiras no CI, projetos de teste e cobertura sem piso inicial
+
+- **Decisão:** (a) as regras de fronteira de ARQUITETURA.md §"Regras de dependência" viram
+  **código** (`.dependency-cruiser.cjs`, 5 regras `error`) e rodam no CI — violação de fronteira
+  nova quebra o build; (b) testes ganham DOIS projetos vitest — `unit` (`src/**/*.spec.ts`, roda
+  **sem infra**, co-locado com o código) e `e2e` (inalterado, exige docker); (c) cobertura v8
+  agregada no CI **sem threshold** por enquanto — primeiro consolidar a baseline (42% linhas em
+  18/08), depois decidir piso (nunca quebrar CI com número arbitrário); (d) `nest build` passa a
+  usar `tsconfig.build.json` (exclui `**/*spec.ts`) — spec NUNCA vai para `dist/`/imagem.
+- **Evidência (EP):** levantamento 18/08 no repo — zero violação de fronteira em 176 módulos/606
+  dependências (inclusive zero ciclo) ⇒ as regras entram como `error` sem legado; sem o
+  `tsconfig.build.json`, o `nest build` compilava os specs novos para `dist/` (provado no build
+  local; correção validada com require do grafo completo — lição D-016).
+- **Evidência (DO):** dependency-cruiser `rules-reference.md` (group matching `$1`) e
+  `options-reference.md` (`doNotFollow`); vitest `guide/projects.md` (**`extends: true` explícito
+  no Vitest 4** — herdar a raiz só vira default no 5, guia de migração) e `guide/coverage.md`
+  (`@vitest/coverage-v8` alinhado à versão do vitest).
+- **Rollback:** remover os passos novos do `ci.yml` (format/depcruise/cov) — os scripts npm
+  continuam disponíveis localmente; reverter `tsConfigPath` volta specs ao dist (não fazer).

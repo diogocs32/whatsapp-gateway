@@ -6,6 +6,22 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado (18/08 — sessão `m3-qualidade`, branch `feature/m3-qualidade` — aguarda merge)
+
+- **Fronteiras de módulo viram código no CI** (`.dependency-cruiser.cjs`, D-018): as regras de
+  ARQUITETURA.md §"Regras de dependência" (internals de módulo alheio, shared-kernel→módulo,
+  infra→módulo, src→test, ciclos) agora quebram o build se violadas — todas como `error`
+  (levantamento provou zero violação/ciclo em 176 módulos).
+- **Testes unitários de domínio** (projeto vitest `unit`, roda SEM infra): máquina de decisão G5
+  do guardrail (tabela completa + C10 + hard-gate + mediana da frota + observação×enforce) e
+  crypto do shared-kernel (scrypt + vetores FIXOS de HMAC-SHA512/SHA-512 — contrato com os
+  integradores de webhook). 28 testes novos; suíte total 198.
+- **Cobertura v8 no CI** (`test:cov`, baseline 42% linhas, sem threshold — D-018) e passos novos
+  de `format:check` + `depcruise` no workflow.
+- **`tsconfig.build.json`**: `nest build` deixa de compilar `**/*spec.ts` para o `dist/`
+  (provado com require do grafo completo — lição D-016). Prettier normalizado no repo inteiro +
+  ignores de runtime (P-004 ✅). Carona: `@types/pg` 8.23.1.
+
 ### Corrigido (16/08 — hotfix pós-deploy da sessão `otimizacao-deps-hotpaths`)
 
 - **Imagem do gateway sem deps ANINHADAS do workspace → boot morria com `Cannot find module

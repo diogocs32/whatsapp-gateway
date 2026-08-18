@@ -8,25 +8,28 @@
 
 ## 🟢 Sessões ativas
 
-| ID                           | Início      | Objetivo                                                                                                                                                                                 | Escopo                                                                                                                                                                                                                                              | Branch               |
-| ---------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| 2026-08-18-0545-m3-qualidade | 18/08 05:45 | **Onda M3 · Qualidade**: P-004 (lint ignores + prettier normalizado + format:check no CI) · fronteiras ARQUITETURA via dependency-cruiser no CI · testes unitários de domínio · coverage | `eslint.config.mjs` · `.prettierignore` + normalização prettier (52 arquivos, mecânica) · `ci.yml` · package.json raiz/gateway (devDeps) · `.dependency-cruiser.cjs` · vitest.config + testes novos · docs. SEM mudança de comportamento de runtime | feature/m3-qualidade |
+| ID  | Início | Objetivo                                                                                           | Escopo | Branch |
+| --- | ------ | -------------------------------------------------------------------------------------------------- | ------ | ------ |
+| —   | —      | **Nenhuma sessão ativa** (m3-qualidade encerrada 18/08 com o código pronto — ver histórico/avisos) | —      | —      |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
-- _(vazio — os 3 avisos anteriores foram absorvidos na varredura de 18/08: o de 16/08 (deploy
-  D-016) está incorporado no ESTADO.md § "Último deploy"; o de 13/08 (divergência
-  `GUARDRAIL_ENFORCE`) foi reconciliado pela D-017 (M2 concluída — enforce ativo é o estado
-  oficial; `WA_LOG_LEVEL=info` segue em prod, dono pode voltar a `warn`); o de 12/08 (base v4.3)
-  cumpriu-se: M2 e auth-refresh encerraram no formato novo.)_
+- **18/08 · m3-qualidade (código PRONTO na branch `feature/m3-qualidade` — aguarda merge do
+  dono):** quando mergear, o CI passa a exigir **format:check** (prettier), **depcruise**
+  (fronteiras da ARQUITETURA como `error` — import de internals de módulo alheio QUEBRA o
+  build) e roda a suíte com **cobertura**. Novidades para TODA sessão futura: teste unitário é
+  `src/**/*.spec.ts` (projeto vitest `unit`, roda SEM infra: `npm run test:unit`); spec NÃO vai
+  para o dist (`tsconfig.build.json`); `apps/gateway/auth/` e `coverage/` estão ignorados no
+  lint/prettier/git. Ao confirmar o deploy pós-merge saudável, marcar o roadmap M3 ✅ no ESTADO.
 
 ## ✅ Histórico (mais recente primeiro — as 5 do topo são leitura obrigatória na abertura)
 
 | ID                                            | Período                  | Entregue                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Branch/PR                                                         |
 | --------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 2026-08-18-0545-m3-qualidade                  | 18/08                    | **ONDA M3 · Qualidade — código COMPLETO (aguarda merge)**: P-004 ✅ (prettier normalizado + ignores + format:check no CI) · fronteiras ARQUITETURA no CI (dependency-cruiser, 5 regras error, zero legado/ciclo) · projetos vitest unit/e2e + 28 testes de domínio (guardrail G5 + crypto-contrato) · coverage v8 (baseline 42%) · specs fora do dist (tsconfig.build). 198/198 · tsc · lint · depcruise · 2 builds. D-018 · P-022                                     | feature/m3-qualidade                                              |
 | 2026-08-18-0522-fechamento-sessoes            | 18/08                    | Varredura de fechamento R9: 4 sessões encerradas com justificativa (M2 ✅ onda concluída via D-017 · auth-refresh ✅ em prod desde 19/07 `ce204d1` · proxy-anonimizado ✅ validado 13/08 `7e05fc1` · store-travado ✅ P-014 validado 14/08) + merge doc-only da branch M2 (`71d839f`, coletas+teste 423) + reconciliação de ESTADO/PENDENCIAS/DECISOES (P-013 desbloqueada, P-001 anotada, P-021 corrigida — bullmq 6 destrava ioredis 6 junto)                        | main (doc-only)                                                   |
 | 2026-07-10-1040-m2-guardrail-ativo            | 10/07→18/08              | **ONDA M2 CONCLUÍDA (D-017)**: fix D-007 envBool + coletor + 6 coletas (zero falso-positivo) + teste 423/N7 aprovado ponta a ponta + `GUARDRAIL_ENFORCE=true` ATIVO em prod (≤13/08, >1 mês sem incidente). Fechada por reconciliação                                                                                                                                                                                                                                  | feature/m2-guardrail-ativo (mergeada)                             |
 | 2026-08-13-2100-wwebjs-store-travado          | 13→14/08 (fechada 18/08) | P-014 ✅: causa cravada (injeção concorrente pós-QR, fix `1780711` fora do npm) → dep pinada via tarball (D-012) + teto/probe + groupInfo sem getContacts + auto-heal. Validado em prod 14/08: 175 grupos <10s, grupo de 253 membros em segundos                                                                                                                                                                                                                       | feature/wwebjs-store-travado (mergeada)                           |

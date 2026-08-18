@@ -9,15 +9,15 @@
 
 ## Roadmap (R2)
 
-| Onda | Objetivo                                                                             | Status        |
-| ---- | ------------------------------------------------------------------------------------ | ------------- |
-| M0   | Doc viva (ESTADO, SESSOES, DECISOES, ARQUITETURA, PROJETO, CHANGELOG, CLAUDE.md)     | ✅ 10/07/2026 |
-| M1   | Destravar produção: O1–O3 operacionais + confirmar prod = código mais recente        | ✅ 10/07/2026 |
-| M2   | Guard-rail ativo: observação G1–G8 → ligar `GUARDRAIL_ENFORCE`                       | ✅ 18/08/2026 |
-| M3   | Qualidade: testes unitários de domínio + coverage + boundaries no CI                 | ⬜            |
-| M4   | Segurança: backup testado, rotação de secrets, npm audit no CI                       | ⬜            |
-| M5   | Observabilidade com alertas (canal único + uptime externo)                           | ⬜            |
-| M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
+| Onda | Objetivo                                                                             | Status                                          |
+| ---- | ------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| M0   | Doc viva (ESTADO, SESSOES, DECISOES, ARQUITETURA, PROJETO, CHANGELOG, CLAUDE.md)     | ✅ 10/07/2026                                   |
+| M1   | Destravar produção: O1–O3 operacionais + confirmar prod = código mais recente        | ✅ 10/07/2026                                   |
+| M2   | Guard-rail ativo: observação G1–G8 → ligar `GUARDRAIL_ENFORCE`                       | ✅ 18/08/2026                                   |
+| M3   | Qualidade: testes unitários de domínio + coverage + boundaries no CI                 | 🟡 código pronto 18/08 (branch) — ✅ ao mergear |
+| M4   | Segurança: backup testado, rotação de secrets, npm audit no CI                       | ⬜                                              |
+| M5   | Observabilidade com alertas (canal único + uptime externo)                           | ⬜                                              |
+| M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜                                              |
 
 ## Estado de produção
 
@@ -55,6 +55,7 @@
 | Onde                                 | O quê                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | main local ↔ origin/main             | **PRODUÇÃO = CÓDIGO DA MAIN** — prod no `d172b78` (16/08 ~23:43 UTC): P-019, P-020, deps/otimizações D-016 e o hotfix do Dockerfile TODOS ativos. Commits posteriores na main são **doc-only** (reconciliação 18/08 — Watch Paths não deploya). Nada de código pendente de deploy.                                                                                                                      |
+| feature/m3-qualidade                 | 🟡 **PRONTA 18/08, aguarda MERGE do dono** (onda M3): CI ganha format:check + fronteiras (depcruise) + coverage; 28 testes unitários novos; ZERO mudança de comportamento de runtime (devDeps não entram na imagem — prune --omit=dev). O merge dispara deploy (lockfile muda → rebuild); frota 100% Baileys, sem custo D-014                                                                           |
 | ~~feature/dedup-status-alertas~~     | ✅ **EM PRODUÇÃO 16/08** (P-020/D-015, deploy ~17:50 UTC): dedup de `session.status` idêntico consecutivo — fim do spam de alerta zap/telegram                                                                                                                                                                                                                                                          |
 | ~~feature/otimizacao-deps-hotpaths~~ | ✅ **EM PRODUÇÃO 16/08 ~23:43 UTC** (D-016): deps atualizadas (NestJS 11.2.1, Prisma 7.9.1, fastify 5.11.3, Baileys rc14, pino 10, BullMQ 5.81.3) + otimizações (pool pg, recordMany em lote, ACK atômico, WEBHOOK_CONCURRENCY, teto de mídia, índice wa_contacts, code-splitting). Precisou de hotfix `d172b78` (zod aninhado fora da imagem — ver adendo no DONE da sessão). Majors deferidos → P-021 |
 | ~~feature/wwebjs-store-travado~~     | ✅ **MERGEADA E EM PROD desde 13–14/08** (`3e74d25`/`4e30159`/`0e89017` — teto/probe, pin wwebjs `1780711` D-012, groupInfo sem getContacts + auto-heal; P-014 validado 14/08). Sessão encerrada 18/08                                                                                                                                                                                                  |
@@ -114,5 +115,5 @@ sendo a mais urgente: produção SEM backup do banco.
    1h. **wwebjs W3 — ENTREGUE 12/08** (sessão `DONE-2026-08-12-1723-wwebjs-w3-ciclo-vida`, P-009 ✅): fim do vazamento de perfil Chromium no DELETE + `new-qr` recupera sessão wwebjs (limpa LocalAuth em disco) + `destroy` com teto + `qrBase64`/cache com teto + `nope()`→HTTP 501. Pushado 13/08 (deploy disparado). Próximo: W4 (implementar os 12 `nope()` — API existe na lib; P-010).
    1g. **wwebjs W2 — ENTREGUE 12/08** (sessão `DONE-2026-08-12-1715-wwebjs-w2-midia`, P-008 ✅): mídia no S3 nas duas direções (fim do 404 em `GET /media` para wwebjs) + envelope de webhook com a engine REAL (`engine:"wwebjs"`, antes tudo saía `baileys`) + `sendMediaAsDocument`/`Sticker` + guard de `sent` null. Pushado 13/08 (deploy disparado). Próximo: W3 (ciclo de vida — limpar LocalAuth no logout/new-qr/remove; P-009).
    1f. **wwebjs W1 — ENTREGUE 12/08** (sessão `DONE-2026-08-12-1702-wwebjs-w1-estabilidade`): reconexão automática + fim do `start` no-op + guard `WA_REQUIRE_PROXY` no wwebjs (fecha o vazamento de IP) + 1º teste da engine real. Pushado 13/08 (deploy disparado). **Restam ações operacionais do dono:** B-002 (revalidar `WWEBJS_WEB_VERSION` no Dokploy antes de expirar ~fim ago) e B-001 (proxy residencial por sessão — agora o `WA_REQUIRE_PROXY=true` protege o wwebjs de verdade). **Deploy R0:** o push reinicia o gateway — não fazer em rajada com sessão wwebjs real conectada.
-2. M3 · Qualidade: testes unitários de domínio, coverage, dependency-cruiser no CI + fix do lint local (`apps/gateway/auth/` nos ignores), normalizar prettier e adicionar `format:check` ao CI
+2. **M3 · Qualidade — CÓDIGO PRONTO 18/08** (sessão `2026-08-18-0545-m3-qualidade`, branch `feature/m3-qualidade`): mergear na janela do dono → CI novo roda no push → deploy saudável → marcar roadmap ✅. Continuação (mais testes de domínio + threshold de coverage) = P-022
 3. Node n8n (repo separado): parâmetro `proxyId` na criação de sessão (D-008)
