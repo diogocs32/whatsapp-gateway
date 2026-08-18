@@ -26,7 +26,7 @@ Encerramento de sessão (R9): reconciliação documental (diff × mapa de gatilh
 ## Comandos (executar no WSL: `wsl.exe -d Ubuntu -u diogocs32 -- bash -lc '...'`)
 
 - `npm run dev` — gateway :3000 + dashboard :5173 (`nest start --watch` REINICIA a cada save de .ts)
-- `npm run lint` · `npm run format:check` · `npm run test` (e2e, precisa da infra: `npm run infra:up`)
+- `npm run lint` · `npm run format:check` · `npm run depcruise` (fronteiras — D-018) · `npm run test:unit` (SEM infra) · `npm run test` (unit+e2e, precisa da infra: `npm run infra:up`)
 - `npm run gateway:build` · `npm run dashboard:build`
 - Typecheck sem tocar dist: `npx tsc --noEmit -p apps/gateway/tsconfig.json` (NUNCA `nest build` com o watch rodando — corrompe `dist/`)
 - Migration nova: `npm run prisma:migrate -w apps/gateway -- --name <slug>` · Em prod SEMPRE `migrate deploy`

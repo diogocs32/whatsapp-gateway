@@ -6,7 +6,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Adicionado (18/08 — sessão `m3-qualidade`, branch `feature/m3-qualidade` — aguarda merge)
+### Adicionado (18/08 — sessão `m3-qualidade` — **EM PRODUÇÃO ~11:50 UTC**, merge ff `4ea1c75`, CI novo verde)
 
 - **Fronteiras de módulo viram código no CI** (`.dependency-cruiser.cjs`, D-018): as regras de
   ARQUITETURA.md §"Regras de dependência" (internals de módulo alheio, shared-kernel→módulo,

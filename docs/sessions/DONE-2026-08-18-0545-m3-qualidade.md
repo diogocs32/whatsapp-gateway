@@ -1,6 +1,6 @@
 # Sessão: m3-qualidade
 
-- **Status:** ✅ ENCERRADA 18/08/2026 — código PRONTO e validado; onda M3 completa na branch (aguarda merge+deploy do dono)
+- **Status:** ✅ ENCERRADA 18/08/2026 — onda M3 **EM PRODUÇÃO** (merge+deploy ~11:50 UTC, ver adendo no fim)
 - **Início:** 18/08/2026 05:45
 - **Objetivo:** Onda **M3 · Qualidade** (roadmap R2): (Q1) P-004 — lint com ignores robustos p/
   runtime dirs + normalizar Prettier no repo inteiro + `format:check` no CI; (Q2) fronteiras de
@@ -96,3 +96,14 @@
   arquivo (→DONE).
 - **Pendências para próxima sessão:** P-022 (ampliar testes de domínio + decidir threshold) ·
   observação C10/same-ms registrada na P-022 (investigar com e2e antes de mexer).
+
+## Adendo — 18/08 ~11:50 UTC — merge + deploy CONCLUÍDOS (autorizados pelo dono)
+
+- Merge **ff** `feature/m3-qualidade` → main (`4ea1c75`), push **11:47:25 UTC** → webhook
+  disparou na hora → container novo **11:50:26 UTC** healthy (ciclo ~3min).
+- Validação: `/health` uptime resetado e estável (19s→42s→118s), database/redis/storage true,
+  memória ~13% · dashboard HTTP 200 · **CI run 32133482842 SUCCESS em 4m36s** — primeira
+  execução real dos gates novos (format:check, depcruise, coverage) passou.
+- Higiene: branch `feature/m3-qualidade` deletada (local + origin) após o merge.
+- Roadmap M3 ✅ no ESTADO; aviso em SESSOES.md atualizado; P-004 em produção; P-022 é a
+  continuação.
