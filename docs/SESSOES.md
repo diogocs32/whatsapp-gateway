@@ -8,9 +8,9 @@
 
 ## 🟢 Sessões ativas
 
-| ID  | Início | Objetivo                                                                       | Escopo | Branch |
-| --- | ------ | ------------------------------------------------------------------------------ | ------ | ------ |
-| —   | —      | **Nenhuma sessão ativa** (última: m3-qualidade, encerrada e EM PRODUÇÃO 18/08) | —      | —      |
+| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
+| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
+| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 

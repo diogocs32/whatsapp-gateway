@@ -19,6 +19,10 @@ import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
+import {
+  pageResolvePnToLid,
+  withLidFallback as runLidFallback,
+} from './wwebjs.lid-outbound';
 import type {
   ChannelInfo,
   ChatFlag,
@@ -241,6 +245,10 @@ export class WWebJSEngine implements IEngine {
   // Cache LID(serializado) -> telefone (<num>@c.us) já resolvido via Store, para não consultar o
   // Puppeteer a cada mensagem. Persiste entre start/stop da mesma sessão (o mapeamento não muda).
   private readonly lidToPnCache = new Map<string, string>();
+  // Espelho OUTBOUND (telefone -> LID) dos destinos que já provaram ser migrados: a 1ª falha
+  // "No LID for user" resolve e memoriza; as operações seguintes ao mesmo número (presença,
+  // markRead, próximas bolhas) vão direto ao @lid sem repetir a tentativa fadada ao erro.
+  private readonly pnToLidOutbound = new Map<string, string>();
   // keyId das mensagens enviadas PELO painel (sendText/sendMedia) — para o handler message_create
   // não duplicá-las (já são emitidas no envio). Sobra capturar as enviadas pelo próprio celular.
   private readonly sentByPanel = new Set<string>();
@@ -1062,7 +1070,10 @@ export class WWebJSEngine implements IEngine {
     await this.assertPageResponsive(); // P-016: página travada → erro em ~10s, não silêncio
     const jid = this.toChatId(to);
     const mentions = this.toMentionIds(opts?.mentions);
-    const sent = await c.sendMessage(jid, text, mentions ? { mentions } : {});
+    // Evento/retorno/banco seguem no telefone (canônico); só o TRANSPORTE reroteia a @lid.
+    const sent = await this.withLidFallback(jid, (dest) =>
+      c.sendMessage(dest, text, mentions ? { mentions } : {}),
+    );
     const keyId = sent.id?._serialized ?? '';
     if (keyId) this.rememberPanel(keyId);
     this.deps.onEvent('message', {
@@ -1095,13 +1106,15 @@ export class WWebJSEngine implements IEngine {
     // Fidelidade de tipo: sem sendMediaAsDocument/Sticker o wwebjs infere pelo mime — um sticker ia
     // como imagem comum e um arquivo pedido como 'document' podia perder o fileName.
     const mentions = this.toMentionIds(input.mentions);
-    const sent = await c.sendMessage(jid, media, {
-      caption: input.caption ?? undefined,
-      sendAudioAsVoice: input.ptt,
-      sendMediaAsDocument: input.type === 'document',
-      sendMediaAsSticker: input.type === 'sticker',
-      ...(mentions ? { mentions } : {}),
-    });
+    const sent = await this.withLidFallback(jid, (dest) =>
+      c.sendMessage(dest, media, {
+        caption: input.caption ?? undefined,
+        sendAudioAsVoice: input.ptt,
+        sendMediaAsDocument: input.type === 'document',
+        sendMediaAsSticker: input.type === 'sticker',
+        ...(mentions ? { mentions } : {}),
+      }),
+    );
     // Guard: o wwebjs devolve null/undefined para conteúdo/destino não suportado (canal, status) —
     // sem isto o `sent.id` estourava com TypeError em vez de um erro claro.
     if (!sent) {
@@ -1163,7 +1176,9 @@ export class WWebJSEngine implements IEngine {
       name: input.name ?? undefined,
       address: input.address ?? undefined,
     });
-    const sent = await c.sendMessage(jid, loc);
+    const sent = await this.withLidFallback(jid, (dest) =>
+      c.sendMessage(dest, loc),
+    );
     if (!sent)
       throw new Error('wwebjs: envio de localização não retornou mensagem');
     const keyId = sent.id?._serialized ?? '';
@@ -1189,7 +1204,9 @@ export class WWebJSEngine implements IEngine {
       allowMultipleAnswers: input.multi ?? false,
       messageSecret: undefined,
     });
-    const sent = await c.sendMessage(jid, poll);
+    const sent = await this.withLidFallback(jid, (dest) =>
+      c.sendMessage(dest, poll),
+    );
     if (!sent)
       throw new Error('wwebjs: envio de enquete não retornou mensagem');
     const keyId = sent.id?._serialized ?? '';
@@ -1240,7 +1257,9 @@ export class WWebJSEngine implements IEngine {
     if (state === 'available') return void (await c.sendPresenceAvailable());
     if (state === 'unavailable')
       return void (await c.sendPresenceUnavailable());
-    const chat = await c.getChatById(this.toChatId(to));
+    const chat = await this.withLidFallback(this.toChatId(to), (dest) =>
+      c.getChatById(dest),
+    );
     if (state === 'composing') await chat.sendStateTyping();
     else if (state === 'recording') await chat.sendStateRecording();
     // paused: não há "parou de digitar" explícito no wwebjs → limpa o estado do chat.
@@ -1249,7 +1268,9 @@ export class WWebJSEngine implements IEngine {
 
   // G8 — wwebjs marca o CHAT como visto (não há read por msgId); msgId é ignorado.
   async markRead(chatJid: string, _msgId: string): Promise<void> {
-    const chat = await this.req().getChatById(this.toChatId(chatJid));
+    const chat = await this.withLidFallback(this.toChatId(chatJid), (dest) =>
+      this.req().getChatById(dest),
+    );
     await chat.sendSeen();
   }
 
@@ -1558,6 +1579,84 @@ export class WWebJSEngine implements IEngine {
       this.deps.logger.error({ e }, 'wwebjs: resolveLidToPhone falhou');
       return null;
     }
+  }
+
+  // Conserto "No LID for user" no ENVIO (31/08/26): alvo migrado a @lid rejeita o jid clássico
+  // quando o chip remetente também migrou (throw do próprio WhatsApp Web em
+  // findOrCreateLatestChat; upstream sem fix — issue #3834). Fallback REATIVO: a operação roda
+  // com o PN como sempre e, SÓ nesse erro, resolve o LID no Store LOCAL (zero rede — política
+  // do dono: nenhuma consulta de existência no envio) e retenta uma vez via @lid. Sem LID
+  // local o erro original sobe — alvo frio migrado é insolúvel sem rede; o Contact→Save que a
+  // campanha já faz antes do 1º envio é o que tende a popular o Store. A máquina de decisão é
+  // pura e mora em wwebjs.lid-outbound.ts (invariantes pinados por spec).
+  private async withLidFallback<T>(
+    pnJid: string,
+    op: (jid: string) => Promise<T>,
+  ): Promise<T> {
+    return runLidFallback(pnJid, op, {
+      getMapped: (pn) => this.pnToLidOutbound.get(pn),
+      forget: (pn) => void this.pnToLidOutbound.delete(pn),
+      resolve: (pn) => this.resolvePhoneToLid(pn),
+      remember: (pn, lid) => this.rememberOutboundLid(pn, lid),
+      onRetryError: (pn, lid, original) =>
+        this.deps.logger.warn(
+          {
+            pnJid: pn,
+            lid,
+            original:
+              original instanceof Error ? original.message : String(original),
+          },
+          'wwebjs: retry via LID falhou — subiu o erro do retry',
+        ),
+    });
+  }
+
+  // Resolve <num>@c.us → <lid>@lid SÓ no Store local da página (pageResolvePnToLid é
+  // autocontida e nunca vai à rede). Página fora do ar ou Store sem o par → null.
+  private async resolvePhoneToLid(phoneJid: string): Promise<string | null> {
+    const page = (
+      this.client as unknown as {
+        pupPage?: {
+          evaluate: (
+            fn: (p: string) => string | null,
+            arg: string,
+          ) => Promise<unknown>;
+        } | null;
+      } | null
+    )?.pupPage;
+    if (!page) return null;
+    try {
+      const lid = (await page.evaluate(pageResolvePnToLid, phoneJid)) as
+        string | null;
+      return typeof lid === 'string' && lid.endsWith('@lid') ? lid : null;
+    } catch (e) {
+      this.deps.logger.error({ e }, 'wwebjs: resolvePhoneToLid falhou');
+      return null;
+    }
+  }
+
+  // Memoriza o reroteio provado (mesmo teto FIFO do cache inbound) e registra o par no
+  // diretório + cache LID→PN — paridade com resolveNumberJid, para a resposta do contato já
+  // chegar fundida na conversa do telefone.
+  private rememberOutboundLid(pnJid: string, lid: string): void {
+    this.deps.logger.info(
+      { pnJid, lid },
+      'wwebjs: destino migrado a LID — envio reroteado PN→LID (local, sem rede)',
+    );
+    if (this.pnToLidOutbound.size >= 5000) {
+      const oldest = this.pnToLidOutbound.keys().next().value;
+      if (oldest !== undefined) this.pnToLidOutbound.delete(oldest);
+    }
+    this.pnToLidOutbound.set(pnJid, lid);
+    this.cacheLidPn(lid, pnJid);
+    const num = pnJid.replace(/\D/g, '');
+    this.deps.contacts?.record({
+      waId: lid,
+      lid,
+      jid: `${num}@s.whatsapp.net`,
+      phone: num,
+      source: 'wwebjs-lid-out',
+    });
   }
 
   // Merge retroativo: reescreve para o telefone as mensagens já gravadas com este @lid (funde a
