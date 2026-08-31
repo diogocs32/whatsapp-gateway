@@ -6,6 +6,15 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido (31/08 — sessão `envio-sem-onwhatsapp` — aguarda deploy)
+
+- **Envio Baileys sem consulta de existência**: `resolveJid` não chama mais `sock.onWhatsApp`
+  a cada envio. Em produção (31/08), pós-reconexão a consulta voltava vazia/`exists:false`
+  para números válidos e TODO envio morria com 400 ("O número X não está no WhatsApp");
+  além do risco de ban do padrão contact-check. Agora o JID é resolvido localmente
+  (`toJid`) e destino inexistente simplesmente não entrega (ACK não evolui — o ledger
+  conta a história). Aberta P-023 (9º dígito determinístico) como follow-up.
+
 ### Adicionado (18/08 — sessão `m3-qualidade` — **EM PRODUÇÃO ~11:50 UTC**, merge ff `4ea1c75`, CI novo verde)
 
 - **Fronteiras de módulo viram código no CI** (`.dependency-cruiser.cjs`, D-018): as regras de

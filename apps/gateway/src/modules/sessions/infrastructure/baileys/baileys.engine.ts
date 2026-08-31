@@ -1058,26 +1058,14 @@ export class BaileysEngine implements IEngine {
     return { keyId, jid };
   }
 
-  // Resolve o JID canônico de números individuais (corrige o 9º dígito BR — §23.11).
+  // Resolve o JID localmente, SEM consulta de rede (31/08/2026): o onWhatsApp que
+  // vivia aqui checava existência a cada envio — padrão de contact-check que arrisca
+  // ban do chip e, quando a resposta vinha vazia (pós-reconexão), derrubava TODO
+  // envio com "não está no WhatsApp" → HTTP 400. Política: não existe checagem de
+  // existência no caminho de envio; destino inexistente simplesmente não entrega
+  // (ACK não evolui) e é o ledger de ACKs quem conta essa história.
   private async resolveJid(to: string): Promise<string> {
-    let jid = toJid(to);
-    if (this.sock && jid.endsWith('@s.whatsapp.net')) {
-      const number = jid.slice(0, -'@s.whatsapp.net'.length);
-      const result = (await this.sock.onWhatsApp(number))?.[0];
-      if (!result?.exists) {
-        throw new Error(`O número ${number} não está no WhatsApp`);
-      }
-      jid = result.jid;
-      // Baileys 7.x: onWhatsApp não retorna mais o LID (o mapeamento LID↔PN passou a ser resolvido
-      // pelo lidMapping interno do Baileys). Registramos só o PN aqui.
-      this.deps.contacts?.record({
-        waId: jid,
-        jid,
-        lid: null,
-        source: 'onwhatsapp',
-      });
-    }
-    return jid;
+    return toJid(to);
   }
 
   // Humanização (F6): "digitando…" antes do envio em campanhas.
