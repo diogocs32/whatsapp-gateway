@@ -8,8 +8,6 @@
 
 ## 🟢 Sessões ativas
 
-- **`ATIVA-2026-08-31-1730-envio-sem-onwhatsapp`** — branch `fix/envio-sem-onwhatsapp`: remove o `onWhatsApp` do caminho de envio (quebra viva em prod 31/08 + política do dono: permissão é o único bloqueio). Código pronto, validado local (lint/depcruise/tsc/unit 28/28); **aguarda janela de deploy do dono** (push na main = deploy stop-first).
-
 | ID  | Início | Objetivo                                                                       | Escopo | Branch |
 | --- | ------ | ------------------------------------------------------------------------------ | ------ | ------ |
 | —   | —      | **Nenhuma sessão ativa** (última: m3-qualidade, encerrada e EM PRODUÇÃO 18/08) | —      | —      |

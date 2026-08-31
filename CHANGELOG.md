@@ -6,7 +6,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Corrigido (31/08 — sessão `envio-sem-onwhatsapp` — aguarda deploy)
+### Corrigido (31/08 — sessão `envio-sem-onwhatsapp` — **EM PRODUÇÃO ~20:45 UTC**, merge ff `66b7076`, validado com envio real entregue)
 
 - **Envio Baileys sem consulta de existência**: `resolveJid` não chama mais `sock.onWhatsApp`
   a cada envio. Em produção (31/08), pós-reconexão a consulta voltava vazia/`exists:false`

@@ -1,6 +1,6 @@
 # Sessão: envio-sem-onwhatsapp
 
-- **Status:** 🟢 ATIVA — código pronto e validado local; **aguardando janela de deploy do dono** (push na main = deploy)
+- **Status:** ✅ ENCERRADA 31/08/2026 — **EM PRODUÇÃO e VALIDADA** (ver adendo no fim)
 - **Início:** 31/08/2026 17:30 (BRT)
 - **Objetivo:** remover a consulta de existência `onWhatsApp` do caminho de envio da engine
   Baileys (`resolveJid`). Motivo duplo, medido em produção HOJE (campanha da Dra. Merabe):
@@ -52,3 +52,13 @@
 - **P-024** — renomear `cold`→`firstContact` no fio (HTTP + node + `modo cold_ok`):
   cosmético; se um dia, aditivo-primeiro (gateway aceita ambos → node → workflows → derruba
   o velho). Nunca gateway-primeiro.
+
+## Adendo — deploy e validação (31/08/2026, ~20:45–20:50 UTC)
+
+- Push `a0955c8..66b7076` na main → webhook → container novo detectado em ~4 min
+  (uptime resetado; `database/redis/storage` todos true).
+- Sessões WhatsApp reconectaram sozinhas (~2 min de "Sessão não iniciada", depois WORKING).
+- Prova direta: `sendText cold` por `sm` e `contato12` ao número do dono → **201/201**.
+- Prova ponta a ponta (campanha real): claim 17:47:30 BRT → **enviada E entregue ✔✔ 17:47:36**
+  — primeiro lead real pós-fix, 6 segundos. O 400 "não está no WhatsApp" morreu.
+- `grep -rn onWhatsApp apps/gateway/src` → só `checkNumbers` (fora do caminho de envio). ✓

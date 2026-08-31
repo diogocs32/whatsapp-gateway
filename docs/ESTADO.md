@@ -21,6 +21,8 @@
 
 ## Estado de produção
 
+> **31/08/2026:** produção AGORA roda no Dokploy novo (VPS 89.116.73.121, projeto `conexozenvo`, app `gateway`; `api.conexozenvo.cloud` vivo e `api.conexozenvo.com` reapontado via DNS). MinIO criado (bucket `wa-media`) → `checks.storage=true`. Deploy da sessão `envio-sem-onwhatsapp` (main `66b7076`) validado ~20:45 UTC — envio Baileys sem consulta de existência (`resolveJid` local). Detalhe: `sessions/DONE-2026-08-31-1730-envio-sem-onwhatsapp.md`.
+
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
 - **Último deploy confirmado:** 18/08/2026 **~11:50 UTC** — **onda M3 em produção** (merge ff
   `4ea1c75` → push 11:47:25 → auto-deploy → container novo **11:50:26** healthy, ciclo ~3min).
