@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                      | Início      | Objetivo                                                                                                                                                                                                                                 | Escopo                                           | Branch                               |
+| ----------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------ |
+| lid-envio-wwebjs        | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando)                                                                                                                            | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs                 |
+| diagnostico-nao-conecta | 07/09 11:50 | Diagnóstico do "não está conectando" em produção (logs Dokploy + API do painel): 12 sessões em QR sem parear desde 28/08, contato20 presa em STARTING; causa provável = build fixa do WA Web velha p/ login novo — ações no dono (B-003) | docs de sessão/pendências (sem código)           | feature/diagnostico-nao-conecta-0709 |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
