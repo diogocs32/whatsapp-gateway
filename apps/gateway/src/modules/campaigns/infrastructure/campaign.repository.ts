@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { startOfLocalDay } from '../../../shared-kernel/local-day';
 import { newId } from '../../../shared-kernel/ulid';
 
 export interface CreateCampaignData {
@@ -16,7 +17,18 @@ export interface CreateCampaignData {
   typingPreview: boolean;
   scheduledAt: Date | null;
   recipients: string[];
+  firstContact: boolean;
 }
+
+// ABE-04: reserva de destinatário — quem reserva envia; os demais workers pulam.
+export type ReserveRecipientResult =
+  | { kind: 'reserved'; recipient: { id: string; to: string } }
+  | { kind: 'cap'; sentToday: number }
+  | { kind: 'skip'; reason: string };
+
+// Teto de tentativas por destinatário (resultado indeterminado após worker morto no meio).
+const MAX_RECIPIENT_ATTEMPTS = 2;
+const DEFAULT_TZ = 'America/Sao_Paulo';
 
 @Injectable()
 export class CampaignRepository {
@@ -42,6 +54,7 @@ export class CampaignRepository {
         dailyCap: d.dailyCap,
         typingPreview: d.typingPreview,
         scheduledAt: d.scheduledAt,
+        firstContact: d.firstContact,
         total: unique.length,
         recipients: { create: unique.map((to) => ({ id: newId(), to })) },
       },
@@ -97,17 +110,111 @@ export class CampaignRepository {
     });
   }
 
+  // ABE-04: transição DRAFT/PAUSED → RUNNING atômica. Dois `start` concorrentes: só um vence
+  // (count 1) e agenda; o outro vê count 0 e não duplica os jobs.
+  async transitionToRunning(id: string, startedAt: Date): Promise<boolean> {
+    const r = await this.prisma.campaign.updateMany({
+      where: { id, status: { in: ['DRAFT', 'PAUSED'] } },
+      data: { status: 'RUNNING', startedAt },
+    });
+    return r.count === 1;
+  }
+
+  // ABE-04/ABE-05: reserva atômica do destinatário + orçamento diário, serializados pela linha
+  // da campanha (SELECT ... FOR UPDATE): com 4 workers, só um passa pelo cap por vez; o
+  // destinatário reservado (reservedAt) não é enviado por outro worker; reserva antiga sem
+  // resultado (worker morto) é retomada até MAX_RECIPIENT_ATTEMPTS e depois vira FAILED
+  // ("resultado indeterminado"), nunca reenvio cego infinito.
+  async reserveRecipient(
+    campaignId: string,
+    recipientId: string,
+    opts: { dailyCap: number | null; staleMs: number },
+  ): Promise<ReserveRecipientResult> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM campaigns WHERE id = ${campaignId} FOR UPDATE`;
+      const r = await tx.campaignRecipient.findUnique({
+        where: { id: recipientId },
+      });
+      if (!r || r.campaignId !== campaignId) {
+        return { kind: 'skip', reason: 'destinatário inexistente' };
+      }
+      if (r.status !== 'PENDING') {
+        return { kind: 'skip', reason: `status ${r.status}` };
+      }
+      const now = Date.now();
+      if (r.reservedAt && now - r.reservedAt.getTime() < opts.staleMs) {
+        return { kind: 'skip', reason: 'reservado por outro worker' };
+      }
+      if (r.attempts >= MAX_RECIPIENT_ATTEMPTS) {
+        await tx.campaignRecipient.update({
+          where: { id: r.id },
+          data: {
+            status: 'FAILED',
+            error: `resultado indeterminado após ${r.attempts} tentativas (worker não concluiu) — verifique no WhatsApp antes de reenviar`,
+          },
+        });
+        return { kind: 'skip', reason: 'tentativas esgotadas' };
+      }
+      if (opts.dailyCap != null) {
+        const tz = await this.sessionTimezone(tx, campaignId);
+        const dayStart = startOfLocalDay(tz);
+        const [sentToday, inFlight] = await Promise.all([
+          tx.campaignRecipient.count({
+            where: { campaignId, status: 'SENT', sentAt: { gte: dayStart } },
+          }),
+          tx.campaignRecipient.count({
+            where: {
+              campaignId,
+              status: 'PENDING',
+              id: { not: r.id },
+              reservedAt: { gte: new Date(now - opts.staleMs) },
+            },
+          }),
+        ]);
+        if (sentToday + inFlight >= opts.dailyCap) {
+          return { kind: 'cap', sentToday };
+        }
+      }
+      await tx.campaignRecipient.update({
+        where: { id: r.id },
+        data: { reservedAt: new Date(now), attempts: { increment: 1 } },
+      });
+      return { kind: 'reserved', recipient: { id: r.id, to: r.to } };
+    });
+  }
+
+  // Devolve o destinatário à fila (pausa/cancelamento detectados após a reserva, antes do efeito).
+  releaseRecipient(id: string) {
+    return this.prisma.campaignRecipient.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { reservedAt: null, attempts: { decrement: 1 } },
+    });
+  }
+
+  private async sessionTimezone(
+    tx: Pick<PrismaService, 'campaign'>,
+    campaignId: string,
+  ): Promise<string> {
+    const c = await tx.campaign.findUnique({
+      where: { id: campaignId },
+      select: {
+        session: { select: { config: { select: { timezone: true } } } },
+      },
+    });
+    return c?.session.config?.timezone || DEFAULT_TZ;
+  }
+
   markRecipientSent(id: string, keyId: string) {
     return this.prisma.campaignRecipient.update({
       where: { id },
-      data: { status: 'SENT', keyId, sentAt: new Date() },
+      data: { status: 'SENT', keyId, sentAt: new Date(), reservedAt: null },
     });
   }
 
   markRecipientFailed(id: string, error: string) {
     return this.prisma.campaignRecipient.update({
       where: { id },
-      data: { status: 'FAILED', error: error.slice(0, 500) },
+      data: { status: 'FAILED', error: error.slice(0, 500), reservedAt: null },
     });
   }
 

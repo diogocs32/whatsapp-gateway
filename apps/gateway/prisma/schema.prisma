@@ -148,6 +148,7 @@ model WaSession {
   messages  WaMessage[]
   contacts  WaContact[]
   campaigns Campaign[]
+  sendIntents SendIntent[]
   events    WaSessionEvent[]
   metrics   SessionMetric[]
   guardrail SessionGuardrail?
@@ -307,6 +308,32 @@ model WaMessage {
   // trocar por índice parcial (WHERE idempotencyKey IS NOT NULL) via migration custom.
   @@unique([sessionId, idempotencyKey])
   @@map("wa_messages")
+}
+
+// ABE-03 (auditoria 09/2026) — intenção de envio DURÁVEL, reservada ANTES do transporte.
+// O unique (sessionId, idempotencyKey) em wa_messages só protege DEPOIS do efeito; aqui a reserva
+// atômica garante que duas chamadas concorrentes com a mesma key disparem UM envio, que a key
+// reutilizada com outro payload seja rejeitada (fingerprint) e que falha/queda vire estado
+// consultável (pending/sent/failed) em vez de retry cego.
+model SendIntent {
+  id             String   @id
+  sessionId      String
+  idempotencyKey String
+  fingerprint    String // sha256 dos parâmetros relevantes (destino + conteúdo)
+  status         String   @default("pending") // pending | sent | failed
+  keyId          String?
+  chatJid        String?
+  error          String?
+  attempts       Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, idempotencyKey])
+  // Retenção (RETENTION_INTENTS_DAYS): purge por idade varre createdAt.
+  @@index([createdAt])
+  @@map("wa_send_intents")
 }
 
 // Diretório de contatos (F5+) — mapeia LID↔telefone e acumula metadados de TODAS as fontes
@@ -472,6 +499,9 @@ model Campaign {
   maxDelaySec   Int            @default(25) // espaçamento máximo
   dailyCap      Int? // limite diário de envios (opcional)
   typingPreview Boolean        @default(true) // humanização: mostra "digitando" antes
+  // ABE-02 (auditoria 09/2026): campanha de 1º contato passa pelo MESMO gate do endpoint de
+  // mensagens (cold) e seus envios contam como cold no reply-rate. Explícito e auditável.
+  firstContact  Boolean        @default(true)
   status        CampaignStatus @default(DRAFT)
   total         Int            @default(0)
   sentCount     Int            @default(0)
@@ -497,6 +527,10 @@ model CampaignRecipient {
   keyId      String?
   error      String?
   sentAt     DateTime?
+  // ABE-04: reserva atômica do destinatário (1 worker por vez) + tentativas (teto para
+  // resultado indeterminado após worker morto no meio do envio).
+  reservedAt DateTime?
+  attempts   Int                     @default(0)
   createdAt  DateTime                @default(now())
 
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)

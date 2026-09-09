@@ -104,6 +104,9 @@ export interface CreateSessionRequest {
 export interface QrResponse {
   status: SessionStatus;
   qr: string | null; // data URL base64 (image/png) ou null
+  // Aditivo (09/2026): código de pareamento CORRENTE quando status = PAIRING_CODE — a engine
+  // renova a cada ~3 min e o valor não vai mais para o log (WA-18).
+  pairingCode?: string;
 }
 
 export interface PairingCodeResponse {
@@ -452,6 +455,9 @@ export interface CampaignDto {
   maxDelaySec: number;
   dailyCap: number | null;
   typingPreview: boolean;
+  // Aditivo (09/2026, ABE-02): campanha de 1º contato passa pelo gate cold do guard-rail e
+  // seus envios contam como cold no reply-rate. Default true.
+  firstContact: boolean;
   scheduledAt: string | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -471,6 +477,7 @@ export interface CreateCampaignRequest {
   maxDelaySec?: number;
   dailyCap?: number;
   typingPreview?: boolean;
+  firstContact?: boolean; // default true (gate de 1º contato); false = contatos que já conversam
   scheduledAt?: string; // ISO; futuro = agenda
   autostart?: boolean;
 }

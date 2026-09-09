@@ -40,6 +40,11 @@ export class RetentionService implements OnApplicationBootstrap {
     await this.purge('wa_audit_logs', 'RETENTION_AUDIT_DAYS', 180, (cut) =>
       this.prisma.waAuditLog.deleteMany({ where: { createdAt: { lt: cut } } }),
     );
+    // ABE-03: a janela da chave de idempotência é INDEPENDENTE da do texto da mensagem
+    // (default igual, 90d). Após o purge, a mesma key volta a ser aceita como envio novo.
+    await this.purge('wa_send_intents', 'RETENTION_INTENTS_DAYS', 90, (cut) =>
+      this.prisma.sendIntent.deleteMany({ where: { createdAt: { lt: cut } } }),
+    );
   }
 
   private cutoff(envName: string, defDays: number): Date | null {

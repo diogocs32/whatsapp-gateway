@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { PrismaService } from '../src/infra/prisma/prisma.service';
 import {
   createTestApp,
+  fakeSessionManager,
   inject,
   login,
   removeSession,
@@ -224,5 +226,135 @@ describe('Messaging (e2e)', () => {
       headers: {},
     });
     expect(res.statusCode).toBe(401);
+  });
+
+  // ABE-03 (auditoria 09/2026) — intenção durável: a garantia de idempotência vale ANTES do
+  // transporte, inclusive sob concorrência. O manager é o fake (não persiste em wa_messages), então
+  // tudo o que dedupa aqui é a reserva em wa_send_intents.
+  describe('idempotencyKey — reserva durável (ABE-03)', () => {
+    const send = (payload: Record<string, unknown>) =>
+      inject(app, {
+        method: 'POST',
+        url: '/api/sessions/x/messages/text',
+        headers: { ...auth(), 'content-type': 'application/json' },
+        payload,
+      });
+
+    beforeAll(async () => {
+      await app
+        .get(PrismaService)
+        .sendIntent.deleteMany({ where: { sessionId: 'x' } });
+    });
+
+    it('mesma key + mesmo payload → 2ª chamada é replay (deduped:true, mesmo id) sem novo envio', async () => {
+      const original = fakeSessionManager.sendText;
+      let calls = 0;
+      fakeSessionManager.sendText = async () => {
+        calls++;
+        return { keyId: `k-${calls}`, jid: '5511999999999@s.whatsapp.net' };
+      };
+      try {
+        const a = await send({
+          to: '5511999999999',
+          text: 'oi',
+          idempotencyKey: 'abe03-replay',
+        });
+        const b = await send({
+          to: '5511999999999',
+          text: 'oi',
+          idempotencyKey: 'abe03-replay',
+        });
+        expect(a.statusCode).toBe(201);
+        expect(a.json().deduped).toBe(false);
+        expect(b.statusCode).toBe(201);
+        expect(b.json()).toMatchObject({ id: a.json().id, deduped: true });
+        expect(calls).toBe(1);
+      } finally {
+        fakeSessionManager.sendText = original;
+      }
+    });
+
+    it('mesma key com destinatário/conteúdo diferente → 409 e nenhum envio', async () => {
+      const original = fakeSessionManager.sendText;
+      let calls = 0;
+      fakeSessionManager.sendText = async () => {
+        calls++;
+        return { keyId: 'k', jid: 'j' };
+      };
+      try {
+        await send({
+          to: '5511999999999',
+          text: 'oi',
+          idempotencyKey: 'abe03-conflict',
+        });
+        const other = await send({
+          to: '5511888888888',
+          text: 'oi',
+          idempotencyKey: 'abe03-conflict',
+        });
+        expect(other.statusCode).toBe(409);
+        expect(calls).toBe(1);
+      } finally {
+        fakeSessionManager.sendText = original;
+      }
+    });
+
+    it('20 requisições concorrentes com a mesma key → UM envio; as demais replay ou 409 "em voo"', async () => {
+      const original = fakeSessionManager.sendText;
+      let calls = 0;
+      fakeSessionManager.sendText = async () => {
+        calls++;
+        await new Promise((r) => setTimeout(r, 150)); // transporte "lento": expõe a corrida
+        return { keyId: 'k-conc', jid: '5511999999999@s.whatsapp.net' };
+      };
+      try {
+        const results = await Promise.all(
+          Array.from({ length: 20 }, () =>
+            send({
+              to: '5511999999999',
+              text: 'oi',
+              idempotencyKey: 'abe03-conc',
+            }),
+          ),
+        );
+        expect(calls).toBe(1);
+        const codes = results.map((r) => r.statusCode);
+        expect(codes.filter((c) => c === 201).length).toBeGreaterThanOrEqual(1);
+        expect(codes.every((c) => c === 201 || c === 409)).toBe(true);
+        for (const r of results) {
+          if (r.statusCode === 201) expect(r.json().id).toBe('k-conc');
+        }
+      } finally {
+        fakeSessionManager.sendText = original;
+      }
+    });
+
+    it('falha no transporte marca a intenção failed e a MESMA key pode ser retentada', async () => {
+      const original = fakeSessionManager.sendText;
+      let calls = 0;
+      fakeSessionManager.sendText = async () => {
+        calls++;
+        if (calls === 1) throw new Error('rede caiu');
+        return { keyId: 'k-retry', jid: 'j' };
+      };
+      try {
+        const first = await send({
+          to: '5511999999999',
+          text: 'oi',
+          idempotencyKey: 'abe03-retry',
+        });
+        expect(first.statusCode).toBe(400);
+        const second = await send({
+          to: '5511999999999',
+          text: 'oi',
+          idempotencyKey: 'abe03-retry',
+        });
+        expect(second.statusCode).toBe(201);
+        expect(second.json()).toMatchObject({ id: 'k-retry', deduped: false });
+        expect(calls).toBe(2);
+      } finally {
+        fakeSessionManager.sendText = original;
+      }
+    });
   });
 });

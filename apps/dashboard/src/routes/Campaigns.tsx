@@ -29,6 +29,7 @@ export function Campaigns() {
   const [minDelaySec, setMinDelaySec] = useState(8);
   const [maxDelaySec, setMaxDelaySec] = useState(25);
   const [typingPreview, setTypingPreview] = useState(true);
+  const [firstContact, setFirstContact] = useState(true);
   const [autostart, setAutostart] = useState(false);
 
   useEffect(() => {
@@ -98,6 +99,7 @@ export function Campaigns() {
         minDelaySec,
         maxDelaySec,
         typingPreview,
+        firstContact,
         autostart,
       });
       setName('');
@@ -238,6 +240,17 @@ export function Campaigns() {
                   onChange={(e) => setTypingPreview(e.target.checked)}
                 />
                 <span className="text-zinc-300">“digitando…”</span>
+              </label>
+              <label
+                className="flex items-center gap-1.5"
+                title="1º contato: passa pelo guard-rail (quarentena/pausa manual) e conta como cold no reply-rate. Desmarque só para contatos que já conversam com a sessão."
+              >
+                <input
+                  type="checkbox"
+                  checked={firstContact}
+                  onChange={(e) => setFirstContact(e.target.checked)}
+                />
+                <span className="text-zinc-300">1º contato (guard-rail)</span>
               </label>
               <label className="flex items-center gap-1.5">
                 <input

@@ -35,16 +35,31 @@ export class CampaignService {
   }
 
   // Agenda cada pendente com espaçamento aleatório acumulado (anti-ban) + offset do agendamento.
+  // ABE-04: a transição para RUNNING é atômica — dois starts concorrentes agendam UMA vez; e o
+  // jobId determinístico (campaign-<id>-<recipient>) dedupa o agendamento no BullMQ.
   async start(id: string): Promise<void> {
     const c = await this.repo.findByIdOrThrow(id);
     if (c.status === 'RUNNING') return;
     if (c.status === 'DONE' || c.status === 'CANCELLED') {
       throw new Error('Campanha finalizada — não pode reiniciar');
     }
-    await this.repo.updateStatus(id, 'RUNNING', {
-      startedAt: c.startedAt ?? new Date(),
-    });
+    const won = await this.repo.transitionToRunning(
+      id,
+      c.startedAt ?? new Date(),
+    );
+    if (!won) return; // outro start venceu a corrida e já agendou
 
+    const scheduled = await this.schedulePending(id, c, `campaign-${id}`);
+    this.logger.log(
+      `Campanha "${c.name}" iniciada: ${scheduled} destinatários enfileirados`,
+    );
+  }
+
+  private async schedulePending(
+    id: string,
+    c: { scheduledAt: Date | null; minDelaySec: number; maxDelaySec: number },
+    jobPrefix: string,
+  ): Promise<number> {
     const pending = await this.repo.listPendingRecipients(id);
     const baseOffset =
       c.scheduledAt && c.scheduledAt.getTime() > Date.now()
@@ -56,11 +71,10 @@ export class CampaignService {
       await this.queue.enqueueSend(
         { campaignId: id, recipientId: r.id },
         baseOffset + cumulative,
+        `${jobPrefix}-${r.id}`,
       );
     }
-    this.logger.log(
-      `Campanha "${c.name}" iniciada: ${pending.length} destinatários enfileirados`,
-    );
+    return pending.length;
   }
 
   async pause(id: string): Promise<void> {
@@ -68,11 +82,25 @@ export class CampaignService {
     await this.repo.updateStatus(id, 'PAUSED');
   }
 
+  // ABE-05: além de voltar a RUNNING, reagenda os pendentes que ficaram sem job (fila perdida,
+  // processo reiniciado). Jobs ainda vivos coexistem sem duplicar: a reserva atômica do
+  // destinatário garante um único envio por pendente.
   async resume(id: string): Promise<void> {
     const c = await this.repo.findByIdOrThrow(id);
     if (c.status !== 'PAUSED') return;
-    // Os jobs pausados continuam re-agendando sozinhos; basta voltar a RUNNING.
-    await this.repo.updateStatus(id, 'RUNNING');
+    const won = await this.repo.transitionToRunning(
+      id,
+      c.startedAt ?? new Date(),
+    );
+    if (!won) return;
+    const n = await this.schedulePending(
+      id,
+      c,
+      `campaign-${id}-resume-${Math.floor(Date.now() / 1000)}`,
+    );
+    this.logger.log(
+      `Campanha "${c.name}" retomada: ${n} pendentes reagendados`,
+    );
   }
 
   async cancel(id: string): Promise<void> {

@@ -30,6 +30,8 @@ import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 import { InboxSyncService } from '../application/inbox-sync.service';
+import { sendFingerprint } from '../application/send-intent.decision';
+import { SendIntentService } from '../application/send-intent.service';
 import {
   MESSAGE_REPOSITORY,
   type ConversationSummary,
@@ -182,6 +184,7 @@ export class MessagesController {
     private readonly mediaStorage: MediaStorage,
     private readonly guardrail: GuardrailService,
     private readonly inboxSync: InboxSyncService,
+    private readonly intents: SendIntentService,
   ) {}
 
   // G5 hard-gate: só envios COLD passam pelo guard-rail; cold=false (chat aberto) sempre passa.
@@ -418,6 +421,47 @@ export class MessagesController {
     return { id: hit.keyId, to: hit.chatJid, deduped: true };
   }
 
+  // ABE-03 (auditoria 09/2026): intenção DURÁVEL reservada ANTES do transporte. A pré-checagem
+  // acima (wa_messages) só enxergava envios já persistidos — duas requisições concorrentes com a
+  // mesma key passavam as duas e enviavam duas vezes. Agora: legado (compat com keys anteriores)
+  // → reserva atômica (replay | 409 em voo | 409 payload diferente) → gate cold → envio →
+  // complete/fail. Sem idempotencyKey o caminho é o de sempre (sem reserva).
+  private async sendWithIntent(
+    id: string,
+    input: {
+      idempotencyKey?: string;
+      cold?: boolean;
+      fingerprint: Record<string, unknown>;
+    },
+    send: () => Promise<{ keyId: string; jid: string }>,
+  ): Promise<{ id: string; to: string; deduped: boolean }> {
+    const key = input.idempotencyKey;
+    const legacy = await this.deduped(id, key);
+    if (legacy) return legacy;
+    const intent = key
+      ? await this.intents.reserve(id, key, sendFingerprint(input.fingerprint))
+      : null;
+    if (intent?.kind === 'replay') {
+      return { id: intent.keyId, to: intent.chatJid, deduped: true };
+    }
+    const intentId = intent?.kind === 'reserved' ? intent.intentId : null;
+    try {
+      await this.assertColdAllowed(id, input.cold);
+    } catch (e) {
+      if (intentId)
+        await this.intents.fail(intentId, 'bloqueado pelo guard-rail');
+      throw e;
+    }
+    try {
+      const res = await send();
+      if (intentId) await this.intents.complete(intentId, res.keyId, res.jid);
+      return { id: res.keyId, to: res.jid, deduped: false };
+    } catch (e) {
+      if (intentId) await this.intents.fail(intentId, (e as Error).message);
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
   @Post('text')
   async sendText(
     @Param('id', SessionRefPipe) id: string,
@@ -430,19 +474,16 @@ export class MessagesController {
       );
     }
     const { to, text, mentions, cold, idempotencyKey } = parsed.data;
-    const dup = await this.deduped(id, idempotencyKey);
-    if (dup) return dup;
-    await this.assertColdAllowed(id, cold);
-    try {
-      const res = await this.manager.sendText(id, to, text, {
-        cold,
+    return this.sendWithIntent(
+      id,
+      {
         idempotencyKey,
-        mentions,
-      });
-      return { id: res.keyId, to: res.jid, deduped: false };
-    } catch (e) {
-      throw new BadRequestException((e as Error).message);
-    }
+        cold,
+        fingerprint: { kind: 'text', to, text, mentions: mentions ?? null },
+      },
+      () =>
+        this.manager.sendText(id, to, text, { cold, idempotencyKey, mentions }),
+    );
   }
 
   // Envio por upload (multipart/form-data). Envie os campos de texto ANTES do arquivo
@@ -475,24 +516,39 @@ export class MessagesController {
     // multipart: cold e idempotencyKey chegam como campos de texto (envie-os antes do arquivo).
     const idempotencyKey = fields.idempotencyKey?.value || undefined;
     const cold = fields.cold?.value === 'true';
-    const dup = await this.deduped(id, idempotencyKey);
-    if (dup) return dup;
-    await this.assertColdAllowed(id, cold);
-    try {
-      const res = await this.manager.sendMedia(id, to, {
-        buffer,
-        type,
-        mimetype: data.mimetype || 'application/octet-stream',
-        fileName: data.filename ?? fields.fileName?.value ?? null,
-        caption: fields.caption?.value ?? null,
-        ptt: fields.ptt?.value === 'true',
-        cold,
+    const mimetype = data.mimetype || 'application/octet-stream';
+    const fileName = data.filename ?? fields.fileName?.value ?? null;
+    const caption = fields.caption?.value ?? null;
+    return this.sendWithIntent(
+      id,
+      {
         idempotencyKey,
-      });
-      return { id: res.keyId, to: res.jid, deduped: false };
-    } catch (e) {
-      throw new BadRequestException((e as Error).message);
-    }
+        cold,
+        fingerprint: {
+          kind: 'media',
+          to,
+          type,
+          mimetype,
+          fileName,
+          caption,
+          size: buffer.length,
+          sha256: idempotencyKey
+            ? sendFingerprint({ b: buffer.toString('base64') })
+            : null,
+        },
+      },
+      () =>
+        this.manager.sendMedia(id, to, {
+          buffer,
+          type,
+          mimetype,
+          fileName,
+          caption,
+          ptt: fields.ptt?.value === 'true',
+          cold,
+          idempotencyKey,
+        }),
+    );
   }
 
   // Envio por URL (JSON): o gateway baixa o arquivo e envia (uso programático/integrações).
@@ -508,42 +564,53 @@ export class MessagesController {
       );
     }
     const d = parsed.data;
-    const dup = await this.deduped(id, d.idempotencyKey);
-    if (dup) return dup;
-    await this.assertColdAllowed(id, d.cold);
-    let buffer: Buffer;
-    let mimetype: string;
-    try {
-      const res = await fetch(d.url, { signal: AbortSignal.timeout(20000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      mimetype =
-        d.mimetype ||
-        res.headers.get('content-type')?.split(';')[0] ||
-        'application/octet-stream';
-      buffer = Buffer.from(await res.arrayBuffer());
-    } catch (e) {
-      throw new BadRequestException(
-        `não consegui baixar a URL: ${(e as Error).message}`,
-      );
-    }
-    if (buffer.length > 100 * 1024 * 1024) {
-      throw new BadRequestException('arquivo acima de 100 MB');
-    }
-    try {
-      const res = await this.manager.sendMedia(id, d.to, {
-        buffer,
-        type: d.type ?? inferType(mimetype),
-        mimetype,
-        fileName: d.fileName ?? null,
-        caption: d.caption ?? null,
-        mentions: d.mentions,
-        cold: d.cold,
+    return this.sendWithIntent(
+      id,
+      {
         idempotencyKey: d.idempotencyKey,
-      });
-      return { id: res.keyId, to: res.jid, deduped: false };
-    } catch (e) {
-      throw new BadRequestException((e as Error).message);
-    }
+        cold: d.cold,
+        fingerprint: {
+          kind: 'media-url',
+          to: d.to,
+          url: d.url,
+          type: d.type ?? null,
+          caption: d.caption ?? null,
+          fileName: d.fileName ?? null,
+          mentions: d.mentions ?? null,
+        },
+      },
+      async () => {
+        // Download dentro da intenção: falha de download = intenção failed (retry permitido).
+        let buffer: Buffer;
+        let mimetype: string;
+        try {
+          const res = await fetch(d.url, {
+            signal: AbortSignal.timeout(20000),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          mimetype =
+            d.mimetype ||
+            res.headers.get('content-type')?.split(';')[0] ||
+            'application/octet-stream';
+          buffer = Buffer.from(await res.arrayBuffer());
+        } catch (e) {
+          throw new Error(`não consegui baixar a URL: ${(e as Error).message}`);
+        }
+        if (buffer.length > 100 * 1024 * 1024) {
+          throw new Error('arquivo acima de 100 MB');
+        }
+        return this.manager.sendMedia(id, d.to, {
+          buffer,
+          type: d.type ?? inferType(mimetype),
+          mimetype,
+          fileName: d.fileName ?? null,
+          caption: d.caption ?? null,
+          mentions: d.mentions,
+          cold: d.cold,
+          idempotencyKey: d.idempotencyKey,
+        });
+      },
+    );
   }
 
   // W5 — envia uma localização (mapa).
@@ -559,22 +626,30 @@ export class MessagesController {
       );
     }
     const d = parsed.data;
-    const dup = await this.deduped(id, d.idempotencyKey);
-    if (dup) return dup;
-    await this.assertColdAllowed(id, d.cold);
-    try {
-      const res = await this.manager.sendLocation(id, d.to, {
-        latitude: d.latitude,
-        longitude: d.longitude,
-        name: d.name ?? null,
-        address: d.address ?? null,
-        cold: d.cold,
+    return this.sendWithIntent(
+      id,
+      {
         idempotencyKey: d.idempotencyKey,
-      });
-      return { id: res.keyId, to: res.jid, deduped: false };
-    } catch (e) {
-      throw new BadRequestException((e as Error).message);
-    }
+        cold: d.cold,
+        fingerprint: {
+          kind: 'location',
+          to: d.to,
+          latitude: d.latitude,
+          longitude: d.longitude,
+          name: d.name ?? null,
+          address: d.address ?? null,
+        },
+      },
+      () =>
+        this.manager.sendLocation(id, d.to, {
+          latitude: d.latitude,
+          longitude: d.longitude,
+          name: d.name ?? null,
+          address: d.address ?? null,
+          cold: d.cold,
+          idempotencyKey: d.idempotencyKey,
+        }),
+    );
   }
 
   // W5 — envia uma enquete (poll).
@@ -590,20 +665,27 @@ export class MessagesController {
       );
     }
     const d = parsed.data;
-    const dup = await this.deduped(id, d.idempotencyKey);
-    if (dup) return dup;
-    await this.assertColdAllowed(id, d.cold);
-    try {
-      const res = await this.manager.sendPoll(id, d.to, {
-        name: d.name,
-        options: d.options,
-        multi: d.multi,
-        cold: d.cold,
+    return this.sendWithIntent(
+      id,
+      {
         idempotencyKey: d.idempotencyKey,
-      });
-      return { id: res.keyId, to: res.jid, deduped: false };
-    } catch (e) {
-      throw new BadRequestException((e as Error).message);
-    }
+        cold: d.cold,
+        fingerprint: {
+          kind: 'poll',
+          to: d.to,
+          name: d.name,
+          options: d.options,
+          multi: d.multi ?? null,
+        },
+      },
+      () =>
+        this.manager.sendPoll(id, d.to, {
+          name: d.name,
+          options: d.options,
+          multi: d.multi,
+          cold: d.cold,
+          idempotencyKey: d.idempotencyKey,
+        }),
+    );
   }
 }

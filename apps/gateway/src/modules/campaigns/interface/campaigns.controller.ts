@@ -31,6 +31,9 @@ const createCampaignSchema = z
     maxDelaySec: z.number().int().min(1).max(3600).default(25),
     dailyCap: z.number().int().min(1).optional(),
     typingPreview: z.boolean().default(true),
+    // ABE-02: 1º contato (default) passa pelo gate cold do guard-rail e conta como cold no
+    // reply-rate. false = campanha para contatos que já conversam com a sessão (sem gate).
+    firstContact: z.boolean().default(true),
     scheduledAt: z.string().datetime().optional(),
     autostart: z.boolean().default(false),
   })
@@ -58,6 +61,7 @@ type CampaignRow = {
   maxDelaySec: number;
   dailyCap: number | null;
   typingPreview: boolean;
+  firstContact: boolean;
   scheduledAt: Date | null;
   startedAt: Date | null;
   finishedAt: Date | null;
@@ -80,6 +84,7 @@ function toDto(c: CampaignRow) {
     maxDelaySec: c.maxDelaySec,
     dailyCap: c.dailyCap,
     typingPreview: c.typingPreview,
+    firstContact: c.firstContact,
     scheduledAt: c.scheduledAt?.toISOString() ?? null,
     startedAt: c.startedAt?.toISOString() ?? null,
     finishedAt: c.finishedAt?.toISOString() ?? null,
@@ -120,6 +125,7 @@ export class CampaignsController {
           maxDelaySec: d.maxDelaySec,
           dailyCap: d.dailyCap ?? null,
           typingPreview: d.typingPreview,
+          firstContact: d.firstContact,
           scheduledAt: d.scheduledAt ? new Date(d.scheduledAt) : null,
           recipients: d.recipients,
         },
