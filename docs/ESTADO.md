@@ -23,6 +23,13 @@
 
 > **31/08/2026:** produção AGORA roda no Dokploy novo (VPS 89.116.73.121, projeto `conexozenvo`, app `gateway`; `api.conexozenvo.cloud` vivo e `api.conexozenvo.com` reapontado via DNS). MinIO criado (bucket `wa-media`) → `checks.storage=true`. Deploy da sessão `envio-sem-onwhatsapp` (main `66b7076`) validado ~20:45 UTC — envio Baileys sem consulta de existência (`resolveJid` local). Detalhe: `sessions/DONE-2026-08-31-1730-envio-sem-onwhatsapp.md`.
 
+> **09/09/2026 (sessão `aplicacao-auditoria`):** deploy REAL mais recente = `740b911`
+> (fix LID wwebjs), container de **01/09 00:14 UTC** (confirmado na aba Deployments do Dokploy em
+> 07/09). A branch `feature/auditoria-melhorias-20260909` tem as ondas A–G da auditoria 09/2026
+> (segurança, ciclo de vida wwebjs/Baileys, idempotência durável, egress, guard-rail, painel, CI,
+> deps) **commitadas e NÃO deployadas** — merge/deploy é decisão do dono; ler o checkpoint da
+> sessão (`docs/sessions/ATIVA-2026-09-09-1050-aplicacao-auditoria.md`, seção ⚠️) antes.
+
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
 - **Último deploy confirmado:** 18/08/2026 **~11:50 UTC** — **onda M3 em produção** (merge ff
   `4ea1c75` → push 11:47:25 → auto-deploy → container novo **11:50:26** healthy, ciclo ~3min).
@@ -55,6 +62,7 @@
 
 | Onde                                 | O quê                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| feature/auditoria-melhorias-20260909 | **NÃO deployada** — 7 commits de código (ondas A–G da auditoria 09/2026) + docs. Base `b982d10`. Exige `EGRESS_ALLOW_HOSTS` se houver webhook interno; migration aditiva `20260909150000`. Ver checkpoint da sessão `aplicacao-auditoria`                                                                                                                                                               |
 | main local ↔ origin/main             | **Sincronizado e PRODUÇÃO = MAIN** (`4ea1c75`, deploy 18/08 ~11:50 UTC — onda M3 ativa: CI com format/fronteiras/coverage, 28 testes unitários, tudo de 16/08 preservado). Nada pendente de deploy.                                                                                                                                                                                                     |
 | ~~feature/m3-qualidade~~             | ✅ **EM PRODUÇÃO 18/08 ~11:50 UTC** (merge ff `4ea1c75`; CI novo success na 1ª execução; branch deletada pós-merge). Onda M3 concluída — continuação = P-022                                                                                                                                                                                                                                            |
 | ~~feature/dedup-status-alertas~~     | ✅ **EM PRODUÇÃO 16/08** (P-020/D-015, deploy ~17:50 UTC): dedup de `session.status` idêntico consecutivo — fim do spam de alerta zap/telegram                                                                                                                                                                                                                                                          |

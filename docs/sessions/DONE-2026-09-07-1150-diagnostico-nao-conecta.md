@@ -1,6 +1,6 @@
 # Sessão: diagnostico-nao-conecta
 
-- **Status:** 🟢 ATIVA — diagnóstico operacional (sem código); ações abertas para o dono (B-003)
+- **Status:** ✅ ENCERRADA 09/09/2026 — diagnóstico entregue (commit `b982d10`); B-003 (teste da build nova + leitura do celular) segue aberta no quadro; P-025/P-026 ganharam código na sessão `aplicacao-auditoria` (09/09)
 - **Início:** 07/09/2026 11:50 (BRT)
 - **Objetivo:** responder ao "não está conectando": levantar TODOS os erros do gateway em produção
   (Dokploy `89.116.73.121`, app `gateway`, container `16f3f005857a`, boot 01/09 00:14 UTC) e do

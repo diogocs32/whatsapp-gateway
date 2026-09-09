@@ -9,6 +9,13 @@
 Toda rota `/api/*` exige o header **`X-Api-Key: <sua-chave>`** (papel ADMIN; gere no painel).
 Sessões são referenciadas por **nome** (`campanha1`) ou ID — ambos funcionam na URL.
 
+> **Cookie do painel × integrações (09/2026, ABE-12):** requisições com efeito (POST/PUT/PATCH/
+> DELETE) autenticadas pelo **cookie** do painel passam por verificação CSRF — o `Origin` precisa
+> estar em `CORS_ORIGIN` (ou `Sec-Fetch-Site: same-origin`); caso contrário **403**. Integrações
+> usam `X-Api-Key`/`Bearer` e **não** são afetadas. `GET /sessions/{id}/qr` passou a devolver
+> também `pairingCode` (aditivo) enquanto a sessão está em `PAIRING_CODE` — o código renovado não
+> vai mais para o log.
+
 ## 2. Enviar mensagem (G1 — cold + idempotência)
 
 ```
@@ -18,7 +25,8 @@ POST /api/sessions/{sessao}/messages/text
 
 - **`cold: true`** = 1º contato permissionado (a IA, ao responder, deve mandar `cold: false`).
 - **`idempotencyKey`** = dedup forte: **reenviar com a mesma key NÃO duplica** — devolve o resultado anterior (`{ deduped: true }`). Use sempre em retry para não mandar 2×.
-- Mídia: `POST …/messages/media-url` (mesmos `cold`/`idempotencyKey`).
+  - **Desde 09/2026 (ABE-03, aditivo):** a intenção é RESERVADA antes do envio, então a garantia vale também sob concorrência (20 chamadas simultâneas com a mesma key = 1 envio). Dois casos novos respondem **HTTP 409**: (a) a mesma key chegou com **outro destinatário/conteúdo** → use uma key nova; (b) um envio com essa key **ainda está em andamento** → aguarde a resposta anterior ou retente em instantes (o n8n deve tratar 409 como "não reenviar agora"). Falha de transporte (400) libera a key para retry com o mesmo payload. Keys ficam válidas por `RETENTION_INTENTS_DAYS` (90 d).
+- Mídia: `POST …/messages/media-url` (mesmos `cold`/`idempotencyKey`). **Política de egress (09/2026):** a `url` precisa ser http/https pública, sem credenciais embutidas; destino que resolve para rede privada/loopback/metadata é recusado (400 `URL de mídia recusada`); redirects são revalidados; o corpo é lido em fluxo com teto `MEDIA_MAX_BYTES` (64 MB default). Host interno legítimo entra em `EGRESS_ALLOW_HOSTS` no gateway.
 - **Menções (W5, aditivo):** `text` e `media-url` aceitam `mentions: ["5511888888888", ...]` (números ou JIDs a marcar com @; até 50). Funciona nas duas engines (resolvidas ao formato de cada uma). Ex.: `{ "to": "...", "text": "olá @fulano", "mentions": ["5511888888888"] }`.
 - **Reação (W5, aditivo):** `POST /api/sessions/{sessao}/messages/{msgId}/reaction` com `{ "emoji": "👍" }` — `emoji` vazio (`""`) REMOVE a reação. `msgId` = keyId do WhatsApp (o mesmo que `read` e o download de mídia aceitam). 404 se a mensagem não for conhecida. Funciona nas duas engines.
 - **Localização (W5, aditivo):** `POST /api/sessions/{sessao}/messages/location` com `{ "to": "...", "latitude": -23.55, "longitude": -46.63, "name": "Escritório", "address": "Av. ..." }` (`name`/`address` opcionais; mesmos `cold`/`idempotencyKey`). Funciona nas duas engines.
@@ -34,7 +42,16 @@ POST /api/webhooks
 ```
 
 Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`, assinada com
-**HMAC-SHA512** no header `x-webhook-signature` (se houver `secret`). Catálogo:
+**HMAC-SHA512** no header `x-webhook-signature` (se houver `secret`).
+
+> **Egress (09/2026, ABE-06):** a `url` do webhook segue a mesma política de saída — http/https,
+> sem credenciais na URL, destino público (rede privada/loopback/metadata é recusada no cadastro
+> com 400 e, se o DNS mudar depois, na entrega — o evento vai direto para a dead-letter com o
+> motivo). n8n na mesma rede Docker? Libere o host em `EGRESS_ALLOW_HOSTS`. Redirect do destino
+> **não é seguido** (a assinatura não pode vazar para outro host). Os `headers` customizados do
+> webhook não sobrescrevem `Content-Type` nem `x-webhook-signature`.
+
+Catálogo:
 
 | Evento                                                       | Quando                   | Payload-chave                                                                                    |
 | ------------------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -93,6 +110,16 @@ Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
 
 - **Hard-gate:** um envio `cold: true` numa sessão bloqueada responde **HTTP 423 `SESSION_QUARANTINED`**.
   Envio `cold: false` (chat aberto) sempre passa. → trate o 423 ramificando e re-enfileirando o lead.
+- **Campanhas (09/2026, ABE-02):** `POST /api/campaigns` aceita `firstContact` (default `true`).
+  Campanha de 1º contato passa pelo MESMO hard-gate (sessão em quarentena/pausa manual → a
+  campanha é **pausada**, não falha por destinatário), envia com `cold: true` (conta no reply-rate)
+  e usa `idempotencyKey` determinística por destinatário (retry/stall da fila não duplica).
+  `firstContact: false` = campanha para contatos que já conversam com a sessão (sem gate).
+  O `dailyCap` agora conta o **dia local** (fuso da `SessionConfig`), não o total acumulado.
+- **Quarentena/cooldown (09/2026, P-030):** uma sessão em quarentena só volta a `ativa` depois
+  do `cooldown_ate` (mesmo que a taxa melhore antes) e uma quarentena aplicada por override
+  manual só sai por outro override (`activate`/`warmup`). `401`/loggedOut da engine NÃO vira
+  `banida` (é credencial perdida); só `ban`/`restriction` viram `banida`, `463` vira quarentena.
 - **MODO OBSERVAÇÃO (padrão):** `GUARDRAIL_ENFORCE=false` → o gateway **mede e registra mas NÃO bloqueia**
   nem quarentena automaticamente. **Ligue (`true`) só depois de ter a mediana real da frota.**
 - **Override manual:** `POST /api/sessions/{sessao}/quarantine|warmup|activate|pause`.
