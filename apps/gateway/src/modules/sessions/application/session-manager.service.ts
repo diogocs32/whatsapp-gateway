@@ -430,6 +430,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return this.engines.get(sessionId)?.getQrBase64() ?? null;
   }
 
+  getPairingCode(sessionId: string): string | null {
+    return this.engines.get(sessionId)?.getPairingCode?.() ?? null;
+  }
+
   async requestPairingCode(
     sessionId: string,
     phoneNumber: string,

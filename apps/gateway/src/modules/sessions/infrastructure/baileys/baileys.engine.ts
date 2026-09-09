@@ -10,6 +10,7 @@ import makeWASocket, {
   proto,
   type ConnectionState,
   type Contact,
+  type GroupMetadata,
   type MessageUpsertType,
   type WAMessage,
   type WAMessageUpdate,
@@ -429,6 +430,11 @@ function toContactJid(jid: string): string {
 
 const MAX_RECONNECT = 5;
 const SENT_CACHE_MAX = 1000;
+// WA-12 (auditoria 09/2026): cache de metadata de grupo. A doc do Baileys recomenda
+// `cachedGroupMetadata` para envios a grupo não consultarem os participantes a CADA mensagem
+// (consulta repetida é associada por eles a rate-limit). TTL curto + invalidação por evento.
+const GROUP_META_TTL_MS = 10 * 60_000;
+const GROUP_META_MAX = 500;
 
 export class BaileysEngine implements IEngine {
   readonly engineName = 'baileys' as const;
@@ -447,8 +453,32 @@ export class BaileysEngine implements IEngine {
   private readonly sentMessages = new Map<string, proto.IMessage>();
   // cache LID→número (PN) aprendido das mensagens, para resolver conversas 1:1 (§23.1)
   private readonly lidToPn = new Map<string, string>();
+  // WA-11: timer da reconexão agendada + geração do connect. Antes o timer não era guardado: um
+  // stop()+start() rápido deixava o timer velho vivo e ele derrubava o socket NOVO (saudável)
+  // para "reconectar". Agora: start/stop/logout cancelam o timer e o callback checa a geração.
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private connectGeneration = 0;
+  // WA-12: metadata de grupo (jid → metadata + instante) servida ao `cachedGroupMetadata`.
+  private readonly groupMetaCache = new Map<
+    string,
+    { md: GroupMetadata; at: number }
+  >();
 
   constructor(private readonly deps: BaileysEngineDeps) {}
+
+  private cacheGroupMeta(md: GroupMetadata | null | undefined): void {
+    if (!md?.id) return;
+    if (this.groupMetaCache.size >= GROUP_META_MAX) {
+      const oldest = this.groupMetaCache.keys().next().value;
+      if (oldest) this.groupMetaCache.delete(oldest);
+    }
+    this.groupMetaCache.set(md.id, { md, at: Date.now() });
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+  }
 
   getStatus(): SessionStatus {
     return this.status;
@@ -481,6 +511,8 @@ export class BaileysEngine implements IEngine {
     return this.serialize(() => {
       this.stopped = false;
       this.reconnectAttempts = 0;
+      this.clearReconnectTimer(); // WA-11: reconexão pendente de um ciclo anterior não vale mais
+      this.connectGeneration += 1;
       return this.connect();
     });
   }
@@ -563,8 +595,22 @@ export class BaileysEngine implements IEngine {
       agent: agent as HttpsAgent | undefined,
       fetchAgent: agent as HttpsAgent | undefined,
       getMessage: async (key) => this.loadMessageForRetry(key),
+      // WA-12: envio a grupo reaproveita a metadata (participantes) por GROUP_META_TTL_MS em vez
+      // de consultá-la a cada mensagem. Miss → busca 1× e guarda; eventos de grupo invalidam.
+      cachedGroupMetadata: async (jid) => {
+        const hit = this.groupMetaCache.get(jid);
+        if (hit && Date.now() - hit.at < GROUP_META_TTL_MS) return hit.md;
+        try {
+          const md = await sock.groupMetadata(jid);
+          this.cacheGroupMeta(md);
+          return md;
+        } catch {
+          return hit?.md; // stale > nada: a lib consulta de novo se undefined
+        }
+      },
     });
     this.sock = sock;
+    this.groupMetaCache.clear(); // socket novo: participantes podem ter mudado offline
     this.setStatus('STARTING');
 
     // F7.2 — cada handler roda dentro de `safe()`: um erro processando evento de UMA sessão é
@@ -593,6 +639,13 @@ export class BaileysEngine implements IEngine {
     sock.ev.on('messages.reaction', (rs) =>
       this.safe(() => this.onReactions(rs), 'messages.reaction'),
     );
+    // WA-12 — invalidação do cache de metadata de grupo (membros/assunto mudaram).
+    sock.ev.on('groups.update', (updates) => {
+      for (const u of updates) if (u.id) this.groupMetaCache.delete(u.id);
+    });
+    sock.ev.on('group-participants.update', (u) => {
+      if (u.id) this.groupMetaCache.delete(u.id);
+    });
   }
 
   // W6 — reações recebidas. O mapeamento (fromMe/emoji/removida/timestamp) é uma função pura
@@ -702,15 +755,22 @@ export class BaileysEngine implements IEngine {
         { statusCode, attempt: this.reconnectAttempts, delay },
         'reconectando sessão',
       );
-      setTimeout(() => {
-        if (!this.stopped) {
-          // Serializada e re-checando `stopped` DENTRO da fila: um stop()/logout() que entrou
-          // entre o agendamento e a execução cancela a reconexão em vez de ressuscitar o socket.
-          void this.serialize(() =>
-            this.stopped ? Promise.resolve() : this.connect(),
-          ).catch((e) => this.deps.logger.error({ e }, 'erro ao reconectar'));
-        }
+      // WA-11: timer ÚNICO por geração — start()/stop()/logout() cancelam; se um start manual
+      // trocou a geração no meio-tempo, o callback não derruba o socket novo.
+      this.clearReconnectTimer();
+      const gen = this.connectGeneration;
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = undefined;
+        if (this.stopped || gen !== this.connectGeneration) return;
+        // Serializada e re-checando `stopped` DENTRO da fila: um stop()/logout() que entrou
+        // entre o agendamento e a execução cancela a reconexão em vez de ressuscitar o socket.
+        void this.serialize(() =>
+          this.stopped || gen !== this.connectGeneration
+            ? Promise.resolve()
+            : this.connect(),
+        ).catch((e) => this.deps.logger.error({ e }, 'erro ao reconectar'));
       }, delay);
+      this.reconnectTimer.unref?.();
     }
   }
 
@@ -1321,15 +1381,16 @@ export class BaileysEngine implements IEngine {
 
   async listGroups(): Promise<GroupInfo[]> {
     const map = await this.sk().groupFetchAllParticipating();
+    for (const md of Object.values(map)) this.cacheGroupMeta(md); // WA-12
     const raws = Object.values(map) as unknown as RawGroup[];
     for (const g of raws) this.recordGroupParticipants(g);
     const names = await this.resolveParticipantNames(raws);
     return raws.map((g) => toGroupInfo(g, this.lidToPn, names));
   }
   async groupInfo(jid: string): Promise<GroupInfo> {
-    const md = (await this.sk().groupMetadata(
-      toGroupJid(jid),
-    )) as unknown as RawGroup;
+    const fresh = await this.sk().groupMetadata(toGroupJid(jid));
+    this.cacheGroupMeta(fresh); // WA-12
+    const md = fresh as unknown as RawGroup;
     this.recordGroupParticipants(md);
     const names = await this.resolveParticipantNames([md]);
     return toGroupInfo(md, this.lidToPn, names);
@@ -1508,6 +1569,7 @@ export class BaileysEngine implements IEngine {
 
   private async doStop(): Promise<void> {
     this.stopped = true;
+    this.clearReconnectTimer();
     // Remove os listeners ANTES de encerrar o socket. Sem isto, o `end()` dispara um
     // connection.update 'close' tardio que reentra em onConnectionUpdate e re-emite status
     // (status fantasma após a parada). Espelha a limpeza feita no início de connect().
@@ -1542,6 +1604,7 @@ export class BaileysEngine implements IEngine {
 
   private async doLogout(): Promise<void> {
     this.stopped = true;
+    this.clearReconnectTimer();
     try {
       await this.sock?.logout();
     } catch {

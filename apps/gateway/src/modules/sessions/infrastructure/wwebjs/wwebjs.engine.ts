@@ -187,6 +187,41 @@ export function authDirOf(sessionId: string): string {
   return join(resolve(AUTH_PATH), `session-${sessionId}`);
 }
 
+// Catálogo de builds do wa-version (P-026), com cache de processo e single-flight: 1 fetch por
+// TTL atende todas as sessões. null = indisponível (o chamador só loga).
+async function loadBuildCatalog(): Promise<BuildCatalog | null> {
+  if (
+    buildCatalogCache &&
+    Date.now() - buildCatalogCache.fetchedAt < BUILD_CATALOG_TTL_MS
+  ) {
+    return buildCatalogCache;
+  }
+  if (buildCatalogInFlight) return buildCatalogInFlight;
+  buildCatalogInFlight = (async () => {
+    try {
+      const res = await fetch(WA_VERSIONS_JSON, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = (await res.json()) as {
+        currentVersion?: string;
+        versions?: BuildCatalogEntry[];
+      };
+      buildCatalogCache = {
+        currentVersion: j.currentVersion ?? null,
+        versions: Array.isArray(j.versions) ? j.versions : [],
+        fetchedAt: Date.now(),
+      };
+      return buildCatalogCache;
+    } catch {
+      return buildCatalogCache; // stale (se houver) ou null
+    } finally {
+      buildCatalogInFlight = null;
+    }
+  })();
+  return buildCatalogInFlight;
+}
+
 // Tetos das operações de Store (P-014): a página do WhatsApp Web pode PENDURAR após reconexões de
 // QR (evaluate nunca resolve) e o chamador ficava preso os 240s do protocolTimeout do CDP. O probe
 // curto detecta página morta antes da operação; o teto por operação devolve erro acionável em
@@ -198,6 +233,34 @@ const STORE_OP_TIMEOUT_MS = 45_000;
 // penduram até o protocolTimeout (240s) SEGURANDO o mutex de ciclo de vida — o Parar/shutdown
 // enfileira atrás e nunca roda. Estourou → seguimos para destroy+purge (que garantem a limpeza).
 const LOGOUT_TIMEOUT_MS = 8_000;
+// WA-08 / P-025 (auditoria 09/2026) — teto do `client.initialize()`. A lib faz `page.goto(...,
+// timeout: 0)` ANTES do gate de autenticação (30s): com proxy/rede que nunca responde, o
+// initialize pendurava PARA SEMPRE segurando o mutex de ciclo de vida (contato20: 6,6 dias em
+// STARTING em 07/09; start/restart/new-qr viravam fila silenciosa). Estourou → destroy com teto,
+// 1 retentativa com a mesma build, depois FAILED com motivo. Env WWEBJS_INIT_TIMEOUT_MS.
+const INIT_TIMEOUT_MS = Number(process.env.WWEBJS_INIT_TIMEOUT_MS) || 240_000;
+// Watchdog da fase de QR/pairing (P-025): o WhatsApp Web renova o QR a cada ~30-60s e o código de
+// pareamento a cada ~3 min; sem renovação por QR_STALE_MS a página morreu (contato7: QR parado
+// desde 02/09 sem ninguém perceber). Cura = destroy + start, no máximo MAX_QR_HEALS por ciclo.
+const QR_WATCHDOG_INTERVAL_MS = 60_000;
+const QR_STALE_MS = 5 * 60_000;
+const MAX_QR_HEALS = 3;
+// P-026 — idade da build fixa do WhatsApp Web: acima disto, WARN no start (novos pareamentos por
+// QR passaram a falhar com build de ~15-25 dias em 08-09/2026, muito antes do "expire" do catálogo).
+const BUILD_AGE_WARN_DAYS = 14;
+const BUILD_CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
+interface BuildCatalogEntry {
+  version: string;
+  released?: string;
+  expire?: string;
+}
+interface BuildCatalog {
+  currentVersion: string | null;
+  versions: BuildCatalogEntry[];
+  fetchedAt: number;
+}
+let buildCatalogCache: BuildCatalog | null = null;
+let buildCatalogInFlight: Promise<BuildCatalog | null> | null = null;
 // P-015 — marcador de "fechado limpo" gravado no perfil (authDir) quando NÓS fechamos o Chromium
 // com sucesso (destroy dentro do teto) e consumido no start seguinte. Perfil presente SEM o
 // marcador = o último encerramento foi sujo (SIGKILL/crash/teto de shutdown estourado) — o cenário
@@ -275,6 +338,20 @@ export class WWebJSEngine implements IEngine {
   // e o marcador de "fechado limpo" nunca era gravado (validado em prod 14/08 — WARN de
   // encerramento sujo em todo swap). 7s dá folga para destroy + marcador + resto do shutdown.
   private destroyTimeoutMs = 7_000;
+  // Geração do client (WA-08/09): cada `new Client` incrementa; callbacks de um client antigo
+  // (initialize que estourou o teto e "voltou" depois, destroy pendurado) checam `current()` e
+  // são ignorados — nunca sobrescrevem status/QR da geração viva.
+  private generation = 0;
+  // Fase de QR/pairing — última renovação vista (QR ou código). Base do watchdog de QR parado.
+  private lastQrAt: number | null = null;
+  private qrWatchdogTimer: ReturnType<typeof setInterval> | undefined;
+  private qrHeals = 0;
+  // Campos (não constantes) para os testes injetarem tetos curtos — mesmo padrão do destroyTimeoutMs.
+  private qrWatchdogIntervalMs = QR_WATCHDOG_INTERVAL_MS;
+  private qrStaleMs = QR_STALE_MS;
+  private initTimeoutMs = INIT_TIMEOUT_MS;
+  // Último pairing code (WA-18): NÃO vai para o log; o painel/n8n leem em GET /:id/qr.
+  private lastPairingCode: string | null = null;
 
   constructor(private readonly deps: BaileysEngineDeps) {}
 
@@ -295,6 +372,9 @@ export class WWebJSEngine implements IEngine {
   getQrBase64(): string | null {
     return this.qrBase64;
   }
+  getPairingCode(): string | null {
+    return this.status === 'PAIRING_CODE' ? this.lastPairingCode : null;
+  }
 
   private setStatus(
     status: SessionStatus,
@@ -307,9 +387,76 @@ export class WWebJSEngine implements IEngine {
     this.status = status;
     this.deps.onEvent('session.status', { status, ...extra });
     // P-019 — o watchdog de sync acompanha a sessão enquanto ela se diz utilizável e morre com ela.
-    if (status === 'WORKING') this.startSyncWatchdog();
-    else if (status === 'STOPPED' || status === 'FAILED')
+    if (status === 'WORKING') {
+      this.startSyncWatchdog();
+      this.stopQrWatchdog();
+      this.qrHeals = 0;
+    } else if (status === 'STOPPED' || status === 'FAILED') {
       this.stopSyncWatchdog();
+      this.stopQrWatchdog();
+    } else if (status === 'SCAN_QR_CODE' || status === 'PAIRING_CODE') {
+      this.startQrWatchdog();
+    }
+  }
+
+  // P-025 — watchdog da fase de QR/pairing: página que parou de renovar o QR/código é página
+  // morta; cura com destroy+start (teto MAX_QR_HEALS), depois FAILED com instrução — nunca um
+  // loop infinito de reinícios.
+  private startQrWatchdog(): void {
+    if (this.qrWatchdogTimer) return;
+    const t = setInterval(
+      () => void this.qrWatchdogTick(),
+      this.qrWatchdogIntervalMs,
+    );
+    t.unref?.();
+    this.qrWatchdogTimer = t;
+  }
+
+  private stopQrWatchdog(): void {
+    if (this.qrWatchdogTimer) clearInterval(this.qrWatchdogTimer);
+    this.qrWatchdogTimer = undefined;
+  }
+
+  private async qrWatchdogTick(): Promise<void> {
+    if (this.stopped || !this.client) return this.stopQrWatchdog();
+    if (this.status !== 'SCAN_QR_CODE' && this.status !== 'PAIRING_CODE') {
+      return this.stopQrWatchdog();
+    }
+    const last = this.lastQrAt;
+    if (!last || Date.now() - last < this.qrStaleMs) return;
+    this.qrHeals += 1;
+    const staleMin = Math.round((Date.now() - last) / 60_000);
+    if (this.qrHeals > MAX_QR_HEALS) {
+      this.stopQrWatchdog();
+      this.deps.logger.error(
+        { sessionId: this.deps.sessionId, staleMin, heals: MAX_QR_HEALS },
+        'wwebjs: QR/pairing parado e as recuperações automáticas não resolveram — FAILED',
+      );
+      void this.serialize(async () => {
+        await this.destroyWithTimeout();
+        this.client = null;
+        await this.closeAnonProxy();
+        this.qrBase64 = null;
+        this.setStatus('FAILED', {
+          error: `QR/pairing sem renovação há ${staleMin} min e ${MAX_QR_HEALS} recuperações automáticas falharam — verifique proxy/rede/build do WhatsApp Web (P-026) e reinicie a sessão (POST /restart ou /new-qr)`,
+        });
+      });
+      return;
+    }
+    this.deps.logger.warn(
+      { sessionId: this.deps.sessionId, staleMin, heal: this.qrHeals },
+      'wwebjs: QR/pairing sem renovação — página morta; recuperando (destroy + start)',
+    );
+    void this.serialize(async () => {
+      if (this.stopped) return;
+      await this.destroyWithTimeout();
+      this.client = null;
+      await this.closeAnonProxy();
+      this.lastQrAt = null;
+      await this.doStart();
+    }).catch((e) =>
+      this.deps.logger.error({ e }, 'wwebjs: recuperação de QR parado falhou'),
+    );
   }
 
   // P-019 — fim do "WORKING falso": nas builds atuais do WA Web, a RE-sincronização de reconexão
@@ -345,9 +492,9 @@ export class WWebJSEngine implements IEngine {
   private async syncWatchdogTick(): Promise<void> {
     if (this.stopped || !this.client || this.healing) return;
     try {
-      await raceStoreOp(
+      const state = await raceStoreOp(
         this.client.getState().then(
-          () => null,
+          (s) => (s ? String(s) : null),
           (err: Error) => {
             if (isPageCrashError(err?.message)) throw err;
             return null; // outros erros não são veredito de página morta
@@ -356,11 +503,28 @@ export class WWebJSEngine implements IEngine {
         STORE_PROBE_TIMEOUT_MS,
         'watchdog: página não responde',
       );
+      // WA-15: página responder NÃO é prontidão. UNPAIRED/CONFLICT = a conta foi desvinculada ou
+      // outro cliente assumiu — não voltar a WORKING; sinalizar DEGRADED com a causa real.
+      if (
+        state === 'UNPAIRED' ||
+        state === 'UNPAIRED_IDLE' ||
+        state === 'CONFLICT'
+      ) {
+        if (!this.watchdogDegraded || this.status === 'WORKING') {
+          this.watchdogDegraded = true;
+          this.setStatus('DEGRADED', {
+            error: `página responde mas o estado do WhatsApp Web é ${state} — sessão desvinculada ou em conflito; gere um novo QR (POST /new-qr)`,
+          });
+        }
+        return;
+      }
       this.watchdogFails = 0;
-      if (this.watchdogDegraded) {
+      // Só restaura WORKING com transporte CONECTADO (estados transitórios OPENING/PAIRING/TIMEOUT
+      // não são prova de capacidade).
+      if (this.watchdogDegraded && state === 'CONNECTED') {
         this.watchdogDegraded = false;
         this.deps.logger.info(
-          'wwebjs: watchdog — página voltou a responder, sessão utilizável de novo',
+          'wwebjs: watchdog — página voltou a responder (CONNECTED), sessão utilizável de novo',
         );
         this.setStatus('WORKING', { error: null });
       }
@@ -587,12 +751,22 @@ export class WWebJSEngine implements IEngine {
       browserName: 'Chrome',
     });
     this.client = client;
+    const gen = ++this.generation;
+    // Callbacks só valem para a geração viva (WA-08/09): um initialize que estourou o teto e
+    // "acorda" depois, ou um destroy pendurado, não podem mexer em status/QR do client novo.
+    const current = () => this.client === client && this.generation === gen;
     this.lastLoadingPct = null; // página nova: progresso de sincronização recomeça do zero
+    this.lastQrAt = null;
+    this.lastPairingCode = null;
     this.setStatus('STARTING');
+    if (webVersion && WEB_VERSION_MODE !== 'auto') {
+      void this.checkPinnedBuildAge(webVersion); // P-026: idade da build fixa (não bloqueia)
+    }
 
     // Progresso da sincronização offline — torna visível o "demora muito" (em vez de ficar cego no
     // STARTING). Útil para diagnosticar carregamento lento (ex.: via proxy).
     client.on('loading_screen', (percent: number, message: string) => {
+      if (!current()) return;
       this.lastLoadingPct = Number(percent);
       this.deps.logger.info(
         { percent, message },
@@ -601,8 +775,11 @@ export class WWebJSEngine implements IEngine {
     });
 
     client.on('qr', (qr: string) => {
+      if (!current()) return;
+      this.lastQrAt = Date.now();
       void QRCode.toDataURL(qr, { margin: 1, width: 320 })
         .then((url) => {
+          if (!current()) return;
           this.qrBase64 = url;
           this.setStatus('SCAN_QR_CODE');
         })
@@ -611,7 +788,9 @@ export class WWebJSEngine implements IEngine {
         );
     });
     client.on('ready', () => {
+      if (!current()) return;
       this.qrBase64 = null;
+      this.lastPairingCode = null;
       this.reconnectAttempts = 0; // conexão OK: zera o backoff de reconexão
       this.setStatus('WORKING', {
         meJid: client.info?.wid?._serialized ?? null,
@@ -623,9 +802,10 @@ export class WWebJSEngine implements IEngine {
       // Puxa a agenda (nomes salvos) para o diretório. withStoreReady cobre o Store ainda injetando.
       setTimeout(() => void this.syncAddressBook(), 3000);
     });
-    client.on('auth_failure', (m: string) =>
-      this.setStatus('FAILED', { error: `auth_failure: ${m}` }),
-    );
+    client.on('auth_failure', (m: string) => {
+      if (!current()) return;
+      this.setStatus('FAILED', { error: `auth_failure: ${m}` });
+    });
     // Diagnóstico de estabilidade: CONFLICT/UNPAIRED/TIMEOUT chegam AQUI antes do 'disconnected' —
     // no log fica claro o PORQUÊ da queda (ex.: UNPAIRED = desvinculado pelo celular; CONFLICT =
     // outro WhatsApp Web abriu com a mesma conta). Sem isto, só se via o sintoma (a desconexão).
@@ -638,12 +818,18 @@ export class WWebJSEngine implements IEngine {
     // Login por código: o WhatsApp renova o pairing code a cada ~3 min; a rota devolve só o
     // primeiro. O renovado aparece no log — sem isto, código expirado = beco sem saída silencioso.
     client.on('code', (code: string) => {
+      if (!current()) return;
+      // WA-18: o código é segredo efêmero de autenticação — NÃO vai para o log. Fica em memória e
+      // sai só para o chamador autenticado (GET /:id/qr → pairingCode).
+      this.lastPairingCode = code;
+      this.lastQrAt = Date.now();
       this.deps.logger.info(
-        { sessionId: this.deps.sessionId, code },
-        'wwebjs: pairing code renovado',
+        { sessionId: this.deps.sessionId },
+        'wwebjs: pairing code renovado (disponível em GET /sessions/:id/qr)',
       );
     });
     client.on('disconnected', (reason: unknown) => {
+      if (!current()) return;
       void this.handleDisconnect(reason);
     });
     // message_create capta recebidas E enviadas de QUALQUER device (inclusive do celular). As enviadas
@@ -665,9 +851,62 @@ export class WWebJSEngine implements IEngine {
     // e o `destroy()` fecha o Chromium — não fica órfão. A falha NÃO propaga como HTTP 500: vira
     // status FAILED com mensagem acionável; o painel acompanha via status/QR.
     try {
-      await client.initialize();
+      // Teto (WA-08): a rejeição tardia da promise órfã é engolida pelo raceStoreOp; o client
+      // antigo é destruído em handleInitFailure e seus callbacks ficam mudos (`current()`).
+      await raceStoreOp(
+        client.initialize(),
+        this.initTimeoutMs,
+        'wwebjs: initialize não completou',
+      );
     } catch (e) {
       await this.handleInitFailure(e, attempt, webVersion);
+    }
+  }
+
+  // P-026 — consulta o catálogo do wa-version (cache de processo, 6h, single-flight) e loga a
+  // idade da build fixa. WARN acima de BUILD_AGE_WARN_DAYS ou a menos de 14 dias do expire — é
+  // gatilho de VERIFICAÇÃO (parear uma sessão de teste), não prova de defeito. Nunca bloqueia.
+  private async checkPinnedBuildAge(version: string): Promise<void> {
+    try {
+      const catalog = await loadBuildCatalog();
+      if (!catalog) return;
+      const entry = catalog.versions.find((v) => v.version === version);
+      if (!entry) {
+        this.deps.logger.warn(
+          { version, currentVersion: catalog.currentVersion },
+          'wwebjs: build fixa do WhatsApp Web não consta no catálogo wa-version — revalide WWEBJS_WEB_VERSION (P-026)',
+        );
+        return;
+      }
+      const now = Date.now();
+      const ageDays = entry.released
+        ? Math.floor((now - Date.parse(entry.released)) / 86_400_000)
+        : null;
+      const daysToExpire = entry.expire
+        ? Math.floor((Date.parse(entry.expire) - now) / 86_400_000)
+        : null;
+      const info = {
+        version,
+        ageDays,
+        daysToExpire,
+        currentVersion: catalog.currentVersion,
+      };
+      if (
+        (ageDays !== null && ageDays > BUILD_AGE_WARN_DAYS) ||
+        (daysToExpire !== null && daysToExpire < 14)
+      ) {
+        this.deps.logger.warn(
+          info,
+          `wwebjs: build fixa do WhatsApp Web com ${ageDays ?? '?'} dias — novos pareamentos por QR podem não completar (P-026/B-003): pareie uma sessão de teste e, se falhar, atualize WWEBJS_WEB_VERSION para uma build validada`,
+        );
+      } else {
+        this.deps.logger.info(info, 'wwebjs: build fixa do WhatsApp Web');
+      }
+    } catch (e) {
+      this.deps.logger.warn(
+        { err: (e as Error).message },
+        'wwebjs: não consegui verificar a idade da build fixa (catálogo indisponível)',
+      );
     }
   }
 
@@ -750,6 +989,7 @@ export class WWebJSEngine implements IEngine {
     pinnedVersion: string | null,
   ): Promise<void> {
     const msg = (e as Error)?.message ?? String(e);
+    const isInitTimeout = /initialize não completou/.test(msg);
     const isProxyAuth = /ERR_INVALID_AUTH_CREDENTIALS/i.test(msg);
     const isProxyTunnel =
       /ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY_CONNECTION_FAILED|ERR_NO_SUPPORTED_PROXIES|ERR_SOCKS_CONNECTION_FAILED/i.test(
@@ -762,18 +1002,32 @@ export class WWebJSEngine implements IEngine {
         proxyAuth: isProxyAuth,
         proxyTunnel: isProxyTunnel,
         browserLock: isBrowserLock,
+        initTimeout: isInitTimeout,
       },
       'wwebjs: falha ao inicializar',
     );
-    // Limpa SEMPRE (mesmo se houve stop concorrente) para não deixar o Chromium órfão.
-    try {
-      await this.client?.destroy();
-    } catch {
-      /* noop */
-    }
+    // Limpa SEMPRE (mesmo se houve stop concorrente) para não deixar o Chromium órfão. Com TETO
+    // (WA-09): um destroy pendurado não pode segurar o mutex — o clearStaleSingletonLocks do
+    // próximo start remove o lock de um eventual órfão.
+    await this.destroyWithTimeout();
     this.client = null;
     await this.closeAnonProxy(); // um retry (doStart abaixo) sobe forwarder novo; sem retry, libera a porta
     if (this.stopped) return; // stop()/logout() pediu parada — não sobrescreve o STOPPED
+    // WA-08: initialize pendurado — 1 retentativa com a MESMA build (proxy/rede lentos); na 2ª,
+    // FAILED com motivo. Não cai para a build live: pendurar não é sintoma de build expirada.
+    if (isInitTimeout) {
+      if (attempt === 0) {
+        this.deps.logger.warn(
+          { timeoutMs: this.initTimeoutMs },
+          'wwebjs: initialize estourou o teto — retentando uma vez',
+        );
+        return this.doStart(attempt + 1, false);
+      }
+      this.setStatus('FAILED', {
+        error: `Inicialização do WhatsApp Web não completou em ${Math.round(this.initTimeoutMs / 1000)}s (2 tentativas) — verifique proxy/rede/Chromium e reinicie a sessão (POST /restart). Ajuste WWEBJS_INIT_TIMEOUT_MS se a rede for lenta.`,
+      });
+      return;
+    }
     // Item 8 — fallback de proxy: o proxy atual falhou em uso real. Marca-o DEAD e, nos modos
     // rotativos, tenta de novo UMA vez — o resolve() do retry pula os DEAD e entrega o próximo
     // candidato (ou null = conexão direta, o mesmo que um start sem proxy disponível). No SINGLE
@@ -844,14 +1098,22 @@ export class WWebJSEngine implements IEngine {
   // agendamento e a execução cancela a reconexão em vez de ressuscitar o Chromium).
   private async handleDisconnect(reason: unknown): Promise<void> {
     const dead = this.client;
-    try {
-      await dead?.destroy();
-    } catch {
-      /* a própria lib já pode ter destruído */
+    // Com TETO (WA-09): a própria lib já pode ter destruído, ou o Chromium pode estar travado —
+    // nos dois casos não podemos ficar presos aqui (o handler roda fora do mutex).
+    if (dead && this.client === dead) {
+      await this.destroyWithTimeout();
+    } else {
+      await raceStoreOp(
+        Promise.resolve(dead?.destroy()).catch(() => undefined),
+        this.destroyTimeoutMs,
+        'destroy do client antigo',
+      ).catch(() => undefined);
     }
     // Só zera se ninguém trocou o client no meio-tempo (não nula uma instância nova de reconexão).
     if (this.client === dead) {
       this.client = null;
+      this.qrBase64 = null;
+      this.lastPairingCode = null;
       // Forwarder do start que caiu não serve mais (a reconexão sobe um novo no doStart).
       await this.closeAnonProxy();
     }
@@ -981,6 +1243,7 @@ export class WWebJSEngine implements IEngine {
     await this.closeAnonProxy();
     if (hadClient && clean) await this.markCleanShutdown(); // P-015: diagnóstico no próximo start
     this.qrBase64 = null; // não servir um QR morto de sessão parada via getQrBase64()
+    this.lastPairingCode = null;
     this.setStatus('STOPPED');
   }
 
@@ -1045,6 +1308,7 @@ export class WWebJSEngine implements IEngine {
     this.client = null;
     await this.closeAnonProxy();
     this.qrBase64 = null;
+    this.lastPairingCode = null;
     // Garante a limpeza do perfil em disco MESMO se o logout() acima lançou (antes o catch vazio
     // deixava a credencial no volume). Idempotente com o rm que o próprio logout() já faz.
     await WWebJSEngine.purgeAuthDir(this.deps.sessionId);
@@ -1056,7 +1320,10 @@ export class WWebJSEngine implements IEngine {
       phoneNumber.replace(/\D/g, ''),
     );
     // Paridade com o Baileys (baileys.engine.ts:1416): o painel/n8n distingue "esperando o código
-    // ser digitado" de "esperando QR". O evento 'code' (acima) loga as renovações (~3 min).
+    // ser digitado" de "esperando QR". O evento 'code' (acima) guarda as renovações (~3 min) —
+    // o código atual sai em GET /:id/qr (pairingCode), nunca no log (WA-18).
+    this.lastPairingCode = code;
+    this.lastQrAt = Date.now();
     this.setStatus('PAIRING_CODE');
     return code;
   }

@@ -364,7 +364,14 @@ export class SessionsController {
   @Get(':id/qr')
   async qr(@Param('id', SessionRefPipe) id: string) {
     const s = await this.ensure(id);
-    return { status: s.status, qr: this.manager.getQr(id) };
+    // `pairingCode` (aditivo, R0): código de pareamento CORRENTE quando a sessão está em
+    // PAIRING_CODE — a engine renova a cada ~3 min e o valor não vai mais para o log (WA-18).
+    const pairingCode = this.manager.getPairingCode(id);
+    return {
+      status: s.status,
+      qr: this.manager.getQr(id),
+      ...(pairingCode ? { pairingCode } : {}),
+    };
   }
 
   // Recuperação com credencial nova (ex.: sessão desconectada pelo celular): limpa as creds

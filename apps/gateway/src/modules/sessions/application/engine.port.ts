@@ -276,6 +276,9 @@ export interface IEngine {
     emoji: string,
   ): Promise<void>;
   getQrBase64(): string | null;
+  // Pairing code corrente (renovado pela engine a cada ~3 min) — WA-18: sai só por aqui, nunca
+  // pelo log. Opcional: engines sem renovação de código não implementam.
+  getPairingCode?(): string | null;
   getStatus(): SessionStatus;
 
   // W7 — inbox/histórico (backfill do banco a partir do store da engine). Só o wwebjs implementa

@@ -117,6 +117,11 @@ const base = z.object({
   WWEBJS_DATA_PATH: envStr(),
   WWEBJS_WEB_VERSION: envStr(), // versão fixa | 'auto' | 'live'
   WWEBJS_USER_AGENT: envStr(), // override global do UA (sem ele: UA estável por sessão)
+  // Teto do client.initialize() em ms (WA-08/P-025). Default 240000 (4 min). Lido pela engine.
+  WWEBJS_INIT_TIMEOUT_MS: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.coerce.number().int().positive().optional(),
+  ),
   // Storage de mídia (S3-compatível). Defaults = MinIO do docker-compose; em prod aponte p/ R2/B2.
   S3_ENDPOINT: z.string().default('http://localhost:9000'),
   S3_REGION: z.string().default('us-east-1'),
