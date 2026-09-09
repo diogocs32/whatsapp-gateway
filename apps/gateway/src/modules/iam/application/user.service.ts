@@ -7,6 +7,10 @@ import {
 } from '@nestjs/common';
 import { hashPassword } from '../../../shared-kernel/crypto';
 import { newId } from '../../../shared-kernel/ulid';
+import {
+  REFRESH_TOKEN_REPOSITORY,
+  type RefreshTokenRepository,
+} from '../domain/refresh-token.repository';
 import type { Role } from '../domain/role';
 import type { User } from '../domain/user.entity';
 import {
@@ -27,6 +31,8 @@ export interface CreateUserData {
 export class UserService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
+    @Inject(REFRESH_TOKEN_REPOSITORY)
+    private readonly refreshTokens: RefreshTokenRepository,
     private readonly license: LicenseService,
   ) {}
 
@@ -71,12 +77,21 @@ export class UserService {
     ) {
       throw new ForbiddenException('Não é possível rebaixar o último OWNER.');
     }
-    return this.users.update(id, patch);
+    const updated = await this.users.update(id, patch);
+    // Mudou o papel → as sessões abertas param de renovar (ABE-09): o próximo refresh exige novo
+    // login com o papel novo. O access em voo vale no máximo JWT_ACCESS_TTL (15 min por default).
+    if (patch.role && patch.role !== user.role) {
+      await this.refreshTokens.revokeAllForUser(id);
+    }
+    return updated;
   }
 
   async resetPassword(id: string, password: string): Promise<void> {
     await this.require(id);
     await this.users.updatePassword(id, await hashPassword(password));
+    // Reset de senha invalida todas as famílias de refresh do usuário (OWASP Forgot Password —
+    // ABE-09): quem tinha a sessão antiga (inclusive um eventual invasor) precisa logar de novo.
+    await this.refreshTokens.revokeAllForUser(id);
   }
 
   async remove(id: string): Promise<void> {
@@ -84,6 +99,7 @@ export class UserService {
     if (user.role === 'OWNER' && (await this.users.countByRole('OWNER')) <= 1) {
       throw new ForbiddenException('Não é possível remover o último OWNER.');
     }
+    await this.refreshTokens.revokeAllForUser(id); // explícito (o cascade do delete também apaga)
     await this.users.delete(id);
   }
 

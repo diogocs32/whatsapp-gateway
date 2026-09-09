@@ -22,6 +22,29 @@ export interface WebhookJob {
 
 const QUEUE_NAME = 'webhooks';
 
+// Headers que o integrador NÃO pode sobrescrever nos headers customizados do webhook (auditoria
+// 09/2026, ABE-14): antes `...(data.headers)` vinha por último e podia trocar Content-Type ou a
+// própria assinatura HMAC — o consumidor validaria um envelope adulterado sem perceber.
+const RESERVED_HEADERS = new Set([
+  'content-type',
+  'content-length',
+  'host',
+  'transfer-encoding',
+  'connection',
+  'x-webhook-signature',
+]);
+
+export function safeCustomHeaders(
+  headers: Record<string, string> | null | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers ?? {})) {
+    if (RESERVED_HEADERS.has(k.toLowerCase())) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 // Fila de entrega de webhooks (BullMQ): HMAC SHA-512 + retries com backoff exponencial.
 @Injectable()
 export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
@@ -99,12 +122,14 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
     const res = await fetch(data.url, {
       method: 'POST',
       headers: {
+        ...safeCustomHeaders(data.headers),
         'content-type': 'application/json',
         ...(signature ? { 'x-webhook-signature': `sha512=${signature}` } : {}),
-        ...(data.headers ?? {}),
       },
       body: payload,
       signal: AbortSignal.timeout(10_000),
+      // Sem seguir redirect: a assinatura/headers não podem "vazar" para outro host (ABE-06/14).
+      redirect: 'manual',
     });
     if (!res.ok) {
       throw new Error(`destino respondeu HTTP ${res.status}`);
@@ -159,20 +184,36 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
         skipped++;
         continue;
       }
-      await this.enqueue(
-        {
-          webhookId: wh.id,
-          url: wh.url,
-          secret: wh.secret,
-          headers: (wh.headers as Record<string, string> | null) ?? null,
-          body: it.body,
-        },
-        wh.maxAttempts,
-      );
-      await this.prisma.webhookDeadLetter.update({
-        where: { id: it.id },
+      // Reserva ATÔMICA antes de enfileirar (ABE-14): duas chamadas concorrentes (ou um processo
+      // que caiu entre enqueue e update) não reenfileiram o mesmo evento. Só quem marcar a linha
+      // (WHERE redeliveredAt IS NULL) enfileira; se o enqueue falhar, devolve a linha à fila.
+      const reserved = await this.prisma.webhookDeadLetter.updateMany({
+        where: { id: it.id, redeliveredAt: null },
         data: { redeliveredAt: new Date() },
       });
+      if (reserved.count !== 1) {
+        skipped++;
+        continue;
+      }
+      try {
+        await this.enqueue(
+          {
+            webhookId: wh.id,
+            url: wh.url,
+            secret: wh.secret,
+            headers: (wh.headers as Record<string, string> | null) ?? null,
+            body: it.body,
+          },
+          wh.maxAttempts,
+          // jobId determinístico (sem `:` — BullMQ rejeita): dedup mesmo entre réplicas.
+          `dlq-redeliver-${it.id}`,
+        );
+      } catch (e) {
+        await this.prisma.webhookDeadLetter
+          .update({ where: { id: it.id }, data: { redeliveredAt: null } })
+          .catch(() => undefined);
+        throw e;
+      }
       redelivered++;
     }
     return { redelivered, skipped };

@@ -16,6 +16,7 @@ import { RolesGuard } from '../../iam/interface/roles.guard';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
+import { clampInt } from '../../../shared-kernel/query-int';
 
 const checkSchema = z.object({
   numbers: z.array(z.string().min(5).max(40)).min(1).max(50),
@@ -61,7 +62,7 @@ export class ContactsController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    const take = Math.min(Number(limit) || 1000, 1000);
+    const take = clampInt(limit, 1000, 1, 1000);
     const skip = Math.max(Number(offset) || 0, 0);
     const rows = await this.directory.list(
       id,

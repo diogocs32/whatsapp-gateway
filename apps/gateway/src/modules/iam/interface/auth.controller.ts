@@ -17,10 +17,12 @@ import {
   type IssuedSession,
 } from '../application/auth-session.service';
 import { JwtAuthGuard, type JwtPayload } from './auth.guard';
+import { assertCsrfSafe, parseAllowedOrigins } from './csrf';
 
+// Tetos de tamanho limitam o custo por tentativa (scrypt) — ABE-11.
 const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  username: z.string().min(1).max(64),
+  password: z.string().min(1).max(256),
 });
 
 // Cookie do access (JWT curto). Nome MANTIDO como `token`: o JwtAuthGuard e o SseAuthGuard leem
@@ -71,6 +73,8 @@ export class AuthController {
     @Req() req: CookieReq,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
+    // Refresh/logout são autenticados SÓ por cookie → verificação CSRF (ABE-12).
+    assertCsrfSafe(req, this.allowedOrigins());
     const raw = req.cookies?.[REFRESH_COOKIE];
     if (!raw) {
       this.clearAuthCookies(reply);
@@ -90,6 +94,7 @@ export class AuthController {
     @Req() req: CookieReq,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
+    assertCsrfSafe(req, this.allowedOrigins());
     await this.auth.logout(req.cookies?.[REFRESH_COOKIE]);
     this.clearAuthCookies(reply);
     return { ok: true };
@@ -111,6 +116,10 @@ export class AuthController {
       userAgent: req.headers['user-agent'] ?? null,
       ip: req.ip ?? null,
     };
+  }
+
+  private allowedOrigins(): string[] {
+    return parseAllowedOrigins(this.config.get('CORS_ORIGIN', { infer: true }));
   }
 
   private setAuthCookies(reply: FastifyReply, session: IssuedSession): void {

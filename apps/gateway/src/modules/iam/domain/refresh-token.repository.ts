@@ -40,6 +40,9 @@ export interface RefreshTokenRepository {
   rotate(input: RotateInput): Promise<RotateResult>;
   // Revoga a família inteira a partir do token apresentado (logout). No-op se o token não existir.
   revokeFamilyByToken(tokenHash: string): Promise<void>;
+  // Revoga TODAS as famílias ativas do usuário (reset de senha, rebaixamento de papel, incidente —
+  // ABE-09). Devolve quantos tokens foram revogados.
+  revokeAllForUser(userId: string): Promise<number>;
 }
 
 export const REFRESH_TOKEN_REPOSITORY = Symbol('REFRESH_TOKEN_REPOSITORY');

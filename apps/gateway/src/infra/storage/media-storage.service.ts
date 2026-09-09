@@ -11,6 +11,26 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Env } from '../../bootstrap/config';
 
+// Falha de INFRA na leitura (S3 fora, AccessDenied, timeout) — distinta de "objeto não existe"
+// (auditoria 09/2026, ABE-21): antes as duas viravam `null` e o consumidor recebia 404 "mídia
+// expirada" com o storage simplesmente indisponível.
+export class StorageUnavailableError extends Error {
+  constructor(cause: unknown) {
+    const e = cause as { name?: string; message?: string };
+    super(`storage indisponível (${e?.name ?? 'Erro'}): ${e?.message ?? ''}`);
+    this.name = 'StorageUnavailableError';
+  }
+}
+
+function isNotFound(e: unknown): boolean {
+  const err = e as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return (
+    err?.name === 'NoSuchKey' ||
+    err?.name === 'NotFound' ||
+    err?.$metadata?.httpStatusCode === 404
+  );
+}
+
 // Armazenamento de mídia em S3-compatível (MinIO em dev; R2/B2 em prod via env).
 // Bucket privado: o acesso do dashboard é via URL pré-assinada temporária (§ mídia/F4).
 @Injectable()
@@ -93,7 +113,8 @@ export class MediaStorage implements OnModuleInit {
 
   // Bytes da mídia direto do S3 (streaming) — base do download via gateway (GAP 2, contrato
   // CP-149): o consumidor (n8n) baixa pelo próprio gateway com X-Api-Key, sem depender de o
-  // S3_ENDPOINT ser público nem de URL pré-assinada dentro da validade. null = não existe/expirou.
+  // S3_ENDPOINT ser público nem de URL pré-assinada dentro da validade. null = não existe/expirou;
+  // storage fora/negado → StorageUnavailableError (o controller responde 503, não 404).
   async getObject(key: string): Promise<{
     body: Readable;
     contentType: string | null;
@@ -109,8 +130,12 @@ export class MediaStorage implements OnModuleInit {
         contentType: out.ContentType ?? null,
         contentLength: out.ContentLength ?? null,
       };
-    } catch {
-      return null;
+    } catch (e) {
+      if (isNotFound(e)) return null;
+      this.logger.warn(
+        `S3 getObject(${key}) falhou: ${(e as Error)?.name ?? 'Erro'} ${(e as Error)?.message ?? ''}`,
+      );
+      throw new StorageUnavailableError(e);
     }
   }
 

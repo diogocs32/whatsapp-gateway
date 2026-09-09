@@ -17,6 +17,16 @@ import { JwtAuthGuard } from './auth.guard';
 import { MinRole } from './roles.decorator';
 import { RolesGuard } from './roles.guard';
 
+// Política de senha (ABE-11, OWASP Authentication): mínimo 8, máximo 128 (teto limita o custo do
+// scrypt por tentativa). Vale para senha NOVA (criar/resetar); login aceita o que está gravado.
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX = 128;
+const passwordField = () =>
+  z
+    .string()
+    .min(PASSWORD_MIN, `Senha deve ter pelo menos ${PASSWORD_MIN} caracteres`)
+    .max(PASSWORD_MAX, `Senha deve ter no máximo ${PASSWORD_MAX} caracteres`);
+
 const createSchema = z.object({
   username: z
     .string()
@@ -24,7 +34,7 @@ const createSchema = z.object({
     .max(64)
     .regex(/^[a-zA-Z0-9_.-]+$/, 'Use apenas letras, números, _ . ou -'),
   name: z.string().min(1).max(120),
-  password: z.string().min(6).max(200),
+  password: passwordField(),
   role: z.enum(ROLES),
 });
 
@@ -37,7 +47,7 @@ const updateSchema = z
     message: 'Informe name e/ou role.',
   });
 
-const passwordSchema = z.object({ password: z.string().min(6).max(200) });
+const passwordSchema = z.object({ password: passwordField() });
 
 function toDto(u: User) {
   return {

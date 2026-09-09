@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../bootstrap/config';
-import { verifyPassword } from '../../../shared-kernel/crypto';
+import {
+  hashPassword,
+  passwordNeedsRehash,
+  verifyPassword,
+  verifyPasswordDummy,
+} from '../../../shared-kernel/crypto';
 import { newId } from '../../../shared-kernel/ulid';
 import type { User } from '../domain/user.entity';
 import {
@@ -54,9 +59,20 @@ export class AuthSessionService {
     ctx: RequestCtx = {},
   ): Promise<IssuedSession | null> {
     const user = await this.users.findByUsername(username);
-    if (!user) return null;
+    if (!user) {
+      // Custo equivalente ao de um usuário real — sem isto o tempo de resposta denuncia se o
+      // username existe (ABE-11).
+      await verifyPasswordDummy();
+      return null;
+    }
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) return null;
+    // Migração transparente de custo/formato do hash (ABE-11): re-hasheia no login bem-sucedido.
+    if (passwordNeedsRehash(user.passwordHash)) {
+      await this.users
+        .updatePassword(user.id, await hashPassword(password))
+        .catch(() => undefined); // best-effort: o login não depende disto
+    }
     return this.issue(user, newId(), ctx);
   }
 

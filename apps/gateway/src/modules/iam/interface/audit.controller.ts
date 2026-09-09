@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { clampInt } from '../../../shared-kernel/query-int';
 import { AuditService } from '../application/audit.service';
 import { JwtAuthGuard } from './auth.guard';
 import { MinRole } from './roles.decorator';
@@ -13,7 +14,7 @@ export class AuditController {
 
   @Get()
   async list(@Query('limit') limit?: string, @Query('offset') offset?: string) {
-    const take = Math.min(Number(limit) || 100, 500);
+    const take = clampInt(limit, 100, 1, 500);
     const skip = Math.max(Number(offset) || 0, 0);
     const rows = await this.audit.list(take, skip);
     return rows.map((r) => ({

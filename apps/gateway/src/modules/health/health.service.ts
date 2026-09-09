@@ -21,6 +21,27 @@ export interface HealthReport {
   timestamp: string;
 }
 
+// Teto por probe (auditoria 09/2026, ABE-21): `redis.ping()` com maxRetriesPerRequest:null e um
+// SDK S3 sem resposta deixavam o /health PENDURADO — o healthcheck do Docker/Traefik estourava o
+// próprio timeout e reiniciava o container por causa de uma dependência lenta. Probe que não
+// responde no prazo conta como falha, e o relatório sai no tempo.
+const PROBE_TIMEOUT_MS = 3_000;
+const STORAGE_PROBE_TIMEOUT_MS = 5_000;
+
+export function withDeadline<T>(
+  op: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([op.catch(() => fallback), timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 @Injectable()
 export class HealthService {
   constructor(
@@ -31,9 +52,9 @@ export class HealthService {
 
   async check(): Promise<HealthReport> {
     const [database, redis, storage] = await Promise.all([
-      this.checkDatabase(),
-      this.redis.ping(),
-      this.media.probeWrite(),
+      withDeadline(this.checkDatabase(), PROBE_TIMEOUT_MS, false),
+      withDeadline(this.redis.ping(), PROBE_TIMEOUT_MS, false),
+      withDeadline(this.media.probeWrite(), STORAGE_PROBE_TIMEOUT_MS, false),
     ]);
 
     // Pressão de memória: usa a RAM REAL do container (cgroup — inclui os Chromium do wwebjs)

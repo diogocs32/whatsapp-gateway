@@ -4,10 +4,16 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { FastifyRequest } from 'fastify';
+import type { Env } from '../../../bootstrap/config';
 import { ApiKeyService } from '../application/api-key.service';
-import { bearerOrCookieToken, type JwtPayload } from './auth.guard';
+import {
+  assertCookieAuthCsrfSafe,
+  extractToken,
+  type JwtPayload,
+} from './auth.guard';
 
 // Guard dos endpoints de API: aceita header X-Api-Key (integrações: n8n etc.) OU Bearer JWT (painel).
 // Compatível com o padrão WAHA/Evolution (X-Api-Key).
@@ -16,11 +22,13 @@ export class ApiKeyAuthGuard implements CanActivate {
   constructor(
     private readonly apiKeys: ApiKeyService,
     private readonly jwt: JwtService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<
       FastifyRequest & {
+        cookies?: Record<string, string | undefined>;
         user?: JwtPayload;
         apiKey?: { id: string; name: string };
       }
@@ -38,11 +46,15 @@ export class ApiKeyAuthGuard implements CanActivate {
       return true;
     }
 
-    // 2) JWT do painel: Bearer OU cookie httpOnly (mesma lógica do JwtAuthGuard — item 19)
-    const token = bearerOrCookieToken(req);
-    if (token) {
+    // 2) JWT do painel: Bearer OU cookie httpOnly (mesma lógica do JwtAuthGuard — item 19).
+    //    Cookie em requisição com efeito passa pela verificação CSRF (ABE-12).
+    const extracted = extractToken(req);
+    if (extracted) {
+      if (extracted.source === 'cookie') {
+        assertCookieAuthCsrfSafe(req, this.config);
+      }
       try {
-        req.user = await this.jwt.verifyAsync<JwtPayload>(token);
+        req.user = await this.jwt.verifyAsync<JwtPayload>(extracted.token);
         return true;
       } catch {
         throw new UnauthorizedException('Token inválido');

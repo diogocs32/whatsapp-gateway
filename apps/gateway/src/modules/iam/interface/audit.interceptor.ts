@@ -2,9 +2,11 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
+  Logger,
   NestInterceptor,
 } from '@nestjs/common';
 import { catchError, tap, throwError } from 'rxjs';
+import { recordProcessError } from '../../../shared-kernel/process-errors';
 import { AuditService } from '../application/audit.service';
 import type { JwtPayload } from './auth.guard';
 
@@ -24,6 +26,8 @@ interface AuditReq {
 // Fire-and-forget: falha de auditoria NUNCA derruba a request.
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditInterceptor.name);
+
   constructor(private readonly audit: AuditService) {}
 
   intercept(context: ExecutionContext, next: CallHandler) {
@@ -62,8 +66,13 @@ export class AuditInterceptor implements NestInterceptor {
         statusCode,
         ip: req.ip ?? null,
       })
-      .catch(() => {
-        /* nunca derruba a request por falha de audit */
+      .catch((e: unknown) => {
+        // Nunca derruba a request — mas perda de trilha precisa ser VISÍVEL (ABE-18): log +
+        // contador exposto em /metrics (gateway_process_errors_total{kind="audit_write"}).
+        recordProcessError('audit_write');
+        this.logger.warn(
+          `falha ao gravar audit (${req.method} ${req.url.split('?')[0]}): ${(e as Error)?.message ?? e}`,
+        );
       });
   }
 }

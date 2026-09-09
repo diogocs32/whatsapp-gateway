@@ -9,12 +9,18 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { buildFastifyAdapter } from './bootstrap/fastify-adapter';
 import type { Env } from './bootstrap/config';
+import { recordProcessError } from './shared-kernel/process-errors';
 
 async function bootstrap(): Promise<void> {
   // Isolamento de falhas (F7.2): um erro não-tratado de uma sessão NÃO derruba o processo
   // (e, portanto, não derruba as outras sessões). Loga e segue — rede de segurança; os erros
   // são tratados localmente nos handlers da engine (wrapper `safe()`).
+  // Auditoria 09/2026 (ABE-19): isto NÃO é estado saudável — cada ocorrência vira contador em
+  // /metrics (`gateway_process_errors_total{kind}`) para alarme; encerrar o processo a cada
+  // rejection não é opção (as libs de WhatsApp emitem rejections transitórias — restart em
+  // rajada derrubaria a frota inteira, o oposto do isolamento pretendido).
   process.on('uncaughtException', (err) => {
+    recordProcessError('uncaughtException');
     Logger.error(
       `uncaughtException: ${err?.message ?? err}`,
       err?.stack,
@@ -22,6 +28,7 @@ async function bootstrap(): Promise<void> {
     );
   });
   process.on('unhandledRejection', (reason) => {
+    recordProcessError('unhandledRejection');
     const err = reason instanceof Error ? reason : undefined;
     Logger.error(
       `unhandledRejection: ${err?.message ?? String(reason)}`,

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { hashPassword, hmacSha512, sha512, verifyPassword } from './crypto';
+import {
+  hashPassword,
+  hmacSha512,
+  passwordNeedsRehash,
+  sha512,
+  verifyPassword,
+  verifyPasswordDummy,
+} from './crypto';
 
 // Testes unitários do shared-kernel de crypto. Os vetores fixos de HMAC/SHA-512 são CONTRATO:
 // o envelope de webhook assinado (INTEGRACAO.md — HMAC-SHA512 hex) e o hash de API key são
@@ -7,10 +14,34 @@ import { hashPassword, hmacSha512, sha512, verifyPassword } from './crypto';
 // estes testes quebram ANTES de quebrar os integradores.
 
 describe('hashPassword / verifyPassword (scrypt)', () => {
-  it('roundtrip: senha correta verifica', async () => {
+  it('roundtrip: senha correta verifica (formato versionado s2$N$r$p$salt$hash)', async () => {
     const stored = await hashPassword('s3nh4-f0rte!');
-    expect(stored).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/); // salt hex 16B : chave hex 64B
+    expect(stored).toMatch(/^s2\$16384\$8\$1\$[0-9a-f]{32}\$[0-9a-f]{128}$/);
     expect(await verifyPassword('s3nh4-f0rte!', stored)).toBe(true);
+    expect(passwordNeedsRehash(stored)).toBe(false);
+  });
+
+  it('hash LEGADO (salt:hash, custo default do Node) continua verificando e pede re-hash', async () => {
+    // O formato antigo era scrypt(plain, salt, 64) com N=16384/r=8/p=1 e armazenado como
+    // `salt:hash` — reconstruído aqui a partir do gerador novo com o MESMO custo.
+    const stored = await hashPassword('legado', { N: 16384, r: 8, p: 1 });
+    const [, , , , salt, key] = stored.split('$');
+    const legacyStored = `${salt}:${key}`;
+    expect(legacyStored).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/);
+    expect(await verifyPassword('legado', legacyStored)).toBe(true);
+    expect(await verifyPassword('outra', legacyStored)).toBe(false);
+    expect(passwordNeedsRehash(legacyStored)).toBe(true);
+  });
+
+  it('custo diferente do corrente pede re-hash; custo igual não', async () => {
+    const cheap = await hashPassword('x', { N: 4096, r: 8, p: 1 });
+    expect(await verifyPassword('x', cheap)).toBe(true);
+    expect(passwordNeedsRehash(cheap)).toBe(true);
+    expect(passwordNeedsRehash(cheap, { N: 4096, r: 8, p: 1 })).toBe(false);
+  });
+
+  it('verifyPasswordDummy roda sem lançar (equalização de tempo)', async () => {
+    await expect(verifyPasswordDummy()).resolves.toBeUndefined();
   });
 
   it('senha errada não verifica', async () => {
@@ -30,6 +61,8 @@ describe('hashPassword / verifyPassword (scrypt)', () => {
     expect(await verifyPassword('x', 'sem-separador')).toBe(false);
     expect(await verifyPassword('x', ':')).toBe(false);
     expect(await verifyPassword('x', '')).toBe(false);
+    expect(await verifyPassword('x', 's2$abc$8$1$salt$key')).toBe(false);
+    expect(passwordNeedsRehash('')).toBe(false);
   });
 });
 

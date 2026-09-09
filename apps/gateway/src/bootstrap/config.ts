@@ -44,6 +44,11 @@ const base = z.object({
   DB_PASSWORD: z.string().optional(),
   DB_NAME: z.string().optional(),
   DB_SSL: envBool(false),
+  // TLS verificado (ABE-15): CA em PEM (aceita "\n" escapado). Com CA, rejectUnauthorized=true.
+  DB_SSL_CA: envStr(),
+  // Sem CA: verificar o certificado do servidor? Default false = comportamento anterior (cifra
+  // sem verificar) para não derrubar instalações que já usam DB_SSL com certificado próprio.
+  DB_SSL_REJECT_UNAUTHORIZED: envBool(false),
   // ---- Pool do Postgres (Prisma 7 → driver adapter pg) ----
   // Doc oficial (Upgrade to v7 → Breaking changes → Driver adapters): o adapter herda os defaults
   // do node-postgres — connect timeout 0 (= espera INFINITA na aquisição com o pool saturado; o
@@ -61,8 +66,13 @@ const base = z.object({
   REDIS_USERNAME: z.string().default('default'),
   REDIS_PASSWORD: z.string().optional(),
   REDIS_DB: z.coerce.number().int().min(0).default(0),
+  // TLS nas partes (com REDIS_URL, use o esquema rediss://) — ABE-15.
+  REDIS_TLS: envBool(false),
 
   JWT_SECRET: z.string().min(16),
+  // Custo do scrypt de senha como log2(N) (12..20). Default 14 = o mesmo do Node (2^14). Hash
+  // guarda o custo (formato versionado) e re-hasheia no login quando o valor mudar — ABE-11.
+  PASSWORD_SCRYPT_LOG2N: z.coerce.number().int().min(12).max(20).default(14),
   // DEPRECATED (mantido p/ compat com env de prod): antes era a vida do JWT único de 12h. O ciclo de
   // sessão agora é access curto (JWT_ACCESS_TTL) + refresh rotacionado (JWT_REFRESH_TTL). Não é mais
   // usado para assinar/expirar; fica só para não quebrar boot se ainda estiver setado no Dokploy.

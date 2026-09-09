@@ -10,12 +10,17 @@ import {
   Query,
   Body,
   Req,
+  ServiceUnavailableException,
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { MediaStorage } from '../../../infra/storage/media-storage.service';
+import {
+  MediaStorage,
+  StorageUnavailableError,
+} from '../../../infra/storage/media-storage.service';
+import { clampInt } from '../../../shared-kernel/query-int';
 import { GuardrailService } from '../../guardrail/guardrail.service';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
@@ -197,7 +202,7 @@ export class MessagesController {
     @Param('id', SessionRefPipe) id: string,
     @Query('limit') limit?: string,
   ) {
-    const take = Math.min(Number(limit) || 100, 500);
+    const take = clampInt(limit, 100, 1, 500);
     const convs = await this.repo.listConversations(id, take);
     return convs.map(toConversationDto);
   }
@@ -209,7 +214,7 @@ export class MessagesController {
     @Query('limit') limit?: string,
   ) {
     if (!chatId) throw new BadRequestException('chatId é obrigatório');
-    const take = Math.min(Number(limit) || 50, 200);
+    const take = clampInt(limit, 50, 1, 200);
     const msgs = await this.repo.listByChat(id, candidateJids(chatId), take);
     return Promise.all(
       msgs.map(async (m) =>
@@ -239,7 +244,7 @@ export class MessagesController {
     if (term.length < 1) {
       throw new BadRequestException('q (termo de busca) é obrigatório');
     }
-    const take = Math.min(Number(limit) || 50, 200);
+    const take = clampInt(limit, 50, 1, 200);
     const chatJids = chatId ? candidateJids(chatId) : [];
     const msgs = await this.repo.searchMessages(id, term, chatJids, take);
     return Promise.all(
@@ -334,7 +339,18 @@ export class MessagesController {
         'Mídia não disponível: a mensagem não tem mídia ou o binário não foi armazenado (S3 indisponível quando ela chegou).',
       );
     }
-    const obj = await this.mediaStorage.getObject(msg.mediaKey);
+    let obj: Awaited<ReturnType<MediaStorage['getObject']>>;
+    try {
+      obj = await this.mediaStorage.getObject(msg.mediaKey);
+    } catch (e) {
+      // ABE-21: storage fora/negado é 503 (transitório), não 404 "expirada" (permanente).
+      if (e instanceof StorageUnavailableError) {
+        throw new ServiceUnavailableException(
+          'Armazenamento de mídia indisponível no momento — tente novamente.',
+        );
+      }
+      throw e;
+    }
     if (!obj) {
       throw new NotFoundException(
         'Mídia expirada ou removida do armazenamento.',

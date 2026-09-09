@@ -15,6 +15,23 @@ import { PrismaClient } from '../../generated/prisma/client';
 // Reexporta o namespace Prisma (Prisma.DbNull, tipos de input, etc.) a partir de um único lugar.
 export { Prisma } from '../../generated/prisma/client';
 
+// TLS do Postgres (auditoria 09/2026, ABE-15). Antes, DB_SSL=true vinha fixo com
+// rejectUnauthorized:false (cifra sem verificar o servidor). Agora: DB_SSL_CA (PEM; "\n" escapado
+// aceito) liga a verificação contra a CA; sem CA, DB_SSL_REJECT_UNAUTHORIZED decide (default false
+// = compatível com o comportamento anterior, para não derrubar quem já usa DB_SSL sem CA).
+function sslConfig(
+  config: ConfigService<Env, true>,
+): PoolConfig['ssl'] | undefined {
+  if (!config.get('DB_SSL', { infer: true })) return undefined;
+  const ca = config.get('DB_SSL_CA', { infer: true })?.replace(/\\n/g, '\n');
+  if (ca) return { ca, rejectUnauthorized: true };
+  return {
+    rejectUnauthorized: config.get('DB_SSL_REJECT_UNAUTHORIZED', {
+      infer: true,
+    }),
+  };
+}
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -46,9 +63,7 @@ export class PrismaService
           user: config.get('DB_USER', { infer: true }),
           password: config.get('DB_PASSWORD', { infer: true }),
           database: config.get('DB_NAME', { infer: true }),
-          ssl: config.get('DB_SSL', { infer: true })
-            ? { rejectUnauthorized: false }
-            : undefined,
+          ssl: sslConfig(config),
           ...tuning,
         };
     super({ adapter: new PrismaPg(pool) });
