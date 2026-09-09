@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Env } from '../../bootstrap/config';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { newId } from '../../shared-kernel/ulid';
 
@@ -22,7 +24,11 @@ export interface ReplyRateResult {
 }
 
 // Amostra mínima antes de qualquer veredito de saúde (G5). Abaixo disso, reliable=false.
-const NMIN = 20;
+// WA-05 (auditoria 09/2026): UMA fonte de verdade — o mesmo Nmin do guard-rail (override em
+// guardrail_config ou GUARDRAIL_NMIN do env), não uma constante paralela que divergia do que o
+// `evaluate` usava. Cache curto para não consultar o singleton a cada snapshot.
+const NMIN_FALLBACK = 20;
+const NMIN_CACHE_MS = 60_000;
 
 interface RawRow {
   coldTotal: number;
@@ -34,7 +40,32 @@ interface RawRow {
 
 @Injectable()
 export class ReplyRateService {
-  constructor(private readonly prisma: PrismaService) {}
+  private nminCache: { value: number; at: number } | null = null;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
+
+  // Nmin em vigor: guardrail_config.nmin (PATCH em runtime) > GUARDRAIL_NMIN (env) > 20.
+  private async nmin(): Promise<number> {
+    if (this.nminCache && Date.now() - this.nminCache.at < NMIN_CACHE_MS) {
+      return this.nminCache.value;
+    }
+    let value =
+      this.config.get('GUARDRAIL_NMIN', { infer: true }) ?? NMIN_FALLBACK;
+    try {
+      const row = await this.prisma.guardrailConfig.findUnique({
+        where: { id: 'singleton' },
+        select: { nmin: true },
+      });
+      if (row?.nmin) value = row.nmin;
+    } catch {
+      /* sem override no DB / DB fora: vale o env */
+    }
+    this.nminCache = { value, at: Date.now() };
+    return value;
+  }
 
   // Resolve nome OU id da sessão para o id real (mesma semântica do SessionRefPipe).
   private async resolveSessionId(ref: string): Promise<string> {
@@ -115,7 +146,7 @@ export class ReplyRateService {
       responded: r.responded,
       replyRate,
       sample,
-      reliable: sample >= NMIN,
+      reliable: sample >= (await this.nmin()),
       deliveryRate,
       readRate,
       scoreSaude,

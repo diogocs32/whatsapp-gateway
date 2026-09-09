@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../bootstrap/config';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { EventBus } from '../../shared-kernel/event-bus/event-bus';
+import { recordProcessError } from '../../shared-kernel/process-errors';
 import { newId } from '../../shared-kernel/ulid';
 import type {
   GuardrailEventName,
@@ -98,8 +99,20 @@ export interface GuardrailTunables {
   cooldownHours: number;
 }
 
+// Linha de session_guardrail como o Prisma devolve (tipo derivado do client gerado).
+type GuardrailRow = Awaited<
+  ReturnType<PrismaService['sessionGuardrail']['upsert']>
+>;
+
+// WA-05 (auditoria 09/2026): snapshot de reply-rate mais velho que isto não entra na mediana da
+// frota (uma sessão parada há dias não pode "segurar" o baseline).
+const FLEET_SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Marca de override manual no `reason` — quarentena manual só sai por ação explícita (WA-04).
+const MANUAL_REASON_PREFIX = 'override manual';
+
 @Injectable()
 export class GuardrailService {
+  private readonly logger = new Logger(GuardrailService.name);
   private readonly enforce: boolean;
   private readonly envDefaults: GuardrailTunables;
   private cfgCache: GuardrailTunables | null = null;
@@ -197,15 +210,26 @@ export class GuardrailService {
 
   // Mediana do reply-rate (7d) das sessões com amostra confiável. null se a frota é pequena
   // (< 2 sessões reliable) — aí o baseline cai no alvo/fallback (GUARDRAIL_TARGET_REPLY_RATE).
+  // WA-05: (a) só snapshots FRESCOS (≤24h); (b) amostra medida contra o Nmin EM VIGOR (não o
+  // booleano gravado com outro Nmin); (c) mediana ZERO não é baseline — uma frota inteira sem
+  // resposta cairia toda em "ativa" por `reply >= 0`; devolve null e vale o alvo configurado
+  // (comportamento conservador quando a frota inteira perde desempenho).
   async fleetMedianReplyRate(): Promise<number | null> {
+    const { nmin } = await this.cfg();
     const rows = await this.prisma.sessionMetric.findMany({
-      where: { windowDays: 7, reliable: true },
-      select: { replyRate: true },
+      where: {
+        windowDays: 7,
+        reliable: true,
+        computedAt: { gte: new Date(Date.now() - FLEET_SNAPSHOT_MAX_AGE_MS) },
+      },
+      select: { replyRate: true, sample: true },
     });
-    if (rows.length < 2) return null;
-    const v = rows.map((r) => r.replyRate).sort((a, b) => a - b);
+    const usable = rows.filter((r) => (r.sample ?? nmin) >= nmin);
+    if (usable.length < 2) return null;
+    const v = usable.map((r) => r.replyRate).sort((a, b) => a - b);
     const mid = Math.floor(v.length / 2);
-    return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+    const median = v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+    return median > 0 ? median : null;
   }
 
   // Avalia o estado-alvo a partir do reply-rate vs mediana da frota. Só APLICA se enforce=true.
@@ -221,9 +245,23 @@ export class GuardrailService {
     const pct = (x: number) => `${Math.round(x * 100)}%`;
     let target: GuardrailState = current;
     let reason: string;
+    const now = new Date();
+    const cooldownActive =
+      current === 'quarentena' &&
+      gr.cooldownAte !== null &&
+      gr.cooldownAte.getTime() > now.getTime();
+    const manualQuarantine =
+      current === 'quarentena' &&
+      (gr.reason ?? '').startsWith(MANUAL_REASON_PREFIX);
 
     if (STICKY.has(current)) {
       reason = `estado fixo (${current}) — avaliação automática não sobrescreve`;
+    } else if (manualQuarantine) {
+      // WA-04: quarentena decidida pelo dono só sai por ação explícita (activate/warmup).
+      reason = `quarentena manual — só sai por override explícito`;
+    } else if (cooldownActive) {
+      // WA-04: o cooldown participa da decisão — amostra/taxa novas não liberam antes do prazo.
+      reason = `cooldown até ${gr.cooldownAte!.toISOString()} — quarentena mantida`;
     } else if (rr.sample < c.nmin) {
       target = 'aquecimento';
       reason = `amostra ${rr.sample} < Nmin ${c.nmin} — sem veredito (aquecimento)`;
@@ -241,9 +279,14 @@ export class GuardrailService {
       reason = `reply ${pct(rr.replyRate)} na faixa de histerese — mantém ${current}`;
     }
 
+    if (fleetMedian === null) {
+      reason +=
+        ' [baseline = alvo configurado: mediana da frota indisponível/zero]';
+    }
+
     let applied = false;
     if (this.enforce && target !== current && !STICKY.has(current)) {
-      await this.apply(sessionId, target, reason, new Date(), {
+      await this.apply(sessionId, target, reason, now, {
         replyRate: rr.replyRate,
         sample: rr.sample,
       });
@@ -267,13 +310,17 @@ export class GuardrailService {
 
   // Aplica uma transição de estado. C10: idempotente — só aplica se o evento for MAIS NOVO que o
   // último aplicado (eventTs). Define quarentenaDesde/cooldownAte conforme o estado.
+  // WA-07: compare-and-swap — a escrita só vale se a linha ainda tem o eventTs que foi lido
+  // (duas transições concorrentes não se sobrescrevem fora de ordem); perdeu a corrida → relê e
+  // decide de novo (até 3 vezes), nunca grava por cima de um evento mais novo.
   async apply(
     sessionId: string,
     state: GuardrailState,
     reason: string,
     eventTs: Date = new Date(),
     ctx?: { replyRate?: number; sample?: number },
-  ) {
+    attempt = 0,
+  ): Promise<GuardrailRow> {
     const existing = await this.prisma.sessionGuardrail.findUnique({
       where: { sessionId },
     });
@@ -294,20 +341,36 @@ export class GuardrailService {
         : state === 'ativa'
           ? null
           : (existing?.cooldownAte ?? null);
+    const data = { state, reason, eventTs, quarentenaDesde, cooldownAte };
 
-    const saved = await this.prisma.sessionGuardrail.upsert({
-      where: { sessionId },
-      create: {
-        id: newId(),
-        sessionId,
-        state,
-        reason,
-        eventTs,
-        quarentenaDesde,
-        cooldownAte,
-      },
-      update: { state, reason, eventTs, quarentenaDesde, cooldownAte },
-    });
+    let saved: GuardrailRow;
+    if (!existing) {
+      try {
+        saved = await this.prisma.sessionGuardrail.create({
+          data: { id: newId(), sessionId, ...data },
+        });
+      } catch (e) {
+        if ((e as { code?: string })?.code !== 'P2002' || attempt >= 3) throw e;
+        return this.apply(sessionId, state, reason, eventTs, ctx, attempt + 1);
+      }
+    } else {
+      const won = await this.prisma.sessionGuardrail.updateMany({
+        where: { sessionId, eventTs: existing.eventTs },
+        data,
+      });
+      if (won.count !== 1) {
+        if (attempt >= 3) {
+          this.logger.warn(
+            `guard-rail ${sessionId}: transição para ${state} perdeu a corrida 3× — mantida a última gravada`,
+          );
+          return (await this.prisma.sessionGuardrail.findUnique({
+            where: { sessionId },
+          }))!;
+        }
+        return this.apply(sessionId, state, reason, eventTs, ctx, attempt + 1);
+      }
+      saved = { ...existing, ...data };
+    }
 
     // G6: emite o evento OUT só na TRANSIÇÃO (mudança de estado). Payload do session.quarantined
     // traz reply_rate/amostra/motivo/cooldown_ate (cap_novo é do G8). pausa_manual não vai ao catálogo.
@@ -322,10 +385,19 @@ export class GuardrailService {
           reply_rate: ctx?.replyRate ?? null,
           amostra: ctx?.sample ?? null,
           cap_novo: null,
-        }).catch(() => undefined);
+        }).catch((e: unknown) => this.emitFailed(event, sessionId, e));
       }
     }
     return saved;
+  }
+
+  // WA-07: falha ao publicar um evento de proteção NÃO pode ser silenciosa — o n8n espera o
+  // alerta/re-enfileiramento. Log + contador em /metrics (gateway_process_errors_total).
+  private emitFailed(event: string, sessionId: string, e: unknown): void {
+    recordProcessError('guardrail_emit');
+    this.logger.warn(
+      `falha ao publicar ${event} da sessão ${sessionId}: ${(e as Error)?.message ?? e}`,
+    );
   }
 
   // Hard-gate: pode enviar cold? Bloqueia em estados de bloqueio. Em OBSERVAÇÃO o estado só chega
@@ -339,7 +411,7 @@ export class GuardrailService {
       void this.emit(sessionId, 'send.blocked', {
         state,
         motivo: gr.reason ?? null,
-      }).catch(() => undefined);
+      }).catch((e: unknown) => this.emitFailed('send.blocked', sessionId, e));
       return { allowed: false, state, reason: gr.reason };
     }
     return { allowed: true, state };
@@ -347,24 +419,32 @@ export class GuardrailService {
 
   // Sinal duro (463, close não-recuperável, restrição). Emite o evento sempre; aplica quarentena/
   // banida só com enforce (em observação só registra o último sinal).
+  //
+  // WA-03 (auditoria 09/2026) — taxonomia: só `ban`/`restriction` (confirmação explícita de
+  // restrição da conta) viram `banida`; `463` (número cru) vira quarentena; `401`/`loggedOut` é
+  // CREDENCIAL/aparelho desvinculado (o enum do Baileys distingue loggedOut=401 de forbidden=403)
+  // e NÃO é prova de ban — só fica registrado como último sinal, sem transição.
   async recordHardSignal(sessionId: string, signal: string): Promise<void> {
     // G6: 463 = número cru (C6); restrição da conta. C5: NÃO há block/report.
     const sigEvent: GuardrailEventName | null =
       signal === '463'
         ? 'signal.463'
-        : signal === 'restriction'
+        : signal === 'restriction' || signal === 'ban'
           ? 'signal.restriction'
           : null;
     if (sigEvent) {
-      void this.emit(sessionId, sigEvent, { signal }).catch(() => undefined);
-    }
-    if (this.enforce) {
-      const banned = signal === 'ban' || signal === '401';
-      await this.apply(
-        sessionId,
-        banned ? 'banida' : 'quarentena',
-        `sinal duro: ${signal}`,
+      void this.emit(sessionId, sigEvent, { signal }).catch((e: unknown) =>
+        this.emitFailed(sigEvent, sessionId, e),
       );
+    }
+    const target: GuardrailState | null =
+      signal === 'ban' || signal === 'restriction'
+        ? 'banida'
+        : signal === '463'
+          ? 'quarentena'
+          : null; // 401/loggedOut/outros: sem transição automática
+    if (this.enforce && target) {
+      await this.apply(sessionId, target, `sinal duro: ${signal}`);
     }
     await this.prisma.sessionGuardrail.upsert({
       where: { sessionId },

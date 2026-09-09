@@ -23,7 +23,7 @@ interface GuardrailRow {
 
 class PrismaFake {
   rows = new Map<string, GuardrailRow>();
-  metricRows: Array<{ replyRate: number }> = [];
+  metricRows: Array<{ replyRate: number; sample?: number }> = [];
 
   guardrailConfig = {
     findUnique: async () => null, // sem override no DB → valem os defaults do env
@@ -38,6 +38,49 @@ class PrismaFake {
   sessionGuardrail = {
     findUnique: async ({ where }: { where: { sessionId: string } }) =>
       this.rows.get(where.sessionId) ?? null,
+    // WA-07 (CAS): create falha com P2002 se a linha já existe; updateMany só aplica se o
+    // eventTs lido ainda é o gravado (perdeu a corrida → count 0).
+    create: async ({
+      data,
+    }: {
+      data: Partial<GuardrailRow> & { sessionId: string };
+    }) => {
+      if (this.rows.has(data.sessionId)) {
+        const err = new Error('unique') as Error & { code?: string };
+        err.code = 'P2002';
+        throw err;
+      }
+      const row: GuardrailRow = {
+        id: 'fake',
+        state: 'ativa',
+        reason: null,
+        quarentenaDesde: null,
+        cooldownAte: null,
+        ultimoSinal: null,
+        eventTs: new Date(),
+        ...data,
+      };
+      this.rows.set(data.sessionId, row);
+      return row;
+    },
+    updateMany: async ({
+      where,
+      data,
+    }: {
+      where: { sessionId: string; eventTs?: Date };
+      data: Partial<GuardrailRow>;
+    }) => {
+      const row = this.rows.get(where.sessionId);
+      if (!row) return { count: 0 };
+      if (
+        where.eventTs !== undefined &&
+        row.eventTs.getTime() !== where.eventTs.getTime()
+      ) {
+        return { count: 0 };
+      }
+      Object.assign(row, data);
+      return { count: 1 };
+    },
     findMany: async ({ where }: { where: { sessionId: { in: string[] } } }) =>
       where.sessionId.in
         .map((id) => this.rows.get(id))
@@ -327,5 +370,159 @@ describe('GuardrailService.fleetMedianReplyRate', () => {
       { replyRate: 0.4 },
     ];
     expect(await service.fleetMedianReplyRate()).toBe(0.5);
+  });
+
+  // WA-05 (auditoria 09/2026)
+  it('mediana ZERO não vira baseline (frota inteira sem resposta → null → alvo configurado)', async () => {
+    prisma.metricRows = [{ replyRate: 0 }, { replyRate: 0 }, { replyRate: 0 }];
+    expect(await service.fleetMedianReplyRate()).toBeNull();
+  });
+
+  it('snapshot com amostra abaixo do Nmin em vigor não entra na mediana', async () => {
+    prisma.metricRows = [
+      { replyRate: 0.9, sample: 5 }, // reliable gravado com outro Nmin — hoje não conta
+      { replyRate: 0.3, sample: 40 },
+      { replyRate: 0.5, sample: 40 },
+    ];
+    expect(await service.fleetMedianReplyRate()).toBe(0.4);
+  });
+});
+
+describe('GuardrailService — cooldown e quarentena manual (WA-04)', () => {
+  it('quarentena com cooldown ativo NÃO sobe para ativa mesmo com taxa boa', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', {
+      state: 'quarentena',
+      reason: 'reply 10% < 21%',
+      cooldownAte: new Date(Date.now() + 3_600_000),
+    });
+    const { service } = makeService({
+      replyRate: 0.9,
+      sample: 50,
+      prisma,
+      enforce: true,
+    });
+    const r = await service.evaluate('S1');
+    expect(r.targetState).toBe('quarentena');
+    expect(r.applied).toBe(false);
+    expect(r.reason).toContain('cooldown');
+    expect(prisma.rows.get('S1')?.state).toBe('quarentena');
+  });
+
+  it('quarentena com cooldown VENCIDO e taxa boa volta a ativa', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', {
+      state: 'quarentena',
+      reason: 'reply 10% < 21%',
+      cooldownAte: new Date(Date.now() - 1_000),
+    });
+    const { service } = makeService({
+      replyRate: 0.9,
+      sample: 50,
+      prisma,
+      enforce: true,
+    });
+    const r = await service.evaluate('S1');
+    expect(r.targetState).toBe('ativa');
+    expect(r.applied).toBe(true);
+  });
+
+  it('quarentena MANUAL só sai por override explícito (amostra pequena não "cura")', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', {
+      state: 'quarentena',
+      reason: 'override manual: quarantine',
+      cooldownAte: new Date(Date.now() - 1_000),
+    });
+    const { service } = makeService({
+      replyRate: 0.9,
+      sample: 50,
+      prisma,
+      enforce: true,
+    });
+    const r = await service.evaluate('S1');
+    expect(r.targetState).toBe('quarentena');
+    expect(r.applied).toBe(false);
+    expect(r.reason).toContain('manual');
+
+    await service.setManualState('S1', 'activate');
+    expect(prisma.rows.get('S1')?.state).toBe('ativa');
+  });
+
+  it('baseline indisponível é explicitado no motivo', async () => {
+    const { service } = makeService({ replyRate: 0.4, sample: 20 });
+    const r = await service.evaluate('S1');
+    expect(r.fleetMedian).toBeNull();
+    expect(r.reason).toContain('alvo configurado');
+  });
+});
+
+describe('GuardrailService.recordHardSignal — taxonomia (WA-03)', () => {
+  it('401/loggedOut NÃO vira banida: só registra o último sinal', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma, enforce: true });
+    await service.recordHardSignal('S1', '401');
+    const row = prisma.rows.get('S1');
+    expect(row?.state).toBe('ativa');
+    expect(row?.ultimoSinal).toBe('401');
+  });
+
+  it('ban/restriction → banida; 463 → quarentena (com enforce)', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', { state: 'ativa' });
+    prisma.seed('S2', { state: 'ativa' });
+    const bus = new EventBusFake();
+    const { service } = makeService({ prisma, bus, enforce: true });
+    await service.recordHardSignal('S1', 'ban');
+    await service.recordHardSignal('S2', '463');
+    expect(prisma.rows.get('S1')?.state).toBe('banida');
+    expect(prisma.rows.get('S2')?.state).toBe('quarentena');
+    await bus.flush();
+    expect(bus.eventNames()).toContain('signal.restriction');
+    expect(bus.eventNames()).toContain('signal.463');
+  });
+
+  it('sem enforce nenhum sinal muda o estado', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma, enforce: false });
+    await service.recordHardSignal('S1', 'ban');
+    expect(prisma.rows.get('S1')?.state).toBe('ativa');
+    expect(prisma.rows.get('S1')?.ultimoSinal).toBe('ban');
+  });
+});
+
+describe('GuardrailService.apply — CAS (WA-07)', () => {
+  it('cria a linha quando não existe e aplica com evento mais novo', async () => {
+    const prisma = new PrismaFake();
+    const { service } = makeService({ prisma });
+    const saved = await service.apply('S9', 'throttled', 'novo', new Date());
+    expect(saved.state).toBe('throttled');
+    expect(prisma.rows.get('S9')?.state).toBe('throttled');
+  });
+
+  it('duas transições concorrentes: a que perde a corrida relê e não grava por cima de evento mais novo', async () => {
+    const prisma = new PrismaFake();
+    const t0 = new Date(Date.now() - 10_000);
+    prisma.seed('S1', { state: 'ativa', eventTs: t0 });
+    const { service } = makeService({ prisma });
+    // Simula outra réplica que aplicou um evento MAIS NOVO entre a leitura e a escrita.
+    const original = prisma.sessionGuardrail.updateMany;
+    let injected = false;
+    prisma.sessionGuardrail.updateMany = async (args) => {
+      if (!injected) {
+        injected = true;
+        const row = prisma.rows.get('S1')!;
+        row.state = 'quarentena';
+        row.eventTs = new Date(); // mais novo que o evento em voo
+        return { count: 0 }; // a escrita em voo perdeu a corrida
+      }
+      return original(args);
+    };
+    const older = new Date(Date.now() - 5_000);
+    const result = await service.apply('S1', 'throttled', 'atrasado', older);
+    expect(result.state).toBe('quarentena'); // manteve o mais novo
+    expect(prisma.rows.get('S1')?.state).toBe('quarentena');
   });
 });
