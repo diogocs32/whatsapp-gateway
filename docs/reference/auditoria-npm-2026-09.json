@@ -1,0 +1,3613 @@
+{
+  "purpose": "Evidência pública da auditoria documental; não modifica manifests, lockfile ou runtime.",
+  "codeRevision": "b982d10",
+  "auditDate": "2026-09-09",
+  "auditCommand": "npm audit --json --ignore-scripts --fetch-retries=0 --fetch-timeout=15000",
+  "auditExitCode": 1,
+  "versions": {
+    "observedAt": "2026-09-09T13:22:13.735233+00:00",
+    "packages": {
+      "concurrently": {
+        "manifest": "^9.1.0",
+        "lock": "9.2.4",
+        "file": "package.json",
+        "latest": "10.0.5",
+        "engines": {
+          "node": ">=22"
+        },
+        "peers": null,
+        "dependencies": {
+          "rxjs": "7.8.2",
+          "chalk": "5.6.2",
+          "yargs": "18.0.0",
+          "tree-kill": "1.2.2",
+          "shell-quote": "1.9.0",
+          "supports-color": "10.2.2"
+        },
+        "source": "https://registry.npmjs.org/concurrently/latest",
+        "distTags": {
+          "backport": "9.2.4",
+          "latest": "10.0.5"
+        },
+        "latestStable": "10.0.5",
+        "latestSameMajor": "9.2.4",
+        "latestPublishedAt": "2026-08-15T03:33:20.323Z",
+        "latestSameMajorPublishedAt": "2026-07-11T05:45:04.383Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=18"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "rxjs": "7.8.2",
+            "chalk": "4.1.2",
+            "yargs": "17.7.2",
+            "tree-kill": "1.2.2",
+            "shell-quote": "1.9.0",
+            "supports-color": "8.1.1"
+          }
+        }
+      },
+      "dependency-cruiser": {
+        "manifest": "^18.2.0",
+        "lock": "18.2.0",
+        "file": "package.json",
+        "latest": "18.2.0",
+        "engines": {
+          "node": "^22||^24||>=26"
+        },
+        "peers": null,
+        "dependencies": {
+          "acorn": "8.18.0",
+          "json5": "2.2.3",
+          "ignore": "7.0.6",
+          "semver": "7.8.5",
+          "prompts": "2.4.2",
+          "rechoir": "0.8.0",
+          "acorn-jsx": "5.3.2",
+          "commander": "15.0.0",
+          "interpret": "3.1.1",
+          "picomatch": "4.0.5",
+          "acorn-walk": "8.3.5",
+          "safe-regex": "2.1.1",
+          "watskeburt": "6.0.0",
+          "acorn-loose": "8.5.2",
+          "acorn-jsx-walk": "2.0.0",
+          "enhanced-resolve": "5.24.5",
+          "is-installed-globally": "1.0.0",
+          "tsconfig-paths-webpack-plugin": "4.2.0"
+        },
+        "source": "https://registry.npmjs.org/dependency-cruiser/latest",
+        "distTags": {
+          "version-10": "10.9.0",
+          "latest": "18.2.0",
+          "beta": "18.2.0-beta-2"
+        },
+        "latestStable": "18.2.0",
+        "latestSameMajor": "18.2.0",
+        "latestPublishedAt": "2026-08-10T18:01:17.747Z",
+        "latestSameMajorPublishedAt": "2026-08-10T18:01:17.747Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^22||^24||>=26"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "acorn": "8.18.0",
+            "json5": "2.2.3",
+            "ignore": "7.0.6",
+            "semver": "7.8.5",
+            "prompts": "2.4.2",
+            "rechoir": "0.8.0",
+            "acorn-jsx": "5.3.2",
+            "commander": "15.0.0",
+            "interpret": "3.1.1",
+            "picomatch": "4.0.5",
+            "acorn-walk": "8.3.5",
+            "safe-regex": "2.1.1",
+            "watskeburt": "6.0.0",
+            "acorn-loose": "8.5.2",
+            "acorn-jsx-walk": "2.0.0",
+            "enhanced-resolve": "5.24.5",
+            "is-installed-globally": "1.0.0",
+            "tsconfig-paths-webpack-plugin": "4.2.0"
+          }
+        }
+      },
+      "eslint": {
+        "manifest": "^10.5.0",
+        "lock": "10.8.1",
+        "file": "package.json",
+        "latest": "10.10.0",
+        "engines": {
+          "node": "^20.19.0 || ^22.13.0 || >=24"
+        },
+        "peers": {
+          "jiti": "*"
+        },
+        "dependencies": {
+          "ajv": "^6.14.0",
+          "debug": "^4.3.2",
+          "espree": "^11.2.0",
+          "ignore": "^5.2.0",
+          "esquery": "^1.7.0",
+          "esutils": "^2.0.2",
+          "find-up": "^5.0.0",
+          "is-glob": "^4.0.0",
+          "minimatch": "^10.2.5",
+          "optionator": "^0.9.3",
+          "cross-spawn": "^7.0.6",
+          "glob-parent": "^6.0.2",
+          "imurmurhash": "^0.1.4",
+          "@eslint/core": "^1.2.1",
+          "eslint-scope": "^9.1.2",
+          "@humanfs/node": "^0.16.6",
+          "@types/estree": "^1.0.6",
+          "fast-deep-equal": "^3.1.3",
+          "natural-compare": "^1.4.0",
+          "file-entry-cache": "11.1.5 || >11.1.6 <12",
+          "@eslint/plugin-kit": "^0.7.3",
+          "eslint-visitor-keys": "^5.0.1",
+          "@eslint/config-array": "^0.23.5",
+          "@humanwhocodes/retry": "^0.4.2",
+          "escape-string-regexp": "^4.0.0",
+          "@eslint/config-helpers": "^0.7.0",
+          "@eslint-community/regexpp": "^4.12.2",
+          "@eslint-community/eslint-utils": "^4.8.0",
+          "@humanwhocodes/module-importer": "^1.0.1",
+          "json-stable-stringify-without-jsonify": "^1.0.1"
+        },
+        "source": "https://registry.npmjs.org/eslint/latest",
+        "distTags": {
+          "es6jsx": "0.11.0-alpha.0",
+          "next": "10.0.0-rc.2",
+          "maintenance": "9.39.5",
+          "latest": "10.10.0"
+        },
+        "latestStable": "10.10.0",
+        "latestSameMajor": "10.10.0",
+        "latestPublishedAt": "2026-09-04T14:34:21.799Z",
+        "latestSameMajorPublishedAt": "2026-09-04T14:34:21.799Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^20.19.0 || ^22.13.0 || >=24"
+          },
+          "peerDependencies": {
+            "jiti": "*"
+          },
+          "dependencies": {
+            "ajv": "^6.14.0",
+            "debug": "^4.3.2",
+            "espree": "^11.2.0",
+            "ignore": "^5.2.0",
+            "esquery": "^1.7.0",
+            "esutils": "^2.0.2",
+            "find-up": "^5.0.0",
+            "is-glob": "^4.0.0",
+            "minimatch": "^10.2.5",
+            "optionator": "^0.9.3",
+            "cross-spawn": "^7.0.6",
+            "glob-parent": "^6.0.2",
+            "imurmurhash": "^0.1.4",
+            "@eslint/core": "^1.2.1",
+            "eslint-scope": "^9.1.2",
+            "@humanfs/node": "^0.16.6",
+            "@types/estree": "^1.0.6",
+            "fast-deep-equal": "^3.1.3",
+            "natural-compare": "^1.4.0",
+            "file-entry-cache": "11.1.5 || >11.1.6 <12",
+            "@eslint/plugin-kit": "^0.7.3",
+            "eslint-visitor-keys": "^5.0.1",
+            "@eslint/config-array": "^0.23.5",
+            "@humanwhocodes/retry": "^0.4.2",
+            "escape-string-regexp": "^4.0.0",
+            "@eslint/config-helpers": "^0.7.0",
+            "@eslint-community/regexpp": "^4.12.2",
+            "@eslint-community/eslint-utils": "^4.8.0",
+            "@humanwhocodes/module-importer": "^1.0.1",
+            "json-stable-stringify-without-jsonify": "^1.0.1"
+          }
+        }
+      },
+      "eslint-config-prettier": {
+        "manifest": "^10.1.8",
+        "lock": "10.1.8",
+        "file": "package.json",
+        "latest": "10.1.8",
+        "engines": null,
+        "peers": {
+          "eslint": ">=7.0.0"
+        },
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/eslint-config-prettier/latest",
+        "distTags": {
+          "latest": "10.1.8",
+          "release-v8": "8.10.2",
+          "release-v9": "9.1.2"
+        },
+        "latestStable": "10.1.8",
+        "latestSameMajor": "10.1.8",
+        "latestPublishedAt": "2025-07-18T18:40:08.244Z",
+        "latestSameMajorPublishedAt": "2025-07-18T18:40:08.244Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "eslint": ">=7.0.0"
+          },
+          "dependencies": null
+        }
+      },
+      "eslint-plugin-react-hooks": {
+        "manifest": "^7.1.1",
+        "lock": "7.1.1",
+        "file": "package.json",
+        "latest": "7.1.1",
+        "engines": {
+          "node": ">=18"
+        },
+        "peers": {
+          "eslint": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0 || ^9.0.0 || ^10.0.0"
+        },
+        "dependencies": {
+          "zod": "^3.25.0 || ^4.0.0",
+          "@babel/core": "^7.24.4",
+          "@babel/parser": "^7.24.4",
+          "hermes-parser": "^0.25.1",
+          "zod-validation-error": "^3.5.0 || ^4.0.0"
+        },
+        "source": "https://registry.npmjs.org/eslint-plugin-react-hooks/latest",
+        "distTags": {
+          "beta": "5.1.0-beta-26f2496093-20240514",
+          "rc": "6.0.0-rc.2",
+          "latest": "7.1.1",
+          "next": "7.1.1-canary-d5736f09-20260507",
+          "experimental": "0.0.0-experimental-6c0e1047-20260908",
+          "canary": "7.1.1-canary-6c0e1047-20260908"
+        },
+        "latestStable": "7.1.1",
+        "latestSameMajor": "7.1.1",
+        "latestPublishedAt": "2026-04-17T18:03:19.591Z",
+        "latestSameMajorPublishedAt": "2026-04-17T18:03:19.591Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=18"
+          },
+          "peerDependencies": {
+            "eslint": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0 || ^9.0.0 || ^10.0.0"
+          },
+          "dependencies": {
+            "zod": "^3.25.0 || ^4.0.0",
+            "@babel/core": "^7.24.4",
+            "@babel/parser": "^7.24.4",
+            "hermes-parser": "^0.25.1",
+            "zod-validation-error": "^3.5.0 || ^4.0.0"
+          }
+        }
+      },
+      "globals": {
+        "manifest": "^17.6.0",
+        "lock": "17.11.0",
+        "file": "package.json",
+        "latest": "17.12.0",
+        "engines": {
+          "node": ">=18"
+        },
+        "peers": null,
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/globals/latest",
+        "distTags": {
+          "latest": "17.12.0"
+        },
+        "latestStable": "17.12.0",
+        "latestSameMajor": "17.12.0",
+        "latestPublishedAt": "2026-09-01T11:00:43.545Z",
+        "latestSameMajorPublishedAt": "2026-09-01T11:00:43.545Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=18"
+          },
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "patch-package": {
+        "manifest": "^8.0.1",
+        "lock": "8.0.1",
+        "file": "package.json",
+        "latest": "8.0.1",
+        "engines": {
+          "npm": ">5",
+          "node": ">=14"
+        },
+        "peers": null,
+        "dependencies": {
+          "tmp": "^0.2.4",
+          "open": "^7.4.2",
+          "yaml": "^2.2.2",
+          "chalk": "^4.1.2",
+          "slash": "^2.0.0",
+          "semver": "^7.5.3",
+          "ci-info": "^3.7.0",
+          "fs-extra": "^10.0.0",
+          "minimist": "^1.2.6",
+          "klaw-sync": "^6.0.0",
+          "cross-spawn": "^7.0.3",
+          "@yarnpkg/lockfile": "^1.1.0",
+          "json-stable-stringify": "^1.0.2",
+          "find-yarn-workspace-root": "^2.0.0"
+        },
+        "source": "https://registry.npmjs.org/patch-package/latest",
+        "distTags": {
+          "beta": "6.1.0-0",
+          "latest": "8.0.1",
+          "canary": "8.1.0-canary.1"
+        },
+        "latestStable": "8.0.1",
+        "latestSameMajor": "8.0.1",
+        "latestPublishedAt": "2025-09-29T16:25:23.430Z",
+        "latestSameMajorPublishedAt": "2025-09-29T16:25:23.430Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=14",
+            "npm": ">5"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "@yarnpkg/lockfile": "^1.1.0",
+            "chalk": "^4.1.2",
+            "ci-info": "^3.7.0",
+            "cross-spawn": "^7.0.3",
+            "find-yarn-workspace-root": "^2.0.0",
+            "fs-extra": "^10.0.0",
+            "json-stable-stringify": "^1.0.2",
+            "klaw-sync": "^6.0.0",
+            "minimist": "^1.2.6",
+            "open": "^7.4.2",
+            "semver": "^7.5.3",
+            "slash": "^2.0.0",
+            "tmp": "^0.2.4",
+            "yaml": "^2.2.2"
+          }
+        }
+      },
+      "prettier": {
+        "manifest": "^3.8.4",
+        "lock": "3.9.6",
+        "file": "package.json",
+        "latest": "3.9.6",
+        "engines": {
+          "node": ">=14"
+        },
+        "peers": null,
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/prettier/latest",
+        "distTags": {
+          "next": "4.0.0-alpha.13",
+          "latest": "3.9.6"
+        },
+        "latestStable": "3.9.6",
+        "latestSameMajor": "3.9.6",
+        "latestPublishedAt": "2026-07-21T05:51:53.987Z",
+        "latestSameMajorPublishedAt": "2026-07-21T05:51:53.987Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=14"
+          },
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "typescript-eslint": {
+        "manifest": "^8.61.1",
+        "lock": "8.67.0",
+        "file": "package.json",
+        "latest": "8.70.0",
+        "engines": {
+          "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+        },
+        "peers": {
+          "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
+          "typescript": ">=4.8.4 <6.1.0"
+        },
+        "dependencies": {
+          "@typescript-eslint/utils": "8.70.0",
+          "@typescript-eslint/parser": "8.70.0",
+          "@typescript-eslint/eslint-plugin": "8.70.0",
+          "@typescript-eslint/typescript-estree": "8.70.0"
+        },
+        "source": "https://registry.npmjs.org/typescript-eslint/latest",
+        "distTags": {
+          "rc-v8": "8.0.0-alpha.62",
+          "canary": "8.70.1-alpha.0",
+          "latest": "8.70.0"
+        },
+        "latestStable": "8.70.0",
+        "latestSameMajor": "8.70.0",
+        "latestPublishedAt": "2026-09-07T18:18:09.654Z",
+        "latestSameMajorPublishedAt": "2026-09-07T18:18:09.654Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+          },
+          "peerDependencies": {
+            "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
+            "typescript": ">=4.8.4 <6.1.0"
+          },
+          "dependencies": {
+            "@typescript-eslint/utils": "8.70.0",
+            "@typescript-eslint/parser": "8.70.0",
+            "@typescript-eslint/eslint-plugin": "8.70.0",
+            "@typescript-eslint/typescript-estree": "8.70.0"
+          }
+        }
+      },
+      "@aws-sdk/client-s3": {
+        "manifest": "^3.1111.0",
+        "lock": "3.1111.0",
+        "file": "apps/gateway/package.json",
+        "latest": "3.1128.0",
+        "engines": {
+          "node": ">=20.0.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "tslib": "^2.6.2",
+          "@smithy/core": "^3.33.3",
+          "@aws-sdk/core": "^3.977.9",
+          "@smithy/types": "^4.17.2",
+          "@aws-sdk/types": "^3.974.5",
+          "@aws-sdk/checksums": "^3.1000.29",
+          "@smithy/node-http-handler": "^4.11.3",
+          "@aws-sdk/middleware-sdk-s3": "^3.972.75",
+          "@smithy/fetch-http-handler": "^5.7.2",
+          "@aws-sdk/credential-provider-node": "^3.972.82",
+          "@aws-sdk/signature-v4-multi-region": "^3.996.46"
+        },
+        "source": "https://registry.npmjs.org/%40aws-sdk%2Fclient-s3/latest",
+        "distTags": {
+          "alpha": "1.0.0-alpha.21",
+          "beta": "1.0.0-beta.5",
+          "gamma": "1.0.0-gamma.11",
+          "rc": "3.5.1-rc.0",
+          "latest": "3.1128.0"
+        },
+        "latestStable": "3.1128.0",
+        "latestSameMajor": "3.1128.0",
+        "latestPublishedAt": "2026-09-08T18:48:56.081Z",
+        "latestSameMajorPublishedAt": "2026-09-08T18:48:56.081Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=20.0.0"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "tslib": "^2.6.2",
+            "@smithy/core": "^3.33.3",
+            "@aws-sdk/core": "^3.977.9",
+            "@smithy/types": "^4.17.2",
+            "@aws-sdk/types": "^3.974.5",
+            "@aws-sdk/checksums": "^3.1000.29",
+            "@smithy/node-http-handler": "^4.11.3",
+            "@aws-sdk/middleware-sdk-s3": "^3.972.75",
+            "@smithy/fetch-http-handler": "^5.7.2",
+            "@aws-sdk/credential-provider-node": "^3.972.82",
+            "@aws-sdk/signature-v4-multi-region": "^3.996.46"
+          }
+        }
+      },
+      "@aws-sdk/s3-request-presigner": {
+        "manifest": "^3.1111.0",
+        "lock": "3.1111.0",
+        "file": "apps/gateway/package.json",
+        "latest": "3.1128.0",
+        "engines": {
+          "node": ">=20.0.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "tslib": "^2.6.2",
+          "@smithy/core": "^3.33.3",
+          "@aws-sdk/core": "^3.977.9",
+          "@smithy/types": "^4.17.2",
+          "@aws-sdk/types": "^3.974.5",
+          "@aws-sdk/signature-v4-multi-region": "^3.996.46"
+        },
+        "source": "https://registry.npmjs.org/%40aws-sdk%2Fs3-request-presigner/latest",
+        "distTags": {
+          "preview": "0.1.0-preview.7",
+          "alpha": "1.0.0-alpha.18",
+          "beta": "1.0.0-beta.5",
+          "gamma": "1.0.0-gamma.10",
+          "rc": "3.5.1-rc.0",
+          "latest": "3.1128.0"
+        },
+        "latestStable": "3.1128.0",
+        "latestSameMajor": "3.1128.0",
+        "latestPublishedAt": "2026-09-08T18:48:23.983Z",
+        "latestSameMajorPublishedAt": "2026-09-08T18:48:23.983Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=20.0.0"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "tslib": "^2.6.2",
+            "@smithy/core": "^3.33.3",
+            "@aws-sdk/core": "^3.977.9",
+            "@smithy/types": "^4.17.2",
+            "@aws-sdk/types": "^3.974.5",
+            "@aws-sdk/signature-v4-multi-region": "^3.996.46"
+          }
+        }
+      },
+      "@fastify/cookie": {
+        "manifest": "^11.1.2",
+        "lock": "11.1.2",
+        "file": "apps/gateway/package.json",
+        "latest": "11.1.2",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "cookie": "^2.0.0",
+          "fastify-plugin": "^6.0.0"
+        },
+        "source": "https://registry.npmjs.org/%40fastify%2Fcookie/latest",
+        "distTags": {
+          "next": "10.0.0",
+          "latest": "11.1.2"
+        },
+        "latestStable": "11.1.2",
+        "latestSameMajor": "11.1.2",
+        "latestPublishedAt": "2026-07-15T21:29:27.207Z",
+        "latestSameMajorPublishedAt": "2026-07-15T21:29:27.207Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "cookie": "^2.0.0",
+            "fastify-plugin": "^6.0.0"
+          }
+        }
+      },
+      "@fastify/helmet": {
+        "manifest": "^13.1.0",
+        "lock": "13.1.0",
+        "file": "apps/gateway/package.json",
+        "latest": "13.1.1",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "helmet": "^8.0.0",
+          "fastify-plugin": "^6.0.0"
+        },
+        "source": "https://registry.npmjs.org/%40fastify%2Fhelmet/latest",
+        "metadataError": "<urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1028)>"
+      },
+      "@fastify/multipart": {
+        "manifest": "^10.1.1",
+        "lock": "10.1.1",
+        "file": "apps/gateway/package.json",
+        "latest": "10.1.1",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "@fastify/error": "^4.0.0",
+          "fastify-plugin": "^6.0.0",
+          "@fastify/busboy": "^3.0.0",
+          "secure-json-parse": "^4.0.0",
+          "@fastify/deepmerge": "^3.0.0"
+        },
+        "source": "https://registry.npmjs.org/%40fastify%2Fmultipart/latest",
+        "distTags": {
+          "six": "6.0.1",
+          "next": "9.0.0",
+          "eight": "8.3.1",
+          "latest": "10.1.1"
+        },
+        "latestStable": "10.1.1",
+        "latestSameMajor": "10.1.1",
+        "latestPublishedAt": "2026-08-14T23:05:37.241Z",
+        "latestSameMajorPublishedAt": "2026-08-14T23:05:37.241Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "@fastify/error": "^4.0.0",
+            "fastify-plugin": "^6.0.0",
+            "@fastify/busboy": "^3.0.0",
+            "secure-json-parse": "^4.0.0",
+            "@fastify/deepmerge": "^3.0.0"
+          }
+        }
+      },
+      "@fastify/rate-limit": {
+        "manifest": "^11.2.0",
+        "lock": "11.2.0",
+        "file": "apps/gateway/package.json",
+        "latest": "11.2.0",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "@lukeed/ms": "^2.0.2",
+          "ip-address": "^10.2.0",
+          "toad-cache": "^3.7.0",
+          "fastify-plugin": "^6.0.0"
+        },
+        "source": "https://registry.npmjs.org/%40fastify%2Frate-limit/latest",
+        "distTags": {
+          "eight": "8.1.1",
+          "next": "10.0.0",
+          "latest": "11.2.0"
+        },
+        "latestStable": "11.2.0",
+        "latestSameMajor": "11.2.0",
+        "latestPublishedAt": "2026-07-29T14:38:39.112Z",
+        "latestSameMajorPublishedAt": "2026-07-29T14:38:39.112Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "@lukeed/ms": "^2.0.2",
+            "ip-address": "^10.2.0",
+            "toad-cache": "^3.7.0",
+            "fastify-plugin": "^6.0.0"
+          }
+        }
+      },
+      "@hapi/boom": {
+        "manifest": "^9.1.3",
+        "lock": "9.1.4",
+        "file": "apps/gateway/package.json",
+        "latest": "10.0.1",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "@hapi/hoek": "^11.0.2"
+        },
+        "source": "https://registry.npmjs.org/%40hapi%2Fboom/latest",
+        "distTags": {
+          "latest": "10.0.1",
+          "next": "11.0.0-rc.0"
+        },
+        "latestStable": "10.0.1",
+        "latestSameMajor": "9.1.4",
+        "latestPublishedAt": "2023-02-11T17:40:55.984Z",
+        "latestSameMajorPublishedAt": "2021-08-20T12:28:53.048Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "@hapi/hoek": "9.x.x"
+          }
+        }
+      },
+      "@nestjs/common": {
+        "manifest": "^11.2.1",
+        "lock": "11.2.1",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.1",
+        "engines": null,
+        "peers": {
+          "rxjs": "^7.1.0",
+          "class-validator": ">=0.13.2",
+          "reflect-metadata": "^0.1.12 || ^0.2.0",
+          "class-transformer": ">=0.4.1"
+        },
+        "dependencies": {
+          "uid": "2.0.2",
+          "tslib": "2.8.1",
+          "iterare": "1.2.1",
+          "load-esm": "1.0.3",
+          "file-type": "22.0.2",
+          "@standard-schema/spec": "1.1.0"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Fcommon/latest",
+        "distTags": {
+          "rc": "6.0.0-rc.1",
+          "beta": "9.3.0-beta.3",
+          "old": "10.4.19",
+          "legacy": "10.4.22",
+          "next": "12.0.0-alpha.7",
+          "latest": "12.0.1"
+        },
+        "latestStable": "12.0.1",
+        "latestSameMajor": "11.2.3",
+        "latestPublishedAt": "2026-08-27T07:30:11.159Z",
+        "latestSameMajorPublishedAt": "2026-08-25T10:59:55.592Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "rxjs": "^7.1.0",
+            "class-validator": ">=0.13.2",
+            "reflect-metadata": "^0.1.12 || ^0.2.0",
+            "class-transformer": ">=0.4.1"
+          },
+          "dependencies": {
+            "uid": "2.0.2",
+            "tslib": "2.8.1",
+            "iterare": "1.2.1",
+            "load-esm": "1.0.3",
+            "file-type": "21.3.4"
+          }
+        }
+      },
+      "@nestjs/config": {
+        "manifest": "^4.0.4",
+        "lock": "4.0.4",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.0",
+        "engines": null,
+        "peers": {
+          "rxjs": "^7.1.0",
+          "@nestjs/common": "^11.0.0 || ^12.0.0"
+        },
+        "dependencies": {
+          "dotenv": "17.4.2",
+          "es-toolkit": "1.51.0",
+          "dotenv-expand": "13.0.0",
+          "@standard-schema/spec": "1.1.0"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Fconfig/latest",
+        "distTags": {
+          "latest": "12.0.0",
+          "next": "12.0.0-next.0"
+        },
+        "latestStable": "12.0.0",
+        "latestSameMajor": "4.0.4",
+        "latestPublishedAt": "2026-08-27T07:41:48.117Z",
+        "latestSameMajorPublishedAt": "2026-04-09T11:48:59.146Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "rxjs": "^7.1.0",
+            "@nestjs/common": "^10.0.0 || ^11.0.0"
+          },
+          "dependencies": {
+            "dotenv": "17.4.1",
+            "lodash": "4.18.1",
+            "dotenv-expand": "12.0.3"
+          }
+        }
+      },
+      "@nestjs/core": {
+        "manifest": "^11.2.1",
+        "lock": "11.2.1",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.1",
+        "engines": {
+          "node": ">= 20"
+        },
+        "peers": {
+          "rxjs": "^7.1.0",
+          "@nestjs/common": "^12.0.0",
+          "reflect-metadata": "^0.1.12 || ^0.2.0",
+          "@nestjs/websockets": "^12.0.0",
+          "@nestjs/microservices": "^12.0.0",
+          "@nestjs/platform-express": "^12.0.0"
+        },
+        "dependencies": {
+          "uid": "2.0.2",
+          "tslib": "2.8.1",
+          "iterare": "1.2.1",
+          "path-to-regexp": "8.4.2",
+          "fast-safe-stringify": "2.1.1"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Fcore/latest",
+        "distTags": {
+          "rc": "6.0.0-rc.1",
+          "beta": "9.3.0-beta.3",
+          "old": "10.4.19",
+          "legacy": "10.4.22",
+          "next": "12.0.0-alpha.7",
+          "latest": "12.0.1"
+        },
+        "latestStable": "12.0.1",
+        "latestSameMajor": "11.2.3",
+        "latestPublishedAt": "2026-08-27T07:29:12.178Z",
+        "latestSameMajorPublishedAt": "2026-08-25T11:00:57.837Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">= 20"
+          },
+          "peerDependencies": {
+            "rxjs": "^7.1.0",
+            "@nestjs/common": "^11.0.0",
+            "reflect-metadata": "^0.1.12 || ^0.2.0",
+            "@nestjs/websockets": "^11.0.0",
+            "@nestjs/microservices": "^11.0.0",
+            "@nestjs/platform-express": "^11.0.0"
+          },
+          "dependencies": {
+            "uid": "2.0.2",
+            "tslib": "2.8.1",
+            "iterare": "1.2.1",
+            "path-to-regexp": "8.4.2",
+            "fast-safe-stringify": "2.1.1"
+          }
+        }
+      },
+      "@nestjs/jwt": {
+        "manifest": "^11.0.2",
+        "lock": "11.0.2",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.1",
+        "engines": null,
+        "peers": {
+          "@nestjs/common": "^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0 || ^12.0.0"
+        },
+        "dependencies": {
+          "jsonwebtoken": "9.0.3",
+          "@types/jsonwebtoken": "9.0.10"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Fjwt/latest",
+        "distTags": {
+          "latest": "12.0.1"
+        },
+        "latestStable": "12.0.1",
+        "latestSameMajor": "11.0.2",
+        "latestPublishedAt": "2026-08-27T08:53:59.444Z",
+        "latestSameMajorPublishedAt": "2025-12-05T10:40:37.539Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "@nestjs/common": "^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0"
+          },
+          "dependencies": {
+            "jsonwebtoken": "9.0.3",
+            "@types/jsonwebtoken": "9.0.10"
+          }
+        }
+      },
+      "@nestjs/platform-fastify": {
+        "manifest": "^11.2.1",
+        "lock": "11.2.1",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.1",
+        "engines": null,
+        "peers": {
+          "@nestjs/core": "^12.0.0",
+          "@fastify/view": "^10.0.0 || ^11.0.0 || ^12.0.0",
+          "@nestjs/common": "^12.0.0",
+          "@fastify/static": "^10.1.2"
+        },
+        "dependencies": {
+          "tslib": "2.8.1",
+          "fastify": "5.12.1",
+          "reusify": "1.1.0",
+          "find-my-way": "9.9.0",
+          "@fastify/cors": "11.3.0",
+          "fastify-plugin": "6.0.0",
+          "path-to-regexp": "8.4.2",
+          "fast-querystring": "1.1.2",
+          "light-my-request": "6.6.0",
+          "@fastify/formbody": "9.0.0"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Fplatform-fastify/latest",
+        "distTags": {
+          "rc": "6.0.0-rc.1",
+          "beta": "9.3.0-beta.3",
+          "old": "10.4.19",
+          "legacy": "10.4.22",
+          "next": "12.0.0-alpha.7",
+          "latest": "12.0.1"
+        },
+        "latestStable": "12.0.1",
+        "latestSameMajor": "11.2.3",
+        "latestPublishedAt": "2026-08-27T07:30:10.708Z",
+        "latestSameMajorPublishedAt": "2026-08-25T10:59:56.283Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "@nestjs/core": "^11.0.0",
+            "@fastify/view": "^10.0.0 || ^11.0.0 || ^12.0.0",
+            "@nestjs/common": "^11.0.0",
+            "@fastify/static": "^10.1.2"
+          },
+          "dependencies": {
+            "tslib": "2.8.1",
+            "fastify": "5.11.3",
+            "reusify": "1.1.0",
+            "find-my-way": "9.7.0",
+            "@fastify/cors": "11.3.0",
+            "fastify-plugin": "6.0.0",
+            "path-to-regexp": "8.4.2",
+            "fast-querystring": "1.1.2",
+            "light-my-request": "6.6.0",
+            "@fastify/formbody": "8.0.2"
+          }
+        }
+      },
+      "@prisma/adapter-pg": {
+        "manifest": "^7.9.1",
+        "lock": "7.9.1",
+        "file": "apps/gateway/package.json",
+        "latest": "7.10.0",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "pg": "^8.16.3",
+          "@types/pg": "^8.16.0",
+          "postgres-array": "3.0.4",
+          "@prisma/driver-adapter-utils": "7.10.0"
+        },
+        "source": "https://registry.npmjs.org/%40prisma%2Fadapter-pg/latest",
+        "distTags": {
+          "early-access": "5.11.0",
+          "prev": "6.19.3",
+          "patch-dev": "7.9.1-dev.1",
+          "integration": "7.10.0-integration-fix-prisma-publish-token.1",
+          "latest": "7.10.0",
+          "dev": "8.1.0-dev.6"
+        },
+        "latestStable": "7.10.0",
+        "latestSameMajor": "7.10.0",
+        "latestPublishedAt": "2026-08-25T12:40:21.714Z",
+        "latestSameMajorPublishedAt": "2026-08-25T12:40:21.714Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "pg": "^8.16.3",
+            "@types/pg": "^8.16.0",
+            "postgres-array": "3.0.4",
+            "@prisma/driver-adapter-utils": "7.10.0"
+          }
+        }
+      },
+      "@prisma/client": {
+        "manifest": "^7.9.1",
+        "lock": "7.9.1",
+        "file": "apps/gateway/package.json",
+        "latest": "7.10.0",
+        "engines": {
+          "node": "^20.19 || ^22.12 || >=24.0"
+        },
+        "peers": {
+          "prisma": "*",
+          "typescript": ">=5.4.0"
+        },
+        "dependencies": {
+          "@prisma/client-runtime-utils": "7.10.0"
+        },
+        "source": "https://registry.npmjs.org/%40prisma%2Fclient/latest",
+        "distTags": {
+          "turso": "5.4.0-dev.61",
+          "early-access": "5.12.0-dev.21",
+          "typed-sql": "5.19.0-integration-feat-typed-sql.14",
+          "prev": "6.19.3",
+          "patch-dev": "7.9.1-dev.1",
+          "integration": "7.10.0-integration-fix-prisma-publish-token.1",
+          "latest": "7.10.0",
+          "dev": "8.1.0-dev.6"
+        },
+        "latestStable": "7.10.0",
+        "latestSameMajor": "7.10.0",
+        "latestPublishedAt": "2026-08-25T12:54:34.412Z",
+        "latestSameMajorPublishedAt": "2026-08-25T12:54:34.412Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^20.19 || ^22.12 || >=24.0"
+          },
+          "peerDependencies": {
+            "prisma": "*",
+            "typescript": ">=5.4.0"
+          },
+          "dependencies": {
+            "@prisma/client-runtime-utils": "7.10.0"
+          }
+        }
+      },
+      "@whiskeysockets/baileys": {
+        "manifest": "^7.0.0-rc14",
+        "lock": "7.0.0-rc14",
+        "file": "apps/gateway/package.json",
+        "latest": "7.0.0-rc14",
+        "engines": {
+          "node": ">=20.0.0"
+        },
+        "peers": {
+          "jimp": "^1.6.1",
+          "sharp": "*",
+          "audio-decode": "^2.1.3",
+          "link-preview-js": "^3.0.0"
+        },
+        "dependencies": {
+          "ws": "^8.13.0",
+          "pino": "^9.6",
+          "p-queue": "^9.0.0",
+          "libsignal": "^6.0.0",
+          "lru-cache": "^11.1.0",
+          "@hapi/boom": "^9.1.3",
+          "protobufjs": "^7.5.6",
+          "async-mutex": "^0.5.0",
+          "music-metadata": "^11.12.3",
+          "whatsapp-rust-bridge": "0.5.4",
+          "@cacheable/node-cache": "^1.4.0"
+        },
+        "source": "https://registry.npmjs.org/%40whiskeysockets%2Fbaileys/latest",
+        "distTags": {
+          "latest": "7.0.0-rc14",
+          "legacy": "6.7.24"
+        },
+        "latestStable": "6.17.16",
+        "latestSameMajor": null,
+        "latestPublishedAt": "2026-07-29T01:14:01.606Z",
+        "latestSameMajorPublishedAt": null,
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "bullmq": {
+        "manifest": "^5.81.3",
+        "lock": "5.81.3",
+        "file": "apps/gateway/package.json",
+        "latest": "6.3.4",
+        "engines": {
+          "node": ">=14.17.0"
+        },
+        "peers": {
+          "pg": ">=8.0.0",
+          "redis": ">=5.0.0",
+          "ioredis": ">=5.0.0",
+          "bullmq-otel": ">=2.0.0"
+        },
+        "dependencies": {
+          "tslib": "2.8.1",
+          "semver": "7.8.5",
+          "msgpackr": "2.1.0",
+          "cron-parser": "5.10.0",
+          "node-abort-controller": "3.1.1"
+        },
+        "source": "https://registry.npmjs.org/bullmq/latest",
+        "distTags": {
+          "release-v3.x": "3.16.2",
+          "release-v4.x": "4.18.3",
+          "release-v5.x": "5.81.4",
+          "latest": "6.3.4"
+        },
+        "latestStable": "6.3.4",
+        "latestSameMajor": "5.81.4",
+        "latestPublishedAt": "2026-09-01T06:55:48.323Z",
+        "latestSameMajorPublishedAt": "2026-08-27T15:46:21.951Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=12.22.0"
+          },
+          "peerDependencies": {
+            "redis": ">=5.0.0"
+          },
+          "dependencies": {
+            "tslib": "2.8.1",
+            "semver": "7.8.5",
+            "ioredis": "5.11.1",
+            "msgpackr": "2.0.5",
+            "cron-parser": "4.9.0",
+            "node-abort-controller": "3.1.1"
+          }
+        }
+      },
+      "dotenv": {
+        "manifest": "^16.6.1",
+        "lock": "16.6.1",
+        "file": "apps/gateway/package.json",
+        "latest": "17.4.2",
+        "engines": {
+          "node": ">=12"
+        },
+        "peers": null,
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/dotenv/latest",
+        "distTags": {
+          "latest": "17.4.2"
+        },
+        "latestStable": "17.4.2",
+        "latestSameMajor": "16.6.1",
+        "latestPublishedAt": "2026-04-12T16:41:11.574Z",
+        "latestSameMajorPublishedAt": "2025-06-27T16:45:01.088Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=12"
+          },
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "fastify": {
+        "manifest": "5.11.3",
+        "lock": "5.11.3",
+        "file": "apps/gateway/package.json",
+        "latest": "5.12.3",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "pino": "^9.14.0 || ^10.1.0",
+          "rfdc": "^1.3.1",
+          "avvio": "^9.0.0",
+          "semver": "^7.6.0",
+          "toad-cache": "^3.7.0",
+          "find-my-way": "^9.6.0",
+          "@fastify/error": "^4.0.0",
+          "process-warning": "^5.1.0",
+          "abstract-logging": "^2.0.1",
+          "light-my-request": "^6.0.0",
+          "secure-json-parse": "^4.0.0",
+          "@fastify/proxy-addr": "^5.0.0",
+          "fast-json-stringify": "^7.0.0",
+          "@fastify/ajv-compiler": "^4.0.5",
+          "@fastify/fast-json-stringify-compiler": "^5.0.0"
+        },
+        "source": "https://registry.npmjs.org/fastify/latest",
+        "distTags": {
+          "three": "3.29.5",
+          "four": "4.29.1",
+          "next": "6.0.0-alpha.3",
+          "latest": "5.12.3"
+        },
+        "latestStable": "5.12.3",
+        "latestSameMajor": "5.12.3",
+        "latestPublishedAt": "2026-09-04T08:21:57.526Z",
+        "latestSameMajorPublishedAt": "2026-09-04T08:21:57.526Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "pino": "^9.14.0 || ^10.1.0",
+            "rfdc": "^1.3.1",
+            "avvio": "^9.0.0",
+            "semver": "^7.6.0",
+            "toad-cache": "^3.7.0",
+            "find-my-way": "^9.6.0",
+            "@fastify/error": "^4.0.0",
+            "process-warning": "^5.1.0",
+            "abstract-logging": "^2.0.1",
+            "light-my-request": "^6.0.0",
+            "secure-json-parse": "^4.0.0",
+            "@fastify/proxy-addr": "^5.0.0",
+            "fast-json-stringify": "^7.0.0",
+            "@fastify/ajv-compiler": "^4.0.5",
+            "@fastify/fast-json-stringify-compiler": "^5.0.0"
+          }
+        }
+      },
+      "https-proxy-agent": {
+        "manifest": "^9.1.0",
+        "lock": "9.1.0",
+        "file": "apps/gateway/package.json",
+        "latest": "9.1.0",
+        "engines": {
+          "node": ">= 20"
+        },
+        "peers": null,
+        "dependencies": {
+          "debug": "^4.3.4",
+          "agent-base": "9.0.0",
+          "proxy-agent-negotiate": "1.1.0"
+        },
+        "source": "https://registry.npmjs.org/https-proxy-agent/latest",
+        "distTags": {
+          "latest": "9.1.0"
+        },
+        "latestStable": "9.1.0",
+        "latestSameMajor": "9.1.0",
+        "latestPublishedAt": "2026-06-08T16:47:28.029Z",
+        "latestSameMajorPublishedAt": "2026-06-08T16:47:28.029Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">= 20"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "debug": "^4.3.4",
+            "agent-base": "9.0.0",
+            "proxy-agent-negotiate": "1.1.0"
+          }
+        }
+      },
+      "ioredis": {
+        "manifest": "^5.11.1",
+        "lock": "5.11.1",
+        "file": "apps/gateway/package.json",
+        "latest": "6.0.0",
+        "engines": {
+          "node": ">=20.0.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "debug": "4.4.3",
+          "denque": "2.1.0",
+          "redis-errors": "1.2.0",
+          "cluster-key-slot": "1.1.1",
+          "@ioredis/commands": "2.0.0",
+          "standard-as-callback": "2.1.0"
+        },
+        "source": "https://registry.npmjs.org/ioredis/latest",
+        "distTags": {
+          "next": "5.0.4",
+          "v4-beta": "4.30.2-v4-beta.1",
+          "release-v4": "4.31.0",
+          "latest": "6.0.0",
+          "beta": "6.0.0-beta.1"
+        },
+        "latestStable": "6.0.0",
+        "latestSameMajor": "5.11.1",
+        "latestPublishedAt": "2026-07-31T15:03:15.489Z",
+        "latestSameMajorPublishedAt": "2026-06-04T10:14:59.752Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=12.22.0"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "debug": "4.4.3",
+            "denque": "2.1.0",
+            "redis-errors": "1.2.0",
+            "redis-parser": "3.0.0",
+            "cluster-key-slot": "1.1.1",
+            "@ioredis/commands": "1.10.0",
+            "standard-as-callback": "2.1.0"
+          }
+        }
+      },
+      "nestjs-pino": {
+        "manifest": "^4.6.1",
+        "lock": "4.6.1",
+        "file": "apps/gateway/package.json",
+        "latest": "5.1.0",
+        "engines": {
+          "node": ">=22.12.0"
+        },
+        "peers": {
+          "pino": "^10.0.0",
+          "rxjs": "^7.1.0",
+          "pino-http": "^11.0.0",
+          "@nestjs/core": "^11.0.8 || ^12.0.0",
+          "@nestjs/common": "^11.0.8 || ^12.0.0"
+        },
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/nestjs-pino/latest",
+        "distTags": {
+          "alpha": "5.0.0-alpha.db0aa7",
+          "latest": "5.1.0"
+        },
+        "latestStable": "5.1.0",
+        "latestSameMajor": "4.6.1",
+        "latestPublishedAt": "2026-09-01T16:08:41.465Z",
+        "latestSameMajorPublishedAt": "2026-03-13T16:38:26.744Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">= 14"
+          },
+          "peerDependencies": {
+            "pino": "^7.5.0 || ^8.0.0 || ^9.0.0 || ^10.0.0",
+            "rxjs": "^7.1.0",
+            "pino-http": "^6.4.0 || ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0",
+            "@nestjs/common": "^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0"
+          },
+          "dependencies": null
+        }
+      },
+      "pg": {
+        "manifest": "^8.23.0",
+        "lock": "8.23.0",
+        "file": "apps/gateway/package.json",
+        "latest": "8.23.0",
+        "engines": {
+          "node": ">= 16.0.0"
+        },
+        "peers": {
+          "pg-native": ">=3.0.1"
+        },
+        "dependencies": {
+          "pgpass": "1.0.5",
+          "pg-pool": "^3.14.0",
+          "pg-types": "2.2.0",
+          "pg-protocol": "^1.16.0",
+          "pg-cloudflare": "^1.4.0",
+          "pg-connection-string": "^2.14.0"
+        },
+        "source": "https://registry.npmjs.org/pg/latest",
+        "distTags": {
+          "beta": "8.14.2-alpha.1",
+          "latest": "8.23.0"
+        },
+        "latestStable": "8.23.0",
+        "latestSameMajor": "8.23.0",
+        "latestPublishedAt": "2026-08-08T19:27:05.108Z",
+        "latestSameMajorPublishedAt": "2026-08-08T19:27:05.108Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">= 16.0.0"
+          },
+          "peerDependencies": {
+            "pg-native": ">=3.0.1"
+          },
+          "dependencies": {
+            "pgpass": "1.0.5",
+            "pg-pool": "^3.14.0",
+            "pg-types": "2.2.0",
+            "pg-protocol": "^1.16.0",
+            "pg-cloudflare": "^1.4.0",
+            "pg-connection-string": "^2.14.0"
+          }
+        }
+      },
+      "pino": {
+        "manifest": "^10.3.1",
+        "lock": "10.3.1",
+        "file": "apps/gateway/package.json",
+        "latest": "10.3.1",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "sonic-boom": "^4.0.1",
+          "atomic-sleep": "^1.0.0",
+          "real-require": "^0.2.0",
+          "thread-stream": "^4.0.0",
+          "@pinojs/redact": "^0.4.0",
+          "process-warning": "^5.0.0",
+          "on-exit-leak-free": "^2.1.0",
+          "pino-std-serializers": "^7.0.0",
+          "safe-stable-stringify": "^2.3.1",
+          "quick-format-unescaped": "^4.0.3",
+          "pino-abstract-transport": "^3.0.0"
+        },
+        "source": "https://registry.npmjs.org/pino/latest",
+        "distTags": {
+          "legacy": "2.16.0",
+          "four": "4.17.6",
+          "next": "7.0.0-rc.9",
+          "six": "6.14.0",
+          "latest": "10.3.1"
+        },
+        "latestStable": "10.3.1",
+        "latestSameMajor": "10.3.1",
+        "latestPublishedAt": "2026-02-09T15:50:56.728Z",
+        "latestSameMajorPublishedAt": "2026-02-09T15:50:56.728Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "sonic-boom": "^4.0.1",
+            "atomic-sleep": "^1.0.0",
+            "real-require": "^0.2.0",
+            "thread-stream": "^4.0.0",
+            "@pinojs/redact": "^0.4.0",
+            "process-warning": "^5.0.0",
+            "on-exit-leak-free": "^2.1.0",
+            "pino-std-serializers": "^7.0.0",
+            "safe-stable-stringify": "^2.3.1",
+            "quick-format-unescaped": "^4.0.3",
+            "pino-abstract-transport": "^3.0.0"
+          }
+        }
+      },
+      "pino-http": {
+        "manifest": "^11.0.0",
+        "lock": "11.0.0",
+        "file": "apps/gateway/package.json",
+        "latest": "11.0.0",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "pino": "^10.0.0",
+          "get-caller-file": "^2.0.5",
+          "process-warning": "^5.0.0",
+          "pino-std-serializers": "^7.0.0"
+        },
+        "source": "https://registry.npmjs.org/pino-http/latest",
+        "distTags": {
+          "next": "10.2.0",
+          "latest": "11.0.0"
+        },
+        "latestStable": "11.0.0",
+        "latestSameMajor": "11.0.0",
+        "latestPublishedAt": "2025-10-04T15:03:47.740Z",
+        "latestSameMajorPublishedAt": "2025-10-04T15:03:47.740Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "pino": "^10.0.0",
+            "get-caller-file": "^2.0.5",
+            "process-warning": "^5.0.0",
+            "pino-std-serializers": "^7.0.0"
+          }
+        }
+      },
+      "prisma": {
+        "manifest": "^7.9.1",
+        "lock": "7.9.1",
+        "file": "apps/gateway/package.json",
+        "latest": "8.0.0-rc.13",
+        "engines": {
+          "node": ">=22.18.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "open": "^11.0.0",
+          "execa": "^9.6.1",
+          "dotenv": "^17.4.2",
+          "better-result": "^2.9.2",
+          "@manypkg/tools": "^2.1.2",
+          "@prisma/cli-engine": "0.3.0",
+          "@prisma/compute-sdk": "0.42.0",
+          "@prisma/composer-cli": "0.17.0",
+          "@vercel/detect-agent": "^1.2.3",
+          "@prisma/orm-toolchain": "8.0.0-rc.8",
+          "@prisma/management-api-sdk": "1.69.0"
+        },
+        "source": "https://registry.npmjs.org/prisma/latest",
+        "distTags": {
+          "turso": "5.4.0-dev.61",
+          "early-access": "5.12.0-dev.21",
+          "optimize": "5.17.0-dev.33",
+          "typed-sql": "5.19.0-integration-feat-typed-sql.14",
+          "patch-dev": "7.9.1-dev.1",
+          "integration": "7.10.0-integration-fix-prisma-publish-token.1",
+          "next": "8.0.0-rc.10",
+          "prev": "7.10.0",
+          "latest": "8.0.0-rc.13",
+          "dev": "8.0.0-rc.13-dev.94"
+        },
+        "latestStable": "7.10.0",
+        "latestSameMajor": "7.10.0",
+        "latestPublishedAt": "2026-09-04T15:34:39.663Z",
+        "latestSameMajorPublishedAt": "2026-08-25T12:47:51.307Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^20.19 || ^22.12 || >=24.0"
+          },
+          "peerDependencies": {
+            "typescript": ">=5.4.0",
+            "better-sqlite3": ">=9.0.0"
+          },
+          "dependencies": {
+            "mysql2": "3.15.3",
+            "postgres": "3.4.7",
+            "@prisma/dev": "0.24.17",
+            "@prisma/config": "7.10.0",
+            "@prisma/engines": "7.10.0",
+            "@prisma/studio-core": "0.33.0"
+          }
+        }
+      },
+      "prom-client": {
+        "manifest": "^15.1.3",
+        "lock": "15.1.3",
+        "file": "apps/gateway/package.json",
+        "latest": "15.1.3",
+        "engines": {
+          "node": "^16 || ^18 || >=20"
+        },
+        "peers": null,
+        "dependencies": {
+          "tdigest": "^0.1.1",
+          "@opentelemetry/api": "^1.4.0"
+        },
+        "source": "https://registry.npmjs.org/prom-client/latest",
+        "distTags": {
+          "next": "15.0.0-1",
+          "latest": "15.1.3"
+        },
+        "latestStable": "15.1.3",
+        "latestSameMajor": "15.1.3",
+        "latestPublishedAt": "2024-06-27T09:30:07.828Z",
+        "latestSameMajorPublishedAt": "2024-06-27T09:30:07.828Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^16 || ^18 || >=20"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "tdigest": "^0.1.1",
+            "@opentelemetry/api": "^1.4.0"
+          }
+        }
+      },
+      "proxy-chain": {
+        "manifest": "^2.7.1",
+        "lock": "2.7.1",
+        "file": "apps/gateway/package.json",
+        "latest": "3.0.1",
+        "engines": {
+          "node": ">=20.11"
+        },
+        "peers": null,
+        "dependencies": {
+          "socks": "^2.8.3",
+          "tslib": "^2.3.1",
+          "socks-proxy-agent": "^10.1.0"
+        },
+        "source": "https://registry.npmjs.org/proxy-chain/latest",
+        "distTags": {
+          "beta": "3.0.2-beta.0",
+          "latest": "3.0.1"
+        },
+        "latestStable": "3.0.1",
+        "latestSameMajor": "2.7.1",
+        "latestPublishedAt": "2026-09-08T11:29:13.733Z",
+        "latestSameMajorPublishedAt": "2026-01-13T13:41:54.831Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=14"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "socks": "^2.8.3",
+            "tslib": "^2.3.1",
+            "socks-proxy-agent": "^8.0.3"
+          }
+        }
+      },
+      "qrcode": {
+        "manifest": "^1.5.4",
+        "lock": "1.5.4",
+        "file": "apps/gateway/package.json",
+        "latest": "1.5.4",
+        "engines": {
+          "node": ">=10.13.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "pngjs": "^5.0.0",
+          "yargs": "^15.3.1",
+          "dijkstrajs": "^1.0.1"
+        },
+        "source": "https://registry.npmjs.org/qrcode/latest",
+        "distTags": {
+          "beta": "0.8.2",
+          "latest": "1.5.4"
+        },
+        "latestStable": "1.5.4",
+        "latestSameMajor": "1.5.4",
+        "latestPublishedAt": "2024-08-05T21:52:58.518Z",
+        "latestSameMajorPublishedAt": "2024-08-05T21:52:58.518Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=10.13.0"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "pngjs": "^5.0.0",
+            "yargs": "^15.3.1",
+            "dijkstrajs": "^1.0.1"
+          }
+        }
+      },
+      "reflect-metadata": {
+        "manifest": "^0.2.2",
+        "lock": "0.2.2",
+        "file": "apps/gateway/package.json",
+        "latest": "0.2.2",
+        "engines": null,
+        "peers": null,
+        "dependencies": {},
+        "source": "https://registry.npmjs.org/reflect-metadata/latest",
+        "distTags": {
+          "latest": "0.2.2",
+          "next": "0.2.0-pre.0"
+        },
+        "latestStable": "0.2.2",
+        "latestSameMajor": "0.2.2",
+        "latestPublishedAt": "2024-03-29T01:38:46.117Z",
+        "latestSameMajorPublishedAt": "2024-03-29T01:38:46.117Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {}
+        }
+      },
+      "rxjs": {
+        "manifest": "^7.8.1",
+        "lock": "7.8.2",
+        "file": "apps/gateway/package.json",
+        "latest": "7.8.2",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "tslib": "^2.1.0"
+        },
+        "source": "https://registry.npmjs.org/rxjs/latest",
+        "distTags": {
+          "forward-compat": "5.6.0-forward-compat.5",
+          "next": "9.0.0-beta.0",
+          "latest": "7.8.2"
+        },
+        "latestStable": "7.8.2",
+        "latestSameMajor": "7.8.2",
+        "latestPublishedAt": "2025-02-22T03:00:42.711Z",
+        "latestSameMajorPublishedAt": "2025-02-22T03:00:42.711Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "tslib": "^2.1.0"
+          }
+        }
+      },
+      "socks-proxy-agent": {
+        "manifest": "^10.1.0",
+        "lock": "10.1.0",
+        "file": "apps/gateway/package.json",
+        "latest": "10.1.0",
+        "engines": {
+          "node": ">= 20"
+        },
+        "peers": null,
+        "dependencies": {
+          "debug": "^4.3.4",
+          "socks": "^2.8.3",
+          "agent-base": "9.0.0"
+        },
+        "source": "https://registry.npmjs.org/socks-proxy-agent/latest",
+        "distTags": {
+          "beta": "6.2.0-beta.1",
+          "latest": "10.1.0"
+        },
+        "latestStable": "10.1.0",
+        "latestSameMajor": "10.1.0",
+        "latestPublishedAt": "2026-06-08T16:47:31.711Z",
+        "latestSameMajorPublishedAt": "2026-06-08T16:47:31.711Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">= 20"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "debug": "^4.3.4",
+            "socks": "^2.8.3",
+            "agent-base": "9.0.0"
+          }
+        }
+      },
+      "ulid": {
+        "manifest": "^2.3.0",
+        "lock": "2.4.0",
+        "file": "apps/gateway/package.json",
+        "latest": "3.0.2",
+        "engines": null,
+        "peers": null,
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/ulid/latest",
+        "distTags": {
+          "latest": "3.0.2"
+        },
+        "latestStable": "3.0.2",
+        "latestSameMajor": "2.4.0",
+        "latestPublishedAt": "2025-11-30T20:02:50.707Z",
+        "latestSameMajorPublishedAt": "2025-03-16T18:28:15.739Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "whatsapp-web.js": {
+        "manifest": "https://github.com/wwebjs/whatsapp-web.js/archive/1780711a1c86dfeca7c5ba6a66f950eac93dde28.tar.gz",
+        "lock": "1.34.7",
+        "file": "apps/gateway/package.json",
+        "latest": "1.34.7",
+        "engines": {
+          "node": ">=18.0.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "mime": "3.0.0",
+          "puppeteer": "24.38.0",
+          "node-fetch": "2.7.0",
+          "node-webpmux": "3.2.1",
+          "fluent-ffmpeg": "2.1.3"
+        },
+        "source": "https://registry.npmjs.org/whatsapp-web.js/latest",
+        "distTags": {
+          "next": "1.34.5-alpha.3",
+          "latest": "1.34.7"
+        },
+        "latestStable": "1.34.7",
+        "latestSameMajor": "1.34.7",
+        "latestPublishedAt": "2026-04-24T20:10:35.987Z",
+        "latestSameMajorPublishedAt": "2026-04-24T20:10:35.987Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=18.0.0"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "mime": "3.0.0",
+            "puppeteer": "24.38.0",
+            "node-fetch": "2.7.0",
+            "node-webpmux": "3.2.1",
+            "fluent-ffmpeg": "2.1.3"
+          }
+        }
+      },
+      "zod": {
+        "manifest": "^3.23.8",
+        "lock": "3.25.76",
+        "file": "apps/gateway/package.json",
+        "latest": "4.5.4",
+        "engines": null,
+        "peers": null,
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/zod/latest",
+        "distTags": {
+          "next": "3.25.0-beta.20250519T094321",
+          "alpha": "3.25.68-alpha.11",
+          "beta": "4.1.13-beta.0",
+          "canary": "4.5.0-canary.20260828T171753",
+          "latest": "4.5.4"
+        },
+        "latestStable": "4.5.4",
+        "latestSameMajor": "3.25.76",
+        "latestPublishedAt": "2026-08-29T17:55:42.775Z",
+        "latestSameMajorPublishedAt": "2025-07-08T09:10:18.684Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "@nestjs/cli": {
+        "manifest": "^11.0.0",
+        "lock": "11.0.24",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.0",
+        "engines": {
+          "node": ">= 20.11"
+        },
+        "peers": {
+          "webpack": "^5.105.4",
+          "@swc/cli": "^0.8.0",
+          "@swc/core": "^1.15.18",
+          "ts-loader": "^9.5.4",
+          "@rspack/core": "^1.7.7 || ^2.1.10",
+          "webpack-node-externals": "^3.0.0",
+          "tsconfig-paths-webpack-plugin": "^4.2.0",
+          "fork-ts-checker-webpack-plugin": "^9.1.0"
+        },
+        "dependencies": {
+          "ora": "9.4.1",
+          "ansis": "4.3.1",
+          "chokidar": "5.0.0",
+          "commander": "15.0.0",
+          "minimatch": "10.2.6",
+          "cli-table3": "0.6.5",
+          "node-emoji": "2.2.0",
+          "typescript": "~6.0.2",
+          "tsconfig-paths": "4.2.0",
+          "@inquirer/prompts": "8.7.0",
+          "@nestjs/schematics": "^12.0.0",
+          "@angular-devkit/core": "22.1.5",
+          "@angular-devkit/schematics": "22.1.5",
+          "@angular-devkit/schematics-cli": "22.1.5"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Fcli/latest",
+        "distTags": {
+          "latest": "12.0.0",
+          "next": "12.0.0-alpha.9"
+        },
+        "latestStable": "12.0.0",
+        "latestSameMajor": "11.0.24",
+        "latestPublishedAt": "2026-08-27T09:43:36.809Z",
+        "latestSameMajorPublishedAt": "2026-07-10T11:59:33.765Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">= 20.11"
+          },
+          "peerDependencies": {
+            "@swc/cli": "^0.1.62 || ^0.3.0 || ^0.4.0 || ^0.5.0 || ^0.6.0 || ^0.7.0 || ^0.8.0",
+            "@swc/core": "^1.3.62"
+          },
+          "dependencies": {
+            "ora": "5.4.1",
+            "glob": "13.0.6",
+            "ansis": "4.2.0",
+            "webpack": "5.106.2",
+            "chokidar": "4.0.3",
+            "commander": "4.1.1",
+            "cli-table3": "0.6.5",
+            "node-emoji": "1.11.0",
+            "typescript": "5.9.3",
+            "tsconfig-paths": "4.2.0",
+            "@inquirer/prompts": "7.10.1",
+            "@nestjs/schematics": "^11.0.1",
+            "@angular-devkit/core": "19.2.27",
+            "webpack-node-externals": "3.0.0",
+            "@angular-devkit/schematics": "19.2.27",
+            "tsconfig-paths-webpack-plugin": "4.2.0",
+            "@angular-devkit/schematics-cli": "19.2.27",
+            "fork-ts-checker-webpack-plugin": "9.1.0"
+          }
+        }
+      },
+      "@nestjs/schematics": {
+        "manifest": "^11.0.0",
+        "lock": "11.1.0",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.0",
+        "engines": {
+          "node": ">=22.12.0"
+        },
+        "peers": {
+          "prettier": "^3.0.0",
+          "typescript": ">=6.0.0"
+        },
+        "dependencies": {
+          "pluralize": "8.0.0",
+          "comment-json": "5.0.0",
+          "jsonc-parser": "3.3.1",
+          "@angular-devkit/core": "22.1.5",
+          "@angular-devkit/schematics": "22.1.5"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Fschematics/latest",
+        "distTags": {
+          "latest": "12.0.0",
+          "next": "12.0.0-alpha.11"
+        },
+        "latestStable": "12.0.0",
+        "latestSameMajor": "11.1.0",
+        "latestPublishedAt": "2026-08-27T09:23:13.365Z",
+        "latestSameMajorPublishedAt": "2026-04-16T07:36:48.920Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "prettier": "^3.0.0",
+            "typescript": ">=4.8.2"
+          },
+          "dependencies": {
+            "pluralize": "8.0.0",
+            "comment-json": "5.0.0",
+            "jsonc-parser": "3.3.1",
+            "@angular-devkit/core": "19.2.24",
+            "@angular-devkit/schematics": "19.2.24"
+          }
+        }
+      },
+      "@nestjs/testing": {
+        "manifest": "^11.2.1",
+        "lock": "11.2.1",
+        "file": "apps/gateway/package.json",
+        "latest": "12.0.1",
+        "engines": null,
+        "peers": {
+          "@nestjs/core": "^12.0.0",
+          "@nestjs/common": "^12.0.0",
+          "@nestjs/microservices": "^12.0.0",
+          "@nestjs/platform-express": "^12.0.0"
+        },
+        "dependencies": {
+          "tslib": "2.8.1"
+        },
+        "source": "https://registry.npmjs.org/%40nestjs%2Ftesting/latest",
+        "distTags": {
+          "rc": "6.0.0-rc.1",
+          "beta": "9.3.0-beta.3",
+          "old": "10.4.19",
+          "legacy": "10.4.22",
+          "next": "12.0.0-alpha.7",
+          "latest": "12.0.1"
+        },
+        "latestStable": "12.0.1",
+        "latestSameMajor": "11.2.3",
+        "latestPublishedAt": "2026-08-27T07:28:09.967Z",
+        "latestSameMajorPublishedAt": "2026-08-25T11:01:56.977Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "@nestjs/core": "^11.0.0",
+            "@nestjs/common": "^11.0.0",
+            "@nestjs/microservices": "^11.0.0",
+            "@nestjs/platform-express": "^11.0.0"
+          },
+          "dependencies": {
+            "tslib": "2.8.1"
+          }
+        }
+      },
+      "@swc/core": {
+        "manifest": "^1.16.0",
+        "lock": "1.16.0",
+        "file": "apps/gateway/package.json",
+        "latest": "1.16.2",
+        "engines": {
+          "node": ">=10"
+        },
+        "peers": {
+          "@swc/helpers": ">=0.5.17"
+        },
+        "dependencies": {
+          "@swc/types": "^0.1.28",
+          "@swc/counter": "^0.1.3"
+        },
+        "source": "https://registry.npmjs.org/%40swc%2Fcore/latest",
+        "distTags": {
+          "lates1": "1.11.22",
+          "latest": "1.16.2",
+          "nightly": "1.16.2-nightly-20260904.1"
+        },
+        "latestStable": "1.16.2",
+        "latestSameMajor": "1.16.2",
+        "latestPublishedAt": "2026-09-04T19:37:56.220Z",
+        "latestSameMajorPublishedAt": "2026-09-04T19:37:56.220Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=10"
+          },
+          "peerDependencies": {
+            "@swc/helpers": ">=0.5.17"
+          },
+          "dependencies": {
+            "@swc/types": "^0.1.28",
+            "@swc/counter": "^0.1.3"
+          }
+        }
+      },
+      "@types/node": {
+        "manifest": "^26.2.0",
+        "lock": "26.2.0",
+        "file": "apps/gateway/package.json",
+        "latest": "26.5.0",
+        "engines": null,
+        "peers": {},
+        "dependencies": {
+          "undici-types": "~8.9.0"
+        },
+        "source": "https://registry.npmjs.org/%40types%2Fnode/latest",
+        "distTags": {
+          "ts2.4": "12.12.6",
+          "ts2.5": "12.12.6",
+          "ts2.7": "12.12.6",
+          "ts2.2": "12.12.6",
+          "ts2.3": "12.12.6",
+          "ts2.6": "12.12.6",
+          "ts2.0": "12.12.6",
+          "ts2.1": "12.12.6",
+          "ts2.8": "13.13.4",
+          "ts2.9": "14.0.1",
+          "ts3.0": "14.6.0",
+          "ts3.1": "14.10.1",
+          "ts3.2": "14.14.9",
+          "ts3.3": "14.14.20",
+          "ts3.4": "14.14.31",
+          "ts3.5": "15.6.1",
+          "ts3.6": "16.6.2",
+          "ts3.7": "16.11.7",
+          "ts3.8": "17.0.21",
+          "ts3.9": "17.0.41",
+          "ts4.0": "18.7.14",
+          "ts4.1": "18.11.9",
+          "ts4.2": "18.15.3",
+          "ts4.4": "20.6.0",
+          "ts4.3": "20.6.0",
+          "ts4.5": "20.10.0",
+          "ts4.6": "20.11.25",
+          "ts4.7": "20.14.8",
+          "ts4.8": "22.9.0",
+          "ts4.9": "22.9.3",
+          "ts5.0": "22.13.14",
+          "ts5.1": "24.1.0",
+          "ts5.2": "25.5.0",
+          "ts5.3": "25.9.3",
+          "ts5.5": "25.9.3",
+          "ts5.4": "25.9.3",
+          "ts5.6": "26.5.0",
+          "ts6.0": "26.5.0",
+          "latest": "26.5.0",
+          "ts5.9": "26.5.0",
+          "ts5.7": "26.5.0",
+          "ts5.8": "26.5.0"
+        },
+        "latestStable": "26.5.0",
+        "latestSameMajor": "26.5.0",
+        "latestPublishedAt": "2026-09-07T14:07:47.948Z",
+        "latestSameMajorPublishedAt": "2026-09-07T14:07:47.948Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {},
+          "dependencies": {
+            "undici-types": "~8.9.0"
+          }
+        }
+      },
+      "@types/pg": {
+        "manifest": "^8.21.0",
+        "lock": "8.23.1",
+        "file": "apps/gateway/package.json",
+        "latest": "8.23.1",
+        "engines": null,
+        "peers": {},
+        "dependencies": {
+          "pg-types": "^2.2.0",
+          "@types/node": "*",
+          "pg-protocol": "*"
+        },
+        "source": "https://registry.npmjs.org/%40types%2Fpg/latest",
+        "distTags": {
+          "ts2.0": "7.11.0",
+          "ts2.2": "7.11.0",
+          "ts2.1": "7.11.0",
+          "ts2.3": "7.11.2",
+          "ts2.5": "7.11.2",
+          "ts2.7": "7.11.2",
+          "ts2.6": "7.11.2",
+          "ts2.4": "7.11.2",
+          "ts2.9": "7.14.3",
+          "ts2.8": "7.14.3",
+          "ts3.0": "7.14.4",
+          "ts3.1": "7.14.4",
+          "ts3.3": "7.14.7",
+          "ts3.2": "7.14.7",
+          "ts3.4": "7.14.11",
+          "ts3.5": "8.6.0",
+          "ts3.7": "8.6.1",
+          "ts3.6": "8.6.1",
+          "ts3.8": "8.6.4",
+          "ts3.9": "8.6.5",
+          "ts4.1": "8.6.5",
+          "ts4.0": "8.6.5",
+          "ts4.2": "8.6.6",
+          "ts4.3": "8.10.2",
+          "ts4.4": "8.10.2",
+          "ts4.5": "8.10.9",
+          "ts4.6": "8.11.2",
+          "ts4.7": "8.11.6",
+          "ts4.8": "8.11.10",
+          "ts4.9": "8.11.10",
+          "ts5.0": "8.11.11",
+          "ts5.1": "8.15.5",
+          "ts5.5": "8.20.0",
+          "ts5.2": "8.20.0",
+          "ts5.3": "8.20.0",
+          "ts5.4": "8.20.0",
+          "ts5.8": "8.23.1",
+          "ts5.7": "8.23.1",
+          "ts5.9": "8.23.1",
+          "latest": "8.23.1",
+          "ts5.6": "8.23.1",
+          "ts6.0": "8.23.1"
+        },
+        "latestStable": "8.23.1",
+        "latestSameMajor": "8.23.1",
+        "latestPublishedAt": "2026-08-17T20:10:18.296Z",
+        "latestSameMajorPublishedAt": "2026-08-17T20:10:18.296Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {},
+          "dependencies": {
+            "pg-types": "^2.2.0",
+            "@types/node": "*",
+            "pg-protocol": "*"
+          }
+        }
+      },
+      "@types/qrcode": {
+        "manifest": "^1.5.5",
+        "lock": "1.5.6",
+        "file": "apps/gateway/package.json",
+        "latest": "1.5.6",
+        "engines": null,
+        "peers": {},
+        "dependencies": {
+          "@types/node": "*"
+        },
+        "source": "https://registry.npmjs.org/%40types%2Fqrcode/latest",
+        "distTags": {
+          "ts2.0": "1.3.3",
+          "ts2.8": "1.3.4",
+          "ts2.1": "1.3.4",
+          "ts2.2": "1.3.4",
+          "ts2.3": "1.3.4",
+          "ts2.4": "1.3.4",
+          "ts2.5": "1.3.4",
+          "ts2.6": "1.3.4",
+          "ts2.7": "1.3.4",
+          "ts2.9": "1.3.4",
+          "ts3.0": "1.3.5",
+          "ts3.1": "1.3.5",
+          "ts3.2": "1.3.5",
+          "ts3.3": "1.3.5",
+          "ts3.4": "1.4.0",
+          "ts3.5": "1.4.0",
+          "ts3.6": "1.4.1",
+          "ts3.7": "1.4.1",
+          "ts3.9": "1.4.2",
+          "ts3.8": "1.4.2",
+          "ts4.2": "1.5.0",
+          "ts4.1": "1.5.0",
+          "ts4.0": "1.5.0",
+          "ts4.4": "1.5.2",
+          "ts4.3": "1.5.2",
+          "ts5.1": "1.5.5",
+          "ts6.0": "1.5.6",
+          "ts4.5": "1.5.5",
+          "ts4.6": "1.5.5",
+          "ts4.7": "1.5.5",
+          "ts4.8": "1.5.5",
+          "ts4.9": "1.5.5",
+          "ts5.0": "1.5.5",
+          "ts5.7": "1.5.6",
+          "ts5.8": "1.5.6",
+          "ts5.6": "1.5.6",
+          "ts5.9": "1.5.6",
+          "ts5.3": "1.5.6",
+          "ts5.2": "1.5.6",
+          "ts5.5": "1.5.6",
+          "latest": "1.5.6",
+          "ts5.4": "1.5.6"
+        },
+        "latestStable": "1.5.6",
+        "latestSameMajor": "1.5.6",
+        "latestPublishedAt": "2025-10-24T04:28:45.136Z",
+        "latestSameMajorPublishedAt": "2025-10-24T04:28:45.136Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {},
+          "dependencies": {
+            "@types/node": "*"
+          }
+        }
+      },
+      "@vitest/coverage-v8": {
+        "manifest": "^4.1.10",
+        "lock": "4.1.10",
+        "file": "apps/gateway/package.json",
+        "latest": "5.0.0",
+        "engines": null,
+        "peers": {
+          "vitest": "5.0.0",
+          "@vitest/browser": "5.0.0"
+        },
+        "dependencies": {
+          "obug": "^2.1.4",
+          "std-env": "^4.2.0",
+          "magicast": "^0.5.4",
+          "tinyrainbow": "^3.1.1",
+          "@bcoe/v8-coverage": "^1.0.2",
+          "ast-v8-to-istanbul": "^1.0.5",
+          "@vitest/istanbul-lib-report": "^1.0.0",
+          "@vitest/istanbul-lib-coverage": "^1.0.0"
+        },
+        "source": "https://registry.npmjs.org/%40vitest%2Fcoverage-v8/latest",
+        "distTags": {
+          "V3": "3.2.7",
+          "beta": "5.0.0-beta.7",
+          "latest": "5.0.0",
+          "rc": "5.0.0-rc.4"
+        },
+        "latestStable": "5.0.0",
+        "latestSameMajor": "4.1.11",
+        "latestPublishedAt": "2026-09-03T12:21:54.737Z",
+        "latestSameMajorPublishedAt": "2026-08-18T14:22:18.896Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "vitest": "4.1.11",
+            "@vitest/browser": "4.1.11"
+          },
+          "dependencies": {
+            "obug": "^2.1.1",
+            "std-env": "^4.0.0-rc.1",
+            "magicast": "^0.5.2",
+            "tinyrainbow": "^3.1.0",
+            "@vitest/utils": "4.1.11",
+            "istanbul-reports": "^3.2.0",
+            "@bcoe/v8-coverage": "^1.0.2",
+            "ast-v8-to-istanbul": "^1.0.0",
+            "istanbul-lib-report": "^3.0.1",
+            "istanbul-lib-coverage": "^3.2.2"
+          }
+        }
+      },
+      "pino-pretty": {
+        "manifest": "^13.1.3",
+        "lock": "13.1.3",
+        "file": "apps/gateway/package.json",
+        "latest": "13.1.3",
+        "engines": null,
+        "peers": null,
+        "dependencies": {
+          "pump": "^3.0.0",
+          "joycon": "^3.1.1",
+          "help-me": "^5.0.0",
+          "minimist": "^1.2.6",
+          "colorette": "^2.0.7",
+          "fast-copy": "^4.0.0",
+          "dateformat": "^4.6.3",
+          "sonic-boom": "^4.0.1",
+          "on-exit-leak-free": "^2.1.0",
+          "secure-json-parse": "^4.0.0",
+          "fast-safe-stringify": "^2.1.1",
+          "strip-json-comments": "^5.0.2",
+          "pino-abstract-transport": "^3.0.0"
+        },
+        "source": "https://registry.npmjs.org/pino-pretty/latest",
+        "distTags": {
+          "next": "3.0.0-rc.2",
+          "latest": "13.1.3"
+        },
+        "latestStable": "13.1.3",
+        "latestSameMajor": "13.1.3",
+        "latestPublishedAt": "2025-12-01T12:07:03.440Z",
+        "latestSameMajorPublishedAt": "2025-12-01T12:07:03.440Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": {
+            "pump": "^3.0.0",
+            "joycon": "^3.1.1",
+            "help-me": "^5.0.0",
+            "minimist": "^1.2.6",
+            "colorette": "^2.0.7",
+            "fast-copy": "^4.0.0",
+            "dateformat": "^4.6.3",
+            "sonic-boom": "^4.0.1",
+            "on-exit-leak-free": "^2.1.0",
+            "secure-json-parse": "^4.0.0",
+            "fast-safe-stringify": "^2.1.1",
+            "strip-json-comments": "^5.0.2",
+            "pino-abstract-transport": "^3.0.0"
+          }
+        }
+      },
+      "ts-node": {
+        "manifest": "^10.9.2",
+        "lock": "10.9.2",
+        "file": "apps/gateway/package.json",
+        "latest": "10.9.2",
+        "engines": null,
+        "peers": {
+          "@swc/core": ">=1.2.50",
+          "@swc/wasm": ">=1.2.50",
+          "typescript": ">=2.7",
+          "@types/node": "*"
+        },
+        "dependencies": {
+          "yn": "3.1.1",
+          "arg": "^4.1.0",
+          "diff": "^4.0.1",
+          "acorn": "^8.4.1",
+          "acorn-walk": "^8.1.1",
+          "make-error": "^1.1.1",
+          "create-require": "^1.1.0",
+          "@tsconfig/node10": "^1.0.7",
+          "@tsconfig/node12": "^1.0.7",
+          "@tsconfig/node14": "^1.0.0",
+          "@tsconfig/node16": "^1.0.2",
+          "v8-compile-cache-lib": "^3.0.1",
+          "@cspotcode/source-map-support": "^0.8.0"
+        },
+        "source": "https://registry.npmjs.org/ts-node/latest",
+        "distTags": {
+          "beta": "11.0.0-beta.1",
+          "latest": "10.9.2"
+        },
+        "latestStable": "10.9.2",
+        "latestSameMajor": "10.9.2",
+        "latestPublishedAt": "2023-12-08T12:04:46.154Z",
+        "latestSameMajorPublishedAt": "2023-12-08T12:04:46.154Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "@swc/core": ">=1.2.50",
+            "@swc/wasm": ">=1.2.50",
+            "typescript": ">=2.7",
+            "@types/node": "*"
+          },
+          "dependencies": {
+            "yn": "3.1.1",
+            "arg": "^4.1.0",
+            "diff": "^4.0.1",
+            "acorn": "^8.4.1",
+            "acorn-walk": "^8.1.1",
+            "make-error": "^1.1.1",
+            "create-require": "^1.1.0",
+            "@tsconfig/node10": "^1.0.7",
+            "@tsconfig/node12": "^1.0.7",
+            "@tsconfig/node14": "^1.0.0",
+            "@tsconfig/node16": "^1.0.2",
+            "v8-compile-cache-lib": "^3.0.1",
+            "@cspotcode/source-map-support": "^0.8.0"
+          }
+        }
+      },
+      "typescript": {
+        "manifest": "^5.8.0",
+        "lock": "5.9.3",
+        "file": "apps/dashboard/package.json",
+        "latest": "7.0.2",
+        "engines": {
+          "node": ">=16.20.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "@typescript/typescript-aix-ppc64": "7.0.2",
+          "@typescript/typescript-linux-arm": "7.0.2",
+          "@typescript/typescript-linux-x64": "7.0.2",
+          "@typescript/typescript-sunos-x64": "7.0.2",
+          "@typescript/typescript-win32-x64": "7.0.2",
+          "@typescript/typescript-darwin-x64": "7.0.2",
+          "@typescript/typescript-netbsd-x64": "7.0.2",
+          "@typescript/typescript-freebsd-x64": "7.0.2",
+          "@typescript/typescript-linux-arm64": "7.0.2",
+          "@typescript/typescript-linux-ppc64": "7.0.2",
+          "@typescript/typescript-linux-s390x": "7.0.2",
+          "@typescript/typescript-openbsd-x64": "7.0.2",
+          "@typescript/typescript-win32-arm64": "7.0.2",
+          "@typescript/typescript-darwin-arm64": "7.0.2",
+          "@typescript/typescript-netbsd-arm64": "7.0.2",
+          "@typescript/typescript-freebsd-arm64": "7.0.2",
+          "@typescript/typescript-linux-loong64": "7.0.2",
+          "@typescript/typescript-linux-riscv64": "7.0.2",
+          "@typescript/typescript-openbsd-arm64": "7.0.2",
+          "@typescript/typescript-linux-mips64el": "7.0.2"
+        },
+        "source": "https://registry.npmjs.org/typescript/latest",
+        "distTags": {
+          "dev": "3.9.4",
+          "tag-for-publishing-older-releases": "4.1.6",
+          "insiders": "4.6.2-insiders.20220225",
+          "beta": "6.0.0-beta",
+          "rc": "7.0.1-rc",
+          "latest": "7.0.2",
+          "next": "7.1.0-dev.20260909.1"
+        },
+        "latestStable": "7.0.2",
+        "latestSameMajor": "5.9.3",
+        "latestPublishedAt": "2026-07-08T15:55:18.431Z",
+        "latestSameMajorPublishedAt": "2025-09-30T21:19:38.784Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=14.17"
+          },
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "unplugin-swc": {
+        "manifest": "^1.5.11",
+        "lock": "1.5.11",
+        "file": "apps/gateway/package.json",
+        "latest": "1.6.0",
+        "engines": null,
+        "peers": {
+          "@swc/core": "^1.2.108"
+        },
+        "dependencies": {
+          "unplugin": "^3.3.0",
+          "load-tsconfig": "^0.2.5",
+          "@rollup/pluginutils": "^5.4.0"
+        },
+        "source": "https://registry.npmjs.org/unplugin-swc/latest",
+        "distTags": {
+          "latest": "1.6.0"
+        },
+        "latestStable": "1.6.0",
+        "latestSameMajor": "1.6.0",
+        "latestPublishedAt": "2026-09-07T13:19:47.711Z",
+        "latestSameMajorPublishedAt": "2026-09-07T13:19:47.711Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "@swc/core": "^1.2.108"
+          },
+          "dependencies": {
+            "unplugin": "^3.3.0",
+            "load-tsconfig": "^0.2.5",
+            "@rollup/pluginutils": "^5.4.0"
+          }
+        }
+      },
+      "vitest": {
+        "manifest": "^4.1.10",
+        "lock": "4.1.10",
+        "file": "apps/gateway/package.json",
+        "latest": "5.0.0",
+        "engines": {
+          "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+        },
+        "peers": {
+          "vite": "^6.4.0 || ^7.0.0 || ^8.0.0",
+          "jsdom": "*",
+          "happy-dom": "*",
+          "@vitest/ui": "5.0.0",
+          "@types/node": "^22.0.0 || >=24.0.0",
+          "@edge-runtime/vm": "*",
+          "@opentelemetry/api": "^1.9.0",
+          "@vitest/coverage-v8": "5.0.0",
+          "@vitest/browser-preview": "5.0.0",
+          "@vitest/coverage-istanbul": "5.0.0",
+          "@vitest/browser-playwright": "5.0.0",
+          "@vitest/browser-webdriverio": "^5.0.0-beta.5 || >=5.0.0"
+        },
+        "dependencies": {
+          "chai": "^6.2.2",
+          "obug": "^2.1.4",
+          "std-env": "^4.2.0",
+          "tinyexec": "1.3.0",
+          "picomatch": "^4.0.7",
+          "tinybench": "6.1.4",
+          "tinyglobby": "^0.2.17",
+          "@types/chai": "^5.2.2",
+          "expect-type": "^1.4.0",
+          "magic-string": "^1.2.3",
+          "@vitest/mocker": "5.0.0",
+          "es-module-lexer": "^2.3.2",
+          "why-is-node-running": "^2.3.0"
+        },
+        "source": "https://registry.npmjs.org/vitest/latest",
+        "distTags": {
+          "V3": "3.2.7",
+          "beta": "5.0.0-beta.7",
+          "rc": "5.0.0-rc.4",
+          "latest": "5.0.0",
+          "V4": "4.1.11"
+        },
+        "latestStable": "5.0.0",
+        "latestSameMajor": "4.1.11",
+        "latestPublishedAt": "2026-09-03T12:24:30.312Z",
+        "latestSameMajorPublishedAt": "2026-08-18T14:27:07.240Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^20.0.0 || ^22.0.0 || >=24.0.0"
+          },
+          "peerDependencies": {
+            "vite": "^6.0.0 || ^7.0.0 || ^8.0.0",
+            "jsdom": "*",
+            "happy-dom": "*",
+            "@vitest/ui": "4.1.11",
+            "@types/node": "^20.0.0 || ^22.0.0 || >=24.0.0",
+            "@edge-runtime/vm": "*",
+            "@opentelemetry/api": "^1.9.0",
+            "@vitest/coverage-v8": "4.1.11",
+            "@vitest/browser-preview": "4.1.11",
+            "@vitest/coverage-istanbul": "4.1.11",
+            "@vitest/browser-playwright": "4.1.11",
+            "@vitest/browser-webdriverio": "4.1.11"
+          },
+          "dependencies": {
+            "obug": "^2.1.1",
+            "vite": "^6.0.0 || ^7.0.0 || ^8.0.0",
+            "pathe": "^2.0.3",
+            "std-env": "^4.0.0-rc.1",
+            "tinyexec": "^1.0.2",
+            "picomatch": "^4.0.3",
+            "tinybench": "^2.9.0",
+            "tinyglobby": "^0.2.15",
+            "@vitest/spy": "4.1.11",
+            "expect-type": "^1.3.0",
+            "tinyrainbow": "^3.1.0",
+            "magic-string": "^0.30.21",
+            "@vitest/utils": "4.1.11",
+            "@vitest/expect": "4.1.11",
+            "@vitest/mocker": "4.1.11",
+            "@vitest/runner": "4.1.11",
+            "es-module-lexer": "^2.0.0",
+            "@vitest/snapshot": "4.1.11",
+            "why-is-node-running": "^2.3.0",
+            "@vitest/pretty-format": "4.1.11"
+          }
+        }
+      },
+      "react": {
+        "manifest": "^19.0.0",
+        "lock": "19.2.8",
+        "file": "apps/dashboard/package.json",
+        "latest": "19.2.8",
+        "engines": {
+          "node": ">=0.10.0"
+        },
+        "peers": null,
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/react/latest",
+        "distTags": {
+          "beta": "19.0.0-beta-26f2496093-20240514",
+          "rc": "19.0.0-rc.1",
+          "next": "19.3.0-canary-d5736f09-20260507",
+          "latest": "19.2.8",
+          "backport": "19.0.8",
+          "experimental": "0.0.0-experimental-6c0e1047-20260908",
+          "canary": "19.3.0-canary-6c0e1047-20260908"
+        },
+        "latestStable": "19.2.8",
+        "latestSameMajor": "19.2.8",
+        "latestPublishedAt": "2026-07-21T15:41:28.716Z",
+        "latestSameMajorPublishedAt": "2026-07-21T15:41:28.716Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=0.10.0"
+          },
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "react-dom": {
+        "manifest": "^19.0.0",
+        "lock": "19.2.8",
+        "file": "apps/dashboard/package.json",
+        "latest": "19.2.8",
+        "engines": null,
+        "peers": {
+          "react": "^19.2.8"
+        },
+        "dependencies": {
+          "scheduler": "^0.27.0"
+        },
+        "source": "https://registry.npmjs.org/react-dom/latest",
+        "distTags": {
+          "beta": "19.0.0-beta-26f2496093-20240514",
+          "rc": "19.0.0-rc.1",
+          "next": "19.3.0-canary-d5736f09-20260507",
+          "latest": "19.2.8",
+          "backport": "19.0.8",
+          "experimental": "0.0.0-experimental-6c0e1047-20260908",
+          "canary": "19.3.0-canary-6c0e1047-20260908"
+        },
+        "latestStable": "19.2.8",
+        "latestSameMajor": "19.2.8",
+        "latestPublishedAt": "2026-07-21T15:41:41.267Z",
+        "latestSameMajorPublishedAt": "2026-07-21T15:41:41.267Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "react": "^19.2.8"
+          },
+          "dependencies": {
+            "scheduler": "^0.27.0"
+          }
+        }
+      },
+      "react-router-dom": {
+        "manifest": "^7.18.0",
+        "lock": "7.18.2",
+        "file": "apps/dashboard/package.json",
+        "latest": "7.18.3",
+        "engines": {
+          "node": ">=20.0.0"
+        },
+        "peers": {
+          "react": ">=18",
+          "react-dom": ">=18"
+        },
+        "dependencies": {
+          "react-router": "7.18.3"
+        },
+        "source": "https://registry.npmjs.org/react-router-dom/latest",
+        "distTags": {
+          "classic": "5.3.4",
+          "pre-v6": "6.30.3-pre-v6.0",
+          "pre": "7.14.0-pre.0",
+          "nightly": "0.0.0-nightly-4547c8015-20260410",
+          "experimental": "0.0.0-experimental-d07149147",
+          "latest": "7.18.3",
+          "version-6": "6.30.6"
+        },
+        "latestStable": "7.18.3",
+        "latestSameMajor": "7.18.3",
+        "latestPublishedAt": "2026-08-28T14:30:10.417Z",
+        "latestSameMajorPublishedAt": "2026-08-28T14:30:10.417Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=20.0.0"
+          },
+          "peerDependencies": {
+            "react": ">=18",
+            "react-dom": ">=18"
+          },
+          "dependencies": {
+            "react-router": "7.18.3"
+          }
+        }
+      },
+      "@tailwindcss/vite": {
+        "manifest": "^4.3.1",
+        "lock": "4.3.3",
+        "file": "apps/dashboard/package.json",
+        "latest": "4.3.3",
+        "engines": null,
+        "peers": {
+          "vite": "^5.2.0 || ^6 || ^7 || ^8"
+        },
+        "dependencies": {
+          "tailwindcss": "4.3.3",
+          "@tailwindcss/node": "4.3.3",
+          "@tailwindcss/oxide": "4.3.3"
+        },
+        "source": "https://registry.npmjs.org/%40tailwindcss%2Fvite/latest",
+        "distTags": {
+          "internal": "0.0.0-internal.b2586d4e",
+          "next": "4.0.0",
+          "latest": "4.3.3",
+          "insiders": "0.0.0-insiders.41d9cae"
+        },
+        "latestStable": "4.3.3",
+        "latestSameMajor": "4.3.3",
+        "latestPublishedAt": "2026-07-16T12:04:06.316Z",
+        "latestSameMajorPublishedAt": "2026-07-16T12:04:06.316Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "vite": "^5.2.0 || ^6 || ^7 || ^8"
+          },
+          "dependencies": {
+            "tailwindcss": "4.3.3",
+            "@tailwindcss/node": "4.3.3",
+            "@tailwindcss/oxide": "4.3.3"
+          }
+        }
+      },
+      "@types/react": {
+        "manifest": "^19.0.0",
+        "lock": "19.2.18",
+        "file": "apps/dashboard/package.json",
+        "latest": "19.2.18",
+        "engines": null,
+        "peers": {},
+        "dependencies": {
+          "csstype": "^3.2.2"
+        },
+        "source": "https://registry.npmjs.org/%40types%2Freact/latest",
+        "distTags": {
+          "ts2.0": "15.0.1",
+          "ts2.1": "15.0.20",
+          "ts2.2": "15.0.30",
+          "ts2.4": "16.0.36",
+          "ts2.3": "16.0.36",
+          "ts2.5": "16.0.36",
+          "ts2.6": "16.4.7",
+          "ts2.7": "16.4.7",
+          "ts2.8": "16.9.34",
+          "ts2.9": "16.9.35",
+          "ts3.0": "16.9.46",
+          "ts3.1": "16.9.49",
+          "ts3.2": "16.9.56",
+          "ts3.3": "17.0.0",
+          "ts3.4": "17.0.2",
+          "ts3.5": "17.0.8",
+          "ts3.6": "17.0.19",
+          "ts3.7": "17.0.35",
+          "ts3.8": "17.0.39",
+          "ts3.9": "18.0.12",
+          "ts4.0": "18.0.18",
+          "ts4.1": "18.0.25",
+          "ts4.2": "18.0.28",
+          "ts4.4": "18.2.21",
+          "ts4.3": "18.2.21",
+          "ts4.5": "18.2.39",
+          "ts4.6": "18.2.64",
+          "ts4.7": "18.3.3",
+          "ts4.9": "18.3.12",
+          "ts4.8": "18.3.12",
+          "ts5.0": "19.0.12",
+          "ts5.1": "19.1.9",
+          "ts5.2": "19.2.14",
+          "ts5.8": "19.2.18",
+          "ts5.9": "19.2.18",
+          "latest": "19.2.18",
+          "ts5.3": "19.2.17",
+          "ts5.6": "19.2.18",
+          "ts5.7": "19.2.18",
+          "ts5.5": "19.2.17",
+          "ts6.0": "19.2.18",
+          "ts5.4": "19.2.17"
+        },
+        "latestStable": "19.2.18",
+        "latestSameMajor": "19.2.18",
+        "latestPublishedAt": "2026-07-30T21:54:03.456Z",
+        "latestSameMajorPublishedAt": "2026-07-30T21:54:03.456Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {},
+          "dependencies": {
+            "csstype": "^3.2.2"
+          }
+        }
+      },
+      "@types/react-dom": {
+        "manifest": "^19.0.0",
+        "lock": "19.2.4",
+        "file": "apps/dashboard/package.json",
+        "latest": "19.2.7",
+        "engines": null,
+        "peers": {
+          "@types/react": "^19.2.0"
+        },
+        "dependencies": {},
+        "source": "https://registry.npmjs.org/%40types%2Freact-dom/latest",
+        "distTags": {
+          "ts2.0": "0.14.20",
+          "ts2.1": "15.5.0",
+          "ts2.2": "15.5.0",
+          "ts2.3": "16.0.3",
+          "ts2.5": "16.0.3",
+          "ts2.4": "16.0.3",
+          "ts2.6": "16.0.6",
+          "ts2.7": "16.0.6",
+          "ts2.8": "16.9.7",
+          "ts3.1": "16.9.8",
+          "ts2.9": "16.9.8",
+          "ts3.0": "16.9.8",
+          "ts3.2": "16.9.9",
+          "ts3.3": "17.0.0",
+          "ts3.4": "17.0.1",
+          "ts3.5": "17.0.5",
+          "ts3.6": "17.0.9",
+          "ts3.7": "17.0.11",
+          "ts3.8": "17.0.11",
+          "ts3.9": "18.0.5",
+          "ts4.0": "18.0.6",
+          "ts4.1": "18.0.9",
+          "ts4.2": "18.0.11",
+          "ts4.4": "18.2.7",
+          "ts4.3": "18.2.7",
+          "ts4.5": "18.2.17",
+          "ts4.6": "18.2.21",
+          "ts4.7": "18.3.0",
+          "ts4.9": "18.3.1",
+          "ts4.8": "18.3.1",
+          "ts5.0": "19.0.4",
+          "ts5.1": "19.1.7",
+          "ts5.2": "19.2.3",
+          "ts5.5": "19.2.3",
+          "ts5.4": "19.2.3",
+          "ts5.3": "19.2.3",
+          "ts5.8": "19.2.7",
+          "ts5.9": "19.2.7",
+          "ts5.7": "19.2.7",
+          "ts5.6": "19.2.7",
+          "ts6.0": "19.2.7",
+          "latest": "19.2.7"
+        },
+        "latestStable": "19.2.7",
+        "latestSameMajor": "19.2.7",
+        "latestPublishedAt": "2026-09-03T11:04:47.516Z",
+        "latestSameMajorPublishedAt": "2026-09-03T11:04:47.516Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": {
+            "@types/react": "^19.2.0"
+          },
+          "dependencies": {}
+        }
+      },
+      "@vitejs/plugin-react": {
+        "manifest": "^6.0.0",
+        "lock": "6.0.5",
+        "file": "apps/dashboard/package.json",
+        "latest": "6.1.1",
+        "engines": {
+          "node": "^20.19.0 || >=22.12.0"
+        },
+        "peers": {
+          "vite": "^8.0.0",
+          "oxc-transform-react": "^0.145.0",
+          "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0",
+          "babel-plugin-react-compiler": "^1.0.0"
+        },
+        "dependencies": {
+          "@rolldown/pluginutils": "^1.0.1"
+        },
+        "source": "https://registry.npmjs.org/%40vitejs%2Fplugin-react/latest",
+        "distTags": {
+          "alpha": "3.0.0-alpha.2",
+          "beta": "6.0.0-beta.0",
+          "latest": "6.1.1"
+        },
+        "latestStable": "6.1.1",
+        "latestSameMajor": "6.1.1",
+        "latestPublishedAt": "2026-08-28T03:30:56.619Z",
+        "latestSameMajorPublishedAt": "2026-08-28T03:30:56.619Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^20.19.0 || >=22.12.0"
+          },
+          "peerDependencies": {
+            "vite": "^8.0.0",
+            "oxc-transform-react": "^0.145.0",
+            "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0",
+            "babel-plugin-react-compiler": "^1.0.0"
+          },
+          "dependencies": {
+            "@rolldown/pluginutils": "^1.0.1"
+          }
+        }
+      },
+      "tailwindcss": {
+        "manifest": "^4.3.1",
+        "lock": "4.3.3",
+        "file": "apps/dashboard/package.json",
+        "latest": "4.3.3",
+        "engines": null,
+        "peers": null,
+        "dependencies": null,
+        "source": "https://registry.npmjs.org/tailwindcss/latest",
+        "distTags": {
+          "next": "4.0.0",
+          "v3-lts": "3.4.19",
+          "latest": "4.3.3",
+          "insiders": "0.0.0-insiders.41d9cae"
+        },
+        "latestStable": "4.3.3",
+        "latestSameMajor": "4.3.3",
+        "latestPublishedAt": "2026-07-16T12:03:35.267Z",
+        "latestSameMajorPublishedAt": "2026-07-16T12:03:35.267Z",
+        "sameMajorMetadata": {
+          "engines": null,
+          "peerDependencies": null,
+          "dependencies": null
+        }
+      },
+      "vite": {
+        "manifest": "^8.0.13",
+        "lock": "8.2.1",
+        "file": "apps/dashboard/package.json",
+        "latest": "8.2.2",
+        "engines": {
+          "node": "^20.19.0 || >=22.12.0"
+        },
+        "peers": {
+          "tsx": "^4.8.1",
+          "jiti": ">=1.21.0",
+          "less": "^4.0.0",
+          "sass": "^1.70.0",
+          "yaml": "^2.4.2",
+          "stylus": ">=0.54.8",
+          "terser": "^5.16.0",
+          "esbuild": "^0.27.0 || ^0.28.0",
+          "sugarss": "^5.0.0",
+          "@types/node": "^20.19.0 || >=22.12.0",
+          "sass-embedded": "^1.70.0",
+          "@vitejs/devtools": "^0.4.0 || ^0.5.0"
+        },
+        "dependencies": {
+          "postcss": "^8.5.26",
+          "rolldown": "~1.2.4",
+          "picomatch": "^4.0.5",
+          "tinyglobby": "^0.2.17",
+          "lightningcss": "^1.33.0"
+        },
+        "source": "https://registry.npmjs.org/vite/latest",
+        "distTags": {
+          "alpha": "6.0.0-alpha.24",
+          "previous": "7.3.6",
+          "latest": "8.2.2",
+          "beta": "8.3.0-beta.1"
+        },
+        "latestStable": "8.2.2",
+        "latestSameMajor": "8.2.2",
+        "latestPublishedAt": "2026-08-20T04:14:39.107Z",
+        "latestSameMajorPublishedAt": "2026-08-20T04:14:39.107Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": "^20.19.0 || >=22.12.0"
+          },
+          "peerDependencies": {
+            "tsx": "^4.8.1",
+            "jiti": ">=1.21.0",
+            "less": "^4.0.0",
+            "sass": "^1.70.0",
+            "yaml": "^2.4.2",
+            "stylus": ">=0.54.8",
+            "terser": "^5.16.0",
+            "esbuild": "^0.27.0 || ^0.28.0",
+            "sugarss": "^5.0.0",
+            "@types/node": "^20.19.0 || >=22.12.0",
+            "sass-embedded": "^1.70.0",
+            "@vitejs/devtools": "^0.4.0 || ^0.5.0"
+          },
+          "dependencies": {
+            "postcss": "^8.5.26",
+            "rolldown": "~1.2.4",
+            "picomatch": "^4.0.5",
+            "tinyglobby": "^0.2.17",
+            "lightningcss": "^1.33.0"
+          }
+        }
+      },
+      "puppeteer": {
+        "manifest": "transitive",
+        "lock": "24.38.0",
+        "file": "package-lock.json",
+        "latest": "25.10.0",
+        "engines": {
+          "node": ">=22.12.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "lilconfig": "^3.1.3",
+          "chromium-bidi": "17.0.2",
+          "puppeteer-core": "25.10.0",
+          "devtools-protocol": "0.0.1666840",
+          "@puppeteer/browsers": "3.2.2",
+          "typed-query-selector": "^2.12.2"
+        },
+        "source": "https://registry.npmjs.org/puppeteer/latest",
+        "distTags": {
+          "chrome-65": "1.0.0",
+          "chrome-66": "1.1.1",
+          "chrome-67": "1.3.0",
+          "chrome-68": "1.4.0",
+          "chrome-69": "1.6.2",
+          "chrome-70": "1.7.0",
+          "chrome-71": "1.9.0",
+          "chrome-72": "1.11.0",
+          "chrome-73": "1.12.2",
+          "chrome-74": "1.13.0",
+          "chrome-75": "1.15.0",
+          "chrome-76": "1.17.0",
+          "chrome-77": "1.19.0",
+          "chrome-78": "1.20.0",
+          "chrome-79": "2.0.0",
+          "chrome-80": "2.1.0",
+          "chrome-81": "3.0.0",
+          "chrome-83": "3.1.0",
+          "chrome-84": "5.1.0",
+          "chrome-85": "5.2.1",
+          "chrome-86": "5.3.1",
+          "latest": "25.10.0"
+        },
+        "latestStable": "25.10.0",
+        "latestSameMajor": "24.43.1",
+        "latestPublishedAt": "2026-09-03T13:16:42.050Z",
+        "latestSameMajorPublishedAt": "2026-05-11T10:52:22.748Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=18"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "cosmiconfig": "^9.0.0",
+            "chromium-bidi": "14.0.0",
+            "puppeteer-core": "24.43.1",
+            "devtools-protocol": "0.0.1608973",
+            "@puppeteer/browsers": "2.13.2",
+            "typed-query-selector": "^2.12.2"
+          }
+        }
+      },
+      "puppeteer-core": {
+        "manifest": "transitive",
+        "lock": "24.38.0",
+        "file": "package-lock.json",
+        "latest": "25.10.0",
+        "engines": {
+          "node": ">=22.12.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "ws": "^8.21.3",
+          "chromium-bidi": "17.0.2",
+          "devtools-protocol": "0.0.1666840",
+          "@puppeteer/browsers": "3.2.2",
+          "typed-query-selector": "^2.12.2",
+          "webdriver-bidi-protocol": "0.4.3"
+        },
+        "source": "https://registry.npmjs.org/puppeteer-core/latest",
+        "distTags": {
+          "chrome-70": "1.7.0",
+          "chrome-71": "1.9.0",
+          "chrome-72": "1.11.0",
+          "chrome-73": "1.12.2",
+          "chrome-74": "1.13.0",
+          "chrome-75": "1.15.0",
+          "chrome-76": "1.17.0",
+          "chrome-77": "1.19.0",
+          "chrome-78": "1.20.0",
+          "chrome-79": "2.0.0",
+          "chrome-80": "2.1.0",
+          "chrome-81": "3.0.0",
+          "chrome-83": "3.1.0",
+          "chrome-84": "5.1.0",
+          "chrome-85": "5.2.1",
+          "chrome-86": "5.3.1",
+          "latest": "25.10.0"
+        },
+        "latestStable": "25.10.0",
+        "latestSameMajor": "24.43.1",
+        "latestPublishedAt": "2026-09-03T13:14:41.359Z",
+        "latestSameMajorPublishedAt": "2026-05-11T10:52:23.610Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=18"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "ws": "^8.20.0",
+            "debug": "^4.4.3",
+            "chromium-bidi": "14.0.0",
+            "devtools-protocol": "0.0.1608973",
+            "@puppeteer/browsers": "2.13.2",
+            "typed-query-selector": "^2.12.2",
+            "webdriver-bidi-protocol": "0.4.1"
+          }
+        }
+      },
+      "extract-zip": {
+        "manifest": "transitive",
+        "lock": "2.0.1",
+        "file": "package-lock.json",
+        "latest": "2.0.1",
+        "engines": {
+          "node": ">= 10.17.0"
+        },
+        "peers": null,
+        "dependencies": {
+          "debug": "^4.1.1",
+          "yauzl": "^2.10.0",
+          "get-stream": "^5.1.0",
+          "@types/yauzl": "^2.9.1"
+        },
+        "source": "https://registry.npmjs.org/extract-zip/latest",
+        "distTags": {
+          "latest": "2.0.1"
+        },
+        "latestStable": "2.0.1",
+        "latestSameMajor": "2.0.1",
+        "latestPublishedAt": "2020-06-10T07:10:04.849Z",
+        "latestSameMajorPublishedAt": "2020-06-10T07:10:04.849Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">= 10.17.0"
+          },
+          "peerDependencies": null,
+          "dependencies": {
+            "debug": "^4.1.1",
+            "get-stream": "^5.1.0",
+            "yauzl": "^2.10.0",
+            "@types/yauzl": "^2.9.1"
+          }
+        }
+      },
+      "react-router": {
+        "manifest": "transitive",
+        "lock": "7.18.2",
+        "file": "package-lock.json",
+        "latest": "8.3.1",
+        "engines": {
+          "node": ">=22.22.0"
+        },
+        "peers": {
+          "react": ">=19.2.7",
+          "react-dom": ">=19.2.7"
+        },
+        "dependencies": {
+          "cookie-es": "^3.1.1"
+        },
+        "source": "https://registry.npmjs.org/react-router/latest",
+        "distTags": {
+          "previous": "3.2.6",
+          "classic": "5.3.4",
+          "pre-v6": "6.30.3-pre-v6.0",
+          "nightly": "0.0.0-nightly-4547c8015-20260410",
+          "pre": "8.0.0-pre.1",
+          "version-6": "6.30.6",
+          "experimental": "0.0.0-experimental-7aea711dd",
+          "version-7": "7.18.3",
+          "latest": "8.3.1"
+        },
+        "latestStable": "8.3.1",
+        "latestSameMajor": "7.18.3",
+        "latestPublishedAt": "2026-08-28T14:47:42.622Z",
+        "latestSameMajorPublishedAt": "2026-08-28T14:30:10.445Z",
+        "sameMajorMetadata": {
+          "engines": {
+            "node": ">=20.0.0"
+          },
+          "peerDependencies": {
+            "react": ">=18",
+            "react-dom": ">=18"
+          },
+          "dependencies": {
+            "cookie": "^1.0.1",
+            "set-cookie-parser": "^2.6.0"
+          }
+        }
+      }
+    }
+  },
+  "npmAudit": {
+    "auditReportVersion": 2,
+    "vulnerabilities": {
+      "@nestjs/platform-fastify": {
+        "name": "@nestjs/platform-fastify",
+        "severity": "moderate",
+        "isDirect": true,
+        "via": ["fastify"],
+        "effects": [],
+        "range": "<=12.0.0-alpha.7",
+        "nodes": ["node_modules/@nestjs/platform-fastify"],
+        "fixAvailable": {
+          "name": "@nestjs/platform-fastify",
+          "version": "12.0.1",
+          "isSemVerMajor": true
+        }
+      },
+      "@prisma/config": {
+        "name": "@prisma/config",
+        "severity": "high",
+        "isDirect": false,
+        "via": ["deepmerge-ts"],
+        "effects": ["prisma"],
+        "range": "6.13.0-dev.1 - 8.1.0-dev.4",
+        "nodes": ["node_modules/@prisma/config"],
+        "fixAvailable": {
+          "name": "prisma",
+          "version": "6.19.3",
+          "isSemVerMajor": true
+        }
+      },
+      "@puppeteer/browsers": {
+        "name": "@puppeteer/browsers",
+        "severity": "high",
+        "isDirect": false,
+        "via": ["extract-zip"],
+        "effects": ["puppeteer", "puppeteer-core"],
+        "range": "<=2.13.2",
+        "nodes": ["node_modules/@puppeteer/browsers"],
+        "fixAvailable": false
+      },
+      "@vitest/coverage-v8": {
+        "name": "@vitest/coverage-v8",
+        "severity": "moderate",
+        "isDirect": true,
+        "via": ["vitest"],
+        "effects": ["vitest"],
+        "range": "2.1.0-beta.1 - 4.1.10",
+        "nodes": ["node_modules/@vitest/coverage-v8"],
+        "fixAvailable": true
+      },
+      "@vitest/mocker": {
+        "name": "@vitest/mocker",
+        "severity": "moderate",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1193684,
+            "name": "@vitest/mocker",
+            "dependency": "@vitest/mocker",
+            "title": "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+            "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9",
+            "severity": "moderate",
+            "cwe": ["CWE-22"],
+            "cvss": {
+              "score": 5.9,
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+            },
+            "range": ">=2.1.0 <4.1.11"
+          }
+        ],
+        "effects": ["vitest"],
+        "range": "2.1.0 - 4.1.10",
+        "nodes": ["node_modules/@vitest/mocker"],
+        "fixAvailable": true
+      },
+      "deepmerge-ts": {
+        "name": "deepmerge-ts",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1145093,
+            "name": "deepmerge-ts",
+            "dependency": "deepmerge-ts",
+            "title": "DeepmergeTS has stack exhaustion when merging recursive object graphs",
+            "url": "https://github.com/advisories/GHSA-ggr8-5vv4-36mx",
+            "severity": "high",
+            "cwe": ["CWE-674"],
+            "cvss": {
+              "score": 0,
+              "vectorString": null
+            },
+            "range": "<8.0.0"
+          }
+        ],
+        "effects": ["@prisma/config"],
+        "range": "<8.0.0",
+        "nodes": ["node_modules/deepmerge-ts"],
+        "fixAvailable": {
+          "name": "prisma",
+          "version": "6.19.3",
+          "isSemVerMajor": true
+        }
+      },
+      "extract-zip": {
+        "name": "extract-zip",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1139346,
+            "name": "extract-zip",
+            "dependency": "extract-zip",
+            "title": "extract-zip unvalidated symlink path traversal",
+            "url": "https://github.com/advisories/GHSA-jmr9-qjv8-65gv",
+            "severity": "high",
+            "cwe": ["CWE-22"],
+            "cvss": {
+              "score": 8.1,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N"
+            },
+            "range": "<=2.0.1"
+          },
+          {
+            "source": 1193685,
+            "name": "extract-zip",
+            "dependency": "extract-zip",
+            "title": "extract-zip allows arbitrary file writes through symlink archive entries",
+            "url": "https://github.com/advisories/GHSA-7pqw-9j4j-h8q3",
+            "severity": "high",
+            "cwe": ["CWE-22"],
+            "cvss": {
+              "score": 8.1,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:H"
+            },
+            "range": "<=2.0.1"
+          }
+        ],
+        "effects": ["@puppeteer/browsers"],
+        "range": "*",
+        "nodes": ["node_modules/extract-zip"],
+        "fixAvailable": false
+      },
+      "fast-uri": {
+        "name": "fast-uri",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1158520,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to host confusion via skipped IDN canonicalization on scheme-relative references",
+            "url": "https://github.com/advisories/GHSA-5jgf-p345-68v8",
+            "severity": "high",
+            "cwe": ["CWE-436"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=4.0.1 <4.1.3"
+          },
+          {
+            "source": 1158521,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to host confusion via skipped IDN canonicalization on scheme-relative references",
+            "url": "https://github.com/advisories/GHSA-5jgf-p345-68v8",
+            "severity": "high",
+            "cwe": ["CWE-436"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=3.1.3 <3.1.6"
+          },
+          {
+            "source": 1158523,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to server-side request forgery via malformed IPv6 normalization",
+            "url": "https://github.com/advisories/GHSA-f65p-4m7j-42xc",
+            "severity": "high",
+            "cwe": ["CWE-20", "CWE-918"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=4.0.0 <4.1.3"
+          },
+          {
+            "source": 1158524,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to server-side request forgery via malformed IPv6 normalization",
+            "url": "https://github.com/advisories/GHSA-f65p-4m7j-42xc",
+            "severity": "high",
+            "cwe": ["CWE-20", "CWE-918"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=3.0.0 <3.1.6"
+          },
+          {
+            "source": 1158526,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to server-side request forgery via repeated hostname percent-decoding",
+            "url": "https://github.com/advisories/GHSA-fph4-wmhf-6fwf",
+            "severity": "high",
+            "cwe": ["CWE-174", "CWE-918"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=4.0.0 <4.1.3"
+          },
+          {
+            "source": 1158527,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to server-side request forgery via repeated hostname percent-decoding",
+            "url": "https://github.com/advisories/GHSA-fph4-wmhf-6fwf",
+            "severity": "high",
+            "cwe": ["CWE-174", "CWE-918"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=3.1.2 <3.1.6"
+          },
+          {
+            "source": 1158529,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to host confusion via percent-encoded scheme normalization",
+            "url": "https://github.com/advisories/GHSA-jqff-g426-hqxp",
+            "severity": "high",
+            "cwe": ["CWE-177"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=4.0.0 <4.1.3"
+          },
+          {
+            "source": 1158530,
+            "name": "fast-uri",
+            "dependency": "fast-uri",
+            "title": "fast-uri vulnerable to host confusion via percent-encoded scheme normalization",
+            "url": "https://github.com/advisories/GHSA-jqff-g426-hqxp",
+            "severity": "high",
+            "cwe": ["CWE-177"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "range": ">=3.0.0 <3.1.6"
+          }
+        ],
+        "effects": [],
+        "range": "3.0.0 - 3.1.5 || 4.0.0 - 4.1.2",
+        "nodes": [
+          "node_modules/@angular-devkit/core/node_modules/fast-uri",
+          "node_modules/@fastify/ajv-compiler/node_modules/ajv/node_modules/fast-uri",
+          "node_modules/@nestjs/schematics/node_modules/fast-uri",
+          "node_modules/@prisma/streams-local/node_modules/fast-uri",
+          "node_modules/ajv-formats/node_modules/fast-uri",
+          "node_modules/fast-json-stringify/node_modules/ajv/node_modules/fast-uri",
+          "node_modules/fast-uri",
+          "node_modules/terser-webpack-plugin/node_modules/fast-uri",
+          "node_modules/webpack/node_modules/fast-uri"
+        ],
+        "fixAvailable": true
+      },
+      "fastify": {
+        "name": "fastify",
+        "severity": "moderate",
+        "isDirect": true,
+        "via": [
+          {
+            "source": 1158514,
+            "name": "fastify",
+            "dependency": "fastify",
+            "title": "fastify vulnerable to schema validation bypass via root primitive coercion mismatch",
+            "url": "https://github.com/advisories/GHSA-w2qp-rph6-63g4",
+            "severity": "moderate",
+            "cwe": ["CWE-20"],
+            "cvss": {
+              "score": 5.4,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N"
+            },
+            "range": "<5.12.1"
+          },
+          {
+            "source": 1158519,
+            "name": "fastify",
+            "dependency": "fastify",
+            "title": "fastify vulnerable to X-Forwarded-* spoofing under trustProxy hop-count",
+            "url": "https://github.com/advisories/GHSA-3m5p-2c4r-xxw2",
+            "severity": "moderate",
+            "cwe": ["CWE-348"],
+            "cvss": {
+              "score": 6.1,
+              "vectorString": "CVSS:3.1/AV:A/AC:H/PR:N/UI:N/S:C/C:H/I:N/A:N"
+            },
+            "range": ">=5.8.3 <5.12.1"
+          }
+        ],
+        "effects": ["@nestjs/platform-fastify"],
+        "range": "<=5.12.0",
+        "nodes": ["node_modules/fastify"],
+        "fixAvailable": {
+          "name": "@nestjs/platform-fastify",
+          "version": "12.0.1",
+          "isSemVerMajor": true
+        }
+      },
+      "js-yaml": {
+        "name": "js-yaml",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1193727,
+            "name": "js-yaml",
+            "dependency": "js-yaml",
+            "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+            "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+            "severity": "high",
+            "cwe": ["CWE-400", "CWE-407"],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": ">=4.0.0 <4.3.2"
+          }
+        ],
+        "effects": [],
+        "range": "4.0.0 - 4.3.1",
+        "nodes": ["node_modules/js-yaml"],
+        "fixAvailable": true
+      },
+      "mysql2": {
+        "name": "mysql2",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1153173,
+            "name": "mysql2",
+            "dependency": "mysql2",
+            "title": "MySQL2: Auth Plugin Downgrade to mysql_clear_password Leaks Plaintext Credentials",
+            "url": "https://github.com/advisories/GHSA-3f6p-5ww8-9rcr",
+            "severity": "high",
+            "cwe": ["CWE-522"],
+            "cvss": {
+              "score": 0,
+              "vectorString": null
+            },
+            "range": "<3.22.0"
+          },
+          {
+            "source": 1158532,
+            "name": "mysql2",
+            "dependency": "mysql2",
+            "title": "MySQL2: Unbounded zlib inflate in compressed MySQL protocol handler allows decompression-bomb DoS",
+            "url": "https://github.com/advisories/GHSA-rgwj-5xj2-c3m3",
+            "severity": "moderate",
+            "cwe": ["CWE-409"],
+            "cvss": {
+              "score": 5.9,
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": "<=3.23.0"
+          }
+        ],
+        "effects": ["prisma"],
+        "range": "<=3.23.0",
+        "nodes": ["node_modules/mysql2"],
+        "fixAvailable": {
+          "name": "prisma",
+          "version": "6.19.3",
+          "isSemVerMajor": true
+        }
+      },
+      "prisma": {
+        "name": "prisma",
+        "severity": "high",
+        "isDirect": true,
+        "via": ["@prisma/config", "mysql2"],
+        "effects": [],
+        "range": ">=6.13.0-dev.1",
+        "nodes": ["node_modules/prisma"],
+        "fixAvailable": {
+          "name": "prisma",
+          "version": "6.19.3",
+          "isSemVerMajor": true
+        }
+      },
+      "puppeteer": {
+        "name": "puppeteer",
+        "severity": "high",
+        "isDirect": false,
+        "via": ["@puppeteer/browsers", "puppeteer-core"],
+        "effects": ["whatsapp-web.js"],
+        "range": "19.8.1 - 24.43.1",
+        "nodes": ["node_modules/puppeteer"],
+        "fixAvailable": false
+      },
+      "puppeteer-core": {
+        "name": "puppeteer-core",
+        "severity": "high",
+        "isDirect": false,
+        "via": ["@puppeteer/browsers"],
+        "effects": ["puppeteer"],
+        "range": "19.8.4 - 24.43.1",
+        "nodes": ["node_modules/puppeteer-core"],
+        "fixAvailable": false
+      },
+      "sharp": {
+        "name": "sharp",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1193725,
+            "name": "sharp",
+            "dependency": "sharp",
+            "title": "sharp: Vulnerabilities in libheif: GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545",
+            "url": "https://github.com/advisories/GHSA-rgj7-g3m4-5g8c",
+            "severity": "high",
+            "cwe": ["CWE-122"],
+            "cvss": {
+              "score": 0,
+              "vectorString": null
+            },
+            "range": "<0.35.4"
+          }
+        ],
+        "effects": [],
+        "range": "<0.35.4",
+        "nodes": ["node_modules/sharp"],
+        "fixAvailable": true
+      },
+      "vitest": {
+        "name": "vitest",
+        "severity": "moderate",
+        "isDirect": true,
+        "via": [
+          "@vitest/coverage-v8",
+          "@vitest/mocker",
+          {
+            "source": 1193683,
+            "name": "vitest",
+            "dependency": "vitest",
+            "title": "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+            "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9",
+            "severity": "moderate",
+            "cwe": ["CWE-22"],
+            "cvss": {
+              "score": 5.9,
+              "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+            },
+            "range": ">=2.1.0 <4.1.11"
+          }
+        ],
+        "effects": ["@vitest/coverage-v8"],
+        "range": "2.1.0-beta.1 - 4.1.10",
+        "nodes": ["node_modules/vitest"],
+        "fixAvailable": true
+      },
+      "whatsapp-web.js": {
+        "name": "whatsapp-web.js",
+        "severity": "high",
+        "isDirect": true,
+        "via": ["puppeteer"],
+        "effects": [],
+        "range": "1.34.4 - 1.34.7",
+        "nodes": ["node_modules/whatsapp-web.js"],
+        "fixAvailable": false
+      }
+    },
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 5,
+        "high": 12,
+        "critical": 0,
+        "total": 17
+      },
+      "dependencies": {
+        "prod": 501,
+        "dev": 470,
+        "optional": 164,
+        "peer": 29,
+        "peerOptional": 0,
+        "total": 1075
+      }
+    }
+  }
+}

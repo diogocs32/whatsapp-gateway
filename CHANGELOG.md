@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Documentação (09/09 — sessão `auditoria-melhorias`, sem alteração de código)
+
+- [Auditoria de melhorias e atualizações](docs/auditoria-melhorias-2026-09.md): riscos de contas WhatsApp, engines/guardrail, backend, segurança, continuidade, contratos e dashboard; evidência local, documentação oficial e relatos upstream, com prioridades e critérios de aceite.
+- Inventário de 69 pacotes e snapshot do `npm audit`: 17 pacotes sinalizados (12 high, 5 moderate), associados a 14 GHSAs únicos; recomendações de atualização compatível e triagem de alcance, sem instalar ou corrigir dependências.
+- Registrados P-027..P-040; atualizados mapa, agenda e encerramento R9. Nenhuma alteração de runtime, banco, configuração ou produção; nenhuma garantia de não banimento.
+
 ### Corrigido (31/08 — sessão `envio-sem-onwhatsapp` — **EM PRODUÇÃO ~20:45 UTC**, merge ff `66b7076`, validado com envio real entregue)
 
 - **Envio Baileys sem consulta de existência**: `resolveJid` não chama mais `sock.onWhatsApp`
