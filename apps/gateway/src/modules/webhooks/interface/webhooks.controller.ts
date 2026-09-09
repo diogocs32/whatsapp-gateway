@@ -10,6 +10,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import {
+  assertEgressAllowed,
+  EgressBlockedError,
+  egressPolicyFromEnv,
+  parseEgressUrl,
+} from '../../../shared-kernel/safe-fetch';
 import { newId } from '../../../shared-kernel/ulid';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
@@ -60,6 +66,20 @@ export class WebhooksController {
       );
     }
     const d = parsed.data;
+    // ABE-06: recusa no cadastro URL que aponta para rede privada/loopback/metadata (SSRF).
+    // Destino interno legítimo (n8n na mesma rede) entra em EGRESS_ALLOW_HOSTS.
+    try {
+      await assertEgressAllowed(parseEgressUrl(d.url), egressPolicyFromEnv(), {
+        dnsFailure: 'allow', // host ainda sem DNS pode ser cadastrado; a entrega revalida
+      });
+    } catch (e) {
+      if (e instanceof EgressBlockedError) {
+        throw new BadRequestException(
+          `URL do webhook recusada: ${e.message}. Destino interno legítimo? Libere o host em EGRESS_ALLOW_HOSTS.`,
+        );
+      }
+      throw e;
+    }
     const w = await this.repo.create({
       id: newId(),
       sessionId: d.sessionId ?? null,

@@ -8,6 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, type ConnectionOptions } from 'bullmq';
 import type { Env } from '../../../bootstrap/config';
 import { redisConnection } from '../../../infra/redis/redis-connection';
+import {
+  egressPolicyFromEnv,
+  safeFetch,
+} from '../../../shared-kernel/safe-fetch';
 import { GuardrailService } from '../../guardrail/guardrail.service';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
@@ -31,33 +35,27 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// ABE-06/07: download com política de egress (sem rede privada/metadata, redirect validado) e
+// corpo lido em FLUXO com teto MEDIA_MAX_BYTES — antes o content-length era checado mas o
+// arrayBuffer() ainda alocava o corpo inteiro quando o header faltava/mentia.
 async function fetchMedia(
   url: string,
   fallbackMime: string | null,
   maxBytes: number,
 ): Promise<{ buffer: Buffer; mime: string }> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`mídia respondeu HTTP ${res.status}`);
-  // Teto de tamanho (MEDIA_MAX_BYTES): sem ele, uma URL de mídia gigante era bufferizada inteira
-  // na memória do worker. Checa o content-length antes de baixar e o tamanho real depois
-  // (servidores nem sempre mandam o header).
-  const declared = Number(res.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) {
-    throw new Error(
-      `mídia excede o teto de ${maxBytes} bytes (content-length ${declared})`,
-    );
-  }
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.byteLength > maxBytes) {
-    throw new Error(
-      `mídia excede o teto de ${maxBytes} bytes (${buffer.byteLength} baixados)`,
-    );
+  const res = await safeFetch(url, {
+    policy: egressPolicyFromEnv(),
+    maxBytes,
+    timeoutMs: 20_000,
+  });
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`mídia respondeu HTTP ${res.status}`);
   }
   const mime =
     fallbackMime ||
     res.headers.get('content-type')?.split(';')[0] ||
     'application/octet-stream';
-  return { buffer, mime };
+  return { buffer: res.body, mime };
 }
 
 // Fila de disparo de campanhas (BullMQ) com anti-ban: cada destinatário é agendado com

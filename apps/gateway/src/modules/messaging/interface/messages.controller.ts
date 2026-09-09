@@ -14,13 +14,21 @@ import {
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import type { Env } from '../../../bootstrap/config';
 import {
   MediaStorage,
   StorageUnavailableError,
 } from '../../../infra/storage/media-storage.service';
 import { clampInt } from '../../../shared-kernel/query-int';
+import {
+  BodyTooLargeError,
+  EgressBlockedError,
+  egressPolicyFromEnv,
+  safeFetch,
+} from '../../../shared-kernel/safe-fetch';
 import { GuardrailService } from '../../guardrail/guardrail.service';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
@@ -185,6 +193,7 @@ export class MessagesController {
     private readonly guardrail: GuardrailService,
     private readonly inboxSync: InboxSyncService,
     private readonly intents: SendIntentService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   // G5 hard-gate: só envios COLD passam pelo guard-rail; cold=false (chat aberto) sempre passa.
@@ -581,23 +590,33 @@ export class MessagesController {
       },
       async () => {
         // Download dentro da intenção: falha de download = intenção failed (retry permitido).
+        // ABE-06/07: política de egress (sem rede privada/metadata, redirect validado) e corpo
+        // lido em FLUXO com teto MEDIA_MAX_BYTES — antes o arrayBuffer() alocava tudo e só
+        // depois media 100 MB.
         let buffer: Buffer;
         let mimetype: string;
         try {
-          const res = await fetch(d.url, {
-            signal: AbortSignal.timeout(20000),
+          const res = await safeFetch(d.url, {
+            policy: egressPolicyFromEnv(),
+            maxBytes: this.config.get('MEDIA_MAX_BYTES', { infer: true }),
+            timeoutMs: 20_000,
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if (res.status < 200 || res.status >= 300) {
+            throw new Error(`HTTP ${res.status}`);
+          }
           mimetype =
             d.mimetype ||
             res.headers.get('content-type')?.split(';')[0] ||
             'application/octet-stream';
-          buffer = Buffer.from(await res.arrayBuffer());
+          buffer = res.body;
         } catch (e) {
+          if (e instanceof EgressBlockedError) {
+            throw new Error(`URL de mídia recusada: ${e.message}`);
+          }
+          if (e instanceof BodyTooLargeError) {
+            throw new Error(`mídia ${e.message} (MEDIA_MAX_BYTES)`);
+          }
           throw new Error(`não consegui baixar a URL: ${(e as Error).message}`);
-        }
-        if (buffer.length > 100 * 1024 * 1024) {
-          throw new Error('arquivo acima de 100 MB');
         }
         return this.manager.sendMedia(id, d.to, {
           buffer,

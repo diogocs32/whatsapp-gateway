@@ -137,6 +137,13 @@ const base = z.object({
   // (head-of-line blocking). A ordem de entrega nunca foi contratual (retries com backoff já
   // reordenam); consumidores ordenam pelo timestamp do envelope.
   WEBHOOK_CONCURRENCY: z.coerce.number().int().positive().default(8),
+  // ---- Egress / SSRF (ABE-06/07, auditoria 09/2026) ----
+  // URLs de webhook, mediaUrl de campanha e /messages/media-url NÃO podem apontar para rede
+  // privada/loopback/metadata (default). Destino interno LEGÍTIMO (ex.: n8n na mesma rede
+  // Docker) entra em EGRESS_ALLOW_HOSTS ("n8n,10.0.0.5"); EGRESS_ALLOW_PRIVATE=true desliga o
+  // bloqueio inteiro (só para dev). Lidas pelo shared-kernel/safe-fetch direto do process.env.
+  EGRESS_ALLOW_PRIVATE: envBool(false),
+  EGRESS_ALLOW_HOSTS: envStr(),
 });
 
 export const envSchema = base.superRefine((env, ctx) => {

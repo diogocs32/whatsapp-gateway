@@ -127,4 +127,40 @@ describe('Webhooks (e2e)', () => {
       headers: auth(),
     });
   });
+
+  // ABE-06 (auditoria 09/2026): URL de webhook para rede privada/loopback/metadata é recusada no
+  // cadastro (400 com motivo); host público sem DNS ainda é aceito (a entrega revalida).
+  it('POST /webhooks com URL privada/loopback/metadata → 400; host público sem DNS → 201', async () => {
+    for (const url of [
+      'http://127.0.0.1:5678/hook',
+      'http://169.254.169.254/latest/meta-data',
+      'http://10.0.0.5/hook',
+      'http://localhost:5678/hook',
+      'ftp://public.example/hook',
+      'https://user:pass@public.example/hook',
+    ]) {
+      const res = await inject(app, {
+        method: 'POST',
+        url: '/api/webhooks',
+        headers: { ...auth(), 'content-type': 'application/json' },
+        payload: { url, events: ['message.received'] },
+      });
+      expect(res.statusCode, url).toBe(400);
+    }
+    const ok = await inject(app, {
+      method: 'POST',
+      url: '/api/webhooks',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: {
+        url: 'https://sem-dns-ainda.e2e-webhook.test/hook',
+        events: ['message.received'],
+      },
+    });
+    expect(ok.statusCode).toBe(201);
+    await inject(app, {
+      method: 'DELETE',
+      url: `/api/webhooks/${ok.json().id}`,
+      headers: auth(),
+    });
+  });
 });

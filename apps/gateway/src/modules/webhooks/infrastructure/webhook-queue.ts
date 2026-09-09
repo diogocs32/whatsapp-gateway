@@ -5,11 +5,22 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, Worker, type ConnectionOptions } from 'bullmq';
+import {
+  Queue,
+  UnrecoverableError,
+  Worker,
+  type ConnectionOptions,
+} from 'bullmq';
 import { createHmac } from 'node:crypto';
 import type { Env } from '../../../bootstrap/config';
 import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import { redisConnection } from '../../../infra/redis/redis-connection';
+import {
+  assertEgressAllowed,
+  EgressBlockedError,
+  egressPolicyFromEnv,
+  parseEgressUrl,
+} from '../../../shared-kernel/safe-fetch';
 import { newId } from '../../../shared-kernel/ulid';
 
 export interface WebhookJob {
@@ -87,7 +98,14 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
         `webhook ${data?.webhookId} falhou (tentativa ${job?.attemptsMade}): ${err.message}`,
       );
       // C4: esgotou TODAS as tentativas → dead-letter (não some; reentregável depois).
-      if (job && data && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      // Falha NÃO recuperável (destino bloqueado pela política de egress — ABE-06) não
+      // retenta, mas TAMBÉM vai para a dead-letter: o operador precisa ver o evento e o motivo.
+      if (
+        job &&
+        data &&
+        (job.attemptsMade >= (job.opts.attempts ?? 1) ||
+          err instanceof UnrecoverableError)
+      ) {
         void this.toDeadLetter(data, err.message, job.attemptsMade).catch((e) =>
           this.logger.error(
             `falha ao gravar dead-letter: ${(e as Error).message}`,
@@ -114,6 +132,21 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
   }
 
   private async deliver(data: WebhookJob): Promise<void> {
+    // ABE-06: destino validado a CADA entrega (a URL pode ter mudado de DNS desde o cadastro).
+    // Bloqueio é definitivo para este job (UnrecoverableError → sem retry, vai à dead-letter).
+    try {
+      await assertEgressAllowed(
+        parseEgressUrl(data.url),
+        egressPolicyFromEnv(),
+      );
+    } catch (e) {
+      if (e instanceof EgressBlockedError) {
+        throw new UnrecoverableError(
+          `destino do webhook bloqueado pela política de egress: ${e.message} (libere via EGRESS_ALLOW_HOSTS se for interno legítimo)`,
+        );
+      }
+      throw e;
+    }
     const payload = JSON.stringify(data.body);
     const signature = data.secret
       ? createHmac('sha512', data.secret).update(payload).digest('hex')
