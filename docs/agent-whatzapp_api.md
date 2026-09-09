@@ -345,6 +345,19 @@ DB_SSL`, `REDIS_HOST/REDIS_PORT/REDIS_USERNAME/REDIS_PASSWORD/REDIS_DB`). **A UR
 
 ---
 
+### 6B.11 — Engine no shutdown NÃO pode persistir STOPPED (senão não reidrata)
+
+No redeploy o Dokploy é **stop-first**, mas o container antigo e o novo coexistem por ~15 s. O
+`SessionManager.onModuleDestroy` chama `e.shutdown ?? e.stop()` para cada engine. O `shutdown()`
+existe justamente para fechar a engine **sem gravar status**: o `stop()` grava `STOPPED` e o
+`findAutostart` só reidrata `WORKING/STARTING/SCAN_QR/PAIRING/DEGRADED` — nunca `STOPPED`. Se a
+engine não tiver `shutdown()` e cair no `stop()`, o container que morre grava `STOPPED` por cima do
+`WORKING` que o novo já persistiu (status errado, sessão viva) ou, pior, antes de o novo ler o
+`findAutostart` (a sessão nem reidrata). Foi o P-043: só o Baileys era afetado (as engines wwebjs
+já tinham `shutdown()`). **Regra:** toda engine implementa `shutdown()` fechando o transporte sem
+`setStatus`; detache os listeners ANTES do `end()`/`destroy()` para o `close` tardio não reentrar e
+emitir `STOPPED`.
+
 ## 7. Histórico de decisões importantes
 
 - **2026-06-21 — Migração Baileys 6.7.23 → 7.0.0-rc13** para corrigir o "Aguardando mensagem"/LID
