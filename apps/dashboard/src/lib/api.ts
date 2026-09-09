@@ -247,19 +247,39 @@ export const api = {
       request<ConversationDto[]>(
         `/api/sessions/${id}/messages/conversations?limit=${limit}`,
       ),
-    sendText: (id: string, to: string, text: string) =>
+    // UP-02: o painel manda idempotencyKey (o gateway reserva a intenção — retry não duplica).
+    sendText: (
+      id: string,
+      to: string,
+      text: string,
+      opts?: { idempotencyKey?: string; cold?: boolean },
+    ) =>
       request<SendTextResponse>(`/api/sessions/${id}/messages/text`, {
         method: 'POST',
-        body: JSON.stringify({ to, text }),
+        body: JSON.stringify({
+          to,
+          text,
+          ...(opts?.idempotencyKey
+            ? { idempotencyKey: opts.idempotencyKey }
+            : {}),
+          ...(opts?.cold !== undefined ? { cold: opts.cold } : {}),
+        }),
       }),
     sendMedia: (
       id: string,
       to: string,
       file: File,
-      opts?: { caption?: string; type?: string; ptt?: boolean },
+      opts?: {
+        caption?: string;
+        type?: string;
+        ptt?: boolean;
+        idempotencyKey?: string;
+      },
     ) => {
       const fd = new FormData();
       fd.append('to', to); // campos de texto ANTES do arquivo (exigência do @fastify/multipart)
+      if (opts?.idempotencyKey)
+        fd.append('idempotencyKey', opts.idempotencyKey);
       if (opts?.type) fd.append('type', opts.type);
       if (opts?.caption) fd.append('caption', opts.caption);
       if (opts?.ptt) fd.append('ptt', 'true');

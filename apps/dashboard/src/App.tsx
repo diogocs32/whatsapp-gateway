@@ -2,6 +2,13 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { useAuth } from './lib/auth';
+import {
+  ErrorBoundary,
+  installPreloadErrorHandler,
+} from './lib/error-boundary';
+
+// UP-09: chunk removido por um deploy novo → recarrega uma vez em vez de tela branca.
+installPreloadErrorHandler();
 
 // Code-splitting por rota (React.lazy + import dinâmico — react.dev/reference/react/lazy):
 // cada tela vira um chunk próprio do Vite em vez de um bundle único com as 16 rotas. O login e a
@@ -47,131 +54,133 @@ function Protected({ children }: { children: ReactNode }) {
 
 export function App() {
   return (
-    <Suspense fallback={<Loading />}>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/"
-          element={
-            <Protected>
-              <Dashboard />
-            </Protected>
-          }
-        />
-        <Route
-          path="/sessions"
-          element={
-            <Protected>
-              <Sessions />
-            </Protected>
-          }
-        />
-        <Route
-          path="/inbox"
-          element={
-            <Protected>
-              <Inbox />
-            </Protected>
-          }
-        />
-        <Route
-          path="/monitor"
-          element={
-            <Protected>
-              <Monitor />
-            </Protected>
-          }
-        />
-        <Route
-          path="/webhooks"
-          element={
-            <Protected>
-              <Webhooks />
-            </Protected>
-          }
-        />
-        <Route
-          path="/api-keys"
-          element={
-            <Protected>
-              <ApiKeys />
-            </Protected>
-          }
-        />
-        <Route
-          path="/users"
-          element={
-            <Protected>
-              <Users />
-            </Protected>
-          }
-        />
-        <Route
-          path="/license"
-          element={
-            <Protected>
-              <License />
-            </Protected>
-          }
-        />
-        <Route
-          path="/branding"
-          element={
-            <Protected>
-              <Branding />
-            </Protected>
-          }
-        />
-        <Route
-          path="/audit"
-          element={
-            <Protected>
-              <Audit />
-            </Protected>
-          }
-        />
-        <Route
-          path="/proxies"
-          element={
-            <Protected>
-              <Proxies />
-            </Protected>
-          }
-        />
-        <Route
-          path="/groups"
-          element={
-            <Protected>
-              <Groups />
-            </Protected>
-          }
-        />
-        <Route
-          path="/contacts"
-          element={
-            <Protected>
-              <Contacts />
-            </Protected>
-          }
-        />
-        <Route
-          path="/campaigns"
-          element={
-            <Protected>
-              <Campaigns />
-            </Protected>
-          }
-        />
-        <Route
-          path="/health"
-          element={
-            <Protected>
-              <Health />
-            </Protected>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <Protected>
+                <Dashboard />
+              </Protected>
+            }
+          />
+          <Route
+            path="/sessions"
+            element={
+              <Protected>
+                <Sessions />
+              </Protected>
+            }
+          />
+          <Route
+            path="/inbox"
+            element={
+              <Protected>
+                <Inbox />
+              </Protected>
+            }
+          />
+          <Route
+            path="/monitor"
+            element={
+              <Protected>
+                <Monitor />
+              </Protected>
+            }
+          />
+          <Route
+            path="/webhooks"
+            element={
+              <Protected>
+                <Webhooks />
+              </Protected>
+            }
+          />
+          <Route
+            path="/api-keys"
+            element={
+              <Protected>
+                <ApiKeys />
+              </Protected>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <Protected>
+                <Users />
+              </Protected>
+            }
+          />
+          <Route
+            path="/license"
+            element={
+              <Protected>
+                <License />
+              </Protected>
+            }
+          />
+          <Route
+            path="/branding"
+            element={
+              <Protected>
+                <Branding />
+              </Protected>
+            }
+          />
+          <Route
+            path="/audit"
+            element={
+              <Protected>
+                <Audit />
+              </Protected>
+            }
+          />
+          <Route
+            path="/proxies"
+            element={
+              <Protected>
+                <Proxies />
+              </Protected>
+            }
+          />
+          <Route
+            path="/groups"
+            element={
+              <Protected>
+                <Groups />
+              </Protected>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <Protected>
+                <Contacts />
+              </Protected>
+            }
+          />
+          <Route
+            path="/campaigns"
+            element={
+              <Protected>
+                <Campaigns />
+              </Protected>
+            }
+          />
+          <Route
+            path="/health"
+            element={
+              <Protected>
+                <Health />
+              </Protected>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 }

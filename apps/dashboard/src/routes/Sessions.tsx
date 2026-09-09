@@ -42,7 +42,15 @@ function ConnectModal({
   const [code, setCode] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  // UP-05 (auditoria 09/2026): o botão "Gerar novo QR" só volta quando a operação REAL
+  // terminou (um QR diferente chegou) — não por timer fixo. `qrBeforeRegen` guarda o QR
+  // anterior para detectar a troca; teto de 20s evita botão preso se a engine falhou.
+  const qrBeforeRegen = useRef<string | null>(null);
+  const [openedAt] = useState(() => Date.now());
+  const [elapsed, setElapsed] = useState(0);
   const closedRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     closedRef.current = false;
@@ -52,6 +60,8 @@ function ConnectModal({
         if (closedRef.current) return;
         setQr(r.qr);
         setStatus(r.status);
+        setPairingCode(r.pairingCode ?? null);
+        setElapsed(Math.round((Date.now() - openedAt) / 1000));
       } catch {
         /* ignora durante o boot do socket */
       }
@@ -62,7 +72,23 @@ function ConnectModal({
       closedRef.current = true;
       clearInterval(id);
     };
-  }, [session.id]);
+  }, [session.id, openedAt]);
+
+  // UP-05: libera o botão quando o QR mudou de verdade (ou após o teto).
+  useEffect(() => {
+    if (!regenerating) return;
+    if (qr && qr !== qrBeforeRegen.current) setRegenerating(false);
+  }, [qr, regenerating]);
+
+  // UP-07: diálogo acessível — foco entra no modal ao abrir, Escape fecha.
+  useEffect(() => {
+    dialogRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   async function requestCode(e: FormEvent) {
     e.preventDefault();
@@ -79,27 +105,49 @@ function ConnectModal({
   // Credencial nova + socket novo → QR novo. Restart puro não serve aqui: se a sessão foi
   // desconectada pelo celular, ele reconecta com as credenciais mortas e nunca gera QR.
   async function regenerate() {
+    if (regenerating) return;
+    qrBeforeRegen.current = qr;
     setRegenerating(true);
     setErr(null);
     setCode(null);
     try {
       await api.sessions.newQr(session.id);
+      // Libera quando um QR novo chegar (efeito acima) ou após 20s (engine falhou/lenta).
+      setTimeout(() => setRegenerating(false), 20_000);
     } catch (e) {
       setErr((e as Error).message);
-    } finally {
-      setTimeout(() => setRegenerating(false), 1500);
+      setRegenerating(false);
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="connect-dialog-title"
+        tabIndex={-1}
+        className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 outline-none"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold">
+          <h2 id="connect-dialog-title" className="font-semibold">
             Conectar <span className="text-zinc-400">{session.name}</span>
           </h2>
           <StatusBadge status={status} />
         </div>
+        {status === 'STARTING' && elapsed > 60 && (
+          <p className="mb-3 text-xs text-amber-400">
+            Iniciando há {elapsed}s — carregamento lento (proxy/rede) ou build
+            do WhatsApp Web; se passar de 4 min a engine encerra a tentativa
+            sozinha.
+          </p>
+        )}
+        {status === 'PAIRING_CODE' && pairingCode && (
+          <p className="mb-3 text-center font-mono text-2xl tracking-widest text-emerald-300">
+            {pairingCode}
+          </p>
+        )}
 
         {status === 'WORKING' ? (
           <div className="py-10 text-center">

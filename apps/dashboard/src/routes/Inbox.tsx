@@ -20,8 +20,25 @@ export function Inbox() {
   const [messages, setMessages] = useState<MessageDto[]>([]);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // UP-02 (auditoria 09/2026): uma intenção de envio por vez. `sending` trava o formulário
+  // enquanto a requisição está em voo; `intentRef` guarda a idempotencyKey da intenção corrente
+  // para um retry (mesmo texto, mesmo chat) reusar a MESMA chave — o gateway dedupa.
+  const [sending, setSending] = useState(false);
+  const intentRef = useRef<{ key: string; chat: string; text: string } | null>(
+    null,
+  );
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  function intentKey(kind: 'text' | 'media', payload: string): string {
+    const cur = intentRef.current;
+    if (cur && cur.chat === chat && cur.text === `${kind}:${payload}`) {
+      return cur.key; // retry da mesma intenção → mesma chave
+    }
+    const key = `painel-${crypto.randomUUID()}`;
+    intentRef.current = { key, chat, text: `${kind}:${payload}` };
+    return key;
+  }
 
   useEffect(() => {
     const tick = () =>
@@ -40,32 +57,69 @@ export function Inbox() {
     if (working) setSessionId(working.id);
   }, [sessions, sessionId]);
 
+  // Troca de sessão de origem: limpa chat/histórico/rascunho — sem isto o compositor mantinha o
+  // destinatário e o histórico da conta anterior (UP-03: o usuário confirma origem+destino).
+  useEffect(() => {
+    setChat('');
+    setMessages([]);
+    setContact('');
+    intentRef.current = null;
+  }, [sessionId]);
+
   // Lista de conversas (contatos que abriram conversa) da sessão selecionada.
+  // UP-03: `alive` descarta respostas que chegam DEPOIS da troca de sessão (a resposta lenta da
+  // conta anterior não sobrescreve a lista da conta atual).
   useEffect(() => {
     if (!sessionId) {
       setConversations([]);
       return;
     }
-    const tick = () =>
+    let alive = true;
+    let inFlight = false;
+    const tick = () => {
+      if (inFlight) return; // uma leitura pendente por recurso (UP-06)
+      inFlight = true;
       api.sessions
         .conversations(sessionId)
-        .then(setConversations)
-        .catch(() => {});
+        .then((list) => {
+          if (alive) setConversations(list);
+        })
+        .catch(() => {})
+        .finally(() => {
+          inFlight = false;
+        });
+    };
     tick();
     const id = setInterval(tick, 5000);
-    return () => clearInterval(id);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId || !chat) return;
-    const tick = () =>
+    let alive = true;
+    let inFlight = false;
+    const tick = () => {
+      if (inFlight) return;
+      inFlight = true;
       api.sessions
         .messages(sessionId, chat)
-        .then(setMessages)
-        .catch(() => {});
+        .then((list) => {
+          if (alive) setMessages(list);
+        })
+        .catch(() => {})
+        .finally(() => {
+          inFlight = false;
+        });
+    };
     tick();
     const id = setInterval(tick, 2500);
-    return () => clearInterval(id);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, [sessionId, chat]);
 
   useEffect(() => {
@@ -89,30 +143,59 @@ export function Inbox() {
 
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (!text.trim() || !chat || !sessionId) return;
+    const body = text.trim();
+    if (!body || !chat || !sessionId || sending) return;
     setError(null);
+    setSending(true);
+    const target = sendTarget(chat);
+    const key = intentKey('text', `${target}:${body}`);
     try {
-      await api.sessions.sendText(sessionId, sendTarget(chat), text.trim());
+      await api.sessions.sendText(sessionId, target, body, {
+        idempotencyKey: key,
+      });
+      intentRef.current = null; // intenção concluída — próximo envio ganha chave nova
       setText('');
-      setMessages(await api.sessions.messages(sessionId, chat));
+      // Falha ao reler o histórico NÃO é falha do envio (UP-02).
+      api.sessions
+        .messages(sessionId, chat)
+        .then(setMessages)
+        .catch(() => {});
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        `${(e as Error).message} — o texto foi mantido; tentar de novo reaproveita a mesma intenção (sem duplicar).`,
+      );
+    } finally {
+      setSending(false);
     }
   }
 
   async function onPickFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !chat || !sessionId) return;
+    if (!file || !chat || !sessionId || sending) return;
     setError(null);
+    setSending(true);
+    const target = sendTarget(chat);
+    const caption = text.trim() || undefined;
+    const key = intentKey(
+      'media',
+      `${target}:${file.name}:${file.size}:${caption ?? ''}`,
+    );
     try {
-      await api.sessions.sendMedia(sessionId, sendTarget(chat), file, {
-        caption: text.trim() || undefined,
+      await api.sessions.sendMedia(sessionId, target, file, {
+        caption,
+        idempotencyKey: key,
       });
+      intentRef.current = null;
       setText('');
       if (fileRef.current) fileRef.current.value = '';
-      setMessages(await api.sessions.messages(sessionId, chat));
+      api.sessions
+        .messages(sessionId, chat)
+        .then(setMessages)
+        .catch(() => {});
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -285,14 +368,19 @@ export function Inbox() {
                 className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
               />
               <button
-                disabled={!text.trim()}
+                disabled={!text.trim() || sending}
+                aria-busy={sending}
                 className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
               >
-                Enviar
+                {sending ? 'Enviando…' : 'Enviar'}
               </button>
             </form>
           )}
-          {error && <p className="px-4 pb-3 text-sm text-red-400">{error}</p>}
+          {error && (
+            <p role="alert" className="px-4 pb-3 text-sm text-red-400">
+              {error}
+            </p>
+          )}
         </main>
       </div>
     </div>
