@@ -6,7 +6,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Corrigido / Adicionado (09/09 — sessão `logs-sem-erro-batido` — **NÃO deployado**; branch `feature/logs-sem-erro-batido`)
+### Corrigido / Adicionado (09/09 — sessão `logs-sem-erro-batido` — **EM PRODUÇÃO 09/09 ~17:27 UTC**, merge ff `4af6f9b`, validado em produção — ver `docs/sessions/DONE-2026-09-09-1400-logs-sem-erro-batido.md`)
 
 Pedido do dono: "melhore os logs para não passar nenhum erro batido". Sem mudança de contrato, schema, env ou dependências (checkpoint em `docs/sessions/ATIVA-2026-09-09-1400-logs-sem-erro-batido.md`).
 

@@ -1,6 +1,6 @@
 # Sessão: logs-sem-erro-batido
 
-- **Status:** 🟢 ATIVA — código entregue na branch; aguarda decisão do dono (merge + deploy)
+- **Status:** ✅ ENCERRADA 09/09 — mergeada (PR #2, `4af6f9b`) e **validada em produção** (17:27 UTC); ver "Validação em produção" no fim
 - **Início:** 09/09/2026 14:00 (BRT) — na mesma conversa que validou o deploy `2836c65` em produção
 - **Objetivo:** pedido do dono, literal: _"melhore os logs para não passar nenhum erro batido"_.
   Todo erro que o gateway pega tem de aparecer no log do Dokploy como UMA linha JSON com
@@ -117,3 +117,18 @@
   `docs/SESSOES.md` · `docs/ESTADO.md` (produção = `2836c65`) · `CHANGELOG.md` ·
   `docs/sessions/DONE-2026-09-09-1050-aplicacao-auditoria.md` (validação do deploy) · este
   arquivo.
+
+## Validação em produção (09/09, 17:22–17:32 UTC — Dokploy 89.116.73.121, container `a226fb2dffdf`)
+
+- **Deploy:** "faça merge, push, monitore CI" → CI do PR verde → merge ff `4af6f9b` (push 17:22 UTC) → CI da main verde (run 34382517900) → auto-deploy → container novo `a226fb2dffdf` healthy 17:27:05 (troca detectada por queda do uptime 2726→22). Sem migration pendente ("No pending migrations to apply"). `/health` ok, deadline ~93 ms.
+- **P-041 (o alvo):** `request completed` com `statusCode` em **28/28** requisições — 0 nulos (antes do fix: 47/47 nulos). Histograma correto: 200/201/204/400/401. Vale para o tráfego real do n8n, não só para os testes.
+- **P-042 (o pedido "nenhum erro batido"):**
+  - **0** ocorrências de erro batido (`"e":{}`); os 3 erros do boot saem com mensagem **e stack**: `wwebjs: falha ao inicializar | Waiting failed: 30000ms exceeded`, `unhandledRejection: detached Frame` (teardown do Chromium na reidratação, contado em `gateway_process_errors_total`), `wwebjs: syncAddressBook falhou | Operação no WhatsApp Web não respondeu` — este último era exatamente o `e={}` de antes.
+  - **`LoggingExceptionFilter`:** os testes 4xx viraram `http 400 POST /api/webhooks: URL do webhook recusada… code=Bad Request` (×4), `http 400 POST /api/sessions/contato10/messages/media-url: … sess=contato10` e `http 401 GET /metrics: Token inválido code=Unauthorized`.
+  - **`console-bridge`:** **0** linhas de contexto `console` e nenhum dump multi-linha do libsignal (antes: dezenas de linhas de Buffer soltas por sessão).
+- **Testes de comportamento (não-destrutivos):** egress recusa `127.0.0.1`/`169.254.169.254`/`10.0.0.5`/URL com credenciais no cadastro de webhook (400) e no `/messages/media-url` (400); host público sem DNS → 201 (removido em seguida); `GET /qr` devolve `{status, qr}` sem `pairingCode`; `limit` negativo/NaN clampado (200 com lista); `/metrics` sem token → 401; guardrail `{nmin 20, cooldown 48h, enforce true}`; 123 dead-letters pré-existentes inalteradas. CSRF (403 com cookie + Origin fora da allowlist) coberto pelos e2e do CI — o navegador não deixa forjar `Origin`.
+- **Reidratação:** as **6** sessões WORKING de antes foram reidratadas (Diogo, contato2, contato11, contato20, ddd, contato1); as 14 que o dono deslogou ficaram STOPPED (corretamente não reidratadas). Estado final: contato11/contato20/contato1/ddd WORKING (ddd sob tráfego real do n8n).
+- **2 observações de frota (não são regressão desta mudança — risco conhecido do stop-first, R0):**
+  1. **contato2** caiu em SCAN_QR com `lastError "desconectado (LOGOUT) — reconectando"` — credenciais mortas, precisa reparear (QR). O erro é correto: explica o QR (o fix só limpa erro em parada pedida pelo usuário).
+  2. **Diogo** (Baileys) reidratou (17:26:49) e **enviou normalmente** (POST /messages → 201 às 17:28 e 17:30), mas o status persistido ficou **STOPPED com `lastError` vazio**. O erro vazio é o fix funcionando; o status STOPPED com envio ativo é um descompasso de sincronização do status do Baileys — **nova observação, sem impacto funcional**, anotada em P-042.
+- **Não testado de propósito:** envio real de mensagem por mim (evita mexer no WhatsApp do dono — replay/409 coberto pelos e2e); `POST /pairing-code` (efeito real).
