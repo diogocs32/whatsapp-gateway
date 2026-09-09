@@ -1,6 +1,6 @@
 # Sessão: aplicacao-auditoria
 
-- **Status:** 🟢 ATIVA — código entregue na branch; aguarda decisão do dono (merge + deploy)
+- **Status:** ✅ ENCERRADA 09/09 — mergeada (PR #1, `2836c65`) e **validada em produção** (16:41 UTC); ver "Validação em produção" no fim
 - **Início:** 09/09/2026 10:50 (BRT)
 - **Objetivo:** aplicar as recomendações de `docs/auditoria-melhorias-2026-09.md` (61 achados,
   P-027..P-040) — o que é código concreto, de baixo risco e verificável — em ondas, com
@@ -73,3 +73,14 @@ nesta máquina).
   e cooldown) · `apps/gateway/env.example` · `docs/PENDENCIAS.md` (P-025..P-040) ·
   `docs/SESSOES.md` · `docs/ESTADO.md` · `CHANGELOG.md` · `docs/sessions/DONE-2026-09-07-…` ·
   este arquivo.
+
+## Validação em produção (09/09, 16:36–17:00 UTC — Dokploy 89.116.73.121, container `7192ca1ec8cd`)
+
+- **Deploy:** "faça merge e push" → PR #1 → CI verde → merge ff `2836c65` (push 16:36 UTC) → auto-deploy → Nest de pé 16:41:29, healthy 16:41:47. Migration `20260909150000_send_intents_reserva_campanha` aplicada no boot. `/health` ok (database/redis/storage true) em `api.conexozenvo.cloud` e `api.conexozenvo.com`. O Dokploy antigo (187.77.248.160) também recebeu o push; o dono excluiu os apps de lá — só o 89.116.73.121 vale.
+- **Reidratação:** 20 sessões escalonadas em ~3 min (16:41:29 → 16:44:31). As 5 WORKING pré-deploy (contato11, contato20, Diogo, contato1, contato2) voltaram WORKING. **contato20** (presa em STARTING desde 01/09 — P-025) falhou o 1º init às 16:42:23 (`wwebjs: falha ao inicializar` → retentativa com a MESMA build) e ficou WORKING às 16:42:47. Boot com 2 erros transitórios esperados (`stream errored out` do Baileys → reconectou; o init acima) e o WARN de perfil sem marca de fechamento limpo (P-015, diagnóstico).
+- **Pareamento (B-003/P-026):** sessão nova `ddd` (WWEBJS) criada 16:48:17 → WORKING 16:48:47 (~30 s) e enviando mensagens — a build fixa atual pareia.
+- **Logout (P-025):** o dono deslogou 14 sessões presas/em QR às 16:46:43–16:47:08 — 166–501 ms cada ("já vi que para fazer logout está muito mais rápido"). Elas ficaram STOPPED com `lastError` antigo ("reconectando (tentativa 1/5)") → cosmético, corrigido na sessão `logs-sem-erro-batido`.
+- **Egress (P-031):** `POST /api/webhooks` com `127.0.0.1`, `169.254.169.254` e `https://user:pass@…` → **400** com motivo; `POST /messages/media-url` com `http://127.0.0.1:9/…` → **400** ("destino 127.0.0.1 é um endereço privado/reservado"). Webhooks reais (4, docta.cloud) não precisam de `EGRESS_ALLOW_HOSTS`.
+- **Redação (P-032):** 28 requests com cookie no log → todos `[Redacted]`; `?token=` mascarado. **Achado:** `res.statusCode` = `null` em 47/47 `request completed` → P-041 (corrigida na branch seguinte).
+- **Outros:** `/metrics` sem token recusado; `GET /sessions/:id/qr` devolve `{status, qr}` (`pairingCode` só quando solicitado); `limit` negativo/NaN clampado (200 com lista); guardrail config `{nmin 20, cooldown 48h, enforce true}`; retenção rodou no boot (`raw zerado em 2 mensagens antigas`); 123 dead-letters pendentes pré-existentes (inalteradas).
+- **Não testado de propósito:** envio real de mensagem (replay/409 exige envio de verdade — coberto pelos e2e do CI); `POST /pairing-code` (efeito real no WhatsApp).

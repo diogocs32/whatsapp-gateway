@@ -6,7 +6,19 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Segurança / Corrigido / Adicionado (09/09 — sessão `aplicacao-auditoria` — **NÃO deployado**; branch `feature/auditoria-melhorias-20260909`)
+### Corrigido / Adicionado (09/09 — sessão `logs-sem-erro-batido` — **NÃO deployado**; branch `feature/logs-sem-erro-batido`)
+
+Pedido do dono: "melhore os logs para não passar nenhum erro batido". Sem mudança de contrato, schema, env ou dependências (checkpoint em `docs/sessions/ATIVA-2026-09-09-1400-logs-sem-erro-batido.md`).
+
+- **Corrigido (P-041):** `request completed` voltou a trazer `res.statusCode` e `res.headers` — o serializer de redação reaplicava o serializer padrão no objeto que o pino-http já tinha serializado (`statusCode: null` em 100% das linhas desde `2836c65`). Teste com o pino-http REAL (`log-redaction.pino-http.spec.ts`) garante status + redação de cookie/authorization/x-api-key/set-cookie/`?token=`.
+- **Corrigido (P-042):** erros logados como `{ e }` (18 sites nas engines) saem com mensagem e stack — `{ err: e }` na origem + aliases `e`/`error`/`cause`/`exception` no serializer; `falha ao inicializar` (wwebjs) loga o `Error` inteiro.
+- **Adicionado:** `LoggingExceptionFilter` global (estende `BaseExceptionFilter`; resposta idêntica — R0): uma linha por exceção com `reqId`, método, URL mascarada, status, `code`, sessão (`params.id`), usuário/api key (nome), IP — 4xx em `warn`, 5xx em `error` com stack. Instalado também nos e2e.
+- **Adicionado:** `console-bridge` — `console.*` das libs (libsignal despeja o registro da sessão Signal; BullMQ usa `console.error` sem listener de `'error'`) vira UMA linha JSON (`log/info` → debug, `warn`/`error` → mesmo nível, teto de 4000 chars).
+- **Adicionado:** `worker.on('error')`/`queue.on('error')` nas filas de webhooks e campanhas; `failed` com `job.id`, tentativa e evento; fechamento das filas e DLQ (desfazer reentrega) com aviso.
+- **Corrigido:** catches mudos com registro — diretório de contatos, persistência de FAILED, `lastUsedAt` da api key, re-hash de senha, presigned URL de mídia (`mediaUrl indisponível`), locks/marcadores do perfil do Chromium, forwarder do proxy, destroy do client antigo, `resolveNames`; presence de campanha em debug.
+- **Corrigido (painel):** sessão parada/deslogada pelo usuário deixa de exibir o `lastError` da execução anterior ("desconectado (LOGOUT) — reconectando (tentativa 1/5)" em sessão STOPPED) — `STOPPED` com `error: null` nas duas engines.
+
+### Segurança / Corrigido / Adicionado (09/09 — sessão `aplicacao-auditoria` — **EM PRODUÇÃO 09/09 ~16:41 UTC**, PR #1 merge ff `2836c65`, validado em produção — ver `docs/sessions/DONE-2026-09-09-1050-aplicacao-auditoria.md`)
 
 Aplicação das recomendações da [auditoria 09/2026](docs/auditoria-melhorias-2026-09.md) em ondas (checkpoint em `docs/sessions/ATIVA-2026-09-09-1050-aplicacao-auditoria.md`, seção ⚠️ com as mudanças de comportamento):
 

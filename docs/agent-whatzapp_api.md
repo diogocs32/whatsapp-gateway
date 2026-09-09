@@ -228,6 +228,25 @@ Após mexer em deps: confirmar `node_modules/<pkg>` e, se faltar declarada, `npm
 
 ---
 
+### 6.13 — Logs: serializers do pino-http e a chave `err`
+
+- `pinoHttp.serializers.req/res` customizados são **embrulhados** pelo pino-http
+  (`wrapRequestSerializer`/`wrapResponseSerializer` do pino-std-serializers): a função recebe o
+  objeto **já serializado** (`{ id, method, url, headers, ..., raw }`), não o `IncomingMessage`/
+  `ServerResponse`. Reaplicar `stdSerializers.res` nele devolve `statusCode: null` (P-041 —
+  100% do request-log de produção sem status por algumas horas). `bootstrap/log-redaction.ts`
+  detecta pelo `raw`; o spec `log-redaction.pino-http.spec.ts` testa com o pino-http REAL — se
+  mexer nos serializers, rode-o.
+- O pino só serializa `Error` (mensagem + stack) na chave **`err`**. `logger.error({ e }, …)`
+  vira `"e":{}` — o erro some. Convenção: `{ err: e }`. Há aliases (`e`, `error`, `cause`,
+  `exception`) no serializer como rede de segurança, mas não conte com eles em código novo.
+- Com o `Logger` do Nest (nestjs-pino), o ÚLTIMO parâmetro é o contexto:
+  `logger.error(obj, 'msg')` → `{...obj, context}` + msg; `logger.error('msg', err.stack)` →
+  `err` com stack. `logger.error({ err }, 'msg', 'Ctx')` também funciona.
+- `console.*` está roteado para o pino (`bootstrap/console-bridge.ts`): `log/info` → **debug**
+  (invisível com `LOG_LEVEL=info`), `warn`/`error` → mesmo nível. Não use `console.*` no código
+  do gateway; libs (libsignal, BullMQ) caem aí.
+
 ## 6B. GARGALOS DE DEPLOY EM PRODUÇÃO (Dokploy) ⚠️
 
 > Saga de subir em produção (2026-06-21). Passo a passo completo em `docs/deploy-dokploy.md`.

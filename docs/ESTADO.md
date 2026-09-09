@@ -23,15 +23,13 @@
 
 > **31/08/2026:** produção AGORA roda no Dokploy novo (VPS 89.116.73.121, projeto `conexozenvo`, app `gateway`; `api.conexozenvo.cloud` vivo e `api.conexozenvo.com` reapontado via DNS). MinIO criado (bucket `wa-media`) → `checks.storage=true`. Deploy da sessão `envio-sem-onwhatsapp` (main `66b7076`) validado ~20:45 UTC — envio Baileys sem consulta de existência (`resolveJid` local). Detalhe: `sessions/DONE-2026-08-31-1730-envio-sem-onwhatsapp.md`.
 
-> **09/09/2026 (sessão `aplicacao-auditoria`):** deploy REAL mais recente = `740b911`
-> (fix LID wwebjs), container de **01/09 00:14 UTC** (confirmado na aba Deployments do Dokploy em
-> 07/09). A branch `feature/auditoria-melhorias-20260909` tem as ondas A–G da auditoria 09/2026
-> (segurança, ciclo de vida wwebjs/Baileys, idempotência durável, egress, guard-rail, painel, CI,
-> deps) **commitadas e NÃO deployadas** — merge/deploy é decisão do dono; ler o checkpoint da
-> sessão (`docs/sessions/ATIVA-2026-09-09-1050-aplicacao-auditoria.md`, seção ⚠️) antes.
+> **09/09/2026 16:41 UTC (sessão `aplicacao-auditoria`):** as ondas A–H da auditoria 09/2026 estão **EM PRODUÇÃO** — PR #1, CI verde, merge ff `2836c65`, container `7192ca1ec8cd` healthy às 16:41:47. Validado na mesma conversa: migration `20260909150000_send_intents_reserva_campanha` aplicada no boot; reidratação escalonada de 20 sessões em ~3 min com as 5 que estavam WORKING antes (contato11, contato20, Diogo, contato1, contato2) de volta a WORKING; contato20 (a "presa" da P-025) subiu após 1 retentativa de init em 24 s; sessão nova `ddd` pareou por QR em ~30 s; logout de 14 sessões presas/em QR em <0,5 s cada; `POST /webhooks` e `/messages/media-url` com destino privado → 400 (egress); cookie/authorization redigidos no log. Detalhe: `sessions/DONE-2026-09-09-1050-aplicacao-auditoria.md`.
+>
+> **Achado pós-deploy (P-041):** o request-log saiu com `statusCode: null` em 100% das linhas (regressão do serializer da onda A sob o embrulho do pino-http). Correção + "logs sem erro batido" (P-042) na branch `feature/logs-sem-erro-batido` — **NÃO deployada**; ler `sessions/ATIVA-2026-09-09-1400-logs-sem-erro-batido.md` (seção ⚠️) antes do merge.
 
 - **Em produção:** conexozenvo.com (painel) + api.conexozenvo.com (API) no Dokploy (Docker Swarm)
-- **Último deploy confirmado:** 18/08/2026 **~11:50 UTC** — **onda M3 em produção** (merge ff
+- **Último deploy confirmado:** 09/09/2026 **16:41 UTC** — `2836c65` (ondas A–H da auditoria 09/2026), ver nota acima. Anteriores: 31/08 `66b7076` (envio sem onWhatsApp) · 01/09 `740b911` (LID wwebjs).
+- **Deploy da onda M3:** 18/08/2026 **~11:50 UTC** (merge ff
   `4ea1c75` → push 11:47:25 → auto-deploy → container novo **11:50:26** healthy, ciclo ~3min).
   Validação: `/health` ok com uptime resetado e estável (19s→118s, database/redis/storage true,
   memória ~13%) · dashboard HTTP 200 · **CI novo passou na 1ª execução real** (run 32133482842,
