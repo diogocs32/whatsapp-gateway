@@ -1,6 +1,9 @@
+import { stdSerializers } from 'pino';
 import { describe, expect, it } from 'vitest';
 import {
+  errorAliasSerializers,
   httpLogSerializers,
+  logSerializers,
   maskUrlSecrets,
   REDACTED,
   redactHeaders,
@@ -101,5 +104,79 @@ describe('httpLogSerializers', () => {
     const { req, res } = httpLogSerializers();
     expect(() => req(null)).not.toThrow();
     expect(() => res(null)).not.toThrow();
+  });
+});
+
+// P-041 — o pino-http embrulha serializers customizados (`wrapResponseSerializer`): o valor que
+// chega é o objeto JÁ serializado pelo padrão. Reaplicar o padrão zerava o statusCode.
+describe('httpLogSerializers sob o embrulho do pino-http', () => {
+  it('response já serializada mantém statusCode e headers (redigidos)', () => {
+    const { res } = httpLogSerializers();
+    const wrapped = stdSerializers.wrapResponseSerializer(
+      res as Parameters<typeof stdSerializers.wrapResponseSerializer>[0],
+    );
+    const raw = {
+      statusCode: 409,
+      headersSent: true,
+      getHeaders: () => ({
+        'set-cookie': ['token=jwt; HttpOnly'],
+        'content-type': 'application/json',
+      }),
+    };
+    const out = wrapped(raw as never) as unknown as {
+      statusCode: number;
+      headers: Record<string, unknown>;
+    };
+    expect(out.statusCode).toBe(409);
+    expect(out.headers['set-cookie']).toBe(REDACTED);
+    expect(out.headers['content-type']).toBe('application/json');
+  });
+
+  it('request já serializada mantém método/id e redige cookie e ?token=', () => {
+    const { req } = httpLogSerializers();
+    const wrapped = stdSerializers.wrapRequestSerializer(
+      req as Parameters<typeof stdSerializers.wrapRequestSerializer>[0],
+    );
+    const raw = {
+      id: 'req-9',
+      method: 'POST',
+      url: '/api/events/stream?token=abc',
+      headers: { cookie: 'token=jwt', host: 'api' },
+      query: { token: 'abc' },
+      socket: { remoteAddress: '10.0.0.1', remotePort: 4 },
+    };
+    const out = wrapped(raw as never) as unknown as {
+      id: string;
+      method: string;
+      url: string;
+      headers: Record<string, string>;
+      remoteAddress?: string;
+    };
+    expect(out.id).toBe('req-9');
+    expect(out.method).toBe('POST');
+    expect(out.url).toBe(`/api/events/stream?token=${REDACTED}`);
+    expect(out.headers.cookie).toBe(REDACTED);
+    expect(out.remoteAddress).toBe('10.0.0.1');
+  });
+});
+
+describe('errorAliasSerializers', () => {
+  it('Error sob e/error/cause sai com mensagem e stack; não-Error passa intacto', () => {
+    const s = errorAliasSerializers();
+    const boom = new Error('boom');
+    for (const key of ['err', 'e', 'error', 'cause', 'exception'] as const) {
+      const out = s[key](boom) as { message: string; stack?: string };
+      expect(out.message, key).toBe('boom');
+      expect(out.stack, key).toContain('boom');
+    }
+    expect(s.error('texto simples')).toBe('texto simples');
+    expect(s.e(undefined)).toBeUndefined();
+  });
+
+  it('logSerializers junta http + aliases', () => {
+    const keys = Object.keys(logSerializers());
+    expect(keys).toEqual(
+      expect.arrayContaining(['req', 'res', 'err', 'e', 'error']),
+    );
   });
 });

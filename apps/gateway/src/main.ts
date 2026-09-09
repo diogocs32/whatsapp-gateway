@@ -7,7 +7,9 @@ import { NestFactory } from '@nestjs/core';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { bridgeConsoleToLogger } from './bootstrap/console-bridge';
 import { buildFastifyAdapter } from './bootstrap/fastify-adapter';
+import { LoggingExceptionFilter } from './bootstrap/logging-exception.filter';
 import type { Env } from './bootstrap/config';
 import { recordProcessError } from './shared-kernel/process-errors';
 
@@ -47,6 +49,12 @@ async function bootstrap(): Promise<void> {
 
   // Toda a app (inclusive Logger estático do Nest) passa a logar via pino estruturado.
   app.useLogger(app.get(PinoLogger));
+  // Toda exceção HTTP vira UMA linha com contexto (método, rota, status, código, sessão, ator):
+  // 4xx em warn, 5xx em error com stack — a resposta segue idêntica à do Nest (P-042).
+  app.useGlobalFilters(new LoggingExceptionFilter(app.getHttpAdapter()));
+  // console.* das libs (libsignal despeja o registro da sessão Signal; BullMQ no fallback de
+  // 'error') entra no pino como UMA linha estruturada em vez de texto solto multi-linha (P-042).
+  bridgeConsoleToLogger(app.get(PinoLogger));
 
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 

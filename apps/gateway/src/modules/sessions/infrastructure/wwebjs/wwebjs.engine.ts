@@ -455,7 +455,10 @@ export class WWebJSEngine implements IEngine {
       this.lastQrAt = null;
       await this.doStart();
     }).catch((e) =>
-      this.deps.logger.error({ e }, 'wwebjs: recuperação de QR parado falhou'),
+      this.deps.logger.error(
+        { err: e },
+        'wwebjs: recuperação de QR parado falhou',
+      ),
     );
   }
 
@@ -555,7 +558,12 @@ export class WWebJSEngine implements IEngine {
     const dir = authDirOf(this.deps.sessionId);
     await Promise.all(
       ['SingletonLock', 'SingletonSocket', 'SingletonCookie'].map((f) =>
-        rm(join(dir, f), { force: true }).catch(() => {}),
+        rm(join(dir, f), { force: true }).catch((err) =>
+          this.deps.logger.warn(
+            { err, file: f },
+            'wwebjs: não removi o lock remanescente do Chromium — o start pode falhar com ProcessSingleton',
+          ),
+        ),
       ),
     );
   }
@@ -784,7 +792,7 @@ export class WWebJSEngine implements IEngine {
           this.setStatus('SCAN_QR_CODE');
         })
         .catch((e) =>
-          this.deps.logger.error({ e }, 'wwebjs: falha ao gerar QR'),
+          this.deps.logger.error({ err: e }, 'wwebjs: falha ao gerar QR'),
         );
     });
     client.on('ready', () => {
@@ -998,7 +1006,7 @@ export class WWebJSEngine implements IEngine {
     const isBrowserLock = /already running for|ProcessSingleton/i.test(msg);
     this.deps.logger.error(
       {
-        err: msg,
+        err: e,
         proxyAuth: isProxyAuth,
         proxyTunnel: isProxyTunnel,
         browserLock: isBrowserLock,
@@ -1104,10 +1112,20 @@ export class WWebJSEngine implements IEngine {
       await this.destroyWithTimeout();
     } else {
       await raceStoreOp(
-        Promise.resolve(dead?.destroy()).catch(() => undefined),
+        Promise.resolve(dead?.destroy()).catch((err) =>
+          this.deps.logger.debug(
+            { err },
+            'wwebjs: destroy do client antigo rejeitou (já estava morto)',
+          ),
+        ),
         this.destroyTimeoutMs,
         'destroy do client antigo',
-      ).catch(() => undefined);
+      ).catch((err) =>
+        this.deps.logger.warn(
+          { err },
+          'wwebjs: destroy do client antigo estourou o teto — Chromium pode ficar órfão até o próximo start',
+        ),
+      );
     }
     // Só zera se ninguém trocou o client no meio-tempo (não nula uma instância nova de reconexão).
     if (this.client === dead) {
@@ -1145,7 +1163,7 @@ export class WWebJSEngine implements IEngine {
       void this.serialize(() =>
         this.stopped ? Promise.resolve() : this.doStart(),
       ).catch((e) =>
-        this.deps.logger.error({ e }, 'wwebjs: erro ao reconectar'),
+        this.deps.logger.error({ err: e }, 'wwebjs: erro ao reconectar'),
       );
     }, delay);
   }
@@ -1157,7 +1175,12 @@ export class WWebJSEngine implements IEngine {
     const url = this.anonProxyUrl;
     if (!url) return;
     this.anonProxyUrl = null;
-    await closeAnonymizedProxy(url, true).catch(() => undefined);
+    await closeAnonymizedProxy(url, true).catch((err) =>
+      this.deps.logger.warn(
+        { err },
+        'wwebjs: falha ao fechar o forwarder do proxy — a porta local pode ficar presa',
+      ),
+    );
   }
 
   // Fecha o Chromium com TETO de tempo: um destroy() que pendura (Chromium travado) não pode
@@ -1195,7 +1218,12 @@ export class WWebJSEngine implements IEngine {
     await writeFile(
       join(authDirOf(this.deps.sessionId), CLEAN_SHUTDOWN_MARKER),
       new Date().toISOString(),
-    ).catch(() => {});
+    ).catch((err) =>
+      this.deps.logger.debug(
+        { err },
+        'wwebjs: marcador de fechamento limpo não gravado (perfil inexistente?)',
+      ),
+    );
   }
 
   // P-015 — consumido no início do doStart: perfil presente SEM o marcador = o último encerramento
@@ -1217,7 +1245,12 @@ export class WWebJSEngine implements IEngine {
     );
     if (wasClean) {
       // Remove ANTES do launch: se ESTA execução morrer suja, o próximo start não acha o marcador.
-      await rm(marker, { force: true }).catch(() => {});
+      await rm(marker, { force: true }).catch((err) =>
+        this.deps.logger.warn(
+          { err },
+          'wwebjs: não removi o marcador de fechamento limpo — um crash agora passaria por fechamento limpo',
+        ),
+      );
       this.deps.logger.info(
         'wwebjs: perfil fechado limpo na última execução (marcador presente)',
       );
@@ -1244,7 +1277,9 @@ export class WWebJSEngine implements IEngine {
     if (hadClient && clean) await this.markCleanShutdown(); // P-015: diagnóstico no próximo start
     this.qrBase64 = null; // não servir um QR morto de sessão parada via getQrBase64()
     this.lastPairingCode = null;
-    this.setStatus('STOPPED');
+    // error: null — parada pedida pelo usuário encerra a história da execução anterior; sem isto o
+    // painel exibia "desconectado (LOGOUT) — reconectando (tentativa 1/5)" numa sessão STOPPED.
+    this.setStatus('STOPPED', { error: null });
   }
 
   // P-015 — encerramento do PROCESSO (SIGTERM do redeploy). NÃO passa pelo mutex de ciclo de vida:
@@ -1299,7 +1334,7 @@ export class WWebJSEngine implements IEngine {
         // Creds mortas (ok) ou teto estourado (página travada) — nos dois casos o destroy+purga
         // abaixo garantem a limpeza; fica só o registro do motivo.
         this.deps.logger.warn(
-          { err: (e as Error)?.message },
+          { err: e },
           'wwebjs: logout() não completou — seguindo para destroy+purga',
         );
       }
@@ -1312,7 +1347,7 @@ export class WWebJSEngine implements IEngine {
     // Garante a limpeza do perfil em disco MESMO se o logout() acima lançou (antes o catch vazio
     // deixava a credencial no volume). Idempotente com o rm que o próprio logout() já faz.
     await WWebJSEngine.purgeAuthDir(this.deps.sessionId);
-    this.setStatus('STOPPED');
+    this.setStatus('STOPPED', { error: null });
   }
 
   async requestPairingCode(phoneNumber: string): Promise<string> {
@@ -1603,7 +1638,7 @@ export class WWebJSEngine implements IEngine {
         text: msg.body || null,
       });
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: onMessageCreate falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: onMessageCreate falhou');
     }
   }
 
@@ -1731,7 +1766,7 @@ export class WWebJSEngine implements IEngine {
         timestamp: Math.floor(Date.now() / 1000),
       });
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: onMessageAck falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: onMessageAck falhou');
     }
   }
 
@@ -1756,7 +1791,7 @@ export class WWebJSEngine implements IEngine {
             : Math.floor(Date.now() / 1000),
       });
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: onReaction falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: onReaction falhou');
     }
   }
 
@@ -1843,7 +1878,7 @@ export class WWebJSEngine implements IEngine {
       const lidNum = lid.replace(/[^0-9]/g, '');
       return num && num !== lidNum ? num : null;
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: resolveLidToPhone falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: resolveLidToPhone falhou');
       return null;
     }
   }
@@ -1897,7 +1932,7 @@ export class WWebJSEngine implements IEngine {
         string | null;
       return typeof lid === 'string' && lid.endsWith('@lid') ? lid : null;
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: resolvePhoneToLid falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: resolvePhoneToLid falhou');
       return null;
     }
   }
@@ -1941,7 +1976,7 @@ export class WWebJSEngine implements IEngine {
         );
       }
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: mergeLidMessages falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: mergeLidMessages falhou');
     }
   }
 
@@ -1968,7 +2003,7 @@ export class WWebJSEngine implements IEngine {
         );
       }
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: mergeExistingLids falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: mergeExistingLids falhou');
     }
   }
 
@@ -2010,7 +2045,7 @@ export class WWebJSEngine implements IEngine {
         );
       }
     } catch (e) {
-      this.deps.logger.error({ e }, 'wwebjs: syncAddressBook falhou');
+      this.deps.logger.error({ err: e }, 'wwebjs: syncAddressBook falhou');
     }
   }
 
@@ -2345,8 +2380,13 @@ export class WWebJSEngine implements IEngine {
       [r.id, r.lid, r.phone].filter((k): k is string => !!k),
     );
     const names =
-      (await this.deps.contacts?.resolveNames(nameKeys).catch(() => null)) ??
-      new Map<string, never>();
+      (await this.deps.contacts?.resolveNames(nameKeys).catch((err) => {
+        this.deps.logger.warn(
+          { err },
+          'wwebjs: resolveNames falhou — participantes saem sem nome',
+        );
+        return null;
+      })) ?? new Map<string, never>();
     return rows.map((r) => {
       const known =
         names.get(r.id) ??

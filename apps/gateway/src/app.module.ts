@@ -2,10 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { validateEnv } from './bootstrap/config';
-import {
-  httpLogSerializers,
-  LOG_REDACT_PATHS,
-} from './bootstrap/log-redaction';
+import { logSerializers, LOG_REDACT_PATHS } from './bootstrap/log-redaction';
 import { SharedKernelModule } from './shared-kernel/shared-kernel.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
@@ -45,7 +42,7 @@ import { GuardrailModule } from './modules/guardrail/guardrail.module';
         // SSE/metrics, Authorization/X-Api-Key. Serializers redigem cópias (URL inclusa); a
         // lista `redact` é a 2ª camada para caminhos fixos.
         redact: LOG_REDACT_PATHS,
-        serializers: httpLogSerializers(),
+        serializers: logSerializers(),
         transport:
           process.env.NODE_ENV === 'development'
             ? { target: 'pino-pretty', options: { singleLine: true } }

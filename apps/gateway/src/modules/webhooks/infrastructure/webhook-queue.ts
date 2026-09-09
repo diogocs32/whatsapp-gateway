@@ -31,6 +31,12 @@ export interface WebhookJob {
   body: unknown;
 }
 
+// Nome do evento do envelope (só para o log) — o body é opaco para a fila.
+function eventOf(data: WebhookJob | undefined): string {
+  const ev = (data?.body as { event?: unknown } | undefined)?.event;
+  return typeof ev === 'string' ? ev : '?';
+}
+
 const QUEUE_NAME = 'webhooks';
 
 // Headers que o integrador NÃO pode sobrescrever nos headers customizados do webhook (auditoria
@@ -78,6 +84,9 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
     // handshake em voo → unhandled "Connection is closed." dentro do BullMQ (flake intermitente
     // no sumário do vitest). Em produção é um await de milissegundos no boot.
     await this.queue.waitUntilReady();
+    this.queue.on('error', (err) =>
+      this.logger.error(`fila de webhooks: ${err.message}`, err.stack),
+    );
     // Em testes (NODE_ENV=test) NÃO subimos o Worker: ele abre uma conexão bloqueante no Redis que
     // rejeita "Connection is closed" no teardown rápido do app (sobe/derruba a cada spec). O enqueue
     // (Queue) continua funcionando; só não processamos a entrega assíncrona.
@@ -92,10 +101,18 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
         concurrency: this.config.get('WEBHOOK_CONCURRENCY', { infer: true }),
       },
     );
+    // Sem listener de 'error' o BullMQ despeja no console.error (fora do formato) — e um erro de
+    // conexão/lock do worker passaria batido.
+    this.worker.on('error', (err) =>
+      this.logger.error(
+        `worker da fila de webhooks: ${err.message}`,
+        err.stack,
+      ),
+    );
     this.worker.on('failed', (job, err) => {
       const data = job?.data as WebhookJob | undefined;
       this.logger.warn(
-        `webhook ${data?.webhookId} falhou (tentativa ${job?.attemptsMade}): ${err.message}`,
+        `webhook ${data?.webhookId} falhou (job ${job?.id}, tentativa ${job?.attemptsMade}, evento ${eventOf(data)}): ${err.message}`,
       );
       // C4: esgotou TODAS as tentativas → dead-letter (não some; reentregável depois).
       // Falha NÃO recuperável (destino bloqueado pela política de egress — ABE-06) não
@@ -244,7 +261,11 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
       } catch (e) {
         await this.prisma.webhookDeadLetter
           .update({ where: { id: it.id }, data: { redeliveredAt: null } })
-          .catch(() => undefined);
+          .catch((e) =>
+            this.logger.warn(
+              `dead-letter ${it.id}: não desfiz a marca de reentrega (fica como reentregue sem job): ${(e as Error).message}`,
+            ),
+          );
         throw e;
       }
       redelivered++;
@@ -253,7 +274,19 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.worker?.close().catch(() => undefined);
-    await this.queue?.close().catch(() => undefined);
+    await this.worker
+      ?.close()
+      .catch((e) =>
+        this.logger.warn(
+          `fechamento do worker de webhooks: ${(e as Error).message}`,
+        ),
+      );
+    await this.queue
+      ?.close()
+      .catch((e) =>
+        this.logger.warn(
+          `fechamento da fila de webhooks: ${(e as Error).message}`,
+        ),
+      );
   }
 }

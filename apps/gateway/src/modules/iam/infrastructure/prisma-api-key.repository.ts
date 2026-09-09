@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import type {
   ApiKeyRecord,
@@ -18,6 +18,7 @@ interface ApiKeyRow {
 
 @Injectable()
 export class PrismaApiKeyRepository implements ApiKeyRepository {
+  private readonly logger = new Logger(PrismaApiKeyRepository.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async create(input: CreateApiKeyInput): Promise<void> {
@@ -54,7 +55,11 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
   async touch(id: string): Promise<void> {
     await this.prisma.waApiKey
       .update({ where: { id }, data: { lastUsedAt: new Date() } })
-      .catch(() => undefined);
+      .catch((e) =>
+        this.logger.warn(
+          `lastUsedAt da api key ${id} não atualizado: ${(e as Error).message}`,
+        ),
+      );
   }
 
   private toDomain(row: ApiKeyRow): ApiKeyRecord {

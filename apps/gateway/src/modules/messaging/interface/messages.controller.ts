@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Inject,
+  Logger,
   NotFoundException,
   NotImplementedException,
   Param,
@@ -186,6 +187,8 @@ function toDto(m: StoredMessage, mediaUrl: string | null) {
 @UseGuards(ApiKeyAuthGuard, RolesGuard)
 @Controller('sessions/:id/messages')
 export class MessagesController {
+  private readonly logger = new Logger(MessagesController.name);
+
   constructor(
     @Inject(MESSAGE_REPOSITORY) private readonly repo: MessageRepository,
     private readonly manager: SessionManager,
@@ -233,9 +236,12 @@ export class MessagesController {
         toDto(
           m,
           m.mediaKey
-            ? await this.mediaStorage
-                .presignedGetUrl(m.mediaKey)
-                .catch(() => null)
+            ? await this.mediaStorage.presignedGetUrl(m.mediaKey).catch((e) => {
+                this.logger.warn(
+                  `mediaUrl indisponível para ${m.mediaKey}: ${(e as Error).message}`,
+                );
+                return null;
+              })
             : null,
         ),
       ),
@@ -264,9 +270,12 @@ export class MessagesController {
         toDto(
           m,
           m.mediaKey
-            ? await this.mediaStorage
-                .presignedGetUrl(m.mediaKey)
-                .catch(() => null)
+            ? await this.mediaStorage.presignedGetUrl(m.mediaKey).catch((e) => {
+                this.logger.warn(
+                  `mediaUrl indisponível para ${m.mediaKey}: ${(e as Error).message}`,
+                );
+                return null;
+              })
             : null,
         ),
       ),

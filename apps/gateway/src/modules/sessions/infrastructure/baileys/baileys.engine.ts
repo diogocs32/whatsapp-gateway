@@ -670,7 +670,7 @@ export class BaileysEngine implements IEngine {
         this.qrBase64 = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
         this.setStatus('SCAN_QR_CODE');
       } catch (e) {
-        this.deps.logger.error({ e }, 'falha ao gerar QR');
+        this.deps.logger.error({ err: e }, 'falha ao gerar QR');
       }
     }
 
@@ -714,7 +714,7 @@ export class BaileysEngine implements IEngine {
         return;
       }
       if (this.stopped) {
-        this.setStatus('STOPPED');
+        this.setStatus('STOPPED', { error: null });
         return;
       }
 
@@ -768,7 +768,9 @@ export class BaileysEngine implements IEngine {
           this.stopped || gen !== this.connectGeneration
             ? Promise.resolve()
             : this.connect(),
-        ).catch((e) => this.deps.logger.error({ e }, 'erro ao reconectar'));
+        ).catch((e) =>
+          this.deps.logger.error({ err: e }, 'erro ao reconectar'),
+        );
       }, delay);
       this.reconnectTimer.unref?.();
     }
@@ -1214,7 +1216,7 @@ export class BaileysEngine implements IEngine {
       }
     } catch (e) {
       this.deps.logger.warn(
-        { e, keyId: id },
+        { err: e, keyId: id },
         'getMessage: falha ao buscar mensagem no banco para retry',
       );
     }
@@ -1229,14 +1231,14 @@ export class BaileysEngine implements IEngine {
       if (r && typeof (r as Promise<void>).catch === 'function') {
         void (r as Promise<void>).catch((e) =>
           this.deps.logger.error(
-            { e, sessionId: this.deps.sessionId },
+            { err: e, sessionId: this.deps.sessionId },
             `handler ${ctx} falhou`,
           ),
         );
       }
     } catch (e) {
       this.deps.logger.error(
-        { e, sessionId: this.deps.sessionId },
+        { err: e, sessionId: this.deps.sessionId },
         `handler ${ctx} falhou`,
       );
     }
@@ -1311,7 +1313,7 @@ export class BaileysEngine implements IEngine {
         );
       }
     } catch (e) {
-      this.deps.logger.error({ e }, 'mergeLidMessages falhou');
+      this.deps.logger.error({ err: e }, 'mergeLidMessages falhou');
     }
   }
 
@@ -1331,7 +1333,7 @@ export class BaileysEngine implements IEngine {
         if (pn) await this.mergeLidMessages(r.chatJid, pn);
       }
     } catch (e) {
-      this.deps.logger.error({ e }, 'mergeKnownLids falhou');
+      this.deps.logger.error({ err: e }, 'mergeKnownLids falhou');
     }
   }
 
@@ -1581,7 +1583,7 @@ export class BaileysEngine implements IEngine {
     }
     this.sock = null;
     this.qrBase64 = null;
-    this.setStatus('STOPPED');
+    this.setStatus('STOPPED', { error: null });
   }
 
   private detachSocketListeners(): void {

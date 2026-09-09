@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../bootstrap/config';
 import {
@@ -45,6 +45,7 @@ interface RequestCtx {
 // refresh), refresh (rotaciona) e logout (revoga a família). Substitui o antigo LoginUseCase.
 @Injectable()
 export class AuthSessionService {
+  private readonly logger = new Logger(AuthSessionService.name);
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(REFRESH_TOKEN_REPOSITORY)
@@ -71,7 +72,12 @@ export class AuthSessionService {
     if (passwordNeedsRehash(user.passwordHash)) {
       await this.users
         .updatePassword(user.id, await hashPassword(password))
-        .catch(() => undefined); // best-effort: o login não depende disto
+        .catch((e) =>
+          // best-effort: o login não depende disto — mas fica registrado
+          this.logger.warn(
+            `re-hash da senha do usuário ${user.id} falhou: ${(e as Error).message}`,
+          ),
+        );
     }
     return this.issue(user, newId(), ctx);
   }

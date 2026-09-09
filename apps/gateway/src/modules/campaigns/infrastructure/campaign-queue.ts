@@ -93,8 +93,19 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
     );
     this.worker.on('failed', (job, err) =>
       this.logger.warn(
-        `job de campanha ${(job?.data as CampaignJob | undefined)?.campaignId} falhou: ${err.message}`,
+        `job de campanha ${(job?.data as CampaignJob | undefined)?.campaignId} (job ${job?.id}, tentativa ${job?.attemptsMade}) falhou: ${err.message}`,
       ),
+    );
+    // Sem listener de 'error' o BullMQ despeja no console.error (fora do formato) — e um erro de
+    // conexão/lock do worker passaria batido.
+    this.worker.on('error', (err) =>
+      this.logger.error(
+        `worker da fila de campanhas: ${err.message}`,
+        err.stack,
+      ),
+    );
+    this.queue.on('error', (err) =>
+      this.logger.error(`fila de campanhas: ${err.message}`, err.stack),
     );
   }
 
@@ -166,7 +177,11 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       if (c.typingPreview) {
         await this.manager
           .sendPresence(c.sessionId, r.to, 'composing')
-          .catch(() => undefined);
+          .catch((e) =>
+            this.logger.debug(
+              `presence composing (${c.id} → ${r.to}): ${(e as Error).message}`,
+            ),
+          );
         await sleep(randInt(800, 2500));
       }
 
@@ -211,7 +226,11 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       if (c.typingPreview) {
         await this.manager
           .sendPresence(c.sessionId, r.to, 'paused')
-          .catch(() => undefined);
+          .catch((e) =>
+            this.logger.debug(
+              `presence paused (${c.id} → ${r.to}): ${(e as Error).message}`,
+            ),
+          );
       }
       await this.repo.markRecipientSent(r.id, keyId);
     } catch (e) {
@@ -221,7 +240,19 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.worker?.close().catch(() => undefined);
-    await this.queue?.close().catch(() => undefined);
+    await this.worker
+      ?.close()
+      .catch((e) =>
+        this.logger.warn(
+          `fechamento do worker de campanhas: ${(e as Error).message}`,
+        ),
+      );
+    await this.queue
+      ?.close()
+      .catch((e) =>
+        this.logger.warn(
+          `fechamento da fila de campanhas: ${(e as Error).message}`,
+        ),
+      );
   }
 }

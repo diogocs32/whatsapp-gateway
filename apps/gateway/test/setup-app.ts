@@ -3,6 +3,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { buildFastifyAdapter } from '../src/bootstrap/fastify-adapter';
+import { LoggingExceptionFilter } from '../src/bootstrap/logging-exception.filter';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { SessionManager } from '../src/modules/sessions/application/session-manager.service';
 
@@ -91,6 +92,8 @@ export async function createTestApp(): Promise<NestFastifyApplication> {
   app.setGlobalPrefix('api', {
     exclude: [{ path: 'health', method: RequestMethod.GET }],
   });
+  // Paridade com main.ts: o filtro de log roda nos e2e (uma regressão nele quebraria respostas).
+  app.useGlobalFilters(new LoggingExceptionFilter(app.getHttpAdapter()));
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   return app;

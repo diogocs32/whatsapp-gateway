@@ -164,11 +164,21 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
         this.mediaStorage.put(key, body, contentType),
       contacts: {
         record: (c) =>
-          void this.contactDirectory.record(sessionId, c).catch(() => {}),
+          void this.contactDirectory
+            .record(sessionId, c)
+            .catch((e) =>
+              this.logger.warn(
+                `diretório de contatos (${sessionId}): ${(e as Error).message}`,
+              ),
+            ),
         recordMany: (list) =>
           void this.contactDirectory
             .recordMany(sessionId, list)
-            .catch(() => {}),
+            .catch((e) =>
+              this.logger.warn(
+                `diretório de contatos em lote (${sessionId}, ${list.length}): ${(e as Error).message}`,
+              ),
+            ),
         loadLidMap: () => this.contactDirectory.lidMap(sessionId),
         resolveNames: (keys) => this.contactDirectory.namesFor(sessionId, keys),
       },
@@ -313,7 +323,11 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
         this.logger.error(`start em background falhou (${sessionId}): ${msg}`);
         this.repo
           .updateStatus(sessionId, 'FAILED', { lastError: msg })
-          .catch(() => undefined);
+          .catch((e2) =>
+            this.logger.error(
+              `não persisti o status FAILED (${sessionId}): ${(e2 as Error).message}`,
+            ),
+          );
       },
     );
     try {
