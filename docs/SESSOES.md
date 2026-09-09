@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID               | Início      | Objetivo                                                                                                                                                                                                                           | Escopo                                                                           | Branch                                        |
+| ---------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------- |
+| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando)                                                                                                                      | `modules/sessions/infrastructure/wwebjs/` + docs                                 | fix/lid-envio-wwebjs                          |
+| baileys-shutdown | 09/09 17:45 | P-043: `BaileysEngine.shutdown()` sem persistir status (achado na validação do deploy da sessão de logs — Diogo enviando com status STOPPED). Baileys caía no `stop()` no `onModuleDestroy` e gravava STOPPED no deploy stop-first | `modules/sessions/infrastructure/baileys/` + `application/engine.port.ts` + docs | feature/baileys-shutdown-sem-persistir-status |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 

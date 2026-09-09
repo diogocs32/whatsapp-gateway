@@ -1599,6 +1599,32 @@ export class BaileysEngine implements IEngine {
     }
   }
 
+  // P-042 — encerramento do PROCESSO (SIGTERM do redeploy), espelhando o shutdown() do wwebjs:
+  // fecha o socket SEM persistir status. O stop() grava STOPPED (doStop → setStatus), e o
+  // findAutostart NÃO reidrata STOPPED. No deploy stop-first os dois containers coexistem por alguns
+  // segundos; sem este método, o `onModuleDestroy` do container que MORRE cai no stop() (o Baileys
+  // não tinha shutdown()) e grava STOPPED por cima do WORKING que o container NOVO já persistiu —
+  // visto em produção 09/09: Diogo reidratou e seguiu enviando (201), mas o painel mostrava STOPPED
+  // porque o "Shutdown: todas as engines fecharam" do container antigo, às 17:26:55, chamou stop()
+  // para a única sessão Baileys. Pior caso: se o STOPPED chegar ANTES de o novo ler o findAutostart,
+  // a sessão nem reidrata. Fechar o socket sem tocar o status deixa a sessão como estava (WORKING/…)
+  // no banco → reidrata sozinha. Fora do mutex (grace do SIGTERM não pode ficar preso atrás de uma
+  // operação pendurada). Detacha listeners ANTES do end() para o 'close' tardio não reentrar em
+  // onConnectionUpdate e emitir STOPPED (o que anularia todo o propósito).
+  async shutdown(): Promise<void> {
+    this.stopped = true;
+    this.clearReconnectTimer();
+    this.detachSocketListeners();
+    try {
+      this.sock?.end(undefined);
+    } catch {
+      /* noop — o processo está encerrando */
+    }
+    this.sock = null;
+    this.qrBase64 = null;
+    // Sem setStatus: o status persistido fica intacto para o findAutostart reidratar no novo container.
+  }
+
   logout(): Promise<void> {
     this.stopped = true;
     return this.serialize(() => this.doLogout());

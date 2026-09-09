@@ -6,6 +6,10 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido (09/09 — sessão `baileys-shutdown` — **NÃO deployado**; branch `feature/baileys-shutdown-sem-persistir-status`)
+
+- **Baileys reidrata no deploy (P-043):** `BaileysEngine.shutdown()` passa a fechar o socket SEM persistir status, espelhando o wwebjs. Antes, o `onModuleDestroy` do container que morre no deploy stop-first caía no `stop()` (o Baileys não tinha `shutdown()`) e gravava `STOPPED`; como os dois containers coexistem por ~15 s, esse `STOPPED` sobrescrevia o `WORKING` do container novo (visto em prod: Diogo enviando com status STOPPED) — e, no pior caso, impediria a reidratação (o `findAutostart` ignora STOPPED). Comentário da porta `IEngine.shutdown` corrigido (o motivo é NÃO persistir status, não "risco de perfil sujo"). 3 testes unitários novos.
+
 ### Corrigido / Adicionado (09/09 — sessão `logs-sem-erro-batido` — **EM PRODUÇÃO 09/09 ~17:27 UTC**, merge ff `4af6f9b`, validado em produção — ver `docs/sessions/DONE-2026-09-09-1400-logs-sem-erro-batido.md`)
 
 Pedido do dono: "melhore os logs para não passar nenhum erro batido". Sem mudança de contrato, schema, env ou dependências (checkpoint em `docs/sessions/ATIVA-2026-09-09-1400-logs-sem-erro-batido.md`).
