@@ -1,6 +1,6 @@
 # Sessão: baileys-shutdown
 
-- **Status:** 🟢 ATIVA — código entregue na branch; aguarda decisão do dono (merge + deploy)
+- **Status:** ✅ ENCERRADA 09/09 — mergeada (PR #3, `301d42d`) e **em produção** (18:15 UTC); ver "Validação em produção" no fim
 - **Início:** 09/09/2026 17:45 (BRT) — na mesma conversa que validou o deploy `4af6f9b`
 - **Objetivo:** P-043 — dar ao Baileys um `shutdown()` que fecha o socket SEM persistir status,
   para o número (Diogo) reidratar sozinho no deploy stop-first. Achado ao investigar, a pedido do
@@ -64,3 +64,11 @@
 ## DOCS TOCADAS
 
 - `docs/PENDENCIAS.md` (P-043; P-042 remete pra cá) · `CHANGELOG.md` · `docs/SESSOES.md` · este arquivo.
+
+## Validação em produção (09/09, 18:11–18:18 UTC — Dokploy 89.116.73.121)
+
+- **Deploy:** "faça o merge e acompanhe o deploy" → merge ff `301d42d` (push 18:11) → CI da main verde (run 34387489755) → auto-deploy → container novo `047606fd42a3` healthy 18:15:29 (troca detectada por uptime 2910→12).
+- **Diogo (o alvo):** reidratou 18:15:21 e ficou **WORKING** com status limpo (updatedAt 18:15:30, `lastError` vazio). Sem intervenção manual — ao contrário do deploy anterior, em que ficou STOPPED preso.
+- **Ressalva honesta:** este deploy aposentou o container `a226fb2dffdf`, que AINDA era o SEM a correção. Ele encerrou às 18:15:29 (`Shutdown: todas as engines fecharam em 751ms`) e chamou o `stop()` do Baileys como antes. Desta vez o WORKING do container novo (18:15:30) chegou ao banco DEPOIS do STOPPED do antigo (18:15:29) e ganhou a corrida — por 1 s, sorte de timing, não pela correção. **A prova cabal da correção é o PRÓXIMO deploy**, quando o container que sai (`047606fd42a3`, já com `shutdown()`) não gravará STOPPED e não haverá corrida.
+- **Frota:** contato20/contato1/ddd WORKING; contato11 em SCAN_QR (creds mortas, reparear — pré-existente, bounce entre deploys); as 14 sessões que o dono deslogou seguem STOPPED (corretamente não reidratadas).
+- **CI/qualidade:** run 34387489755 (push main) verde. A 1ª tentativa do PR #3 falhou por um e2e flaky do wwebjs (`guard WA_REQUIRE_PROXY … não bloqueia por engano`, timeout 30 s, sem relação com o diff); rerun (attempt 2) verde.

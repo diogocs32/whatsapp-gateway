@@ -6,7 +6,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Corrigido (09/09 — sessão `baileys-shutdown` — **NÃO deployado**; branch `feature/baileys-shutdown-sem-persistir-status`)
+### Corrigido (09/09 — sessão `baileys-shutdown` — **EM PRODUÇÃO 09/09 ~18:15 UTC**, merge ff `301d42d`, validado — ver `docs/sessions/DONE-2026-09-09-1745-baileys-shutdown.md`)
 
 - **Baileys reidrata no deploy (P-043):** `BaileysEngine.shutdown()` passa a fechar o socket SEM persistir status, espelhando o wwebjs. Antes, o `onModuleDestroy` do container que morre no deploy stop-first caía no `stop()` (o Baileys não tinha `shutdown()`) e gravava `STOPPED`; como os dois containers coexistem por ~15 s, esse `STOPPED` sobrescrevia o `WORKING` do container novo (visto em prod: Diogo enviando com status STOPPED) — e, no pior caso, impediria a reidratação (o `findAutostart` ignora STOPPED). Comentário da porta `IEngine.shutdown` corrigido (o motivo é NÃO persistir status, não "risco de perfil sujo"). 3 testes unitários novos.
 
