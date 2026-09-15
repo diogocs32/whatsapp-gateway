@@ -151,3 +151,12 @@ sequência). Tempo real pelo SSE já existente (evento `message`), com refetch d
   `CHANGELOG.md` [Unreleased] · pendências P-044/P-045/P-046. **Sem env nova, sem script novo,
   sem procedimento operacional alterado** → nada em `env.example`, `CLAUDE.md` §comandos ou
   how-to/runbook. `ESTADO.md` fica para o encerramento (R9).
+- **15/09 10:55 BRT — CI (PR #4) caiu na INFRA, não no código:** o passo "Infra (Postgres + Redis +
+  MinIO)" falhou com `pull access denied for minio/minio` — a MinIO retirou as imagens públicas do
+  Docker Hub; o registro oficial é o quay.io (conferido via API: `quay.io/minio/minio` tem
+  `RELEASE.2025-09-07T16-13-09Z`). Fix fora do escopo original, mas necessário ao merge e declarado
+  aqui (pontos de contato globais): `docker-compose.yml` → `quay.io/minio/minio:RELEASE.2025-09-07…`
+  (tag PINADA — era a ausência de pin que deixou quebrar por baixo) e `ci.yml` →
+  `quay.io/minio/mc:RELEASE.2025-08-13…`. Produção NÃO é afetada (o MinIO de prod é serviço próprio
+  no Dokploy). Dev local (WSL): próximo `infra:up` puxa do quay.io. Antes da falha o run tinha
+  passado lint/format/typecheck×3/depcruise.

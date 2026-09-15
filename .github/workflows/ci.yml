@@ -69,7 +69,7 @@ jobs:
 
       - name: Bucket de mídia (MinIO)
         run: |
-          docker run --rm --network host --entrypoint sh minio/mc -c \
+          docker run --rm --network host --entrypoint sh quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
             "mc alias set local http://localhost:9000 minio minio12345 && mc mb -p local/wa-media"
 
       - name: Migrations
