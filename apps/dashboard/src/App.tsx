@@ -23,6 +23,7 @@ const Login = page(() => import('./routes/Login'), 'Login');
 const Dashboard = page(() => import('./routes/Dashboard'), 'Dashboard');
 const Sessions = page(() => import('./routes/Sessions'), 'Sessions');
 const Inbox = page(() => import('./routes/Inbox'), 'Inbox');
+const Atendimento = page(() => import('./routes/Atendimento'), 'Atendimento');
 const Monitor = page(() => import('./routes/Monitor'), 'Monitor');
 const Webhooks = page(() => import('./routes/Webhooks'), 'Webhooks');
 const ApiKeys = page(() => import('./routes/ApiKeys'), 'ApiKeys');
@@ -79,6 +80,14 @@ export function App() {
             element={
               <Protected>
                 <Inbox />
+              </Protected>
+            }
+          />
+          <Route
+            path="/atendimento"
+            element={
+              <Protected>
+                <Atendimento />
               </Protected>
             }
           />

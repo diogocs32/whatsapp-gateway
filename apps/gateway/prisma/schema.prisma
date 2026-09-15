@@ -149,6 +149,7 @@ model WaSession {
   contacts  WaContact[]
   campaigns Campaign[]
   sendIntents SendIntent[]
+  triage    ConversationTriage[]
   events    WaSessionEvent[]
   metrics   SessionMetric[]
   guardrail SessionGuardrail?
@@ -334,6 +335,29 @@ model SendIntent {
   // Retenção (RETENTION_INTENTS_DAYS): purge por idade varre createdAt.
   @@index([createdAt])
   @@map("wa_send_intents")
+}
+
+// Triagem humana da caixa única (página Atendimento) — SÓ o estado AMARELO ("não preciso
+// responder") mora aqui. Vermelho ("precisa responder") e verde ("respondido") são DERIVADOS de
+// wa_messages e não têm registro: a última mensagem da conversa decide. O amarelo é ancorado na
+// mensagem de ENTRADA que estava por último quando o dono clicou (`markedKeyId`) — chegando
+// entrada NOVA a âncora deixa de valer e a conversa volta a vermelho sozinha, sem limpar nada.
+// Uma linha por conversa (sessão + chat); não guarda autor (decisão do dono 15/09).
+model ConversationTriage {
+  id        String @id
+  sessionId String
+  chatJid   String
+  // keyId da última mensagem de entrada no instante da marcação. Null = marca sem âncora
+  // (conversa sem entrada conhecida) — nesse caso vale o markedTimestamp.
+  markedKeyId    String?
+  markedTimestamp DateTime // timestamp da mensagem de entrada ancorada (ou do clique, se não houver)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, chatJid])
+  @@map("wa_conversation_triage")
 }
 
 // Diretório de contatos (F5+) — mapeia LID↔telefone e acumula metadados de TODAS as fontes

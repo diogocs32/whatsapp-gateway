@@ -124,6 +124,12 @@ export interface MessageDto {
   text: string | null;
   status: string | null;
   timestamp: string;
+  // Campos que o GET /messages JÁ devolve e o DTO não declarava (drift corrigido em 15/09/2026,
+  // aditivo): `keyId` é a chave real do WhatsApp (CP-149 — markRead e download de mídia aceitam);
+  // `source` diz se um fromMe saiu pela API ou pelo CELULAR ('phone'); `isCold` é a marca G1.
+  keyId?: string;
+  source?: string | null;
+  isCold?: boolean;
   // Mídia (F4) — presentes quando type é image|video|audio|document|sticker.
   mediaType?: string | null;
   mimetype?: string | null;
@@ -142,6 +148,76 @@ export interface ConversationDto {
   lastType: string; // text | image | video | audio | document | sticker
   lastFromMe: boolean;
   lastTimestamp: string;
+}
+
+// ---- Caixa única de triagem (página Atendimento) ----
+// Visão AGREGADA de todos os aparelhos, sem escolher sessão. Só conversa 1:1 (grupo, lista de
+// transmissão e canal ficam fora). O semáforo é derivado das mensagens — não há flag de "lido":
+//   pending  🔴 a última mensagem é do contato → precisa de resposta humana
+//   answered 🟢 a última mensagem é minha (inclusive respondida no CELULAR, lastSource='phone')
+//   ignored  🟡 marcado à mão como "não preciso responder"
+// Regra de ouro: mensagem NOVA de entrada devolve a conversa para `pending`, estivesse 🟡 ou 🟢.
+export type InboxTriageStatus = 'pending' | 'answered' | 'ignored';
+
+export interface InboxConversationDto {
+  sessionId: string;
+  sessionName: string; // nome do aparelho/sessão (etiqueta da linha)
+  engine: string; // BAILEYS | WWEBJS
+  chatJid: string;
+  name: string | null;
+  phone: string | null;
+  imgUrl: string | null;
+  lastText: string | null; // null em mídia — use lastType para o rótulo
+  lastType: string;
+  lastFromMe: boolean;
+  lastSource: string | null; // 'phone' = respondi no aparelho · 'api' = pelo gateway/painel
+  lastTimestamp: string;
+  lastInboundKeyId: string | null; // âncora do amarelo (a entrada que está na tela)
+  lastInboundTimestamp: string | null;
+  pendingInbound: number; // entradas ainda não respondidas (0 quando respondido)
+  status: InboxTriageStatus;
+}
+
+export interface InboxCounts {
+  pending: number;
+  answered: number;
+  ignored: number;
+  total: number;
+}
+
+export interface InboxConversationsResponse {
+  counts: InboxCounts; // contagem ANTES do filtro de status (o painel mostra o total real)
+  conversations: InboxConversationDto[];
+}
+
+// Uma linha do fluxo cronológico ("todas as mensagens em sequência", todos os aparelhos juntos).
+export interface InboxFeedItemDto {
+  id: string;
+  keyId: string;
+  sessionId: string;
+  sessionName: string;
+  chatJid: string;
+  name: string | null;
+  fromMe: boolean;
+  source: string | null;
+  type: string;
+  text: string | null;
+  timestamp: string;
+}
+
+// Triagem manual. `ignored` = amarelo (ancorado em `keyId`, quando informado: se chegou entrada
+// mais nova que a vista na tela, a conversa segue vermelha). `pending` = desmarca (volta ao
+// vermelho). Respondido (verde) NÃO se marca à mão — é consequência de ter respondido.
+export interface InboxTriageRequest {
+  chatJid: string;
+  state: 'ignored' | 'pending';
+  keyId?: string;
+}
+
+export interface InboxTriageResponse {
+  sessionId: string;
+  chatJid: string;
+  status: InboxTriageStatus;
 }
 
 export interface SendTextRequest {

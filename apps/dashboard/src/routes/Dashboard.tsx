@@ -99,6 +99,17 @@ export function Dashboard() {
         </Link>
 
         <Link
+          to="/atendimento"
+          className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
+        >
+          <h2 className="mb-2 font-medium text-zinc-100">Atendimento →</h2>
+          <p className="text-sm text-zinc-400">
+            Caixa única: tudo que chega de todos os aparelhos, com 🔴 precisa
+            responder · 🟢 respondido · 🟡 não preciso responder.
+          </p>
+        </Link>
+
+        <Link
           to="/inbox"
           className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 transition hover:border-emerald-700 hover:bg-zinc-900/80"
         >

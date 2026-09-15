@@ -8,15 +8,23 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                  | Início      | Objetivo                                                                                                                                                                  | Escopo                                                                                                            | Branch                      |
+| ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| lid-envio-wwebjs    | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando)                                                             | `modules/sessions/infrastructure/wwebjs/` + docs                                                                  | fix/lid-envio-wwebjs        |
+| caixa-unica-triagem | 15/09 10:19 | Caixa única de triagem humana: todas as mensagens de TODOS os aparelhos em uma página, com semáforo por conversa (🔴 responder · 🟢 respondido · 🟡 manual "não preciso") | `modules/messaging/` + `schema.prisma` (tabela nova) + `packages/contracts` + `apps/dashboard` (rota nova) + docs | feature/caixa-unica-triagem |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
+- **15/09 · caixa-unica-triagem (aguarda merge+deploy):** migration **aditiva** nova
+  `20260915140000_conversation_triage` (tabela `wa_conversation_triage`, dona = módulo `messaging`) e
+  rotas **novas** `/api/inbox/*` (`conversations`, `messages`, `sessions/:id/triage`). Nada existente
+  muda (R0) — quem for deployar precisa saber que o boot aplica a migration. `packages/contracts`
+  tocado: DTOs `Inbox*` novos + `MessageDto` passou a declarar `keyId`/`source`/`isCold` (campos que o
+  `GET /messages` já devolvia — drift, aditivo). Quem tocar `messaging` ou o painel: ver
+  `docs/sessions/ATIVA-2026-09-15-1019-caixa-unica-triagem.md`.
 - **18/08 · m3-qualidade (EM PRODUÇÃO ~11:50 UTC — CI novo já vale na main):** o CI agora
   exige **format:check** (prettier), **depcruise** (fronteiras da ARQUITETURA como `error` —
   import de internals de módulo alheio QUEBRA o build) e roda a suíte com **cobertura**.

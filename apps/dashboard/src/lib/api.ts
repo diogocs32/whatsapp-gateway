@@ -21,6 +21,11 @@ import type {
   GroupInviteDto,
   GroupParticipantAction,
   HealthResponse,
+  InboxConversationsResponse,
+  InboxFeedItemDto,
+  InboxTriageRequest,
+  InboxTriageResponse,
+  InboxTriageStatus,
   LicenseStatus,
   LoginResponse,
   MessageDto,
@@ -289,6 +294,41 @@ export const api = {
         fd,
       );
     },
+  },
+
+  // Caixa única de triagem (página Atendimento): tudo que chega de TODOS os aparelhos,
+  // com o semáforo por conversa (🔴 responder · 🟢 respondido · 🟡 não preciso responder).
+  inbox: {
+    conversations: (opts?: {
+      limit?: number;
+      sessions?: string[];
+      status?: InboxTriageStatus;
+    }) => {
+      const q = new URLSearchParams();
+      if (opts?.limit) q.set('limit', String(opts.limit));
+      if (opts?.sessions?.length) q.set('sessions', opts.sessions.join(','));
+      if (opts?.status) q.set('status', opts.status);
+      const qs = q.toString();
+      return request<InboxConversationsResponse>(
+        `/api/inbox/conversations${qs ? `?${qs}` : ''}`,
+      );
+    },
+    feed: (opts?: { limit?: number; sessions?: string[] }) => {
+      const q = new URLSearchParams();
+      if (opts?.limit) q.set('limit', String(opts.limit));
+      if (opts?.sessions?.length) q.set('sessions', opts.sessions.join(','));
+      const qs = q.toString();
+      return request<InboxFeedItemDto[]>(
+        `/api/inbox/messages${qs ? `?${qs}` : ''}`,
+      );
+    },
+    // `keyId` = a entrada que estava na tela: se chegou mensagem nova antes do clique, o gateway
+    // NÃO marca e devolve status 'pending' (o amarelo nunca engole mensagem não lida).
+    triage: (sessionId: string, body: InboxTriageRequest) =>
+      request<InboxTriageResponse>(
+        `/api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`,
+        { method: 'POST', body: JSON.stringify(body) },
+      ),
   },
 
   webhooks: {

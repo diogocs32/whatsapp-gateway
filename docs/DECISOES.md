@@ -311,3 +311,33 @@
   (`@vitest/coverage-v8` alinhado à versão do vitest).
 - **Rollback:** remover os passos novos do `ci.yml` (format/depcruise/cov) — os scripts npm
   continuam disponíveis localmente; reverter `tsConfigPath` volta specs ao dist (não fazer).
+
+## D-019 — 2026-09-15 — Caixa única de triagem: o semáforo é DERIVADO das mensagens; só o amarelo é persistido
+
+- **Decisão:** a tela de triagem (`/atendimento`, API `/api/inbox/*`) **não guarda estado de
+  conversa**. 🔴 `pending` e 🟢 `answered` são calculados na leitura a partir de `wa_messages` (a
+  última mensagem da conversa decide: do contato → vermelho; minha → verde, inclusive quando a
+  resposta saiu do CELULAR, `source='phone'`). Persistimos APENAS a marca manual 🟡, numa tabela
+  nova (`wa_conversation_triage`, uma linha por sessão+chat), **ancorada no `keyId` da mensagem de
+  entrada** que estava por último quando o dono clicou. Consequência desejada: mensagem nova de
+  entrada devolve a conversa para 🔴 sozinha (a âncora deixa de casar), sem job de limpeza, sem
+  migração de estado e sem risco de "lido fantasma". A alternativa — uma coluna `status` mantida por
+  gravação a cada evento — foi recusada: exigiria escrever em hot path de recepção, criaria
+  divergência quando um evento falha e ressuscitaria o problema clássico do contador de não-lidas.
+- **Evidência (EP):** `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.engine.ts:836`
+  (e `wwebjs.engine.ts:1623`) já persistem o `fromMe` do celular com `source='phone'` — o verde
+  automático existe sem tocar nas engines. Validado em PostgreSQL 18.6 real (cluster temporário,
+  15/09): A=`pending`/B=`answered` com grupo ausente, amarelo → `ignored`, entrada nova → `pending`
+  com `pendingInbound: 2`. 8 testes unitários (`triage-status.spec.ts`) + 16 casos e2e
+  (`inbox-triage.e2e-spec.ts`).
+- **Evidência (DO):** PostgreSQL 18 — `DISTINCT ON` (SELECT, cláusula DISTINCT) para a última
+  mensagem por conversa e `LEFT JOIN LATERAL … LIMIT 1` (queries, subconsultas laterais) para última
+  entrada/saída, contagem de pendentes e contato sem multiplicar linhas; Prisma 7 `$queryRaw` com
+  `Prisma.sql`/`Prisma.join` (parametrização — nada de concatenar string).
+- **Escopo fechado com o dono (15/09):** grupo/transmissão/canal fora; histórico só do zero para
+  frente; a cor muda **apenas** ao responder ou ao clicar (ler no celular não muda — o WhatsApp não
+  entrega leitura de mensagem alheia, `message.ack` só cobre o que NÓS enviamos); resposta pelo
+  painel existe mas é opcional; o amarelo não registra autor.
+- **Rollback:** remover o `InboxController` + o provider `INBOX_REPOSITORY` e a rota do painel — a
+  tabela pode ficar (é aditiva e inerte; forward-only, correção = migration nova). Nada em
+  `/api/sessions/:id/messages/*` foi tocado (R0).

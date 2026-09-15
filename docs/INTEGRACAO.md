@@ -288,3 +288,45 @@ POST /api/sessions/{sessao}/messages/{chatId}/flag   # { "flag": "archive|pin|mu
   **lida** (read receipt). Resposta: `{ "ok": true }`. Idempotente.
 - **Engine:** só **WWEBJS**. Numa **Baileys** responde **HTTP 501** (arquivar/marcar-lido exigem
   sincronização de app-state com o histórico — fora do escopo por ora). Requer a sessão **WORKING**.
+
+## 13. Caixa única de triagem — todas as sessões juntas (painel "Atendimento")
+
+Visão **agregada**: tudo que chega de TODOS os aparelhos numa lista só, com o semáforo por conversa
+para triagem HUMANA (ninguém responde automático). Servida do banco — agnóstica de engine.
+
+```
+GET  /api/inbox/conversations                     # conversas de todas as sessões + contadores
+GET  /api/inbox/conversations?sessions=a,b&status=pending&limit=200
+GET  /api/inbox/messages?limit=100&sessions=a,b   # fluxo cronológico (todas as sessões)
+POST /api/inbox/sessions/{sessao}/triage          # { "chatJid": "...@s.whatsapp.net", "state": "ignored|pending", "keyId"?: "..." }
+```
+
+**Semáforo (`status` de cada conversa) — derivado das mensagens, não é flag de "lido":**
+
+| status     | Cor | Quando                                                                           |
+| ---------- | --- | -------------------------------------------------------------------------------- |
+| `pending`  | 🔴  | a última mensagem é do contato → precisa de resposta                             |
+| `answered` | 🟢  | a última mensagem é minha — inclusive respondida no CELULAR (`lastSource=phone`) |
+| `ignored`  | 🟡  | marcado à mão como "não preciso responder" (`POST …/triage`)                     |
+
+- **Regra de ouro:** mensagem NOVA de entrada devolve a conversa para `pending`, estivesse 🟡 ou 🟢.
+  O amarelo é ancorado na mensagem de entrada que estava por último — entrada nova invalida a marca
+  (nada precisa ser limpo).
+- **`GET /conversations`** responde `{ counts: { pending, answered, ignored, total }, conversations: [...] }`.
+  `counts` é do conjunto retornado ANTES do filtro de status (não muda com `?status=`; com mais
+  conversas do que `limit`, conta as `limit` mais recentes). `?sessions=` aceita **nome OU id**
+  de sessão (máx. 50, separados por vírgula). Cada conversa traz `sessionId`,
+  `sessionName` (o aparelho), `engine`, `chatJid`, `name`/`phone`/`imgUrl`, prévia da última mensagem,
+  `lastSource`, `lastInboundKeyId` (a âncora) e `pendingInbound` (entradas ainda não respondidas).
+  `limit` default 200 (máx 500).
+- **`POST …/triage`** com `keyId` = a entrada que o operador viu. Se chegou mensagem mais nova nesse
+  meio-tempo, **nada é gravado** e a resposta volta `status: "pending"` (o amarelo nunca engole
+  mensagem não lida). `state: "pending"` desmarca. `{sessao}` aceita nome OU id.
+- **Fora da caixa única:** grupo (`@g.us`), lista de transmissão/status (`@broadcast`) e canal
+  (`@newsletter`) — nunca aparecem em nenhuma das rotas acima.
+- **Histórico:** só o que passou pelo gateway (do zero para frente). Para trazer conversa anterior à
+  conexão, rode antes o backfill da seção 12 (`POST …/messages/sync`, só WWEBJS).
+- **Tempo real:** não há long-poll aqui — use o SSE `GET /api/events/stream` (evento `message`,
+  todas as sessões) e recarregue a lista; é o que o painel faz.
+- **Responder:** continua no endpoint por sessão (`POST /api/sessions/{sessao}/messages/text`) —
+  esta seção só LÊ e marca a triagem.
