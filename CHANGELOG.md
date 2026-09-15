@@ -6,7 +6,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Adicionado (15/09 — sessão `caixa-unica-triagem` — aguarda merge+deploy)
+### Adicionado (15/09 — sessão `caixa-unica-triagem` — **EM PRODUÇÃO 15/09 ~14:07 UTC**, PR #4, CI verde com o e2e novo na 1ª execução real, merge ff `768fb26`; validado por fora: rotas `/api/inbox/*` 404→401, migration aplicada no boot, bundle do dashboard com a rota — ver `docs/sessions/DONE-2026-09-15-1019-caixa-unica-triagem.md`)
 
 Pedido do dono: uma tela para monitorar o que chega de TODOS os aparelhos sem escolher sessão, com semáforo por conversa (respostas 100% humanas, no aparelho).
 
@@ -15,7 +15,8 @@ Pedido do dono: uma tela para monitorar o que chega de TODOS os aparelhos sem es
 - **Schema:** tabela nova `wa_conversation_triage` (migration aditiva `20260915140000_conversation_triage`) — guarda SÓ o amarelo, ancorado no `keyId` da entrada que estava na tela; 🔴/🟢 são derivados de `wa_messages` (sem flag de "lido", sem job de limpeza: entrada nova invalida a âncora sozinha). Dona: módulo `messaging` (ARQUITETURA atualizada).
 - **Anti-atropelo:** o painel manda o `keyId` da entrada que exibiu; se chegou mensagem nova antes do clique, o gateway **não grava** a marca e devolve `status: "pending"` (o amarelo nunca engole mensagem não lida).
 - **Contracts:** `InboxConversationDto`/`InboxCounts`/`InboxConversationsResponse`/`InboxFeedItemDto`/`InboxTriageRequest`/`InboxTriageResponse`/`InboxTriageStatus`; `MessageDto` passa a declarar `keyId`, `source` e `isCold` — campos que o `GET /messages` já devolvia e o DTO omitia (drift corrigido, aditivo).
-- **Testes:** 8 unitários da derivação do semáforo (`triage-status.spec.ts`) + e2e `inbox-triage.e2e-spec.ts` (16 casos: lista cruzando 2 aparelhos, verde por resposta no celular, grupo ausente, amarelo, regra de ouro nos dois sentidos, anti-atropelo, filtros, 400/404/401). SQL agregado validado contra um PostgreSQL 18 real nesta máquina (cluster temporário) porque o e2e só roda no CI.
+- **Infra CI/dev (fix de carona no mesmo deploy):** MinIO do `docker-compose.yml` e do passo de bucket do CI agora vêm do **quay.io com tag pinada** (`quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z` · `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z`) — o Docker Hub passou a negar o pull de `minio/minio` e derrubou o CI em 15/09. MinIO de produção não é afetado (serviço próprio no Dokploy).
+- **Testes:** 8 unitários da derivação do semáforo (`triage-status.spec.ts`) + e2e `inbox-triage.e2e-spec.ts` (16 casos: lista cruzando 2 aparelhos, verde por resposta no celular, grupo ausente, amarelo, regra de ouro nos dois sentidos, anti-atropelo, filtros — inclusive por NOME com sessão id≠name —, 400/404/401). SQL agregado validado contra um PostgreSQL 18 real nesta máquina (cluster temporário) porque o e2e só roda no CI.
 
 ### Corrigido (09/09 — sessão `baileys-shutdown` — **EM PRODUÇÃO 09/09 ~18:15 UTC**, merge ff `301d42d`, validado — ver `docs/sessions/DONE-2026-09-09-1745-baileys-shutdown.md`)
 

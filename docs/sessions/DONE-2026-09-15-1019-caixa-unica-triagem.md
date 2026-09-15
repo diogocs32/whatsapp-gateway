@@ -1,6 +1,6 @@
 # Sessão: caixa-unica-triagem
 
-- **Status:** 🟢 ATIVA
+- **Status:** ✅ ENCERRADA (15/09/2026 — entregue e EM PRODUÇÃO)
 - **Início:** 15/09/2026 10:19 (BRT) · 13:19 UTC
 - **Objetivo:** entregar a **caixa única de triagem humana** no painel — uma página que mostra,
   em sequência e SEM escolher sessão, tudo que chega de TODOS os aparelhos conectados, com
@@ -160,3 +160,71 @@ sequência). Tempo real pelo SSE já existente (evento `message`), com refetch d
   `quay.io/minio/mc:RELEASE.2025-08-13…`. Produção NÃO é afetada (o MinIO de prod é serviço próprio
   no Dokploy). Dev local (WSL): próximo `infra:up` puxa do quay.io. Antes da falha o run tinha
   passado lint/format/typecheck×3/depcruise.
+
+## Encerramento (15/09/2026 ~11:15 BRT · 14:15 UTC)
+
+**Commits (main `7aeefa4` → `768fb26`):**
+
+- `0bbc4ec` feat(inbox): caixa única de triagem — todos os aparelhos numa tela com semáforo por conversa
+- `768fb26` fix(ci): infra dev/CI puxa MinIO do quay.io com tag pinada (imagens saíram do Docker Hub)
+- PR #4 (CI verde: e2e novo `inbox-triage` **16/16** na 1ª execução real, 36 arquivos de teste no
+  total) → merge **ff** na main → push 13:58:37 UTC → auto-deploy Dokploy.
+
+**RESULTADO (para quem não participou):** o painel tem uma tela nova, **Atendimento**
+(`conexozenvo.com/atendimento`), que mostra as conversas 1:1 de TODOS os aparelhos numa lista só,
+ao vivo, com uma bolinha por conversa: 🔴 a última mensagem é do contato (precisa responder) ·
+🟢 a última é do dono — **inclusive quando ele respondeu pelo celular** (`source='phone'`) ·
+🟡 marcado à mão como "não preciso responder". Entrada nova SEMPRE devolve a conversa para 🔴
+(o amarelo é ancorado no `keyId` da entrada vista; âncora velha = marca inválida — D-019, nada de
+flag de "lido"). Grupos/transmissão/canal nunca aparecem. Respostas continuam 100% humanas; a tela
+tem caixa de resposta opcional (idempotente). A API ganhou rotas ADITIVAS `/api/inbox/*`
+(documentadas em INTEGRACAO §13; o filtro `?sessions=` aceita nome OU id); nada do contrato
+existente mudou (R0) — o node n8n não é afetado. Só o amarelo é persistido (tabela nova
+`wa_conversation_triage`, dona = messaging); 🔴/🟢 são derivados de `wa_messages`.
+
+**Análise pré-deploy (Fable max, pedido do dono):** releitura integral do diff · confirmado 100%
+aditivo em arquivos existentes (schema +24/−0, contracts +76/−0, module só ganha
+controller/provider) · **1 defeito real achado e corrigido ANTES do merge**: o filtro `?sessions=`
+só aceitava id (em prod id=ULID≠nome; o e2e mascarava porque o seed cria id==name) → subquery
+nome-ou-id validada contra PostgreSQL 18.6 real + caso e2e novo com sessão id≠name + teto de 50
+refs · doc dos counts precisada (conta as `limit` mais recentes).
+
+**Deploy validado (por fora, sem credenciais):** push 13:58:37 UTC → container novo ~14:07 UTC
+(uptime 25 s → 42 s → 101 s crescendo; database/redis/storage true = migration
+`20260915140000_conversation_triage` aplicada no boot) · `/api/inbox/conversations` e
+`/api/inbox/messages`: **404 (container antigo) → 401** (rotas no ar com guard) · dashboard 200 e
+o bundle de prod (`index-BoqCQIAi.js`) contém a rota `atendimento` (build novo).
+
+**Incidente de CI (não relacionado ao diff):** o Docker Hub passou a negar `pull` de `minio/minio`
+("pull access denied" — imagens retiradas do Hub) e derrubou o passo de infra na 1ª execução.
+Corrigido no MESMO PR: `docker-compose.yml` → `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z`
+e `ci.yml` (bucket) → `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z` (registro oficial da MinIO,
+tags conferidas via API do quay; PINADAS para a infra não mudar por baixo). MinIO de PROD intacto
+(serviço próprio no Dokploy). Dev local: próximo `infra:up` puxa do quay.io.
+
+**Reconciliação documental (R3 — o que o diff tornou falso):** ARQUITETURA (tabela dona +
+`/inbox`) · INTEGRACAO §13 · contracts no mesmo commit · D-019 · CHANGELOG (EM PRODUÇÃO) ·
+PENDENCIAS P-044/P-045/P-046 · ESTADO (nota de deploy + último deploy) · aviso 📢 atualizado
+para o fato consumado (fica até a sessão `lid-envio-wwebjs` absorver) · SESSOES (linha ativa →
+histórico; 5 linhas mais antigas arquivadas — teto de 15). **Docs-n/a:** nenhum.
+
+**Pendências desta sessão (já em PENDENCIAS.md):** P-044 (item do fluxo ao vivo sem nome do
+contato por até ~20 s — cosmético) · P-045 (som/notificação de 🔴 nova — decisão do dono) ·
+P-046 (`wa_conversation_triage` na rotina de retenção quando P-036 for retomada).
+
+---
+
+CHECKPOINT FINAL (R9 v4.3)
+
+- **FEITO:** caixa única de triagem em produção (página + API aditiva + tabela do amarelo +
+  derivação pura do semáforo + 8 unit + 16 e2e verdes no CI + SQL validado 2× em PG 18.6 real) ·
+  fix MinIO→quay.io no CI/dev · deploy validado por fora (rotas 404→401, migration no boot,
+  bundle novo).
+- **BLOQUEADO EM VOCÊ:** conferir no painel (a) frota reconectada pós-deploy e (b) **P-043 prova
+  cabal**: este foi o 1º deploy em que o container aposentado JÁ TINHA o `shutdown()` — nenhuma
+  sessão WORKING deve ter ficado STOPPED fantasma; responder aqui fecha a ressalva do P-043 ·
+  B-001/B-003 seguem abertos (proxy/env do Dokploy novo — não bloquearam esta sessão.)
+- **DOCS TOCADAS PELO DIFF:** ARQUITETURA · INTEGRACAO · DECISOES (D-019) · CHANGELOG ·
+  PENDENCIAS · ESTADO · SESSOES (+ARQUIVO) · contracts · este arquivo. Docs-n/a: nenhum.
+- **RETOMADA:** próxima rodada natural da tela = P-045 (aviso sonoro/notificação). Onda oficial
+  seguinte = M4 · Segurança.
