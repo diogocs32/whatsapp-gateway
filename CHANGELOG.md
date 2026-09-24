@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Documentação (23–24/09 — sessão `analise-atualizacoes` — doc-only, SEM deploy; ver `docs/sessions/DONE-2026-09-23-1750-analise-atualizacoes.md`)
+
+- **Análise de atualizações e estabilidade das contas** ([docs/analise-atualizacoes-2026-09.md](docs/analise-atualizacoes-2026-09.md)): delta desde a auditoria de 09/09 — nenhuma versão nova de Baileys (rc14) nem wwebjs (1.34.7); Dokploy aplica `start-first` com Update Config vazio (runbook/D-014 errados → aviso no `deploy-dokploy.md` e B-004); produção sem backup (B-005); MinIO com CVE-2026-41145 (B-006); Nest GHSA-9c5c (high) invisível ao npm audit; lacunas do Baileys (mensagens offline descartadas, sinais de restrição ignorados, download de mídia sem proxy); política do WhatsApp alterada em 23/09; ondas 0–7 com critérios de aceite. Pendências B-004..B-007 e P-047..P-064.
+- **wwebjs: memória/CPU** ([docs/analise-wwebjs-memoria-2026-09.md](docs/analise-wwebjs-memoria-2026-09.md)): sem "modo leve" na lib; flags restantes ~7–10%; maior alavanca é a mídia (`downloadMediaStream`, sem auto-download de grupo, fila, teto de envio); Baileys provavelmente cobre os leads com telefone (A/B proposto).
+- Evidência bruta dos dois workflows em `docs/reference/analise-*-2026-09.json`.
+
 ### Adicionado (15/09 — sessão `caixa-unica-triagem` — **EM PRODUÇÃO 15/09 ~14:07 UTC**, PR #4, CI verde com o e2e novo na 1ª execução real, merge ff `768fb26`; validado por fora: rotas `/api/inbox/*` 404→401, migration aplicada no boot, bundle do dashboard com a rota — ver `docs/sessions/DONE-2026-09-15-1019-caixa-unica-triagem.md`)
 
 Pedido do dono: uma tela para monitorar o que chega de TODOS os aparelhos sem escolher sessão, com semáforo por conversa (respostas 100% humanas, no aparelho).

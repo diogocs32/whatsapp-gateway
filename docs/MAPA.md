@@ -32,30 +32,32 @@
 
 ## Quero... → abro...
 
-| Preciso de                                                    | Arquivo                                                                                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| O que fazer agora / onde parei                                | `ESTADO.md`                                                                                                  |
-| Quem está mexendo em quê agora                                | `SESSOES.md` (ativas + 📢 Avisos)                                                                            |
-| O que ficou pendente / o que depende de MIM                   | `PENDENCIAS.md` (P-xxx e B-xxx)                                                                              |
-| Base aplicada, regras, stack e ondas                          | `BASE_CONEXOZENVO.md` (raiz)                                                                                 |
-| Por que algo foi decidido                                     | `DECISOES.md`                                                                                                |
-| Proposta de mudança na base universal                         | `docs/briefings/` (R20)                                                                                      |
-| O que aprendemos de um incidente                              | `docs/postmortems/` (R15 — nasce sob demanda)                                                                |
-| Diagnóstico e plano de adoção (v3.2+v4.3)                     | `ADOCAO.md` (temporário — R18)                                                                               |
-| Fronteiras de módulos e glossário                             | `ARQUITETURA.md`                                                                                             |
-| Regras de negócio / visão                                     | `PROJETO.md`                                                                                                 |
-| Contrato para integradores (API)                              | `INTEGRACAO.md`                                                                                              |
-| Armadilhas de operação (WSL, LID, memória)                    | `agent-whatzapp_api.md` §6/§6B                                                                               |
-| Deploy no Dokploy                                             | `deploy-dokploy.md`                                                                                          |
-| Comparativo de engines WhatsApp                               | `motores-whatsapp.md`                                                                                        |
-| Análise do motor wwebjs (matriz + plano 100%)                 | `analise-wwebjs-2026-08.md`                                                                                  |
-| Backlog/auditoria 07/2026                                     | `auditoria-2026-07.md`                                                                                       |
-| Melhorias, atualizações e redução de risco WhatsApp (09/2026) | [Auditoria detalhada](auditoria-melhorias-2026-09.md) e [snapshot npm](reference/auditoria-npm-2026-09.json) |
-| Agenda de auditorias recorrentes                              | `AUDITORIAS.md`                                                                                              |
-| Tarefas sem pressão (como fazer X)                            | `how-to/`                                                                                                    |
-| Operar sob pressão (deploy, rollback, restore, chaves)        | `runbooks/` (R3 — nasce sob demanda; hoje em `how-to/` e `deploy-dokploy.md`)                                |
-| Histórico de versões                                          | `../CHANGELOG.md`                                                                                            |
-| Instruções do Claude Code                                     | `../CLAUDE.md`                                                                                               |
+| Preciso de                                                             | Arquivo                                                                                                                             |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| O que fazer agora / onde parei                                         | `ESTADO.md`                                                                                                                         |
+| Quem está mexendo em quê agora                                         | `SESSOES.md` (ativas + 📢 Avisos)                                                                                                   |
+| O que ficou pendente / o que depende de MIM                            | `PENDENCIAS.md` (P-xxx e B-xxx)                                                                                                     |
+| Base aplicada, regras, stack e ondas                                   | `BASE_CONEXOZENVO.md` (raiz)                                                                                                        |
+| Por que algo foi decidido                                              | `DECISOES.md`                                                                                                                       |
+| Proposta de mudança na base universal                                  | `docs/briefings/` (R20)                                                                                                             |
+| O que aprendemos de um incidente                                       | `docs/postmortems/` (R15 — nasce sob demanda)                                                                                       |
+| Diagnóstico e plano de adoção (v3.2+v4.3)                              | `ADOCAO.md` (temporário — R18)                                                                                                      |
+| Fronteiras de módulos e glossário                                      | `ARQUITETURA.md`                                                                                                                    |
+| Regras de negócio / visão                                              | `PROJETO.md`                                                                                                                        |
+| Contrato para integradores (API)                                       | `INTEGRACAO.md`                                                                                                                     |
+| Armadilhas de operação (WSL, LID, memória)                             | `agent-whatzapp_api.md` §6/§6B                                                                                                      |
+| Deploy no Dokploy                                                      | `deploy-dokploy.md`                                                                                                                 |
+| Comparativo de engines WhatsApp                                        | `motores-whatsapp.md`                                                                                                               |
+| Análise do motor wwebjs (matriz + plano 100%)                          | `analise-wwebjs-2026-08.md`                                                                                                         |
+| Backlog/auditoria 07/2026                                              | `auditoria-2026-07.md`                                                                                                              |
+| Melhorias, atualizações e redução de risco WhatsApp (09/2026)          | [Auditoria detalhada](auditoria-melhorias-2026-09.md) e [snapshot npm](reference/auditoria-npm-2026-09.json)                        |
+| Análise de atualizações/versões e estabilidade das contas (23/09/2026) | [analise-atualizacoes-2026-09.md](analise-atualizacoes-2026-09.md) · [evidência](reference/analise-atualizacoes-2026-09.json)       |
+| wwebjs: memória/CPU e se o projeto precisa dele (23/09/2026)           | [analise-wwebjs-memoria-2026-09.md](analise-wwebjs-memoria-2026-09.md) · [evidência](reference/analise-wwebjs-memoria-2026-09.json) |
+| Agenda de auditorias recorrentes                                       | `AUDITORIAS.md`                                                                                                                     |
+| Tarefas sem pressão (como fazer X)                                     | `how-to/`                                                                                                                           |
+| Operar sob pressão (deploy, rollback, restore, chaves)                 | `runbooks/` (R3 — nasce sob demanda; hoje em `how-to/` e `deploy-dokploy.md`)                                                       |
+| Histórico de versões                                                   | `../CHANGELOG.md`                                                                                                                   |
+| Instruções do Claude Code                                              | `../CLAUDE.md`                                                                                                                      |
 
 ## Convenção de citação
 

@@ -64,6 +64,16 @@ WWEBJS_DATA_PATH=/data/wwebjs
 
 > Valores em nanosegundos (30s / 10s / 60s). StartPeriod 60s cobre boot do Nest + migrations + Chrome.
 
+> ⚠️ **CORREÇÃO 23/09/2026 (B-004):** a frase abaixo "Deixar VAZIO (default do Swarm =
+> `stop-first`)" está **ERRADA** para o Dokploy — com o campo vazio ele injeta
+> `{"Parallelism":1,"Order":"start-first","FailureAction":"rollback"}` e Rollback Config
+> `start-first` (código Dokploy v0.30.2 `packages/server/src/utils/docker/utils.ts:681-696`).
+> **PREENCHER explicitamente** o JSON `stop-first` abaixo e também o **Rollback Config**
+> `{"Parallelism":1,"Order":"stop-first"}`; conferir com `docker service inspect`. O campo Health
+> Check do Swarm acima tem bug aberto no Dokploy (#5171: grava `Test` como string e prende as tasks
+> em Starting) — preferir deixá-lo vazio (o HEALTHCHECK do Dockerfile continua valendo). Reescrita
+> completa desta seção: P-063. Ver [analise-atualizacoes-2026-09.md §4](analise-atualizacoes-2026-09.md).
+
 **Advanced → Swarm Settings → Update Config** — ⚠️ **NÃO configurar `start-first` no gateway.**
 Deixar VAZIO (default do Swarm = `stop-first`) ou, se preencher, usar:
 

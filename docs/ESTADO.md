@@ -21,6 +21,16 @@
 
 ## Estado de produção
 
+> **23/09/2026 (sessão `analise-atualizacoes`, doc-only — [relatório](analise-atualizacoes-2026-09.md)):**
+> **frota 100% Baileys segundo o dono** (o wwebjs saiu por consumo de RAM/CPU — migração pós-15/09
+> ainda sem D-xxx; ver [análise de memória](analise-wwebjs-memoria-2026-09.md)). Achados que valem
+> para toda sessão: **Dokploy com Update Config vazio aplica `start-first`** (não stop-first — runbook
+> e D-014 errados; todo deploy sobrepõe containers até o **B-004**); produção **sem backup** (B-005);
+> MinIO community com CVE-2026-41145 e API pública (B-006); Nest 11.2.3 afetado por GHSA-9c5c (high,
+> invisível ao npm audit → P-054); nenhuma versão nova de Baileys (rc14) nem wwebjs (1.34.7). **O
+> `.cloud` é a produção — não existe homologação.** Próximo passo = Onda 0 (B-004..B-007, dono) e
+> Ondas 1–2 (P-053..P-055, P-047..P-052). Detalhe: `sessions/DONE-2026-09-23-1750-analise-atualizacoes.md`.
+
 > **31/08/2026:** produção AGORA roda no Dokploy novo (VPS 89.116.73.121, projeto `conexozenvo`, app `gateway`; `api.conexozenvo.cloud` vivo e `api.conexozenvo.com` reapontado via DNS). MinIO criado (bucket `wa-media`) → `checks.storage=true`. Deploy da sessão `envio-sem-onwhatsapp` (main `66b7076`) validado ~20:45 UTC — envio Baileys sem consulta de existência (`resolveJid` local). Detalhe: `sessions/DONE-2026-08-31-1730-envio-sem-onwhatsapp.md`.
 
 > **09/09/2026 16:41 UTC (sessão `aplicacao-auditoria`):** as ondas A–H da auditoria 09/2026 estão **EM PRODUÇÃO** — PR #1, CI verde, merge ff `2836c65`, container `7192ca1ec8cd` healthy às 16:41:47. Validado na mesma conversa: migration `20260909150000_send_intents_reserva_campanha` aplicada no boot; reidratação escalonada de 20 sessões em ~3 min com as 5 que estavam WORKING antes (contato11, contato20, Diogo, contato1, contato2) de volta a WORKING; contato20 (a "presa" da P-025) subiu após 1 retentativa de init em 24 s; sessão nova `ddd` pareou por QR em ~30 s; logout de 14 sessões presas/em QR em <0,5 s cada; `POST /webhooks` e `/messages/media-url` com destino privado → 400 (egress); cookie/authorization redigidos no log. Detalhe: `sessions/DONE-2026-09-09-1050-aplicacao-auditoria.md`.
