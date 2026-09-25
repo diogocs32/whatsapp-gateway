@@ -99,6 +99,10 @@
 - BlockList nova no Node 26.10.0 (docker `node:26.10.0-bookworm-slim`, `--network none`): 26
   vetores, 0 falha.
 
+- **CI do PR #6 (run 36178313066, `6c87a26`+`41c8ef5`, amd64):** `ci` 2m58s ✅ · `imagens` 2m22s ✅
+  (smoke novo: "login: 10 × 401 e a 11ª = 429 (origin-form, %-encoding e forma absoluta no mesmo
+  balde)" contra a imagem real) · `advisories` 15s ✅.
+
 ### Reconciliação documental — R3/R9
 
 - Borda HTTP, egress e contrato de erro das fotos mudaram → MAPA-CODIGO (§2, §3.1, §4.2, §4.4, §5,
