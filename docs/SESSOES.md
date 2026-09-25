@@ -23,7 +23,10 @@
 [ExceptionsHandler]`; (3) o Dockerfile do gateway fixa `node:26.10.0-bookworm-slim` — ao subir o
   Node, trocar os DOIS `FROM`; (4) workflow `advisories.yml` + `scripts/checar-advisories.*`:
   dependência de runtime nova → repo no config; aceite é do dono (D-023); (5) `allowScripts` é ativo
-  no npm ≥ 11.16 do CI/Docker — manter e atualizar (não remover na E16).
+  no npm ≥ 11.16 do CI/Docker — manter e atualizar (não remover na E16); (6) pedido novo do dono →
+  **Onda 8** (E22–E25, P-066..P-069: emoji "…", mídia no painel, encaminhar) com diagnóstico em
+  `analise-conversas-whatsapp-web-2026-09.md` — quem mexer em `baileys.engine.ts`/`wwebjs.engine.ts`
+  (onMessagesUpsert, extração de conteúdo) ou em Inbox/Atendimento leia antes.
 
 - **25/09 · e2-guardas-build (branch `feature/onda1-guardas-seguranca`, sem merge):** (1) o postinstall
   agora é `patch-package --error-on-fail` — `npm install`/`npm ci` local **falha** se o patch do wwebjs

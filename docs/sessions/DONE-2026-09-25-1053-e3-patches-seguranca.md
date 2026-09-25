@@ -101,7 +101,8 @@ files limit`; com ela, nenhuma linha ERROR.
   CHANGELOG, how-to do e-mail).
 - ~13:55 — pedidos novos do dono no meio da etapa (emoji "…", áudio e imagem nas conversas;
   encaminhar mensagem fiel ao WhatsApp Web): fora da E3 — diagnóstico só leitura disparado e
-  registrado como pendência própria (ver PENDENCIAS/roteiro).
+  registrado como Onda 8 (E22–E25, P-066..P-069) com o relatório
+  `docs/analise-conversas-whatsapp-web-2026-09.md` (causas provadas no código).
 
 ## Provas (25/09, local)
 
@@ -122,6 +123,13 @@ files limit`; com ela, nenhuma linha ERROR.
 Validação local final: `npm run lint` · `npm run format:check` · `npm run depcruise` ·
 `npx tsc --noEmit` (gateway e dashboard) · `npm run test` (unit + e2e com infra) ·
 `node scripts/mapa-codigo.mjs --check` · `npm run gateway:build` (dist ok) · `npm run dashboard:build`.
+
+**CI do PR #6 (commits `7b101f4`, `6f132fe`, `28f3564`; runs 36165240423 e 36165240488, Linux
+amd64):** `ci` 3m00s ✅ · `imagens` 2m30s ✅ · `advisories` 21s ✅ — primeira execução real da
+checagem: `token: GITHUB_TOKEN` leu os 63 repos de terceiros sem recusa (rate-limit restante 4930),
+runtime avaliado `node:26.10.0-bookworm-slim · undici 8.10.2`, resultado "nada pendente". O aviso
+`install-scripts … not yet covered by allowScripts` caiu de 2 pacotes para 1 (sobra
+`puppeteer@24.38.0` — E16).
 
 ### Reconciliação documental — R3/R9
 
