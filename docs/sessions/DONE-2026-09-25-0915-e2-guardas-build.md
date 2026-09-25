@@ -65,6 +65,10 @@ revert`, tempos medidos, o que não usar.
 | `dotenv` fora (config do Prisma)       | exit 1 — guarda `prisma` (`Cannot find module 'dotenv/config'`)       |
 | Smoke do container                     | `/health` ok (database/redis/storage true) ~2 s após o start; healthy |
 
+**CI do PR #6 (run `36137525913`, Linux amd64):** `ci` 2m50s ✅ · `imagens` 2m23s ✅ — imagem do
+gateway 96 s sem cache, dashboard 17 s, smoke `/health` ok (banco, Redis, storage) em ~6 s num banco
+vazio.
+
 **Revisão adversarial** (workflow `revisao-e2-guardas-build`, 3 céticos: Dockerfile/Dokploy, GitHub
 Actions, semântica dos scripts): **1 bloqueante confirmado pelos 3** — com `--error-on-fail` o build
 do dashboard no Dokploy quebraria sempre (o `npm ci` dele não instala o wwebjs, mas copiava

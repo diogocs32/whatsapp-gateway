@@ -69,7 +69,10 @@ Fonte oficial: [docs.dokploy.com — Rollbacks](https://docs.dokploy.com/docs/co
 2. `git revert -m 1 <sha-do-merge>` (merge do PR) — ou `git revert <sha>` se foi fast-forward de um
    commit só; para vários commits: `git revert --no-commit <mais-antigo>^..<mais-novo>` e um commit.
 3. `git push origin main` → o webhook do Dokploy constrói e deploya o código anterior.
-4. **Tempo:** o build roda no servidor. Medido em 25/09 num Mac (arm64): **122 s** para o
+4. **Tempo:** o build roda no servidor. Medido em 25/09 no CI (runner GitHub Linux amd64, sem cache —
+   o mais parecido com o servidor): **96 s** para a imagem do gateway, 17 s a do dashboard, e `/health`
+   ok **~6 s** após o start num banco vazio (aplicando todas as migrations) — run `36137525913`. No Mac
+   (arm64): **122 s** para o
    `docker build` completo do `apps/gateway/Dockerfile` (npm ci, apt do Chromium, build, guardas) sem cache
    (48 s com cache das dependências) + boot de ~2 s até o `/health`. O tempo no servidor **não foi medido** — anotar aqui a duração que
    o Dokploy mostrar no próximo deploy (Deployments mostra início/fim).
