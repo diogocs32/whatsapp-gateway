@@ -87,6 +87,8 @@
   (10 × 401 em 4 grafias, 11ª = 429); alvo ambíguo → 400 com linha `HttpEdge`; `/%68ealth` sem
   header de rate-limit; banco apagado e db 9 limpo depois.
 
+- Pós-encerramento (mesmo chat) — pedido do dono "marcar msg recebida e msg lida em todos os chats": esclarecido por pergunta → **tiques ✓/✓✓ no painel, só exibição (sem recibo de leitura), dentro da Onda 8** → registrado como **P-072** (E22 gateway + E23 painel); nada de código.
+
 ## Provas (25/09, local)
 
 - `npm run lint` · `npm run format:check` · `npm run depcruise` (215 módulos) · `npx tsc --noEmit` ·
