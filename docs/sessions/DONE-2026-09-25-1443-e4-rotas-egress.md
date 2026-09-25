@@ -89,6 +89,11 @@
 
 - Pós-encerramento (mesmo chat) — pedido do dono "marcar msg recebida e msg lida em todos os chats": esclarecido por pergunta → **tiques ✓/✓✓ no painel, só exibição (sem recibo de leitura), dentro da Onda 8** → registrado como **P-072** (E22 gateway + E23 painel); nada de código.
 
+- Pós-encerramento — o dono informou que **desligou o auto-deploy do gateway** no Dokploy → D-027 +
+  CLAUDE.md, roteiro, runbooks do deploy A/rollback/Watch Paths ajustados (o merge publica só o
+  dashboard; o gateway sobe no Deploy manual). PRs #5/#6 seguiam abertos (o "mergeei" anterior não
+  tinha se concretizado no GitHub — conferido com `gh pr view`).
+
 ## Provas (25/09, local)
 
 - `npm run lint` · `npm run format:check` · `npm run depcruise` (215 módulos) · `npx tsc --noEmit` ·

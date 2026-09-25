@@ -24,7 +24,9 @@
   registrado ANTES do init — `bootstrap/rate-limit.ts`; (3) URL vinda do cliente só via `safeFetch`/
   `fetchImageByUrl` — **nunca** regra IPv6 com `::ffff:0:0/96` na BlockList (bloqueia todo IPv4, D-026);
   (4) opções do request-log em `bootstrap/http-logger.ts`; (5) forma absoluta com `?`/`#` antes do
-  caminho → 400 na borda (P-071); (6) runbook do deploy A + B-004: `how-to/deploy-a-onda1.md`.
+  caminho → 400 na borda (P-071); (6) runbook do deploy A + B-004: `how-to/deploy-a-onda1.md`; (7) **o auto-deploy do
+  GATEWAY está desligado (D-027)** — merge na main publica só o dashboard; o gateway sobe no Deploy
+  manual do dono (ao validar produção, conferir o uptime do `/health` antes de concluir que deployou).
 
 - **25/09 · e3-patches-seguranca (branch `feature/onda1-guardas-seguranca`, sem merge):** (1) Nest
   11.2.6 usa o `@fastify/middie` oficial (o clone `fastify-middie.js` sumiu); (2) `POST /messages/media`

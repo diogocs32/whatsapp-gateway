@@ -22,6 +22,10 @@
 
 ## Estado de produção
 
+> **25/09/2026 — deploy do gateway agora é MANUAL (D-027):** o dono desligou o auto-deploy do
+> app `gateway` no Dokploy; merge na `main` publica só o dashboard. O gateway sobe no **Deploy**
+> manual. PRs #5 e #6 (Onda 1) ainda **abertos** no fim do dia — produção segue em `768fb26`.
+
 > **25/09/2026 (sessão `e4-rotas-egress`, código na branch da Onda 1 — sem deploy):** rate-limit,
 > request-log e auditoria decidem pela **rota resolvida** (`routeOptions.url`) em vez de `req.url` —
 > teto do login em contador próprio via `@RouteConfig` (D-025); egress com `net.BlockList` (IPv6
