@@ -6,6 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
+- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063; **próxima = E2**, guardas de build P-055). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
 
 ## Roadmap (R2)
 
@@ -20,6 +21,22 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **25/09/2026 (sessão `onda0b-mapa-roteiro`, doc-only — sem deploy):** decisões do dono —
+> **as duas engines seguem vivas** (Baileys = frota atual; wwebjs pronto para uso sob demanda →
+> Onda 6 obrigatória antes de 13/10, D-021); sinal duro de restrição → **pausar até o fim informado
+> pelo WhatsApp + alertar** (D-022); premissa do stop-first corrigida (D-020 — com Update Config
+> vazio o Dokploy aplica start-first até o B-004). Produção inalterada desde 15/09 (`768fb26`).
+
+> **23/09/2026 (sessão `analise-atualizacoes`, doc-only — [relatório](analise-atualizacoes-2026-09.md)):**
+> **frota 100% Baileys segundo o dono** (o wwebjs saiu por consumo de RAM/CPU — migração pós-15/09
+> ainda sem D-xxx; ver [análise de memória](analise-wwebjs-memoria-2026-09.md)). Achados que valem
+> para toda sessão: **Dokploy com Update Config vazio aplica `start-first`** (não stop-first — runbook
+> e D-014 errados; todo deploy sobrepõe containers até o **B-004**); produção **sem backup** (B-005);
+> MinIO community com CVE-2026-41145 e API pública (B-006); Nest 11.2.3 afetado por GHSA-9c5c (high,
+> invisível ao npm audit → P-054); nenhuma versão nova de Baileys (rc14) nem wwebjs (1.34.7). **O
+> `.cloud` é a produção — não existe homologação.** Próximo passo = Onda 0 (B-004..B-007, dono) e
+> Ondas 1–2 (P-053..P-055, P-047..P-052). Detalhe: `sessions/DONE-2026-09-23-1750-analise-atualizacoes.md`.
 
 > **31/08/2026:** produção AGORA roda no Dokploy novo (VPS 89.116.73.121, projeto `conexozenvo`, app `gateway`; `api.conexozenvo.cloud` vivo e `api.conexozenvo.com` reapontado via DNS). MinIO criado (bucket `wa-media`) → `checks.storage=true`. Deploy da sessão `envio-sem-onwhatsapp` (main `66b7076`) validado ~20:45 UTC — envio Baileys sem consulta de existência (`resolveJid` local). Detalhe: `sessions/DONE-2026-08-31-1730-envio-sem-onwhatsapp.md`.
 

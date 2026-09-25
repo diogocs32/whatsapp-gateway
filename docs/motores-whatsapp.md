@@ -29,14 +29,14 @@ número" não acha as recebidas.
 
 **Como cada base de código resolve o LID (mapeia `@lid`↔telefone):**
 
-| Base                                             | Resolve LID?          | Como                                                                                                                                                                                  |
-| ------------------------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Baileys 7.x** (peça ✅)                        | ✅ nativo             | `lidMapping` / `decodeJid` interno (já validado neste projeto)                                                                                                                        |
-| **whatsapp-web.js** (peça ✅)                    | ✅ **resolvido aqui** | `window.WWebJS.enforceLidAndPnRetrieval([lid])` + `WWebJS.getContact` → id vira `<tel>@c.us` (seção 5). `getContact().number` sozinho NÃO serve; `window.Store` não é exposto na 1.34 |
-| **WPPConnect** (peça, lib)                       | 🟡 API dedicada       | `lidPnCache.getPhoneNumber`, `getPnForLid`, `requestPhoneNumber`                                                                                                                      |
-| **whatsmeow** (base do Evolution Go / WAHA-GOWS) | ✅                    | lib Go madura, mapeia LID                                                                                                                                                             |
-| **WAHA** (concorrente)                           | ✅ merge automático   | 2026.3 funde `@lid`↔`@c.us` numa thread (referência do nosso merge)                                                                                                                   |
-| **API Oficial Meta** (oficial)                   | ✅ N/A                | trabalha com `wa_id` (telefone), sem o hack de LID                                                                                                                                    |
+| Base                                             | Resolve LID?          | Como                                                                                                                                                                                                 |
+| ------------------------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Baileys 7.x** (peça ✅)                        | ✅ nativo             | `lidMapping` / `decodeJid` interno (já validado neste projeto)                                                                                                                                       |
+| **whatsapp-web.js** (peça ✅)                    | ✅ **resolvido aqui** | `window.WWebJS.enforceLidAndPnRetrieval([lid])` + `WWebJS.getContact` → id vira `<tel>@c.us` (seção 5). `getContact().number` sozinho NÃO serve; `window.Store` não é exposto na 1.34                |
+| **WPPConnect** (peça, lib)                       | 🟡 API dedicada       | `lidPnCache.getPhoneNumber`, `getPnForLid`, `requestPhoneNumber`                                                                                                                                     |
+| **whatsmeow** (base do Evolution Go / WAHA-GOWS) | ✅                    | lib Go madura, mapeia LID                                                                                                                                                                            |
+| **WAHA** (concorrente)                           | ✅ merge automático   | 2026.3 funde `@lid`↔`@c.us` numa thread (referência do nosso merge)                                                                                                                                  |
+| **API Oficial Meta** (oficial)                   | 🟡 BSUID              | `wa_id` (telefone) **e**, desde abr/2026, BSUID (`user_id`) nos webhooks; quem ativa username chega SEM telefone, salvo interação anterior — exige mapear BSUID↔contato (corrigido 25/09/2026, §2.9) |
 
 Fontes: [wwebjs #3969](https://github.com/pedroslopez/whatsapp-web.js/issues/3969) ·
 [wwebjs #3519](https://github.com/pedroslopez/whatsapp-web.js/issues/3519) ·
@@ -51,17 +51,17 @@ Fontes: [wwebjs #3969](https://github.com/pedroslopez/whatsapp-web.js/issues/396
 
 ## 1. Comparativo
 
-| Base                   | Categoria                      | Protocolo             | LID             | Custo recursos | Vale integrar como `IEngine`?           | Status                       |
-| ---------------------- | ------------------------------ | --------------------- | --------------- | -------------- | --------------------------------------- | ---------------------------- |
-| **Baileys**            | Peça (lib in-process)          | WebSocket multidevice | ✅ nativo       | Baixíssimo     | —                                       | ✅ **instalado** (principal) |
-| **whatsapp-web.js**    | Peça (lib in-process)          | Puppeteer + Chrome    | ✅ (merge aqui) | Alto (Chrome)  | —                                       | ✅ **instalado** (WWEBJS)    |
-| **WPPConnect**         | Peça (lib in-process)          | Puppeteer + `wa-js`   | 🟡 API          | Alto (Chrome)  | Talvez (browser c/ LID nativo)          | ⬜ opcional                  |
-| **Venom-bot**          | Peça (lib in-process)          | Puppeteer             | ❌/imaturo      | Alto (Chrome)  | Improvável (sem vantagem)               | ⬜ baixa                     |
-| **whatsmeow**          | Peça (lib **Go**)              | WebSocket (Go)        | ✅              | Baixíssimo     | Só com microserviço Go                  | ⬜ futuro/escala             |
-| **WAHA**               | ❌ Concorrente (servidor REST) | WEBJS/NOWEB/GOWS      | ✅              | Médio          | **Não** (redundante; multi-sessão pago) | 🔵 referência                |
-| **Evolution API / Go** | ❌ Concorrente (servidor REST) | Baileys / whatsmeow   | ✅              | Baixo (Go)     | **Não** (redundante)                    | 🔵 referência                |
-| **Z-API**              | ❌ Concorrente (SaaS pago)     | Gerenciado            | ✅              | N/A (pago)     | **Não** (terceiro, custo, LGPD)         | 🔵 referência                |
-| **API Oficial Meta**   | 🏛️ Canal oficial               | WhatsApp Cloud API    | ✅ (`wa_id`)    | N/A            | **Sim, no futuro**                      | ⬜ futuro                    |
+| Base                   | Categoria                      | Protocolo             | LID                  | Custo recursos | Vale integrar como `IEngine`?           | Status                       |
+| ---------------------- | ------------------------------ | --------------------- | -------------------- | -------------- | --------------------------------------- | ---------------------------- |
+| **Baileys**            | Peça (lib in-process)          | WebSocket multidevice | ✅ nativo            | Baixíssimo     | —                                       | ✅ **instalado** (principal) |
+| **whatsapp-web.js**    | Peça (lib in-process)          | Puppeteer + Chrome    | ✅ (merge aqui)      | Alto (Chrome)  | —                                       | ✅ **instalado** (WWEBJS)    |
+| **WPPConnect**         | Peça (lib in-process)          | Puppeteer + `wa-js`   | 🟡 API               | Alto (Chrome)  | Talvez (browser c/ LID nativo)          | ⬜ opcional                  |
+| **Venom-bot**          | Peça (lib in-process)          | Puppeteer             | ❌/imaturo           | Alto (Chrome)  | Improvável (sem vantagem)               | ⬜ baixa                     |
+| **whatsmeow**          | Peça (lib **Go**)              | WebSocket (Go)        | ✅                   | Baixíssimo     | Só com microserviço Go                  | ⬜ futuro/escala             |
+| **WAHA**               | ❌ Concorrente (servidor REST) | WEBJS/NOWEB/GOWS      | ✅                   | Médio          | **Não** (redundante; multi-sessão pago) | 🔵 referência                |
+| **Evolution API / Go** | ❌ Concorrente (servidor REST) | Baileys / whatsmeow   | ✅                   | Baixo (Go)     | **Não** (redundante)                    | 🔵 referência                |
+| **Z-API**              | ❌ Concorrente (SaaS pago)     | Gerenciado            | ✅                   | N/A (pago)     | **Não** (terceiro, custo, LGPD)         | 🔵 referência                |
+| **API Oficial Meta**   | 🏛️ Canal oficial               | WhatsApp Cloud API    | 🟡 (`wa_id` + BSUID) | N/A            | **Sim, no futuro**                      | ⬜ futuro                    |
 
 ---
 
@@ -120,12 +120,30 @@ Fontes: [wwebjs #3969](https://github.com/pedroslopez/whatsapp-web.js/issues/396
 
 ### 2.9 API Oficial Meta (WhatsApp Cloud API) — ⬜ futuro · 🏛️ canal oficial
 
-- A **API oficial** da Meta. Identifica contatos por **`wa_id`** (telefone) — sem o hack de LID.
-- **Prós:** oficial, sem risco de ban, estável. **Pegadinhas a registrar:**
+> **Corrigido em 25/09/2026 (P-063)** — três afirmações anteriores desta seção estavam erradas
+> ("sem o hack de LID", "sem risco de ban", "cobrança por conversa"). Fontes oficiais consultadas
+> em 25/09/2026: [BSUID](https://developers.facebook.com/documentation/business-messaging/whatsapp/business-scoped-user-ids/), [pricing](https://developers.facebook.com/docs/whatsapp/pricing),
+> [Business Messaging Policy](https://whatsappbusiness.com/policy/) (última atualização 23/09/2026) e
+> [policy enforcement](https://developers.facebook.com/docs/whatsapp/overview/policy-enforcement).
+
+- A **API oficial** da Meta. Identifica contatos por **`wa_id`** (telefone) **e por BSUID**: os
+  webhooks trazem o BSUID (`user_id`) desde o início de abr/2026 e, _"If a WhatsApp user enables the
+  username feature, their phone number will not be included in webhooks, unless you have interacted
+  with the user before"_. Suportar BSUID é obrigatório para parceiros e empresas integradas
+  diretamente. Ou seja: a engine oficial também precisa de mapeamento identificador↔contato.
+- **Prós:** oficial e estável. **NÃO é "sem risco de ban":** a Business Messaging Policy diz
+  _"We may limit or remove your access to or use of WhatsApp for Business, or limit your ability to
+  send messages, if you receive significant amounts of negative feedback [...]"_, e a doc de
+  enforcement da plataforma prevê bloqueios de envio de 1 a 30 dias, _account lock_ e desativação
+  permanente. **Pegadinhas a registrar:**
   - Exige **WhatsApp Business Account (WABA)** + número verificado + **Meta Business** aprovado.
   - Mensagens iniciadas pela empresa só via **templates aprovados**; fora da **janela de 24h** não dá
     para mandar texto livre.
-  - **Cobrança por conversa** (marketing/utility/auth/service).
+  - **Cobrança por mensagem** (template entregue) desde 01/07/2025 — _"Conversation-based pricing is
+    deprecated. It was replaced with per-message pricing on July 1, 2025."_ Mensagens não-template
+    (só dentro da janela de 24h) e templates de utilidade dentro da janela aberta são gratuitos
+    segundo a página de pricing em 25/09/2026. Tabela de preço muda por país/data — conferir a
+    página antes de orçar.
 - **Integração:** é o único "externo" que **agrega** (canal oficial). Provavelmente um **módulo de
   canal à parte** (templates/opt-in/janela 24h), não só um `IEngine`. **Quando:** quando o produto
   precisar de conformidade oficial (clientes que exigem API oficial).
@@ -153,7 +171,8 @@ gateway multi-engine completo.
 **Próximos passos que AGREGAM (em ordem):**
 
 1. **API Oficial Meta (Cloud API)** — quando precisar de conformidade oficial. É o único canal externo
-   que adiciona algo novo (oficialidade, sem ban).
+   que adiciona algo novo (oficialidade; a conta oficial ainda pode ter envio limitado ou acesso
+   removido pela policy — §2.9).
 2. **WPPConnect (modo lib)** — _opcional_, só se quiser uma 3ª engine browser. Baixa prioridade (o LID
    já está resolvido no whatsapp-web.js).
 3. **whatsmeow via microserviço Go** — _só por escala_ (milhares de sessões com pouca RAM).

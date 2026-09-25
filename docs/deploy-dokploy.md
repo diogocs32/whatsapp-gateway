@@ -50,7 +50,11 @@ WWEBJS_DATA_PATH=/data/wwebjs
   foi aplicado em **14/08/2026** (volume criado + redeploy; prova no log do boot:
   `[entrypoint] corrigindo dono de /data/wwebjs para node`).
 
-**Advanced → Swarm Settings → Health Check** (opcional; o Dockerfile já traz HEALTHCHECK):
+**Advanced → Swarm Settings → Health Check** — ⚠️ **deixar VAZIO** enquanto a issue Dokploy
+[#5171](https://github.com/Dokploy/dokploy/issues/5171) estiver aberta (o campo grava `Test` como
+string única, o Docker rejeita o healthcheck e as tasks ficam presas em `Starting`; aberta em
+24/08/2026, ainda aberta em 25/09/2026). O HEALTHCHECK do `apps/gateway/Dockerfile` continua
+valendo. O JSON abaixo fica só como referência de formato — não colar enquanto o #5171 existir:
 
 ```json
 {
@@ -64,8 +68,17 @@ WWEBJS_DATA_PATH=/data/wwebjs
 
 > Valores em nanosegundos (30s / 10s / 60s). StartPeriod 60s cobre boot do Nest + migrations + Chrome.
 
-**Advanced → Swarm Settings → Update Config** — ⚠️ **NÃO configurar `start-first` no gateway.**
-Deixar VAZIO (default do Swarm = `stop-first`) ou, se preencher, usar:
+**Advanced → Swarm Settings → Update Config e Rollback Config** — ⚠️ **PREENCHER os DOIS com
+`stop-first`. NÃO deixar vazio.** Ação do dono: **B-004** em [PENDENCIAS.md](PENDENCIAS.md).
+
+Com o campo vazio o Dokploy **não** usa o default do Swarm: ele injeta
+`{"Parallelism":1,"Order":"start-first","FailureAction":"rollback"}` no Update Config e
+`{"Parallelism":1,"Order":"start-first"}` no Rollback Config — código do Dokploy v0.30.2 (tag
+`8c2d4d5`), `packages/server/src/utils/docker/utils.ts:678-696`, conferido em 25/09/2026 (registro:
+D-020 em [DECISOES.md](DECISOES.md)). Resultado com o campo vazio: todo deploy sobe o container
+novo com o antigo vivo (as mesmas contas abertas duas vezes — ver B-004).
+
+Update Config:
 
 ```json
 {
@@ -76,7 +89,29 @@ Deixar VAZIO (default do Swarm = `stop-first`) ou, se preencher, usar:
 }
 ```
 
-> Recomendação REVISADA em 14/08/2026 (P-015). A versão anterior deste runbook sugeria
+Rollback Config:
+
+```json
+{
+  "Parallelism": 1,
+  "Order": "stop-first"
+}
+```
+
+- Chaves aceitas pelo Dokploy v0.30.2 (`UpdateConfigSwarmSchema`,
+  `packages/server/src/db/schema/shared.ts:142-151`, `.strict()`): `Parallelism` e `Order`
+  obrigatórias; `Delay`, `FailureAction`, `Monitor` e `MaxFailureRatio` opcionais. Tempo em
+  nanossegundos (`Delay` 10000000000 = 10 s). Chave fora dessa lista é rejeitada.
+- Depois de salvar, fazer **Deploy** e conferir no servidor:
+  `docker service inspect <gateway> --format '{{json .Spec.UpdateConfig}} {{json .Spec.RollbackConfig}}'`
+  → os dois com `"Order":"stop-first"`. StopGracePeriod e demais passos: B-004.
+- **Custo:** o stop-first perde a rede do start-first (em 16/08 o container antigo segurou a API
+  quando o novo caiu com `Cannot find module 'zod'`). Imagem quebrada passa a ser outage → as
+  guardas de build da **P-055** vêm antes ou junto do B-004.
+
+> Recomendação REVISADA em 14/08/2026 (P-015). **Nota 25/09/2026 (D-020):** o "deixar VAZIO =
+> stop-first" desta revisão estava errado para o Dokploy (ver acima); o texto abaixo segue válido
+> como motivo para NÃO usar start-first. A versão anterior deste runbook sugeria
 > `start-first` (zero-downtime), mas com o volume `gateway-wwebjs` compartilhado isso faz o
 > container NOVO subir com o VELHO ainda vivo: o boot novo remove os SingletonLock do Chromium
 > AINDA ATIVO (`clearStaleSingletonLocks` assume lock remanescente = processo morto) e DOIS

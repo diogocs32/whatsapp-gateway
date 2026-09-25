@@ -1,0 +1,293 @@
+<!-- GERADO por scripts/mapa-codigo.mjs — NÃO editar à mão. Regenerar: node scripts/mapa-codigo.mjs -->
+
+# Mapa do código — Gateway — shared-kernel
+
+Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo type-checker (chamada via interface aparece na interface — ver “implementado por”) · **banco** = `modelo.operação` Prisma (`SQL:tabela` = SQL cru) · **env** = variável de ambiente lida.
+
+| Arquivo | Linhas |
+| --- | --- |
+| `shared-kernel/clock.ts` | 13 |
+| `shared-kernel/crypto.spec.ts` | 96 |
+| `shared-kernel/crypto.ts` | 157 |
+| `shared-kernel/domain-event.ts` | 7 |
+| `shared-kernel/event-bus/event-bus.ts` | 38 |
+| `shared-kernel/local-day.spec.ts` | 40 |
+| `shared-kernel/local-day.ts` | 48 |
+| `shared-kernel/memory.ts` | 71 |
+| `shared-kernel/process-errors.ts` | 16 |
+| `shared-kernel/query-int.spec.ts` | 19 |
+| `shared-kernel/query-int.ts` | 14 |
+| `shared-kernel/result.ts` | 8 |
+| `shared-kernel/safe-fetch.spec.ts` | 227 |
+| `shared-kernel/safe-fetch.ts` | 254 |
+| `shared-kernel/shared-kernel.module.ts` | 12 |
+| `shared-kernel/ulid.ts` | 5 |
+
+## `shared-kernel/clock.ts`
+
+13 linhas · caminho: `apps/gateway/src/shared-kernel/clock.ts`
+- importado por: `shared-kernel/shared-kernel.module.ts`
+
+**class `SystemClock`** L6 · `implements Clock`
+- `now()` · L7
+  - implementa: `Clock.now` L3
+
+**Funções e constantes de topo**
+- `CLOCK` = `Symbol('CLOCK')` · L12
+
+**Tipos**
+- interface `Clock` L2
+  - `Clock.now()` · L3
+    - implementado por: `now` L7
+
+## `shared-kernel/crypto.spec.ts`
+
+96 linhas · caminho: `apps/gateway/src/shared-kernel/crypto.spec.ts`
+- importa (interno): `shared-kernel/crypto.ts`
+
+- describe “hashPassword / verifyPassword (scrypt)” · L16
+  - it “roundtrip: senha correta verifica (formato versionado s2$N$r$p$salt$hash)” · L17
+  - it “hash LEGADO (salt:hash, custo default do Node) continua verificando e pede re-hash” · L24
+  - it “custo diferente do corrente pede re-hash; custo igual não” · L36
+  - it “verifyPasswordDummy roda sem lançar (equalização de tempo)” · L43
+  - it “senha errada não verifica” · L47
+  - it “mesma senha gera hashes diferentes (salt aleatório)” · L52
+  - it “valor armazenado malformado devolve false (sem lançar)” · L60
+- describe “hmacSha512 — assinatura de webhook (vetor fixo = contrato com integradores)” · L69
+  - it “produz o hex conhecido para secret+payload de referência” · L70
+  - it “secrets diferentes → assinaturas diferentes” · L78
+- describe “sha512 — hash de API key (vetor fixo = contrato)” · L83
+  - it “produz o hex conhecido para a key de referência” · L84
+  - it “é determinístico e sensível a 1 caractere” · L91
+
+## `shared-kernel/crypto.ts`
+
+157 linhas · caminho: `apps/gateway/src/shared-kernel/crypto.ts`
+- importado por: `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `shared-kernel/crypto.spec.ts`
+
+**Funções e constantes de topo**
+- `scryptAsync` = `promisify< string, string, number, { N: number; r: number; p: number;…` · L18
+  - chamado por: `derive` L51
+- `currentScryptCost()` · L39
+  - chamado por: `hashPassword` L59, `passwordNeedsRehash` L125, `verifyPasswordDummy` L142
+  - env: `PASSWORD_SCRYPT_LOG2N`
+- `maxmemFor(cost)` · L46
+  - chamado por: `derive` L51
+- `derive(plain, salt, cost)` · L51 · async
+  - chama: `maxmemFor` L46, `scryptAsync` L18
+  - chamado por: `hashPassword` L59, `verifyPassword` L111, `verifyPasswordDummy` L142
+- `hashPassword(plain, cost)` · L59 · async
+  - chama: `currentScryptCost` L39, `derive` L51
+  - chamado por: `AuthSessionService.login` (auth-session.service.ts:57), `UserService.create` (user.service.ts:50), `UserService.resetPassword` (user.service.ts:89), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26)
+- `parseStored(stored)` · L75
+  - chamado por: `passwordNeedsRehash` L125, `verifyPassword` L111
+- `verifyPassword(plain, stored)` · L111 · async
+  - chama: `derive` L51, `parseStored` L75
+  - chamado por: `AuthSessionService.login` (auth-session.service.ts:57)
+- `passwordNeedsRehash(stored, cost)` · L125
+  - chama: `currentScryptCost` L39, `parseStored` L75
+  - chamado por: `AuthSessionService.login` (auth-session.service.ts:57)
+- `verifyPasswordDummy(cost)` · L142 · async
+  - chama: `currentScryptCost` L39, `derive` L51
+  - chamado por: `AuthSessionService.login` (auth-session.service.ts:57)
+- `hmacSha512(secret, payload)` · L149
+- `sha512(text)` · L154
+  - chamado por: `ApiKeyService.create` (api-key.service.ts:25), `ApiKeyService.validate` (api-key.service.ts:42), `TokenService.hashRefresh` (token.service.ts:33), `TokenService.newRefresh` (token.service.ts:28)
+
+**Tipos**
+- interface `ScryptCost` L32 · 3 propriedade(s)
+- interface `ParsedHash` L68 · 4 propriedade(s)
+
+## `shared-kernel/domain-event.ts`
+
+7 linhas · caminho: `apps/gateway/src/shared-kernel/domain-event.ts`
+- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/event-bus/event-bus.ts`
+
+**Tipos**
+- interface `DomainEvent` L2 · 3 propriedade(s)
+
+## `shared-kernel/event-bus/event-bus.ts`
+
+38 linhas · caminho: `apps/gateway/src/shared-kernel/event-bus/event-bus.ts`
+- importa (interno): `shared-kernel/domain-event.ts`
+- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/guardrail/guardrail.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/shared-kernel.module.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+
+**class `EventBus`** L9 · @Injectable
+- `logger` · L11 · private · campo
+- `emitter` · L12 · private · campo
+- `constructor()` · L14
+- `publish(event)` · L21
+  - chamado por: `EventFanout.onRemote` (event-fanout.ts:57), `GuardrailService.emit` (guardrail.service.ts:177), `SessionManager.handleEngineEvent` (session-manager.service.ts:190)
+- `subscribe(name, handler)` · L26
+  - chamado por: `EventFanout.onModuleInit` (event-fanout.ts:35), `EventsController.stream` (events.controller.ts:14), `MessagePersister.onModuleInit` (message-persister.service.ts:24), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:31)
+- `unsubscribe(name, handler)` · L30
+  - chamado por: `EventsController.stream` (events.controller.ts:14)
+- `subscribeAll(handler)` · L34
+
+**Tipos**
+- type `EventHandler` L5
+
+## `shared-kernel/local-day.spec.ts`
+
+40 linhas · caminho: `apps/gateway/src/shared-kernel/local-day.spec.ts`
+- importa (interno): `shared-kernel/local-day.ts`
+
+- describe “startOfLocalDay” · L4
+  - it “America/Sao_Paulo (UTC-3): 01:30Z de 10/09 ainda é 09/09 local → meia-noite local = 03:00Z de 09/09” · L5
+  - it “America/Sao_Paulo: 12:00Z de 10/09 → meia-noite local = 03:00Z de 10/09” · L12
+  - it “UTC: meia-noite UTC do próprio dia” · L19
+  - it “fuso positivo (Asia/Tokyo, UTC+9): 20:00Z de 10/09 já é 11/09 local → 15:00Z de 10/09” · L26
+  - it “fuso inválido cai no dia UTC (não lança)” · L33
+
+## `shared-kernel/local-day.ts`
+
+48 linhas · caminho: `apps/gateway/src/shared-kernel/local-day.ts`
+- importado por: `modules/campaigns/infrastructure/campaign.repository.ts`, `shared-kernel/local-day.spec.ts`
+
+**Funções e constantes de topo**
+- `startOfLocalDay(timeZone, now)` · L8
+  - chamado por: `CampaignRepository.reserveRecipient` (campaign.repository.ts:128)
+
+## `shared-kernel/memory.ts`
+
+71 linhas · caminho: `apps/gateway/src/shared-kernel/memory.ts`
+- importado por: `modules/health/health.service.ts`, `modules/observability/metrics.service.ts`
+
+**Funções e constantes de topo**
+- `round2(n)` · L15
+  - chamado por: `memoryStats` L45
+- `readCgroupWorkingSet()` · L22
+  - chamado por: `memoryStats` L45
+- `memoryStats()` · L45
+  - chama: `readCgroupWorkingSet` L22, `round2` L15
+  - chamado por: `HealthService.check` (health.service.ts:53), `MetricsService.summary` (metrics.service.ts:72)
+
+**Tipos**
+- interface `MemoryStats` L5 · 7 propriedade(s)
+
+## `shared-kernel/process-errors.ts`
+
+16 linhas · caminho: `apps/gateway/src/shared-kernel/process-errors.ts`
+- importado por: `main.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/interface/audit.interceptor.ts`, `modules/observability/metrics.service.ts`
+
+**Funções e constantes de topo**
+- `totals` = `new Map<string, number>()` · L7
+- `recordProcessError(kind)` · L9
+  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:396), `AuditInterceptor.record` (audit.interceptor.ts:53)
+- `processErrorTotals()` · L13
+  - chamado por: `MetricsService.refresh` (metrics.service.ts:104)
+
+## `shared-kernel/query-int.spec.ts`
+
+19 linhas · caminho: `apps/gateway/src/shared-kernel/query-int.spec.ts`
+- importa (interno): `shared-kernel/query-int.ts`
+
+- describe “clampInt” · L4
+  - it “ausente ou inválido → default” · L5
+  - it “clampa em [min, max] e arredonda para baixo” · L11
+
+## `shared-kernel/query-int.ts`
+
+14 linhas · caminho: `apps/gateway/src/shared-kernel/query-int.ts`
+- importado por: `modules/contacts/interface/contacts.controller.ts`, `modules/iam/interface/audit.controller.ts`, `modules/messaging/interface/inbox.controller.ts`, `modules/messaging/interface/messages.controller.ts`, `shared-kernel/query-int.spec.ts`
+
+**Funções e constantes de topo**
+- `clampInt(raw, def, min, max)` · L4
+  - chamado por: `ContactsController.listDirectory` (contacts.controller.ts:58), `AuditController.list` (audit.controller.ts:15), `InboxController.conversations` (inbox.controller.ts:107), `InboxController.messages` (inbox.controller.ts:144), `MessagesController.conversations` (messages.controller.ts:215), `MessagesController.list` (messages.controller.ts:225), `MessagesController.search` (messages.controller.ts:254)
+
+## `shared-kernel/result.ts`
+
+8 linhas · caminho: `apps/gateway/src/shared-kernel/result.ts`
+
+**Funções e constantes de topo**
+- `ok(value)` · L6
+- `err(error)` · L7
+
+**Tipos**
+- type `Result` L2
+
+## `shared-kernel/safe-fetch.spec.ts`
+
+227 linhas · caminho: `apps/gateway/src/shared-kernel/safe-fetch.spec.ts`
+- importa (interno): `shared-kernel/safe-fetch.ts`
+
+- describe “isPrivateAddress” · L16
+  - it “reconhece faixas privadas/reservadas v4” · L17
+  - it “reconhece v6 loopback/ULA/link-local e v4 mapeado” · L37
+  - it “string que não é IP conta como bloqueada” · L54
+- describe “parseEgressUrl / assertEgressAllowed” · L59
+  - it “rejeita esquemas fora de http/https e credenciais na URL” · L60
+  - it “bloqueia IP literal privado, localhost e metadata; libera com allowlist” · L74
+  - it “IP público literal passa sem DNS” · L98
+  - it “host que não resolve: bloqueado por default, aceito com dnsFailure=allow (cadastro)” · L104
+  - it “egressPolicyFromEnv lê EGRESS_ALLOW_PRIVATE e EGRESS_ALLOW_HOSTS” · L114
+- describe “safeFetch — corpo em fluxo com teto e redirects validados” · L128
+  - it “baixa um corpo pequeno (e segue redirect same-host validado)” · L182
+  - it “corpo chunked acima do teto é abortado sem bufferizar tudo” · L192
+  - it “content-length declarado acima do teto é recusado antes de ler” · L198
+  - it “redirect para destino privado é bloqueado (política estrita) e loop de redirect é cortado” · L204
+  - it “política estrita bloqueia o próprio servidor local (loopback)” · L221
+
+## `shared-kernel/safe-fetch.ts`
+
+254 linhas · caminho: `apps/gateway/src/shared-kernel/safe-fetch.ts`
+- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `shared-kernel/safe-fetch.spec.ts`
+
+**class `EgressBlockedError`** L38 · `extends Error`
+- injeta (construtor): `message: string (param)`
+- `constructor(message)` · L39
+  - chamado por: `assertEgressAllowed` L119, `parseEgressUrl` L90, `safeFetch` L186
+
+**class `BodyTooLargeError`** L177 · `extends Error`
+- injeta (construtor): `maxBytes: number (param)`
+- `constructor(maxBytes)` · L178
+  - chamado por: `safeFetch` L186
+
+**Funções e constantes de topo**
+- `egressPolicyFromEnv(env)` · L23
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:573), `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60)
+- `ipv4ToInt(ip)` · L45
+  - chamado por: `inCidr4` L51
+- `inCidr4(ip, base, bits)` · L51
+  - chama: `ipv4ToInt` L45
+  - chamado por: `isPrivateAddress` L71
+- `PRIVATE_V4` = `[ ['0.0.0.0', 8], // "this" network ['10.0.0.0', 8], ['100.64.0.0', 1…` · L56
+- `isPrivateAddress(ip)` · L71
+  - chama: `inCidr4` L51
+  - chamado por: `assertEgressAllowed` L119
+- `parseEgressUrl(raw)` · L90
+  - chama: `constructor` L39
+  - chamado por: `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `safeFetch` L186
+- `assertEgressAllowed(url, policy, opts)` · L119 · async
+  - chama: `constructor` L39, `isPrivateAddress` L71
+  - chamado por: `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `safeFetch` L186
+- `safeFetch(raw, opts)` · L186 · async
+  - chama: `assertEgressAllowed` L119, `constructor` L178, `constructor` L39, `parseEgressUrl` L90
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:573)
+
+**Tipos**
+- interface `EgressPolicy` L18 · 2 propriedade(s)
+- interface `EgressCheckOptions` L111 · 1 propriedade(s)
+- interface `SafeFetchOptions` L160 · 7 propriedade(s)
+- interface `SafeFetchResult` L170 · 4 propriedade(s)
+
+## `shared-kernel/shared-kernel.module.ts`
+
+12 linhas · caminho: `apps/gateway/src/shared-kernel/shared-kernel.module.ts`
+- importa (interno): `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/clock.ts`
+- importado por: `app.module.ts`
+
+**@Module `SharedKernelModule`** L6
+- providers: `[EventBus, { provide: CLOCK, useClass: SystemClock }]`
+- exports: `[EventBus, CLOCK]`
+
+**class `SharedKernelModule`** L6 · @Global · @Module({ providers: [EventBus, { provide: CLOCK, useClass: SystemC…)
+
+## `shared-kernel/ulid.ts`
+
+5 linhas · caminho: `apps/gateway/src/shared-kernel/ulid.ts`
+- importado por: `infra/directory/contact-directory.service.ts`, `infra/redis/event-fanout.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/infrastructure/prisma-inbox.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/session-event.logger.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`
+
+**Funções e constantes de topo**
+- `newId()` · L4
+  - chamado por: `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.upsertChunk` (contact-directory.service.ts:115), `EventFanout.instanceId` (event-fanout.ts:27), `CampaignRepository.create` (campaign.repository.ts:37), `GuardrailService.apply` (guardrail.service.ts:316), `GuardrailService.emit` (guardrail.service.ts:177), `GuardrailService.getState` (guardrail.service.ts:203), `GuardrailService.recordHardSignal` (guardrail.service.ts:427), `ApiKeyService.create` (api-key.service.ts:25), `AuthSessionService.issue` (auth-session.service.ts:123), `AuthSessionService.login` (auth-session.service.ts:57), `AuthSessionService.refresh` (auth-session.service.ts:85), `UserService.create` (user.service.ts:50), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26), `PrismaAuditRepository.create` (prisma-audit.repository.ts:14), `SendIntentService.reserve` (send-intent.service.ts:26), `PrismaInboxRepository.markIgnored` (prisma-inbox.repository.ts:171), `PrismaMessageRepository.save` (prisma-message.repository.ts:16), `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:56), `ReplyRateService.computeFor` (reply-rate.service.ts:93), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `PrismaProxyRepository.create` (prisma-proxy.repository.ts:85), `SessionConfigService.get` (session-config.service.ts:28), `SessionConfigService.update` (session-config.service.ts:36), `SessionManager.handleEngineEvent` (session-manager.service.ts:190), `SessionsController.create` (sessions.controller.ts:95), `WebhookQueue.toDeadLetter` (webhook-queue.ts:191), `WebhooksController.create` (webhooks.controller.ts:60), `WebhooksController.test` (webhooks.controller.ts:133)

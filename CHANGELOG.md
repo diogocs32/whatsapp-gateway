@@ -6,6 +6,20 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Documentação / ferramentas (25/09 — sessão `onda0b-mapa-roteiro` — doc-only, SEM deploy; ver `docs/sessions/DONE-2026-09-25-0700-onda0b-mapa-roteiro.md`)
+
+- **Mapa do código:** `scripts/mapa-codigo.mjs` gera, com o compilador do TypeScript (type-checker), o inventário de todas as funções/métodos com linha, injeção de dependência, chamadas resolvidas ("chama"/"chamado por"), implementações da `IEngine`, rotas HTTP, filas BullMQ e jobId montado nos chamadores, eventos do EventBus, acesso Prisma por modelo, variáveis de ambiente e títulos de testes → `docs/reference/mapa-codigo/` (`--check` compara byte a byte). Camada de relações verificada adversarialmente em [docs/MAPA-CODIGO.md](docs/MAPA-CODIGO.md): fluxos ponta a ponta, áreas, "onde mexer por pendência" e divergências doc × código.
+- **Roteiro de execução** [docs/ROTEIRO-ONDAS-2026-09.md](docs/ROTEIRO-ONDAS-2026-09.md): etapas E1–E21 (1 etapa = 1 chat), regras comuns, mensagens prontas para o próximo chat e ações do dono por momento.
+- **Reconciliação documental (P-063):** start-first do Dokploy corrigido no runbook/§6B.11/P-015 (D-020); Health Check do Swarm vazio (#5171); B-002 com a quebra de mídia das builds ≥ ~17/09; P-019/P-020 marcadas em produção desde 16/08; motivos da D-016/P-021 corrigidos (boom só tipo, ulid 3 tem CJS, BullMQ 6 com ioredis 5); `motores-whatsapp.md`/DOCUMENTO com BSUID, cobrança por mensagem e policy de 23/09; nota do `npm audit` cego a advisories de repositório; CLAUDE.md rc14 + comandos no macOS.
+- **Decisões:** D-020 (premissa do stop-first), D-021 (duas engines vivas; Onda 6 obrigatória), D-022 (sinal duro → pausa até o fim + alerta).
+- **Corrigido (CI/dev, sem deploy):** o `quay.io/minio/*` passou a responder 401 (repositórios fechados depois de 15/09) e derrubou o CI; `docker-compose.yml` e `ci.yml` agora usam o fork mantido `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` (última tag com identidade MinIO, já com a correção da CVE-2026-41145) e o cliente `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`. Fluxo do CI reproduzido localmente: infra `--wait`, bucket, migrations e 331/331 testes (unit + e2e).
+
+### Documentação (23–24/09 — sessão `analise-atualizacoes` — doc-only, SEM deploy; ver `docs/sessions/DONE-2026-09-23-1750-analise-atualizacoes.md`)
+
+- **Análise de atualizações e estabilidade das contas** ([docs/analise-atualizacoes-2026-09.md](docs/analise-atualizacoes-2026-09.md)): delta desde a auditoria de 09/09 — nenhuma versão nova de Baileys (rc14) nem wwebjs (1.34.7); Dokploy aplica `start-first` com Update Config vazio (runbook/D-014 errados → aviso no `deploy-dokploy.md` e B-004); produção sem backup (B-005); MinIO com CVE-2026-41145 (B-006); Nest GHSA-9c5c (high) invisível ao npm audit; lacunas do Baileys (mensagens offline descartadas, sinais de restrição ignorados, download de mídia sem proxy); política do WhatsApp alterada em 23/09; ondas 0–7 com critérios de aceite. Pendências B-004..B-007 e P-047..P-064.
+- **wwebjs: memória/CPU** ([docs/analise-wwebjs-memoria-2026-09.md](docs/analise-wwebjs-memoria-2026-09.md)): sem "modo leve" na lib; flags restantes ~7–10%; maior alavanca é a mídia (`downloadMediaStream`, sem auto-download de grupo, fila, teto de envio); Baileys provavelmente cobre os leads com telefone (A/B proposto).
+- Evidência bruta dos dois workflows em `docs/reference/analise-*-2026-09.json`.
+
 ### Adicionado (15/09 — sessão `caixa-unica-triagem` — **EM PRODUÇÃO 15/09 ~14:07 UTC**, PR #4, CI verde com o e2e novo na 1ª execução real, merge ff `768fb26`; validado por fora: rotas `/api/inbox/*` 404→401, migration aplicada no boot, bundle do dashboard com a rota — ver `docs/sessions/DONE-2026-09-15-1019-caixa-unica-triagem.md`)
 
 Pedido do dono: uma tela para monitorar o que chega de TODOS os aparelhos sem escolher sessão, com semáforo por conversa (respostas 100% humanas, no aparelho).
