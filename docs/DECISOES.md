@@ -468,3 +468,67 @@
   Documentado na `INTEGRACAO.md`.
 - **Alternativa:** só o bump (201 com descarte calado) — rejeitada: não atende o critério e esconde
   erro do integrador.
+
+## D-025 — 2026-09-25 — Borda HTTP decide pela rota resolvida; teto do login em contador próprio (P-053)
+
+- **Decisão (etapa E4):** rate-limit, request-log e auditoria deixam de decidir por `req.url` cru
+  e passam a usar a **rota resolvida pelo router** (`request.routeOptions.url`, fastify 5.11.3):
+  - **login:** `@RouteConfig({ rateLimit: { max: 10, timeWindow: '1 minute' } })` no
+    `AuthController.signIn` — o `@fastify/rate-limit` 11.2.0 prende o limitador à rota e usa um
+    **store filho próprio** (`index.js:173-179`, `LocalStore.js:79-81`). O login **não divide mais o
+    contador com o resto do tráfego do IP**: o polling do painel não bloqueia o login e as
+    tentativas de login não gastam os 600/min da API. Força bruta segue limitada a 10/min por IP.
+  - **global:** 600/min por IP (`RATE_LIMIT_MAX`), `/health` isento pela rota
+    (`allowList: req.routeOptions.url === '/health'`); registro único em `bootstrap/rate-limit.ts`,
+    sempre antes das rotas (registrado depois não dá erro e não limita nada — provado).
+  - **request-log:** rota carimbada no request cru por um hook `onRequest` no `buildFastifyAdapter`
+    (antes do middleware do pino-http); `/health` e `/metrics` silenciosos exceto 5xx/erro (o 503
+    do `/health` segue visível). O `autoLogging.ignore` antigo era código morto (o middleware vê
+    `req.url` `'/'`).
+  - **auditoria:** QUEM é auditado decide pela rota (`startsWith('/api/')` e sem `/messages`); a
+    coluna `path` continua o alvo **cru** (sem query, teto de 512) — a tentativa de evasão fica
+    visível no painel e as linhas normais não mudam.
+- **Motivo:** forma absoluta (`POST http://host/api/auth/login`) e %-encoding (`/api/auth/%6Cogin`,
+  `/%61pi/…`) casam a MESMA rota no router e escapavam das decisões por string — 10 de 13 variantes
+  medidas furavam o teto do login (caíam nos 600/min) e mutações em `/%61pi/…` saíam da trilha. Com
+  a rota resolvida nenhuma variante fura (PoC com socket cru; specs `rate-limit.spec.ts`,
+  `audit.interceptor.spec.ts`, `http-logger.spec.ts`, `test/audit.e2e-spec.ts`; smoke do CI contra a
+  imagem).
+- **Complemento (revisão adversarial, P-071):** alvo em forma absoluta com `?` ou `#` antes do
+  caminho (`POST http://h?x=/api/...`) passa a receber **400 na borda** (`rejectAmbiguousAbsoluteForm`,
+  antes de qualquer rota): o router do fastify casava a rota da query enquanto o middie/Nest
+  resolviam `/` — a mutação rodava sem linha de log e a auditoria gravava só o host. Nenhum
+  cliente legítimo manda isso a um servidor de origem.
+- **Efeitos colaterais aceitos:** sessão cujo **nome** começa com `messages` passa a ter as
+  mutações auditadas (antes escapava por bug); `/health?x`, `HEAD /health` e a forma absoluta do
+  `/health` também ficam fora do rate-limit.
+- **Contrato:** nenhum campo muda; o 429 já existia (corpo `{statusCode, message}` igual). O node
+  n8n 0.4.1 usa `X-Api-Key` e não chama o login.
+- **Alternativa:** manter o contador compartilhado e só trocar a string (`max: req =>
+req.routeOptions.url === '/api/auth/login' ? 10 : 600`) — rejeitada: carrega o prefixo `/api` fixo
+  e mantém o login bloqueável pelo próprio tráfego do IP (20 GETs → login 429, medido).
+- **Fora do escopo (registrado):** `trustProxy: true` aceita o `X-Forwarded-For` do cliente se o
+  Traefik não o limpar — conferir no B-007; 404 não passa pelo rate-limit (pré-existente; limitar
+  exigiria reabrir o aceite do GHSA-p68q, D-023).
+
+## D-026 — 2026-09-25 — Egress: `net.BlockList` com as faixas especiais da IANA e IPv6 só no unicast global (P-065, P-070)
+
+- **Decisão (etapa E4):** `isPrivateAddress` passa a usar `net.BlockList` (Node 26): faixas IPv4
+  "não globalmente alcançáveis" do registro da IANA (acrescenta TEST-NET-1/2/3 e `192.88.99.0/24`)
+  e, no IPv6, **tudo fora de `2000::/3`** + `2001::/23`, `2001:db8::/32`, `2002::/16` (6to4) e
+  `3fff::/20`; `::/8` sem `::ffff:0:0/96` (cobre `::`, `::1`, IPv4-compatível, IPv4-traduzido e
+  NAT64). O IPv4-mapeado em qualquer grafia segue as regras IPv4 (doc do Node 26, `net.md`
+  "blockList.check": "IPv6 notation for IPv4 addresses works"). As duas rotas de foto por URL
+  (grupo e perfil) passam a usar o `safeFetch` (P-070).
+- **Motivo:** o URL do WHATWG normaliza `http://[::ffff:127.0.0.1]/` para o host `::ffff:7f00:1`,
+  que a regex antiga tratava como público — reproduzido no macOS e no Linux do Docker (o servidor
+  local recebia a requisição). As rotas de foto usavam `fetch` cru, sem política nenhuma.
+- **Armadilha (não repetir):** regra IPv6 que contenha `::ffff:0:0/96` (ex.: `::/8`, `::/80`) faz a
+  BlockList bloquear **todo** IPv4 — o egress inteiro pararia (webhook vai direto para a
+  dead-letter). O texto original da P-065 sugeria essa faixa; corrigido. O spec tem guarda.
+- **Risco aceito:** um host com AAAA em `2002::/16` (6to4 unicast, raríssimo) ou DNS64 no
+  resolvedor do container passa a ser recusado por inteiro (a entrega recusa se QUALQUER endereço
+  resolvido for privado). `64:ff9b::/96` já era bloqueado antes. Host interno legítimo →
+  `EGRESS_ALLOW_HOSTS`.
+- **Limite que continua:** rebinding de DNS entre a validação e a conexão (documentado no
+  `safe-fetch.ts`).

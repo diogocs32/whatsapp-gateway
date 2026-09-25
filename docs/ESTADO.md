@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR #6 da Onda 1, sem merge; E3 ✅ 25/09: patches P-054 + checagem diária de advisories de repositório — mesmo PR; **próxima = E4**, rotas reais P-053 + egress IPv6 P-065, que fecha a Onda 1 = deploy A; depois a **Onda 8** — conversas fiéis ao WhatsApp Web, P-066..P-069, pedido do dono em 25/09: [diagnóstico](analise-conversas-whatsapp-web-2026-09.md)). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
+- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR #6 da Onda 1, sem merge; E3 ✅ 25/09: patches P-054 + checagem diária de advisories de repositório — mesmo PR; E4 ✅ 25/09: borda HTTP pela rota resolvida P-053 + egress `net.BlockList` P-065 + fotos por URL P-070 + alvo ambíguo P-071 — **Onda 1 FECHADA, PR #6 pronto para o merge do dono = deploy A** (checklist + B-004 em [how-to/deploy-a-onda1.md](how-to/deploy-a-onda1.md)); **próxima = E22**, a **Onda 8** — conversas fiéis ao WhatsApp Web, P-066..P-069, pedido do dono em 25/09: [diagnóstico](analise-conversas-whatsapp-web-2026-09.md)). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,14 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **25/09/2026 (sessão `e4-rotas-egress`, código na branch da Onda 1 — sem deploy):** rate-limit,
+> request-log e auditoria decidem pela **rota resolvida** (`routeOptions.url`) em vez de `req.url` —
+> teto do login em contador próprio via `@RouteConfig` (D-025); egress com `net.BlockList` (IPv6
+> v4-mapeado em hexa, NAT64/6to4/Teredo e TEST-NETs recusados — D-026); fotos de grupo/perfil por
+> URL passam pelo `safeFetch` (P-070, antes `fetch` cru); forma absoluta com `?`/`#` antes do caminho
+> → 400 na borda (P-071). 360/360 testes; smoke do login no CI contra a imagem. **Produção segue em
+> `768fb26`** até o merge do PR #6 (deploy A).
 
 > **25/09/2026 (sessão `e3-patches-seguranca`, código na branch da Onda 1 — sem deploy):** Nest 11.2.6
 > (GHSA-9c5c), multipart 10.1.2 + upload com 2+ arquivos = 413 (D-024), bullmq 5.81.5, protobufjs

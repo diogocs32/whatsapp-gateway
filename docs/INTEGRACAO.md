@@ -16,6 +16,14 @@ Sessões são referenciadas por **nome** (`campanha1`) ou ID — ambos funcionam
 > também `pairingCode` (aditivo) enquanto a sessão está em `PAIRING_CODE` — o código renovado não
 > vai mais para o log.
 
+> **Limite de requisições (desde 07/2026; regra do login revista em 25/09/2026 — P-053, D-025):**
+> **600/min por IP** em `/api/*` (`RATE_LIMIT_MAX` no gateway; `/health` fica de fora) e **10/min
+> por IP no `POST /api/auth/login`**, num contador **próprio** (o tráfego da API não consome o do
+> login, e vice-versa). Acima do teto: **429** `{"statusCode":429,"message":"Rate limit exceeded,
+retry in …"}` (janela fixa de 1 min contada do 1º request) com os headers `x-ratelimit-limit`,
+> `x-ratelimit-remaining`, `x-ratelimit-reset` (segundos) e `retry-after`. O teto vale para qualquer grafia do caminho (forma absoluta,
+> `%xx`) — é decidido pela rota. Integrações via `X-Api-Key` não chamam o login.
+
 ## 2. Enviar mensagem (G1 — cold + idempotência)
 
 ```
@@ -26,7 +34,7 @@ POST /api/sessions/{sessao}/messages/text
 - **`cold: true`** = 1º contato permissionado (a IA, ao responder, deve mandar `cold: false`).
 - **`idempotencyKey`** = dedup forte: **reenviar com a mesma key NÃO duplica** — devolve o resultado anterior (`{ deduped: true }`). Use sempre em retry para não mandar 2×.
   - **Desde 09/2026 (ABE-03, aditivo):** a intenção é RESERVADA antes do envio, então a garantia vale também sob concorrência (20 chamadas simultâneas com a mesma key = 1 envio). Dois casos novos respondem **HTTP 409**: (a) a mesma key chegou com **outro destinatário/conteúdo** → use uma key nova; (b) um envio com essa key **ainda está em andamento** → aguarde a resposta anterior ou retente em instantes (o n8n deve tratar 409 como "não reenviar agora"). Falha de transporte (400) libera a key para retry com o mesmo payload. Keys ficam válidas por `RETENTION_INTENTS_DAYS` (90 d).
-- Mídia: `POST …/messages/media-url` (mesmos `cold`/`idempotencyKey`). **Política de egress (09/2026):** a `url` precisa ser http/https pública, sem credenciais embutidas; destino que resolve para rede privada/loopback/metadata é recusado (400 `URL de mídia recusada`); redirects são revalidados; o corpo é lido em fluxo com teto `MEDIA_MAX_BYTES` (64 MB default). Host interno legítimo entra em `EGRESS_ALLOW_HOSTS` no gateway.
+- Mídia: `POST …/messages/media-url` (mesmos `cold`/`idempotencyKey`). **Política de egress (09/2026):** a `url` precisa ser http/https pública, sem credenciais embutidas; destino que resolve para rede privada/loopback/metadata é recusado (400 `URL de mídia recusada`); redirects são revalidados; o corpo é lido em fluxo com teto `MEDIA_MAX_BYTES` (64 MB default). Host interno legítimo entra em `EGRESS_ALLOW_HOSTS` no gateway. **Desde 25/09/2026 (P-065):** também são recusados o IPv6 que embute um IPv4 privado (ex.: `http://[::ffff:127.0.0.1]/`, NAT64, 6to4, Teredo), as faixas de documentação (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`, `2001:db8::/32`) e todo IPv6 fora do unicast global `2000::/3`. Vale para webhook, campanha, `media-url` e fotos por URL.
 - Mídia por upload: `POST …/messages/media` em `multipart/form-data` — **1 arquivo** no campo `file` + campos de texto `to` (obrigatório), `type`, `caption`, `fileName`, `ptt`, `cold` e `idempotencyKey` (strings; `"true"` liga `cold`/`ptt`). Teto de 100 MB por arquivo. **Desde 25/09/2026 (P-054):** o gateway lê o corpo inteiro antes de enviar, então os campos valem em qualquer ordem (antes ou depois do arquivo); **2+ arquivos → 413** `{"statusCode":413,"message":"reach files limit"}` e nada é enviado (antes: 500); arquivo acima do teto → 413; campo com nome reservado (ex.: `toString`, `__proto__`) → 400; parte de texto declarada `application/json` com JSON inválido → 406; mais de 1000 partes → 413; sem arquivo ou sem `to` → 400. O node n8n usa `media-url`, não esta rota.
 - **Menções (W5, aditivo):** `text` e `media-url` aceitam `mentions: ["5511888888888", ...]` (números ou JIDs a marcar com @; até 50). Funciona nas duas engines (resolvidas ao formato de cada uma). Ex.: `{ "to": "...", "text": "olá @fulano", "mentions": ["5511888888888"] }`.
 - **Reação (W5, aditivo):** `POST /api/sessions/{sessao}/messages/{msgId}/reaction` com `{ "emoji": "👍" }` — `emoji` vazio (`""`) REMOVE a reação. `msgId` = keyId do WhatsApp (o mesmo que `read` e o download de mídia aceitam). 404 se a mensagem não for conhecida. Funciona nas duas engines.
@@ -204,7 +212,11 @@ POST …/groups/{groupId}/photo                 { "url": "https://.../foto.jpg" 
 - **`settings`** → `announce: true` = **só admins enviam** mensagem; `restrict: true` = **só admins
   editam** os dados do grupo. Informe um dos dois ou ambos.
 - **`photo`** — o gateway **baixa a imagem da URL** (≤10 MB) e a define como foto do grupo (mesmo
-  padrão de `POST …/profile/photo`).
+  padrão de `POST …/profile/photo`). **Desde 25/09/2026 (P-070):** a URL das duas rotas de foto
+  segue a política de egress do `media-url` (§2): só `http`/`https` (`data:` e outros esquemas → 400);
+  destino em rede privada/loopback/metadata → 400
+  `URL da imagem recusada: …`; até 3 redirects, cada um revalidado; o download é cortado ao passar
+  de 10 MB (400 `imagem acima de 10 MB`). Host interno legítimo → `EGRESS_ALLOW_HOSTS`.
 - **Engine:** todas essas rotas funcionam nas **duas** engines (Baileys e whatsapp-web.js) — paridade.
 - Resposta das rotas de ação: `{ "ok": true }`.
 
