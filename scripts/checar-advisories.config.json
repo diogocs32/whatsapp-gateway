@@ -1,0 +1,388 @@
+{
+  "$comentario": "P-054 — advisories publicados SÓ no repositório do mantenedor (o npm audit não enxerga). Lido por scripts/checar-advisories.mjs; manual em docs/how-to/checar-advisories.md. Entrou dependência de runtime nova em apps/gateway/package.json → incluir o repo aqui com `pacotes` (o relatório avisa na seção Cobertura).",
+  "coberturaDe": "apps/gateway/package.json",
+  "janelaInfraDias": 180,
+  "repos": [
+    {
+      "repo": "nestjs/nest",
+      "tipo": "npm",
+      "pacotes": [
+        "@nestjs/common",
+        "@nestjs/core",
+        "@nestjs/platform-fastify",
+        "@nestjs/testing"
+      ]
+    },
+    {
+      "repo": "nestjs/config",
+      "tipo": "npm",
+      "pacotes": ["@nestjs/config"]
+    },
+    {
+      "repo": "nestjs/jwt",
+      "tipo": "npm",
+      "pacotes": ["@nestjs/jwt"]
+    },
+    {
+      "repo": "iamolegga/nestjs-pino",
+      "tipo": "npm",
+      "pacotes": ["nestjs-pino"]
+    },
+    {
+      "repo": "fastify/fastify",
+      "tipo": "npm",
+      "pacotes": ["fastify"]
+    },
+    {
+      "repo": "fastify/fastify-multipart",
+      "tipo": "npm",
+      "pacotes": ["@fastify/multipart"]
+    },
+    {
+      "repo": "fastify/fastify-rate-limit",
+      "tipo": "npm",
+      "pacotes": ["@fastify/rate-limit"]
+    },
+    {
+      "repo": "fastify/fastify-cookie",
+      "tipo": "npm",
+      "pacotes": ["@fastify/cookie"]
+    },
+    {
+      "repo": "fastify/fastify-helmet",
+      "tipo": "npm",
+      "pacotes": ["@fastify/helmet"]
+    },
+    {
+      "repo": "WhiskeySockets/Baileys",
+      "tipo": "npm",
+      "pacotes": ["@whiskeysockets/baileys"]
+    },
+    {
+      "repo": "wwebjs/whatsapp-web.js",
+      "tipo": "npm",
+      "pacotes": ["whatsapp-web.js"]
+    },
+    {
+      "repo": "taskforcesh/bullmq",
+      "tipo": "npm",
+      "pacotes": ["bullmq"]
+    },
+    {
+      "repo": "redis/ioredis",
+      "tipo": "npm",
+      "pacotes": ["ioredis"]
+    },
+    {
+      "repo": "aws/aws-sdk-js-v3",
+      "tipo": "npm",
+      "pacotes": ["@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"]
+    },
+    {
+      "repo": "prisma/orm",
+      "tipo": "npm",
+      "pacotes": ["prisma", "@prisma/client", "@prisma/adapter-pg"]
+    },
+    {
+      "repo": "brianc/node-postgres",
+      "tipo": "npm",
+      "pacotes": ["pg"]
+    },
+    {
+      "repo": "pinojs/pino",
+      "tipo": "npm",
+      "pacotes": ["pino"]
+    },
+    {
+      "repo": "pinojs/pino-http",
+      "tipo": "npm",
+      "pacotes": ["pino-http"]
+    },
+    {
+      "repo": "prometheus/client_js",
+      "tipo": "npm",
+      "pacotes": ["prom-client"]
+    },
+    {
+      "repo": "apify/proxy-chain",
+      "tipo": "npm",
+      "pacotes": ["proxy-chain"]
+    },
+    {
+      "repo": "TooTallNate/proxy-agents",
+      "tipo": "npm",
+      "pacotes": ["https-proxy-agent", "socks-proxy-agent"]
+    },
+    {
+      "repo": "colinhacks/zod",
+      "tipo": "npm",
+      "pacotes": ["zod"]
+    },
+    {
+      "repo": "soldair/node-qrcode",
+      "tipo": "npm",
+      "pacotes": ["qrcode"]
+    },
+    {
+      "repo": "ulid/javascript",
+      "tipo": "npm",
+      "pacotes": ["ulid"]
+    },
+    {
+      "repo": "motdotla/dotenv",
+      "tipo": "npm",
+      "pacotes": ["dotenv"]
+    },
+    {
+      "repo": "ReactiveX/rxjs",
+      "tipo": "npm",
+      "pacotes": ["rxjs"]
+    },
+    {
+      "repo": "microsoft/reflect-metadata",
+      "tipo": "npm",
+      "pacotes": ["reflect-metadata"]
+    },
+    {
+      "repo": "hapijs/boom",
+      "tipo": "npm",
+      "pacotes": ["@hapi/boom"]
+    },
+    {
+      "repo": "fastify/middie",
+      "tipo": "npm",
+      "pacotes": ["@fastify/middie"]
+    },
+    {
+      "repo": "fastify/busboy",
+      "tipo": "npm",
+      "pacotes": ["@fastify/busboy"]
+    },
+    {
+      "repo": "fastify/fastify-cors",
+      "tipo": "npm",
+      "pacotes": ["@fastify/cors"]
+    },
+    {
+      "repo": "fastify/fastify-formbody",
+      "tipo": "npm",
+      "pacotes": ["@fastify/formbody"]
+    },
+    {
+      "repo": "fastify/proxy-addr",
+      "tipo": "npm",
+      "pacotes": ["@fastify/proxy-addr"]
+    },
+    {
+      "repo": "fastify/forwarded",
+      "tipo": "npm",
+      "pacotes": ["@fastify/forwarded"]
+    },
+    {
+      "repo": "fastify/fast-uri",
+      "tipo": "npm",
+      "pacotes": ["fast-uri"]
+    },
+    {
+      "repo": "fastify/fast-json-stringify",
+      "tipo": "npm",
+      "pacotes": ["fast-json-stringify"]
+    },
+    {
+      "repo": "fastify/fast-json-stringify-compiler",
+      "tipo": "npm",
+      "pacotes": ["@fastify/fast-json-stringify-compiler"]
+    },
+    {
+      "repo": "fastify/ajv-compiler",
+      "tipo": "npm",
+      "pacotes": ["@fastify/ajv-compiler"]
+    },
+    {
+      "repo": "fastify/avvio",
+      "tipo": "npm",
+      "pacotes": ["avvio"]
+    },
+    {
+      "repo": "fastify/light-my-request",
+      "tipo": "npm",
+      "pacotes": ["light-my-request"]
+    },
+    {
+      "repo": "fastify/secure-json-parse",
+      "tipo": "npm",
+      "pacotes": ["secure-json-parse"]
+    },
+    {
+      "repo": "fastify/safe-regex2",
+      "tipo": "npm",
+      "pacotes": ["safe-regex2"]
+    },
+    {
+      "repo": "fastify/fastify-plugin",
+      "tipo": "npm",
+      "pacotes": ["fastify-plugin"]
+    },
+    {
+      "repo": "fastify/deepmerge",
+      "tipo": "npm",
+      "pacotes": ["@fastify/deepmerge"]
+    },
+    {
+      "repo": "fastify/fastify-error",
+      "tipo": "npm",
+      "pacotes": ["@fastify/error"]
+    },
+    {
+      "repo": "fastify/merge-json-schemas",
+      "tipo": "npm",
+      "pacotes": ["@fastify/merge-json-schemas"]
+    },
+    {
+      "repo": "fastify/json-schema-ref-resolver",
+      "tipo": "npm",
+      "pacotes": ["json-schema-ref-resolver"]
+    },
+    {
+      "repo": "fastify/process-warning",
+      "tipo": "npm",
+      "pacotes": ["process-warning"]
+    },
+    {
+      "repo": "delvedor/find-my-way",
+      "tipo": "npm",
+      "pacotes": ["find-my-way"]
+    },
+    {
+      "repo": "delvedor/fast-decode-uri-component",
+      "tipo": "npm",
+      "pacotes": ["fast-decode-uri-component"]
+    },
+    {
+      "repo": "protobufjs/protobuf.js",
+      "tipo": "npm",
+      "pacotes": ["protobufjs"]
+    },
+    {
+      "repo": "WhiskeySockets/libsignal-node",
+      "tipo": "npm",
+      "pacotes": ["libsignal"]
+    },
+    {
+      "repo": "websockets/ws",
+      "tipo": "npm",
+      "pacotes": ["ws"]
+    },
+    {
+      "repo": "lovell/sharp",
+      "tipo": "npm",
+      "pacotes": ["sharp"]
+    },
+    {
+      "repo": "auth0/node-jsonwebtoken",
+      "tipo": "npm",
+      "pacotes": ["jsonwebtoken"]
+    },
+    {
+      "repo": "helmetjs/helmet",
+      "tipo": "npm",
+      "pacotes": ["helmet"]
+    },
+    {
+      "repo": "puppeteer/puppeteer",
+      "tipo": "npm",
+      "pacotes": ["puppeteer", "puppeteer-core"]
+    },
+    {
+      "repo": "nodejs/undici",
+      "tipo": "runtime",
+      "pacote": "undici",
+      "processVersions": "undici",
+      "imagem": "apps/gateway/Dockerfile",
+      "nota": "O fetch/safe-fetch do gateway usa o undici EMBUTIDO no Node (fora do lockfile). Com `imagem`, avalia o undici do Node fixado no FROM do Dockerfile de produção (deps/undici do repo nodejs/node naquela tag). O nodejs/node não publica advisories de repositório (0 em 25/09) — fonte do Node: https://nodejs.org/en/blog/vulnerability"
+    },
+    {
+      "repo": "traefik/traefik",
+      "tipo": "infra",
+      "producao": null,
+      "devCi": "— (não roda no dev/CI)",
+      "reconhecidoEm": "2026-09-25T16:21:13Z",
+      "motivoReconhecimento": "Versão de produção desconhecida até a B-007 (`docker exec dokploy-traefik traefik version`; provável v3.6.7, que cai em GHSA-qqjf e GHSA-5w68, critical). Recomendado traefik v3.7.13. Com a versão em mãos, preencher `producao`."
+    },
+    {
+      "repo": "Dokploy/dokploy",
+      "tipo": "infra",
+      "producao": null,
+      "devCi": "— (painel; não roda no dev/CI)",
+      "reconhecidoEm": "2026-09-25T16:21:13Z",
+      "motivoReconhecimento": "Versão do painel Dokploy de produção não confirmada (v0.30.2 anotada em 25/08) — confirmar na B-007 e preencher `producao`. Lista high/critical lida na rodada de 25/09 16:21Z (E3)."
+    },
+    {
+      "repo": "redis/redis",
+      "tipo": "infra",
+      "producao": null,
+      "devCi": "redis:7-alpine (docker-compose.yml:29)",
+      "reconhecidoEm": "2026-09-25T16:21:13Z",
+      "motivoReconhecimento": "Versão do Redis de produção desconhecida até a B-007 (`INFO server`). GHSA-c8h9/-93m2 (05/05) seguem sem versão corrigida publicada no advisory ('TBD')."
+    },
+    {
+      "repo": "minio/minio",
+      "tipo": "infra",
+      "producao": null,
+      "devCi": "— (upstream arquivado; dev/CI usa o fork pgsty/minio → pgsty/silo)",
+      "reconhecidoEm": "2026-09-25T16:21:13Z",
+      "motivoReconhecimento": "MinIO de produção é o community arquivado, sem correção para GHSA-hv4r (CVE-2026-41145) → B-006 (trocar pelo fork pgsty/minio:RELEASE.2026-08-04T00-00-00Z). Versão exata: B-007."
+    },
+    {
+      "repo": "pgsty/silo",
+      "tipo": "infra",
+      "producao": null,
+      "devCi": "pgsty/minio:RELEASE.2026-08-04T00-00-00Z (docker-compose.yml:48) · pgsty/mc:RELEASE.2026-09-16T00-00-00Z (ci.yml)",
+      "nota": "pgsty/minio redireciona para pgsty/silo; o fork publica correções nas release notes, não em advisories (0 em 25/09)"
+    }
+  ],
+  "aceitos": [
+    {
+      "ghsa": "GHSA-w2qp-rph6-63g4",
+      "pacote": "fastify",
+      "motivo": "Só afeta rota com schema Fastify de body PRIMITIVO na raiz (coerção). O gateway não declara schema de rota Fastify — valida com zod nos controllers (grep schema:/RouteSchema/addSchema em apps/gateway/src = 0). Fix exige fastify ≥ 5.12.1, que só vem com Nest 12 (P-062/E18).",
+      "revisarAte": "2026-11-30"
+    },
+    {
+      "ghsa": "GHSA-3m5p-2c4r-xxw2",
+      "pacote": "fastify",
+      "motivo": "Só vale para trustProxy NUMÉRICO (hop-count). O gateway usa trustProxy: true booleano (apps/gateway/src/bootstrap/fastify-adapter.ts:13). Fix exige fastify ≥ 5.12.1, que só vem com Nest 12 (P-062/E18).",
+      "revisarAte": "2026-11-30"
+    },
+    {
+      "ghsa": "GHSA-p68q-wchp-6fh7",
+      "pacote": "fastify",
+      "motivo": "Exige not-found handlers encapsulados por prefixo (setNotFoundHandler em plugins irmãos). O gateway não chama setNotFoundHandler; o Nest registra um único not-found na raiz (routes-resolver registerNotFoundHandler → 404 'Cannot GET …', sem dado protegido). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
+      "revisarAte": "2026-11-30"
+    },
+    {
+      "ghsa": "GHSA-hwr6-493r-vm6h",
+      "pacote": "fastify",
+      "motivo": "Exige schema de rota Fastify = false (deny-all) em body/querystring/params/headers. O gateway não declara schema de rota Fastify (zod nos controllers). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
+      "revisarAte": "2026-11-30"
+    },
+    {
+      "ghsa": "GHSA-9q9j-q6p8-xq58",
+      "pacote": "fastify",
+      "motivo": "Exige schema Fastify de headers com dependencies/subschemas. O gateway não declara schema de rota Fastify (zod nos controllers). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
+      "revisarAte": "2026-11-30"
+    },
+    {
+      "ghsa": "GHSA-667r-xxjv-c9mm",
+      "pacote": "fastify",
+      "motivo": "Exige schema de request com $async. O gateway não declara schema de rota Fastify nem usa $async (grep em apps/gateway/src = 0). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
+      "revisarAte": "2026-11-30"
+    },
+    {
+      "ghsa": "GHSA-4mh8-r7rc-xpvc",
+      "pacote": "fastify",
+      "motivo": "Exige HTTP/2 (http2: true) + reply.trailer(). O gateway sobe HTTP/1.1 (FastifyAdapter só com trustProxy) e não usa .trailer( (grep em apps/gateway/src = 0). Fix exige fastify ≥ 5.12.5, que só vem com Nest 12 (P-062/E18).",
+      "revisarAte": "2026-11-30"
+    }
+  ]
+}
