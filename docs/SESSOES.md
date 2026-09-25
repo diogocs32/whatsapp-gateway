@@ -27,7 +27,9 @@
   Baileys = frota atual, wwebjs pronto sob demanda — Onda 6 obrigatória antes de 13/10; (5) sinal duro
   de restrição → pausar até o fim + alertar (D-022); (6) `.cloud` é a produção (sem homologação;
   canário = sessão/chip de teste); (7) `npm audit` não vê advisories de repositório (P-054); (8) P-065
-  nova (egress IPv6 v4-mapeado). Relatórios de 23/09 seguem válidos:
+  nova (egress IPv6 v4-mapeado); (9) **CI/dev: MinIO agora é `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` e o
+  cliente `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`** — o quay.io passou a responder 401 e quebrou o CI
+  em 25/09; o próximo `npm run infra:up` puxa a imagem nova (mesmo volume, mesmas envs). Relatórios de 23/09 seguem válidos:
   [analise-atualizacoes-2026-09.md](analise-atualizacoes-2026-09.md) e
   [analise-wwebjs-memoria-2026-09.md](analise-wwebjs-memoria-2026-09.md).
 

@@ -222,6 +222,15 @@ module zod`); com stop-first, imagem quebrada = outage → fazer junto/antes das
   key própria de menor privilégio para o gateway. Médio prazo: RustFS/Garage/SeaweedFS (sessão própria).
 - **Devolver:** imagem nova + mediaUrl de mensagem nova baixando pelo n8n + PutObject OK.
 
+- **📎 25/09 (sessão `onda0b-mapa-roteiro`):** o fork foi **renomeado para `pgsty/silo` em
+  06/08/2026**; a última imagem com identidade MinIO é **`pgsty/minio:RELEASE.2026-08-04T00-00-00Z`**
+  (Docker Hub, já ≥ RELEASE.2026-04-17 → corrige a CVE; a "2026-09-16" citada acima é do cliente
+  `pgsty/mc`, não do servidor). Para produção: usar essa tag (drop-in: mesmo `/data`, mesmas envs
+  `MINIO_*`) ou migrar para `pgsty/silo` seguindo o guia oficial de migração do Silo — decisão do
+  dono. Dev/CI já usam `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` + `pgsty/mc:RELEASE.2026-09-16T00-00-00Z`
+  (331/331 testes unit+e2e verdes localmente em 25/09) porque o `quay.io/minio/*` passou a responder
+  401 e derrubou o CI.
+
 ### B-007 · 🟡 ABERTA 23/09/2026 — diagnóstico de produção pendente (vira evidência para as ondas)
 
 - **Rodar e registrar aqui (somente leitura):** `docker exec dokploy-traefik traefik version` (se

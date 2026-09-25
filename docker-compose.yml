@@ -41,9 +41,11 @@ services:
       retries: 5
 
   minio:
-    # quay.io = registro oficial da MinIO (as imagens saíram do Docker Hub em 2025 — "pull access
-    # denied" derrubou o CI em 15/09/2026). Tag PINADA: infra de dev/CI não muda por baixo.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Fork mantido pela comunidade (pgsty). A MinIO tirou as imagens do Docker Hub em 2025 e o
+    # quay.io passou a responder 401 depois de 15/09/2026 (CI do PR #5 quebrou em 25/09). Esta tag é
+    # a última com identidade "minio" (o fork virou pgsty/silo em 06/08/2026) e já traz a correção da
+    # CVE-2026-41145 (≥ RELEASE.2026-04-17). Tag PINADA: infra de dev/CI não muda por baixo (B-006).
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:

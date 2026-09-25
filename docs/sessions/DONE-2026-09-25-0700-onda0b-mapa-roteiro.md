@@ -77,6 +77,14 @@
   macOS), análise §9 (cobrança de 01/10 não confirmada).
 - Decisões: **D-020** (premissa do stop-first), **D-021** (duas engines vivas; Onda 6 obrigatória),
   **D-022** (sinal duro → pausa até o fim + alerta).
+- **Fix de carona (CI quebrado):** o PR #5 falhou no passo de infra — `quay.io/minio/minio` e
+  `quay.io/minio/mc` respondem 401 (API do quay: 401 nos dois repositórios, 25/09). Trocado em
+  `docker-compose.yml` e `ci.yml` pelo fork `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` +
+  `pgsty/mc:RELEASE.2026-09-16T00-00-00Z` (tags conferidas no Docker Hub; README do fork: renomeado
+  para `pgsty/silo` em 06/08, 2026-08-04 é a última release com identidade MinIO; entrypoint do mc =
+  `/usr/bin/mc`, conferido com `docker image inspect`). Reprodução local do CI: `docker compose up -d
+--wait`, bucket via mc, `prisma:deploy`, `test:cov` → **36 arquivos, 331/331 testes verdes**. Não
+  deploya (arquivos fora dos Watch Paths).
 - Pendência nova: **P-065** (segurança — egress aceita IPv6 v4-mapeado em hex; reproduzido) → E4.
 
 **Não confirmado / adiado (com destino):** cobrança de serviço em 01/10/2026 (doc oficial diz grátis
@@ -132,4 +140,5 @@ só `docs/`, `scripts/`, `CLAUDE.md`, `.prettierignore`).
 `docs/MAPA-CODIGO.md` (novo) · `docs/ROTEIRO-ONDAS-2026-09.md` (novo) · `docs/reference/mapa-codigo/**`
 (novo, gerado) · `docs/deploy-dokploy.md` · `docs/agent-whatzapp_api.md` · `docs/motores-whatsapp.md` ·
 `docs/auditoria-melhorias-2026-09.md` · `docs/analise-atualizacoes-2026-09.md` · esta sessão ·
+`docker-compose.yml` e `.github/workflows/ci.yml` (MinIO do dev/CI) ·
 `scripts/mapa-codigo.mjs` (novo).
