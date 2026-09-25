@@ -6,6 +6,17 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado — guardas de build (25/09 — sessão `e2-guardas-build`, etapa E2, P-055 — **aguarda merge do dono no fim da Onda 1 = deploy A**; ver `docs/sessions/DONE-2026-09-25-0915-e2-guardas-build.md`)
+
+Pré-requisito do stop-first (B-004): com stop-first não há container antigo segurando a API, então imagem quebrada precisa falhar no BUILD.
+
+- **`patch-package --error-on-fail`** no postinstall: fora de CI (build do Dokploy) um patch que não aplicava saía com código 0 e a imagem subia com o whatsapp-web.js sem o fix `$1`.
+- **`scripts/guardas-build.sh`** (`patches` · `dist` · `deps` · `prisma`) + **`scripts/verificar-deps-runtime.cjs`**, rodando no `apps/gateway/Dockerfile` (depois do `npm ci`, depois do build e na imagem final) e no CI: patch do wwebjs aplicado, `dist/main.js` gerado, todo pacote que o dist usa resolve **e carrega** no `node_modules` final (pega o `Cannot find module 'zod'` de 16/08 e dependência transitiva) e `prisma validate` com o CLI/config do entrypoint.
+- **CI — job `imagens`:** `docker build` das imagens do dashboard e do gateway (os mesmos Dockerfiles do Dokploy) + boot real do gateway contra Postgres/Redis/MinIO até o `/health` voltar ok com banco, Redis e storage.
+- **Dashboard:** o Dockerfile deixa de copiar `patches/` (o `npm ci` dele não instala o wwebjs; com a flag nova o build quebraria — achado da revisão adversarial).
+- **Runbook** [docs/how-to/rollback-gateway.md](docs/how-to/rollback-gateway.md): rollback por registry do Dokploy × `git revert`, com tempos medidos (build local 122 s sem cache / 48 s com cache; `/health` ok ~2 s após o start).
+- Provas locais: patch corrompido, `patches/` vazio, `zod`, `sonic-boom` e `dotenv` removidos — todos derrubam o `docker build`; caminho normal passa.
+
 ### Documentação / ferramentas (25/09 — sessão `onda0b-mapa-roteiro` — doc-only, SEM deploy; ver `docs/sessions/DONE-2026-09-25-0700-onda0b-mapa-roteiro.md`)
 
 - **Mapa do código:** `scripts/mapa-codigo.mjs` gera, com o compilador do TypeScript (type-checker), o inventário de todas as funções/métodos com linha, injeção de dependência, chamadas resolvidas ("chama"/"chamado por"), implementações da `IEngine`, rotas HTTP, filas BullMQ e jobId montado nos chamadores, eventos do EventBus, acesso Prisma por modelo, variáveis de ambiente e títulos de testes → `docs/reference/mapa-codigo/` (`--check` compara byte a byte). Camada de relações verificada adversarialmente em [docs/MAPA-CODIGO.md](docs/MAPA-CODIGO.md): fluxos ponta a ponta, áreas, "onde mexer por pendência" e divergências doc × código.

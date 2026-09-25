@@ -28,7 +28,7 @@
     "depcruise": "depcruise apps/gateway/src",
     "test": "npm run test -w apps/gateway",
     "test:unit": "npm run test:unit -w apps/gateway",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package --error-on-fail"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

@@ -10,14 +10,17 @@ FROM node:26-bookworm-slim AS build
 WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
-# npm ci instala todos os workspaces (inclui o puppeteer do gateway) — pular o download do Chromium.
+# Defensivo: se algum dia o gateway entrar neste build, não baixar o Chrome do puppeteer.
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
+# Só os manifests da raiz, do dashboard e dos contracts entram: o `npm ci` NÃO instala o gateway
+# (nem o whatsapp-web.js). Por isso a pasta patches/ fica DE FORA de propósito (P-055, 25/09/2026):
+# o postinstall da raiz roda `patch-package --error-on-fail`, e com o patch do wwebjs presente e o
+# pacote ausente ele sai com erro ("Patch file found for package whatsapp-web.js which is not
+# present") — antes o erro era engolido. Sem a pasta: "No patch files found" e segue.
 COPY package.json package-lock.json ./
 COPY apps/dashboard/package.json apps/dashboard/
 COPY packages/contracts/package.json packages/contracts/
-# patches/ antes do npm ci — o postinstall da raiz roda patch-package (ver Dockerfile do gateway).
-COPY patches ./patches
 RUN npm ci
 
 COPY . .

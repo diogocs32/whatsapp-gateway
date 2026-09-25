@@ -37,7 +37,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | Etapa | Onda | Tema (pendências)                                                                                                                                                                                                 | Branch da onda                      | Dono antes/depois                                            | Status   |
 | ----- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------ | -------- |
 | E1    | 0B   | Mapa do código + roteiro + reconciliação documental (P-063) + decisões D-020..D-022                                                                                                                               | `feature/onda0b-mapa-roteiro`       | mergear o PR (só docs, não deploya)                          | ✅ 25/09 |
-| E2    | 1    | Guardas de build: patch que falha quebra o build, `dist/main.js` conferido, imagem no CI (P-055)                                                                                                                  | `feature/onda1-guardas-seguranca`   | —                                                            | ⬜       |
+| E2    | 1    | Guardas de build: patch que falha quebra o build, `dist/main.js` conferido, imagem no CI (P-055)                                                                                                                  | `feature/onda1-guardas-seguranca`   | —                                                            | ✅ 25/09 |
 | E3    | 1    | Patches de segurança/estabilidade sem major: Nest 11.2.6, multipart 10.1.2, bullmq 5.81.5, protobufjs 7.6.6 + checagem de advisories de repositório (P-054)                                                       | `feature/onda1-guardas-seguranca`   | —                                                            | ⬜       |
 | E4    | 1    | Rate-limit/log/auditoria por rota real em vez de `req.url` (P-053) + bypass do egress por IPv6 v4-mapeado em hex (P-065) → fecha a Onda 1                                                                         | `feature/onda1-guardas-seguranca`   | **merge = deploy A**; depois **B-004** (stop-first)          | ⬜       |
 | E5    | 6    | wwebjs pronto para uso: build nova + patch estendido (`__x_id`, WID), build efetiva no log, override por sessão, LOGOUT/TOS sem QR automático, tetos (P-059) — **prazo 13/10**                                    | `feature/onda6-wwebjs`              | depois do deploy: `WWEBJS_WEB_VERSION` canário + **B-001**   | ⬜       |
@@ -128,6 +128,7 @@ No fim: atualize o roteiro, e me dê a mensagem da E3 e a lista do que eu precis
 Etapa E3 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-054 — @nestjs/* 11.2.6 (GHSA-9c5c-9qcx-q35q), @fastify/multipart 10.1.2, bullmq 5.81.5, protobufjs 7.6.6 + checagem periódica de advisories de REPOSITÓRIO (npm audit não enxerga).
 Siga as "Regras de toda etapa". Branch: feature/onda1-guardas-seguranca (continuar da E2).
 Antes de subir cada pacote: npm view <pkg> versions/peerDependencies, changelog/release notes oficiais (Context7 ou GitHub), conferir que nenhum major entra e que o override do TypeScript 5.9.3 continua valendo. NUNCA npm audit fix --force, nunca prisma@latest.
+O CI já tem o job "imagens" (build do dashboard e do gateway com as guardas da P-055 + boot do container até o /health): a troca de versões tem de passar nele; localmente dá para repetir com docker build -f apps/gateway/Dockerfile . (Docker Desktop).
 Provas: upload com 2 arquivos → 4xx (regressão da multipart 10.1.1); worker BullMQ volta a consumir após restart do Redis em dev (NODE_ENV=development). Script/documentação da checagem de advisories (gh api repos/<o>/<r>/security-advisories) para nestjs/nest, fastify/*, WhiskeySockets/Baileys, wwebjs, traefik, fork do MinIO, Dokploy, redis.
 No fim: atualize o roteiro, e me dê a mensagem da E4 e a lista do que eu preciso fazer.
 ```
@@ -188,6 +189,12 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 
 ## Diário de execução
 
+- **25/09 — E2 (sessão `e2-guardas-build`, mesmo chat da E1):** P-055 entregue na branch
+  `feature/onda1-guardas-seguranca` (PR da Onda 1 aberto; merge só no fim da E4). O que a E3/E4 precisa
+  saber: o CI agora tem o job **`imagens`** (build do dashboard e do gateway + smoke `/health`) — mudança
+  de dependência que quebre a imagem aparece ali; o postinstall usa `--error-on-fail`; a guarda `deps`
+  carrega todos os pacotes do dist (se a E3 trocar algum pacote por ESM-only, ela acusa). A revisão
+  adversarial pegou um bloqueante real (build do dashboard no Dokploy) que o CI antigo não via.
 - **25/09 — E1 (sessão `onda0b-mapa-roteiro`):** criado este roteiro; mapa do código gerado
   (`scripts/mapa-codigo.mjs` → `docs/reference/mapa-codigo/`) e mapa de relações
   (`docs/MAPA-CODIGO.md`); reconciliação P-063 nas docs; decisões do dono registradas (acima).

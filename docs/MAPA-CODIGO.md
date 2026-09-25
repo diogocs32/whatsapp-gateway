@@ -868,9 +868,9 @@ Mapas gerados: [gateway-raiz.md](reference/mapa-codigo/gateway-raiz.md) · [gate
 | `apps/gateway/src/modules/proxies/interface/proxies.controller.ts`               | REST `/api/proxies*` e `/api/sessions/:id/proxy`, com ApiKeyAuthGuard+RolesGuard e MinRole ADMIN (L53-178). As rotas `sessions/:id/proxy` NÃO usam SessionRefPipe (L145-177)                                                                                                                                                                                     |
 | `apps/gateway/Dockerfile`                                                        | Build: PUPPETEER_SKIP_DOWNLOAD (L11), DATABASE_URL dummy (L14), patches antes do npm ci (L28-29), generate+build (L33), prune (L40). Runtime: Chromium/tini/gosu via apt (L52-54), cópia do node_modules aninhado (L68), HEALTHCHECK curl /health (L79-80), ENTRYPOINT tini (L83)                                                                                |
 | `apps/gateway/docker-entrypoint.sh`                                              | root → chown do volume → gosu node (L11-19); heap = 50% do memory.max do cgroup v2, mínimo 256 MB (L25-36); `prisma migrate deploy` (L38-40); `exec node dist/main.js` (L43)                                                                                                                                                                                     |
-| `apps/dashboard/Dockerfile`                                                      | Build Vite com VITE_API_URL em build-time (L11-12), patch-package também roda aqui (L20-21), nginx:1.27-alpine (L27), healthcheck com wget (L33-34)                                                                                                                                                                                                              |
+| `apps/dashboard/Dockerfile`                                                      | Build Vite com VITE_API_URL em build-time (L11-12), sem `patches/` desde 25/09 — o `npm ci` do dashboard não instala o wwebjs e o `--error-on-fail` quebraria o build (P-055), nginx:1.27-alpine (L27), healthcheck com wget (L33-34)                                                                                                                            |
 | `.github/workflows/ci.yml`                                                       | Job único ubuntu-latest (L25); checkout v4.2.2 e setup-node v4.4.0 pinados por SHA (L28-30); npm ci, lint, format, depcruise, typecheck ×3, audit informativo, compose, migrations, testes com cobertura, builds (L35-85). Sem docker build e sem checagem de dist/main.js                                                                                       |
-| `package.json` (raiz)                                                            | postinstall `patch-package` sem `--error-on-fail` (L31), patch-package devDependency (L40), override typescript 5.9.3 (L44-46), allowScripts desatualizado (L47-54)                                                                                                                                                                                              |
+| `package.json` (raiz)                                                            | postinstall `patch-package --error-on-fail` (L31, desde 25/09 — P-055), patch-package devDependency (L40), override typescript 5.9.3 (L44-46), allowScripts desatualizado (L47-54)                                                                                                                                                                               |
 | `patches/whatsapp-web.js+1.34.7.patch`                                           | Patch do wwebjs (Injected/Utils.js e Puppeteer.js) em `node_modules/whatsapp-web.js` da raiz (L1-4, L122-125); o marcador `window.WWebJS.getMsgKeyId` é ADICIONADO pelo patch (linhas +10, +21, +35, +61, +104)                                                                                                                                                  |
 | `apps/gateway/prisma.config.ts`                                                  | URL do CLI (migrate/generate): DATABASE_URL ou partes; sslmode=require só se `DB_SSL==='true'` (L8-21)                                                                                                                                                                                                                                                           |
 | `apps/gateway/test/setup-app.ts`                                                 | createTestApp: sem helmet, sem rate-limit, sem CORS e sem excluir /metrics do prefixo (L82-100). inject via light-my-request (L116-124)                                                                                                                                                                                                                          |
@@ -888,7 +888,7 @@ Mapas gerados: [gateway-raiz.md](reference/mapa-codigo/gateway-raiz.md) · [gate
 - **Timer**: setInterval testAll a cada `PROXY_RETEST_INTERVAL_MIN` (padrão 30 min), com unref e desligado em NODE_ENV=test (proxy.service.ts:83-96).
 - **Shutdown**: `app.enableShutdownHooks` (main.ts:96) → PrismaService.onModuleDestroy (prisma.service.ts:77-79), RedisService.onModuleDestroy quit (redis.service.ts:26-28), EventFanout.onModuleDestroy (event-fanout.ts:74-80).
 - **Engines**: SessionManager.getOrCreateEngine injeta requireProxy, resolveAgent, resolveProxyConfig e reportProxyFailure (session-manager.service.ts:144-162).
-- **npm lifecycle**: postinstall `patch-package` na raiz (package.json:31) em todo `npm ci`: local, CI (ci.yml:36) e imagens (apps/gateway/Dockerfile:29, apps/dashboard/Dockerfile:21).
+- **npm lifecycle**: postinstall `patch-package` na raiz (package.json:31) em todo `npm ci`: local, CI e imagens; desde 25/09 com `--error-on-fail` e conferido por `scripts/guardas-build.sh patches` (gateway Dockerfile e CI). O Dockerfile do dashboard não copia `patches/` (P-055).
 - **CI**: on push main e pull_request (.github/workflows/ci.yml:11-14). Push em `feature/*` sem PR não roda CI.
 
 #### Fluxos internos
@@ -951,7 +951,7 @@ Mapas gerados: [gateway-raiz.md](reference/mapa-codigo/gateway-raiz.md) · [gate
 
 **Egress (webhook, mediaUrl, media-url).** `egressPolicyFromEnv` lê EGRESS_ALLOW_PRIVATE/HOSTS direto do process.env (safe-fetch.ts:23-36). `parseEgressUrl`: só http/https, sem credenciais e com host (:90-109). `assertEgressAllowed` (:119-158): allowlist ou allowPrivate liberam; localhost, `*.localhost` e `*.local` bloqueados; IP literal → isPrivateAddress; hostname → lookup(all), bloqueia se qualquer endereço for privado. `safeFetch` (:186-253): redirect manual com revalidação a cada salto (máx. 3), content-length acima do teto recusado, corpo em stream com corte no teto, timeout 20 s. Chamadores: WebhooksController.create (webhooks.controller.ts:71-82, dnsFailure `'allow'`) e WebhookQueue.deliver (webhook-queue.ts:154-166) com parse+assert; fetchMedia de campanha (campaign-queue.ts:41-59) e MessagesController.sendMediaUrl (messages.controller.ts:608-612) com safeFetch.
 
-**Cadeia de CI.** Dispara em push main e pull_request (.github/workflows/ci.yml:11-14), job único ubuntu-latest, timeout 20 min (:24-26); checkout v4.2.2 e setup-node v4.4.0 com Node 26 e cache npm, pinados por SHA (:28-33); `npm ci` (:36) — no GitHub Actions o ci-info detecta CI e o patch-package sai com código 1 se o patch falhar (node_modules/patch-package/dist/index.js:91-94); `.env` de teste de env.example (:39), prisma generate (:44), lint (:47), prettier --check (:50), depcruise (:53), `tsc --noEmit` em gateway, dashboard e contracts (:56-62), `npm audit` informativo com `|| true` (:65); `docker compose up --wait` (:68), bucket via mc (:71-73), migrate deploy (:76), vitest com cobertura unit+e2e (:79); gateway:build e dashboard:build (:82-85). Sem `test -f dist/main.js`, docker build de imagem, SBOM nem push.
+**Cadeia de CI.** Dispara em push main e pull_request (.github/workflows/ci.yml:11-14), job único ubuntu-latest, timeout 20 min (:24-26); checkout v4.2.2 e setup-node v4.4.0 com Node 26 e cache npm, pinados por SHA (:28-33); `npm ci` (:36) — no GitHub Actions o ci-info detecta CI e o patch-package sai com código 1 se o patch falhar (node_modules/patch-package/dist/index.js:91-94); `.env` de teste de env.example (:39), prisma generate (:44), lint (:47), prettier --check (:50), depcruise (:53), `tsc --noEmit` em gateway, dashboard e contracts (:56-62), `npm audit` informativo com `|| true` (:65); `docker compose up --wait` (:68), bucket via mc (:71-73), migrate deploy (:76), vitest com cobertura unit+e2e (:79); gateway:build e dashboard:build. **Desde 25/09 (P-055):** guardas `patches` (após `npm ci`) e `dist` (após o build) no job `ci`, e job `imagens` com `docker build` do dashboard e do gateway (guardas `patches`/`dist`/`deps`/`prisma` dentro do Dockerfile) + compose + smoke do container com `/health` conferido por `jq`. Sem SBOM nem push de imagem.
 
 #### Relações
 
@@ -1809,23 +1809,29 @@ Consolidado das verificações por área (mesclado, sem duplicar). IDs e título
 
 #### P-055
 
-**P-055** — guardas de build (pré-requisito do stop-first, B-004)
+**P-055** — guardas de build (pré-requisito do stop-first, B-004) — **✅ código 25/09 (E2, branch
+`feature/onda1-guardas-seguranca`; entra em produção no deploy A)**
 
-- **Locais:**
-  - package.json:31 (postinstall → `patch-package --error-on-fail`)
-  - apps/gateway/Dockerfile:25-33 (após o npm ci: `RUN grep -q 'window.WWebJS.getMsgKeyId' node_modules/whatsapp-web.js/src/util/Injected/Utils.js`; `&& test -f apps/gateway/dist/main.js`), :79-83
-  - apps/dashboard/Dockerfile:20-21 (herda o postinstall)
-  - .github/workflows/ci.yml:35-85 (`test -f` após o build, :81-82) + job novo `docker build -f apps/gateway/Dockerfile .` sem push
-  - docker-entrypoint.sh:38-43
-  - docs/deploy-dokploy.md (runbook de rollback manual com tempo medido)
-- **O que muda:**
-  - fora de CI, sem a flag, falha de patch sai com 0 (node_modules/patch-package/dist/index.js:91-94).
-  - O marcador é adicionado pelo patch (linhas +10/+21/+35/+61/+104) e existe no instalado (Utils.js:585, :630, :845, :947, :1027); considerar marcador do hunk de Puppeteer.js (patch:122-126).
-  - `--error-on-fail` também quebra `npm install` local quando o wwebjs mudar (desejado); decidir se deve quebrar o dashboard. docker build no CI instala Chromium via apt e pode estourar timeout-minutes 20 (ci.yml:26) → job separado.
-  - Com stop-first, imagem quebrada = indisponibilidade.
-  - Só build/CI; mexer em Dockerfile/CI afeta deploy (R0) → feature/\* + build local.
-- **Testes (aceite):**
-  - patch corrompido → npm ci/Docker build FALHA; build sem dist/main.js FALHA.
+- **Como ficou:**
+  - package.json:31 → `patch-package --error-on-fail` (fora de CI, sem a flag, falha de patch saía 0 —
+    node_modules/patch-package/dist/index.js:91-94).
+  - `scripts/guardas-build.sh` (novo): `patches` (marcadores `window.WWebJS.getMsgKeyId` em
+    Injected/Utils.js e `already exists` em Puppeteer.js — 0 ocorrências na lib original), `dist`
+    (`apps/gateway/dist/main.js`), `deps <dir>` (chama `scripts/verificar-deps-runtime.cjs`: resolve E
+    carrega cada pacote que o dist usa — pega dependência transitiva) e `prisma` (`prisma validate`
+    com o binário e o `prisma.config.ts` do entrypoint, sem banco).
+  - apps/gateway/Dockerfile: `patches` depois do `npm ci`; `dist` depois do build; no estágio
+    production, `patches` + `dist` + `deps apps/gateway/dist` + `prisma` antes do ENTRYPOINT.
+  - apps/dashboard/Dockerfile: **sem** `COPY patches` (o `npm ci` do dashboard não instala o
+    whatsapp-web.js; com o patch presente e a flag nova, o build quebraria — achado da revisão
+    adversarial de 25/09).
+  - .github/workflows/ci.yml: guardas `patches`/`dist` no job `ci` + job `imagens` (docker build do
+    dashboard e do gateway + compose + smoke do container com `/health` conferido por `jq`).
+  - Runbook: docs/how-to/rollback-gateway.md (rollback por registry do Dokploy × `git revert`).
+- **Provas (25/09, build local):** patch corrompido → `**ERROR** Failed to apply patch` (exit 1);
+  `patches/` vazio → guarda `patches`; `zod` removido → guarda `deps` (16 requires); `sonic-boom`
+  removido → guarda `deps` (carga de pino/nestjs-pino/baileys); `dotenv` removido → guarda `prisma`;
+  caminho normal → gateway 48–122 s, dashboard ok, `/health` ok ~2 s após o `docker run`.
 
 #### P-056
 
