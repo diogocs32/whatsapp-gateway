@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR da Onda 1, sem merge; **próxima = E3**, patches de segurança P-054). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
+- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR #6 da Onda 1, sem merge; E3 ✅ 25/09: patches P-054 + checagem diária de advisories de repositório — mesmo PR; **próxima = E4**, rotas reais P-053 + egress IPv6 P-065, que fecha a Onda 1 = deploy A). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,14 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **25/09/2026 (sessão `e3-patches-seguranca`, código na branch da Onda 1 — sem deploy):** Nest 11.2.6
+> (GHSA-9c5c), multipart 10.1.2 + upload com 2+ arquivos = 413 (D-024), bullmq 5.81.5, protobufjs
+> 7.6.6 e transitivos com advisory de repositório (proxy-addr 5.1.1 critical, busboy, fast-uri);
+> workflow diário `advisories.yml` com aceites datados (D-023); Node do gateway fixado em
+> `node:26.10.0-bookworm-slim` (a imagem de 15/09 usou a tag móvel — Node/undici ao acaso do cache). **Produção segue em `768fb26`** (Nest
+> 11.2.3 afetado pelo GHSA-9c5c — só perda de log; multipart 10.1.1 → 500 com 2 arquivos) até o
+> merge da Onda 1.
 
 > **25/09/2026 (sessão `onda0b-mapa-roteiro`, doc-only — sem deploy):** decisões do dono —
 > **as duas engines seguem vivas** (Baileys = frota atual; wwebjs pronto para uso sob demanda →

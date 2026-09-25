@@ -422,3 +422,49 @@
   ou fila interna — a E8 escolhe com base no código e documenta.
 - **Alternativas:** marcar como `banida` (rejeitado pelo dono); só registrar e alertar (rejeitado
   pelo dono).
+
+## D-023 — 2026-09-25 — Advisories de repositório: checagem diária com aceite datado; patch transitivo de segurança entra na onda (P-054)
+
+- **Decisão (etapa E3, dentro do pedido do dono de "checagem periódica de advisories de
+  repositório"):** um workflow diário (`.github/workflows/advisories.yml`, `scripts/checar-advisories.mjs`)
+  lista os advisories publicados nos repositórios das dependências (o `npm audit` só vê o banco global
+  do GitHub) e **falha** quando há advisory que afeta — ou pode afetar — uma versão do lockfile sem
+  **aceite** em `scripts/checar-advisories.config.json` (GHSA + pacote + motivo técnico + `revisarAte`).
+  Aceite vencido volta a falhar. O undici embutido no Node (usado pelo `fetch`/safe-fetch, fora do
+  lockfile) é avaliado na versão do Node **fixado** no `FROM` do Dockerfile do gateway — por isso o
+  Dockerfile passa a fixar a versão exata (`node:26.10.0-bookworm-slim`). Troca assumida: com o pin o Node
+  de produção não sobe mais sozinho com o cache do build — a checagem também lê as releases da linha
+  em `nodejs.org/dist/index.json` e trata release de segurança (`security: true`) mais nova que a
+  fixada como pendência (sem aceite: a correção é subir o `FROM`); estágio final sem versão exata =
+  exit 2. Infra com versão de produção desconhecida (Traefik, Dokploy, Redis,
+  MinIO) fica **reconhecida no instante da leitura** (`reconhecidoEm` 25/09 16:21Z — B-006/B-007) e
+  só advisory high/critical publicado ou atualizado depois falha; quando a B-007 trouxer as versões, preencher `producao` e avaliar pelas faixas. Em
+  `pull_request` o job é informativo (só erro de consulta quebra).
+- **Patches transitivos:** advisory de repositório com correção dentro da faixa já declarada (sem
+  major) entra na mesma onda, com o diff do lockfile conferido pacote a pacote — na E3: proxy-addr
+  5.1.1, busboy 3.2.2 e fast-uri 4.2.1 (minor; só ajv/fast-json-stringify o usam, sem schema de rota no
+  gateway) / 3.1.8.
+- **Motivo:** GHSA-9c5c (Nest, high) ficou 8 dias invisível; em 25/09 eram 12 advisories de
+  repositório no lockfile, 10 invisíveis ao `npm audit`, um deles critical (proxy-addr).
+- **Quem decide aceite:** o dono. Os 7 aceites iniciais (fastify 5.11.3, preso pelo Nest 11 — P-062/E18)
+  foram propostos na E3 com a avaliação de exposição de cada um e vencem em 30/11/2026.
+- **Alternativas:** só `npm audit` (cego ao caso real de 15/09); checagem semanal (atrasa até 7 dias
+  um critical; o custo diário é ~1 min de Actions); falhar em PR (bloquearia trabalho por advisory
+  alheio à mudança).
+
+## D-024 — 2026-09-25 — Upload multipart: corpo lido até o fim antes do envio; 2+ arquivos = 413 (P-054)
+
+- **Decisão (etapa E3, critério do dono "upload com 2 arquivos → 4xx"):** `POST …/messages/media`
+  consome o multipart inteiro (um único iterador `req.files()`) antes de chamar a engine. 2+ arquivos
+  → 413 `{"statusCode":413,"message":"reach files limit"}` e nada é enviado; campos de texto valem em
+  qualquer ordem; campo com nome de `Object.prototype` → 400.
+- **Motivo:** com `req.file()` a `@fastify/multipart` 10.1.2 responde 201 enviando o 1º arquivo e
+  descartando o 2º em silêncio (a 10.1.1 em produção dava 500 e travava a conexão keep-alive seguinte).
+  Enviar metade do que o cliente mandou sem avisar é pior que recusar.
+- **Contrato:** sai de 500 (produção hoje) para 413 — não quebra cliente que manda 1 arquivo com
+  campos de texto simples (parte declarada `application/json` com JSON inválido passa a dar 406 e
+  nome reservado 400, antes ignorados); o node
+  n8n 0.4.1 usa `media-url`, não esta rota; o dashboard manda 1 arquivo com os campos antes.
+  Documentado na `INTEGRACAO.md`.
+- **Alternativa:** só o bump (201 com descarte calado) — rejeitada: não atende o critério e esconde
+  erro do integrador.
