@@ -347,9 +347,14 @@ DB_SSL`, `REDIS_HOST/REDIS_PORT/REDIS_USERNAME/REDIS_PASSWORD/REDIS_DB`). **A UR
 
 ### 6B.11 — Engine no shutdown NÃO pode persistir STOPPED (senão não reidrata)
 
-No redeploy o Dokploy é **stop-first**, mas o container antigo e o novo coexistem por ~15 s. O
-`SessionManager.onModuleDestroy` chama `e.shutdown ?? e.stop()` para cada engine. O `shutdown()`
-existe justamente para fechar a engine **sem gravar status**: o `stop()` grava `STOPPED` e o
+No redeploy, com o Update Config **vazio**, o Dokploy aplica **start-first** (não stop-first): o
+container novo sobe com o antigo vivo — é a sobreposição de ~15 s vista no P-043 (código Dokploy
+v0.30.2 `packages/server/src/utils/docker/utils.ts:678-696`; correção de 25/09/2026 na D-020;
+stop-first só com o JSON explícito do **B-004** — [deploy-dokploy.md](deploy-dokploy.md) §2). A
+regra abaixo vale nos dois modos: no stop-first o antigo ainda grava antes do novo ler o
+`findAutostart`. O `SessionManager.onModuleDestroy` chama `e.shutdown ?? e.stop()` para cada
+engine. O `shutdown()` existe justamente para fechar a engine **sem gravar status**: o `stop()`
+grava `STOPPED` e o
 `findAutostart` só reidrata `WORKING/STARTING/SCAN_QR/PAIRING/DEGRADED` — nunca `STOPPED`. Se a
 engine não tiver `shutdown()` e cair no `stop()`, o container que morre grava `STOPPED` por cima do
 `WORKING` que o novo já persistiu (status errado, sessão viva) ou, pior, antes de o novo ler o

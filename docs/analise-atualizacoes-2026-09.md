@@ -217,7 +217,7 @@ property`, wwebjs #201921/#201922; correção só em PR #201923 / fork WAHA `481
   Help Center em 23/09 (TechCrunch 31/07/2026: "being iterated"). Métrica interna de destinatários
   novos sem resposta em 30 dias, sem chamar de limite oficial (P-064).
 - **Cloud API (set/2026):** cobrança por mensagem desde 01/07/2025; **serviço e utilidade dentro da
-  janela passam a ser cobrados em 01/10/2026**; limites por **portfólio** (250 → 2K → 10K → 100K →
+  janela passam a ser cobrados em 01/10/2026** _(⚠️ 25/09/2026: NÃO confirmado na doc oficial — developers.facebook.com/docs/whatsapp/pricing diz que mensagens não-template e utility dentro da janela aberta são grátis; revalidar)_; limites por **portfólio** (250 → 2K → 10K → 100K →
   ilimitado); BSUID nos webhooks desde abr/2026 (telefone omitido para quem usa username); Graph
   v26.0 (29/07/2026); Embedded Signup v2/v3 obsoletos em 15/10/2026; On-Premises API encerrada.
 - **Coexistência** (número do app WhatsApp Business também na Cloud API): tira o tráfego do cliente

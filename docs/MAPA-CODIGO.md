@@ -1,0 +1,2111 @@
+# Mapa do código — ConexoZenvo
+
+Mapa das relações do código: quem chama quem, por onde entra cada fluxo, que tabela/fila/evento cada parte toca, invariantes que não podem quebrar e onde mexer em cada pendência. Síntese verificada em **25/09/2026** (branch `feature/onda0b-mapa-roteiro`), sobre o código do repositório e as libs instaladas em `node_modules` (Baileys 7.0.0-rc14, BullMQ 5.81.4, NestJS 11.2.3, Fastify 5.11.3). Tudo aqui tem `arquivo:linha`; o que não foi conferido está marcado **não verificado**.
+
+## 1. Como usar
+
+- **Leia a §2 (visão de 1 minuto) e a seção da área em que vai mexer** (§4.x). Antes de alterar um fluxo, leia o fluxo ponta a ponta correspondente (§3). Para uma pendência, vá direto à §5.
+- **Inventário completo por função/linha** (classes, métodos com linha, DI, "chama"/"chamado por", rotas, filas, eventos, Prisma, env vars, testes) é **GERADO** pelo compilador TS em [reference/mapa-codigo/README.md](reference/mapa-codigo/README.md). Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`.
+- **Regra de manutenção**: quem mudar código roda `node scripts/mapa-codigo.mjs` (o mapa gerado não se edita à mão) e atualiza **esta página** quando mudar fluxo, relação entre módulos, invariante ou o "onde mexer" de uma pendência.
+- As linhas citadas valem para o estado de 25/09/2026; se o arquivo mudou, confirme no mapa gerado antes de confiar no número.
+
+### Convenções de caminho
+
+- Nome de arquivo sem diretório (ex.: `baileys.engine.ts:783`) = o **único** arquivo com esse nome em `apps/` e `packages/` (conferido com `find` em 25/09). Exceções sempre qualificadas: `dto.ts` (`sessions/interface/dto.ts`, `webhooks/interface/dto.ts`, `proxies/interface/dto.ts`, todos em `apps/gateway/src/modules/`) e `Dockerfile` (`apps/gateway/Dockerfile` ou `apps/dashboard/Dockerfile`). `package.json` sem prefixo = o da raiz.
+- `L123` ou `:123` logo após um arquivo = linha do mesmo arquivo citado antes na frase.
+- **Baileys**: `Socket/…`, `Utils/…`, `Types/…`, `Defaults/…`, `Signal/…`, `WAProto/…` = `node_modules/@whiskeysockets/baileys/lib/…` (WAProto fica em `node_modules/@whiskeysockets/baileys/WAProto/`), versão 7.0.0-rc14.
+- **BullMQ**: `worker.js`, `job.js`, `backoffs.js`, `queue-base.js` = `node_modules/bullmq/dist/cjs/classes/…` (quando indicado "esm", `dist/esm/classes/…`); `addStandardJob-9.lua`, `handleDuplicatedJob.lua` = `node_modules/bullmq/dist/cjs/commands/…`.
+- **NestJS**: `nest-application.js`, `nest-application-context.js`, `scanner.js`, `injector/…`, `router/sse-stream.js`, `exceptions/base-exception-filter.js` = `node_modules/@nestjs/core/…`; `fastify-middie.js` = `node_modules/@nestjs/platform-fastify/adapters/middie/fastify-middie.js`.
+- **Fastify**: `fastify/lib/request.js`, `fastify/lib/route.js` = `node_modules/fastify/lib/…`; `@fastify/rate-limit/index.js` e `store/LocalStore.js` = `node_modules/@fastify/rate-limit/…`; `find-my-way/…` = `node_modules/find-my-way/…`.
+- `<DIOGGO_ROOT>/agentes/docs/…` = espelho local de documentação oficial (repositório dioggo-agents).
+
+## 2. Visão de 1 minuto
+
+```
+  n8n (node 0.4.1) ── X-Api-Key ──┐             dashboard (React SPA, apps/dashboard)
+        ▲                          │             lib/api.ts (cookie + refresh)  EventSource
+        │ webhook HMAC             │                     │ HTTP /api/*              │ SSE
+        │                          ▼                     ▼                          ▼
+ +------│------------------------------- gateway (NestJS 11 + Fastify 5) -------------------------+
+ |      │   bootstrap (main.ts: helmet, rate-limit, CORS, pino, filtro)   iam (guards, RBAC,      |
+ |      │                                                                CSRF, audit, licença)   |
+ |      │   messaging ──┐  campaigns (BullMQ) ──┐  groups / contacts / channels                  |
+ |      │    │ gate 423 │   │ gate cold         │        │                                       |
+ |      │    ▼          ▼   ▼                   ▼        ▼                                       |
+ |      │  guardrail ◄───── sessions: SessionManager ──► IEngine (Baileys | wwebjs) ──► proxies  |
+ |      │    │  ▲              │ deps.onEvent                                                    |
+ |      │    │  │ reply-rate   ▼                                                                 |
+ |      │    │  observability ◄── EventBus 'wa.event' (shared-kernel) ──► events (SSE) ──────────┼─► dashboard
+ |      │    │  (timeline,        │         │                                                    |
+ |      │    │   métricas,        │         └──► messaging/MessagePersister (wa_messages)       |
+ |      └────┼── webhooks (BullMQ, DLQ) ◄┘                                                      |
+ |           └──(publica eventos G6 no mesmo EventBus)                                          |
+ |   infra: prisma · redis (EventFanout 'wa:events' ↔ 'wa.event.remote') · storage (S3) · directory
+ +-----------------------------------------------------------------------------------------------+
+        │ Postgres 18            │ Redis (BullMQ + pub/sub)      │ MinIO/S3            │ WhatsApp
+        ▼                        ▼                               ▼                     ▼ (via proxy ou direto)
+ packages/contracts: só tipos TS — importado SÓ pelo dashboard (o gateway monta DTOs à mão)
+```
+
+- **Todo evento do WhatsApp segue um único caminho**: engine → `deps.onEvent` → `SessionManager.handleEngineEvent` → `EventBus.publish('wa.event')` (session-manager.service.ts:154-157, :190-243). Consumidores: MessagePersister (message-persister.service.ts:25), SessionEventLogger (session-event.logger.ts:23), WebhookDispatcher (webhook-dispatcher.service.ts:35), SSE (events.controller.ts:36) e EventFanout (event-fanout.ts:47). O bus é em memória, sem outbox (P-034).
+- **Frota 100% Baileys 7.0.0-rc14** (docs/analise-atualizacoes-2026-09.md:124). O filtro `if (upsert.type !== 'notify') return;` (baileys.engine.ts:783) descarta as mensagens da fila offline e também o eco que a lib gera para todo envio próprio (Socket/messages-send.js:1135-1138, `emitOwnEvents` true em Defaults/index.js:55) — P-047.
+- **Envio pela API**: guards → SessionRefPipe → zod → intenção durável `wa_send_intents` → gate cold (423) → SessionManager → engine (messages.controller.ts:447-481). **Campanha** chama o SessionManager direto, sem SendIntent (campaign-queue.ts:203-224). Não há contact-check (`onWhatsApp`) no caminho de envio (baileys.engine.ts:1123-1131).
+- **Reidratação e deploy**: `findAutostart` só reidrata WORKING/STARTING/SCAN_QR_CODE/PAIRING_CODE/DEGRADED (prisma-session.repository.ts:105-121), por isso `shutdown()` da engine nunca grava status (baileys.engine.ts:1614-1626; P-043). O Dokploy faz start-first (docs/PENDENCIAS.md:181-187, B-004): dois containers abrem a mesma conta e não há lease (P-056).
+- **Guard-rail só avalia sob demanda** (`GET /api/guardrail/:sessionId`, guardrail.controller.ts:51-54), `recordHardSignal` não tem chamador (guardrail.service.ts:427-454) e o gate 423 vale só para envio cold / campanha `firstContact` (guardrail.service.ts:39-43, 406-418).
+- **Contrato público (R0)**: o node n8n 0.4.1 só trata 423 (docs/analise-atualizacoes-2026-09.md:253). Payload novo entra aditivo e com `packages/contracts` no mesmo commit — mas o gateway não importa contracts, então não há guarda automática (7 desvios verificados, §6).
+- **jobId do BullMQ nunca com `:`** (job.js:1067-1076). Montagem: webhook-dispatcher.service.ts:79, webhook-queue.ts:259, campaign.service.ts:52, :74, :99.
+- **Borda HTTP decide por `req.url` cru** (main.ts:72-73; audit.interceptor.ts:47-51; app.module.ts:50-53) — contornável por forma absoluta e percent-encoding (P-053). O egress anti-SSRF aceita IPv4-mapeado em hex (safe-fetch.ts:77; P-065 sugerida).
+
+## 3. Fluxos ponta a ponta
+
+O gateway é um monólito modular NestJS 11 sobre Fastify. Todo efeito de WhatsApp passa por uma engine por sessão (`BaileysEngine` ou `WWebJSEngine`) guardada no `SessionManager`; a engine emite por `deps.onEvent`, o SessionManager transforma cada evento em `WaEventEnvelope` e publica `'wa.event'`; os assinantes disparam persistência, timeline, webhooks, SSE e a ponte Redis entre réplicas. Envio pela API passa por guard → AuditInterceptor (que ignora `/messages`) → SessionRefPipe → zod → intenção durável → gate cold → SessionManager → engine; campanhas usam fila BullMQ própria e chamam o SessionManager direto.
+
+### 3.1 Envio de texto via API (POST /api/sessions/:s/messages/text → webhook `message.ack`)
+
+1. **Borda Fastify**: hooks `onRequest` globais (helmet main.ts:63, CORS, middie do Nest com pino-http) e depois o `onRequest` de rota do rate-limit (fastify/lib/route.js:389-395; @fastify/rate-limit/index.js:233-243): limite por IP, `req.url.startsWith('/api/auth/login')` → 10/min, senão 600/min (main.ts:68-75). Roda antes de guards/interceptors/pipes do Nest, mas depois dos middlewares Nest. P-053 atua aqui.
+2. **Guard** `ApiKeyAuthGuard.canActivate` (api-key-auth.guard.ts:28-65): `X-Api-Key` → `ApiKeyService.validate` (:37-47); senão JWT por Bearer ou cookie, com CSRF quando é cookie (:49-61); falha → 401. Depois o `RolesGuard`: a rota de texto não tem `@MinRole` (OPERATOR por ser POST, roles.guard.ts:42-45). Ordem middleware → guard → interceptor → pipe → handler na doc oficial (`<DIOGGO_ROOT>/agentes/docs/nestjs/11/faq/request-lifecycle.md:85-110`).
+3. **AuditInterceptor**, global via `APP_INTERCEPTOR` (iam.module.ts:78): `shouldAudit` ignora caminhos com `/messages` (audit.interceptor.ts:47-51). Envio NÃO é auditado.
+4. **SessionRefPipe.transform** (session-ref.pipe.ts:21-28): aceita id ou nome (`findById ?? findByName`); não achou → 404.
+5. **MessagesController.sendText** (messages.controller.ts:483-505): `sendTextSchema.safeParse` (:72-78; `to` 5-40, `text` 1-4096, `mentions` ≤50, `cold`, `idempotencyKey` 1-200); inválido → 400 com a 1ª issue (:488-493).
+6. **sendWithIntent** (:447-481), passo a) legado: `deduped()` → `repo.findByIdempotencyKey` em `wa_messages` (:432-440; prisma-message.repository.ts:100-109). Achou → `{id: keyId, to, deduped: true}`. Pouco confiável sozinho, porque a persistência é assíncrona (passo 13).
+7. Passo b) **reserva**: `SendIntentService.reserve` (send-intent.service.ts:26-86) faz create em `wa_send_intents`. Com P2002, `decideOnExistingIntent` (send-intent.decision.ts:29-50): fingerprint diferente → 409; `sent` → replay (`deduped: true`); `pending` com menos de 2 min (`PENDING_INTENT_TTL_MS`, :27) → 409 em voo; `failed` ou pending velho → takeover por CAS (send-intent.service.ts:64-83). O 409 é lançado fora do try e sai como 409.
+8. Passo c) **hard-gate**: `assertColdAllowed` (messages.controller.ts:206-212) só roda com `cold=true`. `GuardrailService.canSendCold` (guardrail.service.ts:406-418) → `getState` faz upsert de `ativa` em `session_guardrail` (:203-209). Estados em `BLOCKS_COLD` (quarentena/banida/pausa_manual, :39-43) → `void emit('send.blocked')` (:411-414) + `SessionQuarantinedException` 423 `{code: 'SESSION_QUARANTINED', state, message}` (session-quarantined.exception.ts:5-17). A intenção é marcada failed antes (messages.controller.ts:468-471). throttled/aquecimento NÃO bloqueiam.
+9. Passo d) **envio**: `SessionManager.sendText` (session-manager.service.ts:466-478): engine inexistente → `'Sessão não iniciada'`; status ≠ WORKING → `'Sessão não está conectada'`. Qualquer erro do envio vira 400 com a mensagem (messages.controller.ts:477-480) e a intenção vira failed.
+10. **BaileysEngine.sendText** (baileys.engine.ts:969-999): `sock` null → `'Sessão não conectada'` (:974); `resolveJid` é local, sem rede (:1129-1131 → `toJid` :1667-1671; 9º dígito BR não tratado — P-023). `mentions` → `toContactJid` (:977). `sock.sendMessage` (:978-981). `cacheSent` guarda o keyId num Map de 1000 com evicção FIFO (:983, :1179-1185). A rc14 também emite `messages.upsert` `'append'` do próprio envio via `process.nextTick` (`emitOwnEvents: true` em Defaults/index.js:55; Socket/messages-send.js:1135-1138); o gateway descarta esse eco no filtro de baileys.engine.ts:783.
+11. A engine emite `deps.onEvent('message', {keyId, chatJid, senderJid, fromMe: true, type: 'text', text, isCold, idempotencyKey, source: 'api', raw: encodeProto, timestamp})` (:985-997). O guard em `getOrCreateEngine` (session-manager.service.ts:154-157) só repassa se esta for a engine registrada da sessão e chama `void handleEngineEvent`.
+12. **SessionManager.handleEngineEvent** (:190-243): rótulo da engine (:198); em `message` sem `mediaKey` não há await antes do publish (:217-228), então o envelope `{id: ULID, timestamp, event, sessionId, session: nome, payload, engine}` (:229-237) é publicado em `'wa.event'` (:238-242) de forma síncrona, ainda dentro do envio.
+13. **Assinantes de `'wa.event'`**: MessagePersister (message-persister.service.ts:39-65) → `void repo.save` em `wa_messages`, com status null, raw e isCold; P2002 de idempotencyKey é engolido (prisma-message.repository.ts:43-51). WebhookDispatcher.handle (webhook-dispatcher.service.ts:46-85) → remove raw → enqueue por webhook casado (§3.8). EventsController SSE (events.controller.ts:19-35). EventFanout → Redis (event-fanout.ts:47-53). SessionEventLogger ignora o que não é `session.status` (session-event.logger.ts:25).
+14. De volta ao controller: `intents.complete(intentId, keyId, jid)` grava `sent` (send-intent.service.ts:88-103; erro só loga). Resposta 201 `{id: keyId, to: jid, deduped: false}` (messages.controller.ts:474-476). A persistência do passo 13 pode ainda não ter terminado.
+15. **ACK**: receipts → Baileys `messages.update {status}` → listener (baileys.engine.ts:628-630) → `onMessagesUpdate` (:876-900): `mapAckStatus` (:273-288) converte SERVER_ACK→sent, DELIVERY_ACK→delivered, READ/PLAYED→read e descarta o resto (ERROR/PENDING). chatJid `@lid` → número via `lidToPn` (:885-891) → `onEvent('message.ack', {keyId, chatJid, fromMe, status, timestamp})` (:892-898).
+16. `handleEngineEvent`: `message.ack` não tem dedup (só `session.status` tem) → `'wa.event'` → `MessagePersister.updateStatusByKey`: UPDATE atômico com ranking, nunca regride (prisma-message.repository.ts:131-158). Se o save do passo 13 ainda não gravou, o ACK é no-op (comentário :143). WebhookDispatcher enfileira `message.ack`. O ReplyRateService usa o status para delivery/read (reply-rate.service.ts:123-124).
+
+**Pontos de falha**: (a) ERROR 463/479 chega em `messages.update` com status ERROR e `messageStubParameters` (Socket/messages-recv.js:1558-1566) e é descartado em baileys.engine.ts:878-879 (P-048); (b) processo morre entre o publish e o enqueue → webhook perdido, sem outbox (P-034); (c) erro no enqueue só loga (webhook-dispatcher.service.ts:81-83); com Redis fora e `maxRetriesPerRequest: null` (redis-connection.ts:40, :57) o `queue.add` pode ficar pendente em memória em vez de rejeitar — **não verificado**; (d) o caminho de campanha NÃO passa pelos passos 6-8 (§3.6).
+
+### 3.2 Mensagem recebida (Baileys `messages.upsert` → EventBus → persistência/webhook/SSE/inbox)
+
+1. Baileys rc14: cada mensagem entra via `upsertMessage(msg, node.attrs.offline ? 'append' : 'notify')` (Socket/messages-recv.js:1432). Mensagens da fila offline (recebidas durante queda, reconexão ou deploy) chegam como `'append'`.
+2. Buffer de eventos: um emit de `messages.upsert` com tipo diferente do bufferizado força flush antes (Utils/event-buffer.js:108-127), então os lotes saem homogêneos por tipo; no flush o lote recebe o tipo da 1ª mensagem (:569-576); a mesma chave recebida como append e depois notify é promovida a `'notify'` (:418-421).
+3. Listener em `BaileysEngine.connect` (baileys.engine.ts:624-626), dentro de `safe()` (:1228-1245, isola a exceção por sessão) → `onMessagesUpsert` (:779-872).
+4. **PONTO ONDE MORREM**: `if (upsert.type !== 'notify') return;` (:783) descarta o lote `'append'` inteiro, sem log, persistência, webhook, SSE ou Inbox. Também caem aqui os ecos dos próprios envios (Socket/messages-send.js:1135-1138).
+5. Por mensagem `'notify'`: pula keyId em `sentMessages`, ou seja, envio próprio (:787); pula `status@broadcast` (:790). `@newsletter` NÃO é filtrada no gateway (o painel filtra em apps/dashboard/src/routes/Atendimento.tsx:222).
+6. **LID**: se `remoteJid` é `@lid` e existe `remoteJidAlt` → aprende `lidToPn`; par novo → `void mergeLidMessages` (UPDATE em `wa_messages`, :1303-1318) + `deps.contacts.record` (:794-810 → ContactDirectory.record, fire-and-forget com warn em session-manager.service.ts:166-173). Resolve `@lid`→número pelo cache (baileys.engine.ts:812-815). Normaliza `@s.whatsapp.net` e grava o contato do inbound (:816-826).
+7. Monta `base {keyId, chatJid, senderJid, fromMe, source: fromMe ? 'phone' : null, timestamp}` (:828-838). Desembrulha deviceSentMessage/ephemeral e ignora protocolMessage e senderKeyDistributionMessage (:844-855).
+8. **Mídia**: `void handleIncomingMedia` (:860, :903-967) → `downloadMediaMessage(m, 'buffer', {}, {reuploadRequest, logger})` sem dispatcher e sem timeout (:917-925). Na rc14 as options seguem downloadContentFromMessage → downloadEncryptedContent → getHttpStream, que chama o fetch global com `options.dispatcher` (Utils/messages.js:869; Utils/messages-media.js:461-464, :297-302), então sai pelo IP da VPS (P-050). Depois `deps.storeMedia` → `MediaStorage.put` S3 (session-manager.service.ts:163-164) com key `media/<sessionId>/<keyId>.<ext>` → `onEvent('message', {mediaKey, …})`. Erro: log + evento sem mídia (baileys.engine.ts:949-965). Download pendurado nunca emite (P-050).
+9. **Texto**: `onEvent('message', {type: 'text' | 'other', text})` (:864-870). Reações: `messages.reaction` → `onReactions` → `'message.reaction'` (:653-661), não persistido.
+10. `SessionManager.handleEngineEvent` (session-manager.service.ts:190-243): com `mediaKey` → `presignedGetUrl` (TTL `MEDIA_URL_TTL`, padrão 3600, config.ts:132) em `mediaUrl` (:217-228) → publica `'wa.event'`.
+11. `MessagePersister.save` (message-persister.service.ts:39-65) → `wa_messages` (inbound sem raw). NÃO há unique em (sessionId, keyId) (schema.prisma:304), então duplicata de keyId é possível.
+12. WebhookDispatcher → evento `message` (§3.8). EventsController SSE → painel: Atendimento.tsx:184-230 adiciona ao feed e relê `GET /api/inbox/conversations` com debounce de 800 ms (Atendimento.tsx:182-193) → `InboxController.conversations` (inbox.controller.ts:107) + `deriveTriageStatus` (triage-status.ts:22-26). O nome do contato não vem no SSE (P-044).
+13. EventFanout publica em Redis → a outra réplica recebe como `'wa.event.remote'` → só SSE e webhook (dedup por jobId). A persistência fica só na réplica dona (event-fanout.ts:15-21).
+14. Efeito indireto: o inbound persistido alimenta o ReplyRateService (responded, reply-rate.service.ts:115-122). Respostas perdidas no passo 4 derrubam o reply-rate; com `GUARDRAIL_ENFORCE=true` em produção (docs/ESTADO.md:67), o evaluate pode aplicar quarentena falsa (guardrail.service.ts:268-270).
+15. WWEBJS (frota atual 0): `message_create` (wwebjs.engine.ts:846-849) → `onMessageCreate` (:1600+), com dedup `sentByPanel`.
+
+### 3.3 Boot do processo (entrypoint → Nest → filas/fan-out → reidratação → socket → status)
+
+1. **Container**: tini → docker-entrypoint.sh (apps/gateway/Dockerfile:82-83): chown do volume e gosu (docker-entrypoint.sh:11-19); `NODE_OPTIONS` com heap = 50% do cgroup (:21-36); `prisma migrate deploy` (:38-40); `exec node dist/main.js` (:43).
+2. **main.ts `bootstrap()`**: handlers de processo (main.ts:24-40) → `NestFactory.create` com `buildFastifyAdapter` (trustProxy true, multipart, cookie, parser próprio — fastify-adapter.ts:13-36), `bodyParser: false`, `bufferLogs` (main.ts:42-48) → `ConfigModule.validate=validateEnv` (app.module.ts:27) → pino, LoggingExceptionFilter, console-bridge (main.ts:51-57) → helmet, rate-limit, prefixo, CORS (:63-93) → `enableShutdownHooks` (:96) → `app.listen` (:99).
+3. `app.listen` chama `init()` (nest-application.js:175-179 → :96-112): adapter.init (middie) → registerRouter → callInitHook → callBootstrapHook, tudo ANTES de o HTTP escutar.
+4. **Ordem dos hooks**: módulos em distância DECRESCENTE, sort estável sobre a ordem de inserção do Map (nest-application-context.js:301-311). Distância = profundidade na TopologyTree (injector/topology-tree/topology-tree.js:22-49 — só relinka se a profundidade atual do filho for MENOR que a do novo pai; scanner.js:208-224); globais = `Number.MAX_VALUE` (injector/container.js:104-108). Simulação com a TopologyTree instalada e o grafo real de imports (messaging.module.ts:16, sessions.module.ts:14, guardrail.module.ts:10, observability.module.ts:11, campaigns.module.ts:12): Iam=5, Observability=4, Proxies=3, Guardrail=3 e Sessions=2 — a MESMA distância de Health, Messaging, Events, Webhooks, Groups, Contacts, Channels e Campaigns; App=1. Empates seguem a ordem de scan DFS: Health, Sessions, Messaging, Events, Webhooks, Groups, Contacts, Channels, Campaigns.
+5. **onModuleInit** nessa ordem: globais (EventFanout duplica o client Redis, subscribe `'wa:events'`, ponte `wa.event`→Redis — event-fanout.ts:35-55; Prisma `$connect`; MediaStorage) → Iam (LicenseService.reload) → Observability (SessionEventLogger assina `'wa.event'`, session-event.logger.ts:22-51) → Proxies/Guardrail → distância 2: Messaging (MessagePersister, message-persister.service.ts:24-67), Webhooks (WebhookQueue: Queue + waitUntilReady + Worker, webhook-queue.ts:77-133; WebhookDispatcher.refresh + assina `'wa.event'`/`'wa.event.remote'`, webhook-dispatcher.service.ts:31-39), Campaigns (CampaignQueue: Queue + Worker concorrência 4, campaign-queue.ts:81-110). O Worker de campanhas nasce com autorun true (worker.js:34, :115-117) e JÁ consome jobs vencidos aqui, antes de qualquer sessão reidratar (P-057).
+6. **onApplicationBootstrap** na mesma ordem: AdminSeeder (Iam), RetentionService (Observability, retention.service.ts:18-28), ProxyService (Proxies, proxy.service.ts:82-97), `SessionManager.onApplicationBootstrap` (Sessions, session-manager.service.ts:69-93).
+7. **Reidratação**: `repo.findAutostart` (prisma-session.repository.ts:105-121: autostart=true e status em WORKING/STARTING/SCAN_QR_CODE/PAIRING_CODE/DEGRADED; STOPPED e FAILED fora) → ordena Baileys antes de WWEBJS e DEGRADED por último (session-manager.service.ts:78-80) → laço sequencial em background (`void (async…)`, :81-92). Erro só loga `'Falha ao reidratar'`.
+8. Por sessão, `SessionManager.start` (:295-301): findById → names.set → `getOrCreateEngine` (:136-188) → `EngineFactory.create(engineType, deps)` (engine.factory.ts:11-15) → `startWithTimeout(engine.start(), 15 s)` (session-manager.service.ts:306-338): erro dentro da janela propaga; erro depois da janela grava FAILED + lastError (:320-331), e FAILED não reidrata no próximo boot.
+9. `BaileysEngine.start` (baileys.engine.ts:510-518) usa `serialize` (mutex :501-508): stopped=false, reconnectAttempts=0, cancela o timer e incrementa connectGeneration → `connect()` (:520-649).
+10. **connect**: remove 3 listeners e encerra o sock anterior (:521-538) → `usePostgresAuthState` lê `wa_sessions.creds` e `wa_auth_keys` sob demanda (postgres-auth-state.ts:20-84) → `latestBaileysVersion` (baileys.engine.ts:112-132): cache de processo de 12 h; na rc14 `fetchLatestBaileysVersion` NUNCA lança e devolve a versão embutida com `isLatest:false` (Utils/generics.js:206-211), que é cacheada como fresca (baileys.engine.ts:122-124); fetch sem timeout nem dispatcher (Utils/generics.js:182-186).
+11. **Proxy**: `deps.resolveAgent` → `ProxyResolver.resolveAgent` (proxy-resolver.service.ts:142-164) → `resolve` (:32-95): NONE/ausente → null; SINGLE → `findById(currentProxyId)` sem checar DEAD ou enabled (:38-40; prisma-proxy.repository.ts:132-135); RANGE/GLOBAL → candidatos não-DEAD + estratégia → `setCurrent` (proxy-resolver.service.ts:93) → buildProxyAgent. Com null e `WA_REQUIRE_PROXY=false` (config.ts:110) → conexão DIRETA com warn (proxy-resolver.service.ts:155-157). Com requireProxy → FAILED + stopped (baileys.engine.ts:554-564).
+12. **makeWASocket** (:566-611): versão, auth com makeCacheableSignalKeyStore, browser fingerprint por sessão, `markOnlineOnConnect: false`, `syncFullHistory: false`, transactionOpts 10×3 s, agent/fetchAgent, `getMessage` → `loadMessageForRetry` (:1193-1224), cachedGroupMetadata. Depois `setStatus('STARTING')` (:614) e listeners (:618-648).
+13. `session.status` → handleEngineEvent: `persistStatus` → `repo.updateStatus` via updateMany (session-manager.service.ts:245-262; prisma-session.repository.ts:76-99). count 0 → `discardOrphan` (session-manager.service.ts:269-286). Dedup `status|erro` (:211-214). Publica → SessionEventLogger grava `wa_session_events`; webhook `session.status`.
+14. Handshake: `connection.update` `'open'` (baileys.engine.ts:677-687) → WORKING com meJid/mePushName e error null, zera reconnectAttempts → `void warmLidCache` (:1289-1338). Sem creds, gera QR (§3.5).
+15. O HTTP passa a escutar (main.ts:99) enquanto a reidratação segue em background. HEALTHCHECK `/health` com start-period de 60 s (apps/gateway/Dockerfile:79-80). No start-first do Dokploy, o antigo só recebe SIGTERM depois que o novo fica saudável (§3.4).
+
+### 3.4 Shutdown/deploy (SIGTERM → onModuleDestroy → engine.shutdown sem status) e start-first do Dokploy
+
+1. O Swarm envia SIGTERM → tini repassa (apps/gateway/Dockerfile:82-83) → cleanup do Nest registrado por `enableShutdownHooks` (main.ts:96; nest-application-context.js:190-224) roda em sequência: callDestroyHook → callBeforeShutdownHook → `dispose()` (fecha o servidor HTTP — nest-application.js:49-52) → callShutdownHook → `process.kill(pid, signal)` (nest-application-context.js:199-213).
+2. `callDestroyHook` percorre a lista de hooks invertida (nest-application-context.js:252-259): App, depois os módulos de distância 2 na ordem de scan invertida — Campaigns (`CampaignQueue.onModuleDestroy`, campaign-queue.ts:242-257; `worker.close()` espera o job ativo, worker.js:784-806 com force=false), Channels, Contacts, Groups, Webhooks (`WebhookQueue.onModuleDestroy` fecha worker e fila, webhook-queue.ts:276-291), Events, Messaging e só então Sessions.
+3. Sessions: `SessionManager.onModuleDestroy` (session-manager.service.ts:95-134) chama `e.shutdown ? e.shutdown() : e.stop()` em paralelo para todas as engines, em corrida com um teto de 15 s (:119). Loga a duração ou as sessões pendentes.
+4. `BaileysEngine.shutdown` (baileys.engine.ts:1614-1626): fora do mutex; stopped=true; cancela a reconexão; `detachSocketListeners` (só `connection.update`, `creds.update` e `messages.upsert` — :1589-1600); `sock.end`; sock=null; NÃO chama setStatus. O status no banco continua WORKING, e o findAutostart do próximo container reidrata. Testes: baileys.shutdown.spec.ts:48-91. WWEBJS: `shutdown()` com destroy com teto e sem status (wwebjs.engine.ts:1292-1314).
+5. Depois Guardrail/Proxies, Observability, Iam e por último os globais (`EventFanout.onModuleDestroy` sub.quit, event-fanout.ts:74-80; Prisma; Redis). Só então `dispose()` fecha o HTTP.
+6. **Janela de risco**: entre o passo 2 e o dispose, o HTTP segue aceitando requisições e as sessões ainda vivas continuam emitindo `'wa.event'`. O `WebhookDispatcher.handle` continua assinado e chama `queue.add` numa fila já fechada: erro só loga (webhook-dispatcher.service.ts:81-83); o comportamento exato de `Queue.add` após close **não foi verificado** em runtime (Queue.close em queue-base.js:118-124). Envio HTTP depois do passo 4 recebe 400 `'Sessão não conectada'`: a engine ainda reporta WORKING em memória, mas sock=null (baileys.engine.ts:974, :1623).
+7. **Grace**: se o total (worker.close + até 15 s das engines) passar do StopGracePeriod, entra SIGKILL. O projeto registra grace de 10 s do Docker (docs/PENDENCIAS.md:263, linha P-015); o B-004 propõe StopGracePeriod 30 s (docs/PENDENCIAS.md:191). Grace real em produção **não verificado**.
+8. **Start-first (B-004)**: com o Update Config vazio, o Dokploy v0.30.2 injeta Order start-first no Update e no Rollback (docs/deploy-dokploy.md:73-77; docs/PENDENCIAS.md:181-199; D-020 em docs/DECISOES.md:348). O container NOVO sobe (migrate, boot, §3.3) e reidrata as mesmas contas com as mesmas creds enquanto o ANTIGO segue conectado.
+9. **Consequências do overlap**: (a) duas conexões Baileys com as mesmas credenciais → close 440 connectionReplaced (Types/index.js:17), tratado como reconexão genérica (baileys.engine.ts:744-775) → pingue-pongue; esgotar `MAX_RECONNECT=5` (:431) e parar em DEGRADED depende de não haver `'open'` no meio, que zera o contador (:679) — **não verificado**; (b) dois escritores do auth store: `keys.set` sem transação (postgres-auth-state.ts:46-69) e `saveCreds` concorrente (:77-82) → risco de ratchet dessincronizado; (c) dois escritores de `wa_sessions.status` (persistStatus); (d) EventFanout cruza eventos entre containers: webhooks deduplicados por jobId, SSE vê os dois; (e) cache de webhooks e QR em memória são por processo (webhook-dispatcher.service.ts:42-44; session-manager.service.ts:443-445).
+10. **P-043 (histórico)**: antes do `shutdown()` do Baileys, o onModuleDestroy caía no `stop()` → doStop → setStatus STOPPED (baileys.engine.ts:1572-1587), por cima do WORKING do container novo (findAutostart ignora STOPPED). Corrigido; prova definitiva no próximo deploy (docs/PENDENCIAS.md:294).
+11. **P-056**: o `shutdown()` sem status resolve só a reidratação. Lease/fencing por sessão, auth em transação, authEpoch e engines "draining" não existem. Pontos: onApplicationBootstrap/start, persistStatus, postgres-auth-state, sendText.
+
+### 3.5 Pareamento (criação → QR/pairing code → creds.registered → WORKING)
+
+1. `POST /api/sessions` → `SessionsController.create` (sessions.controller.ts:95-149; `@MinRole('ADMIN')` :96): `createSessionSchema` (sessions/interface/dto.ts:3-16: nome `[a-zA-Z0-9_-]`, engine BAILEYS por padrão, mode `qr|pairing`, phoneNumber, autostart true, proxyId). pairing sem phoneNumber → 400 (sessions.controller.ts:105-109). Nome duplicado → 409 (:110-112). Limite de licença → 409 (:113-118). `ensureAvailable`/`assignExclusive` do proxy ANTES do start, com rollback da sessão (:119-145).
+2. `repo.create` grava status STOPPED (prisma-session.repository.ts:45-57) → `manager.start` (sessions.controller.ts:146; §3.3 passos 8-12). Sem creds, `usePostgresAuthState` usa `initAuthCreds` (postgres-auth-state.ts:28-29). Resposta com DTO relido (sessions.controller.ts:147-148). O modo `'pairing'` não dispara código na criação; fica só em phoneNumber.
+3. **QR**: o Baileys recebe `'pair-device'` e emite `connection.update {qr}`: o 1º QR vale 60 s e os seguintes 20 s; sem refs → `end(408 'QR refs attempts ended')` (Socket/socket.js:694-725) → `onConnectionUpdate` (baileys.engine.ts:668-675) → `QRCode.toDataURL` em qrBase64 → setStatus SCAN_QR_CODE → persist + webhook `session.status`.
+4. `GET /api/sessions/:id/qr` (sessions.controller.ts:364-375): status vem do BANCO, qr da MEMÓRIA (`getQr` → `engine.getQrBase64`, session-manager.service.ts:443-445), pairingCode só se a engine implementar `getPairingCode` (a BaileysEngine não implementa — só o WWEBJS, wwebjs.engine.ts:375). O painel consulta a cada 2 s (apps/dashboard/src/routes/Sessions.tsx:55-75). Numa réplica que não é dona da engine, qr=null.
+5. Scan → `'pair-success'` (Socket/socket.js:729-744): `creds.update` → saveCreds (baileys.engine.ts:618-620 → postgres-auth-state.ts:77-82) → o servidor pede restart (comentário Socket/socket.js:728) → close 515 restartRequired (Types/index.js:21) → reconexão genérica que CONTA tentativa (baileys.engine.ts:744-775; P-049 quer 515 sem contar) → connect com creds persistidas → `CB:success` → `'open'` (Socket/socket.js:746-765) → WORKING com meJid (baileys.engine.ts:677-687).
+6. **QR expirado sem scan**: 408 → reconexão → novo QR … 5 tentativas → DEGRADED com `'Falha ao reconectar'` (:745-750). DEGRADED está no findAutostart (prisma-session.repository.ts:115), então o ciclo se repete a cada boot (P-018).
+7. **Pairing code**: `POST /:id/pairing-code` (sessions.controller.ts:387-414) → ensure + `pairingSchema` (sessions/interface/dto.ts:18-20) → `SessionManager.requestPairingCode` (session-manager.service.ts:451-464): findById → getOrCreateEngine → se STOPPED: startWithTimeout + sleep FIXO de 1,5 s (:461) → `BaileysEngine.requestPairingCode` (baileys.engine.ts:1557-1563): sock null → `'Sessão não iniciada'`; senão `sock.requestPairingCode(digits)` SOBRESCREVE `creds.me` e emite `creds.update`, persistido (Socket/socket.js:596-606) → setStatus PAIRING_CODE → `{code}`. Erro → 409, com mensagem genérica se casar a regex (sessions.controller.ts:404-412).
+8. Confirmação no celular → notificação `link_code_companion_reg` → `creds.registered = true` + `creds.update` (Socket/messages-recv.js:940-941) → pair-success/restart → open → WORKING.
+9. **Riscos**: nenhuma guarda contra sessão já pareada (pairing-code numa sessão WORKING sobrescreve `creds.me` — P-052); o sleep de 1,5 s não garante socket em `'connecting'`; o timer de QR continua em paralelo ao código (efeito **não verificado**); pareamento novo possivelmente quebrado na rc14 (issue #2737, a validar com chip — B-007/P-051).
+10. **Recuperação**: `POST /:id/new-qr` → `SessionManager.newQr` (session-manager.service.ts:407-426): tira a engine do mapa, limpa o dedup, stop com teto de 10 s, apaga `wa_auth_keys` + creds, `purgeAuthDir` (no-op no Baileys), start. Logout pelo celular (401) → `clearCredentials` + STOPPED com mensagem (baileys.engine.ts:693-715; :1656-1664).
+
+### 3.6 Campanha (criar → start → schedulePending → worker → envio → pausa/retomada → cap diário)
+
+1. `POST /api/campaigns` → `CampaignsController.create` (campaigns.controller.ts:105-138): `createCampaignSchema` (:18-47): sessionId é id cru, SEM SessionRefPipe; nome de sessão → erro de FK → 400 (:135-137); recipients até 100k; minDelaySec 8 e maxDelaySec 25 por padrão; dailyCap; typingPreview true; firstContact true; autostart false.
+2. `CampaignService.create` (campaign.service.ts:31-35) → `CampaignRepository.create`: dedup de destinatários, total, recipients PENDING (campaign.repository.ts:37-63) → se autostart → start.
+3. `CampaignService.start` (campaign.service.ts:40-56): RUNNING → no-op; DONE/CANCELLED → erro. `transitionToRunning` é atômico, updateMany de DRAFT/PAUSED para RUNNING (campaign.repository.ts:115-121); quem perde a corrida sai.
+4. `schedulePending` (campaign.service.ts:58-78): listPendingRecipients; delay acumulado `randInt(min, max)` + offset do scheduledAt; `enqueueSend` com jobId `campaign-${id}-${r.id}` (:52, :74) → `CampaignQueue.enqueueSend` (campaign-queue.ts:114-127: attempts 1, removeOnComplete/Fail 2000). No BullMQ, jobId cuja chave ainda existe é ignorado em silêncio (addStandardJob-9.lua:87-94; handleDuplicatedJob.lua:8-26).
+5. Worker (concorrência 4) → `CampaignQueue.process` (campaign-queue.ts:138-240): campanha inexistente/CANCELLED/DONE → return (:140). PAUSED → requeue SEM jobId com delay de 30 s (:141-145; :129-136) — o laço que causa a rajada da P-057.
+6. firstContact → `GuardrailService.canSendCold` (:148-158): bloqueado → updateStatus PAUSED + requeue (e `send.blocked` emitido pelo canSendCold). Não há retomada automática quando o guard-rail volta a `ativa`.
+7. `reserveRecipient` (campaign.repository.ts:128-184): transação com `SELECT campaigns FOR UPDATE` (:134); só PENDING; reserva fresca (<10 min, `RESERVATION_STALE_MS` campaign-queue.ts:29) → skip; attempts ≥2 → FAILED `'resultado indeterminado'` (campaign.repository.ts:148-157); cap: SENT desde o início do dia local (fuso da SessionConfig ou America/Sao_Paulo) + reservas em voo ≥ dailyCap → `'cap'` (:158-177); senão reservedAt=now e attempts+1 (:178-181).
+8. `'cap'` → PAUSED + requeue (campaign-queue.ts:165-172). O log diz "retoma no próximo dia local", mas NENHUM código volta PAUSED→RUNNING sozinho; só `POST /resume`.
+9. typingPreview → `sendPresence('composing')`, erro só em debug, + sleep de 0,8-2,5 s (:177-186). Revalida RUNNING logo antes do efeito; se não estiver → `releaseRecipient` (campaign.repository.ts:187-192) e, se PAUSED, requeue (campaign-queue.ts:190-195).
+10. **Envio**: opts `{cold: firstContact, idempotencyKey: 'campaign-${c.id}-${r.id}'}` (:198-201) → `SessionManager.sendText/sendMedia` DIRETO (:203-224). NÃO passa por SendIntentService nem pela pré-checagem; a key só dedupa a PERSISTÊNCIA (P2002 engolido). Mídia: `fetchMedia` com safeFetch e `MEDIA_MAX_BYTES` (:41-59, :209-213). Daí em diante, §3.1 a partir do passo 10: evento `message` com source `'api'` e isCold → `wa_messages`, webhook, reply-rate.
+11. Sucesso → `markRecipientSent` (keyId, sentAt) (:235; campaign.repository.ts:207-212); qualquer exceção, inclusive `'Sessão não iniciada/não está conectada'` durante reidratação ou shutdown → `markRecipientFailed` DEFINITIVO (campaign-queue.ts:236-238) (P-057). `refreshCounts` → DONE se RUNNING e sem pendentes (campaign.repository.ts:233-261).
+12. **Pausa**: `POST /pause` → updateStatus PAUSED (campaign.service.ts:80-83); os jobs vencidos entram no laço de requeue de 30 s. **Retomada**: `POST /resume` (:88-104) → transitionToRunning → schedulePending com prefixo novo `campaign-${id}-resume-${epochSec}` (:99). Os jobs do laço de 30 s continuam vivos e disparam em até 30 s, sem espaçamento; a reserva evita duplicata, mas não a rajada (P-057). `POST /start` numa campanha PAUSED reaproveita o prefixo `campaign-${id}`: são ignorados os ids cuja chave ainda existe no Redis (jobs pendentes/atrasados ou entre os 2000 últimos concluídos/falhos, removeOnComplete/Fail 2000 em campaign-queue.ts:123-124); na prática quase nada é reagendado e os pendentes seguem pelo laço de requeue.
+13. **Cancelamento**: CANCELLED + cancelPending (campaign.service.ts:106-110). Os jobs viram no-op (campaign-queue.ts:140).
+
+### 3.7 Guard-rail (métricas/reply-rate → transição → veredito/423 → eventos)
+
+1. **Coleta**: cada envio com `cold=true` grava isCold=true, fromMe=true e source=`'api'` em `wa_messages` (baileys.engine.ts:992 → message-persister.service.ts:50 → prisma-message.repository.ts:28). Inbounds gravam fromMe=false (§3.2). O ACK atualiza status (§3.1 passo 16).
+2. **Cálculo SOB DEMANDA, sem agendador**: `GET /api/guardrail/:sessionId` → `GuardrailController.evaluate` (guardrail.controller.ts:51-54) → `GuardrailService.evaluate` (guardrail.service.ts:236-309) → `ReplyRateService.compute(ref, 7)` (reply-rate.service.ts:80-82; resolve nome ou id em :71-78) → computeFor: SQL cold na janela, maduro ≥72h, responded = inbound no mesmo chatJid em até 72h, delivered/read (:100-125) → upsert em `session_metrics` (:155-159). Também chamado por `GET /sessions/:id/health` (sessions.controller.ts:178-184) e `GET /observability/reply-rate/:id` (observability.controller.ts:33-45), que atualizam o snapshot mas não transicionam.
+3. **evaluate**: getState (upsert `ativa`) → `cfg()` com cache (`guardrail_config` sobre `GUARDRAIL_*` — config.ts:95-100; guardrail.service.ts:144-158) → `fleetMedianReplyRate`: snapshots ≤24h com amostra ≥ Nmin; menos de 2 sessões ou mediana 0 → null (:217-233) → baseline = mediana ou targetReplyRate (0,35).
+4. **Decisão** (:257-280): STICKY (banida, pausa_manual) não muda; quarentena manual só sai por override; cooldown ativo mantém a quarentena; amostra < Nmin (20) → aquecimento; reply < baseline×0,6 → quarentena; < baseline×0,75 → throttled; ≥ baseline → ativa; entre os dois, histerese.
+5. **Aplicação**: só com enforce (`GUARDRAIL_ENFORCE`; true em produção segundo docs/ESTADO.md:67) e target ≠ current → `apply` (:288-294 → :316-392): ignora evento mais antigo (C10, :327-329); quarentenaDesde e cooldownAte (+48 h) (:331-343); CAS por eventTs com até 3 tentativas (:356-371).
+6. **Evento**: na mudança de estado, `void emit(STATE_EVENT[state])` (:377-390): ativa→`session.recovered`, throttled→`session.throttled`, quarentena→`session.quarantined`, aquecimento→`session.warming`, banida→`session.banned` (:47-53). `emit` lê nome e engine da sessão e publica `'wa.event'` (:177-200). Falha → `emitFailed` conta `gateway_process_errors_total{kind='guardrail_emit'}` (:396-401). Daí WebhookDispatcher e SSE (§3.8).
+7. **Veredito no envio**: `canSendCold` (:406-418) só é consultado com `cold=true` na API (messages.controller.ts:206-212) e em campanhas com firstContact (campaign-queue.ts:148-158). Bloqueio → `send.blocked` + 423 (API) ou PAUSED (campanha). throttled/aquecimento não limitam nada: `cap_atual` da SessionConfig é só informativo (session-config.service.ts:49-71; único chamador é `GET /sessions/:id/health`, sessions.controller.ts:182).
+8. **Override manual**: `POST /sessions/:id/{quarantine,warmup,activate,pause}` → `setManualState` → apply com reason `'override manual: …'` (guardrail.service.ts:457-470). Vale sempre, independente do enforce.
+9. **Sinais duros**: `recordHardSignal` (:427-454) mapeia 463→quarentena e ban/restriction→banida, com evento `signal.463`/`signal.restriction`. NÃO tem chamador (grep em apps/gateway/src só acha a definição): ERROR 463/479, reachoutTimeLock e message-capping da rc14 não chegam ao guard-rail (P-048/P-012).
+
+### 3.8 Webhook (evento → dispatcher → enqueue com jobId → entrega HMAC → retry → DLQ → reentrega)
+
+1. **Cadastro**: `POST /api/webhooks` (webhooks.controller.ts:60-95; `@MinRole('ADMIN')` na classe): `createWebhookSchema` (webhooks/interface/dto.ts:3-11: events strings livres, secret 8-128, maxAttempts 1-20 padrão 5) → `assertEgressAllowed` com `dnsFailure: 'allow'` (webhooks.controller.ts:72-82) → repo.create → `dispatcher.refresh()`, só no processo local (:93).
+2. **Evento**: `'wa.event'` local ou `'wa.event.remote'` → `WebhookDispatcher.handle` (webhook-dispatcher.service.ts:46-85): em `message` remove raw (:49-55); para cada webhook do cache: filtra por sessão (id OU nome, :58-64) e evento (`'*'` ou nome exato, :65).
+3. **Enqueue**: `void queue.enqueue({webhookId, url, secret, headers, body}, w.maxAttempts, '${env.id}-${w.id}')` (:66-83; jobId em :79) → `WebhookQueue.enqueue` (webhook-queue.ts:135-149): `queue.add('deliver')` com attempts ≥1, backoff exponencial de 2000 ms, removeOnComplete/Fail 1000 e o jobId. O BullMQ lança `'Custom Id cannot contain :'` quando o id tem `:` e não tem exatamente 3 partes, e `'Custom Id cannot be integers'` para id numérico (job.js:1068-1075); jobId repetido → no-op (addStandardJob-9.lua:87-94), que é a dedup entre réplicas. Erro no enqueue só loga (webhook-dispatcher.service.ts:81-83).
+4. **Worker** (concorrência `WEBHOOK_CONCURRENCY`, padrão 8, config.ts:139) → `deliver` (webhook-queue.ts:151-187): `assertEgressAllowed(parseEgressUrl)` em TODA entrega; bloqueio → `UnrecoverableError` (:154-166) → payload = `JSON.stringify(body)` → HMAC sha512(secret) em `x-webhook-signature: sha512=<hex>` (:167-178) → headers custom sem sobrescrever `RESERVED_HEADERS` (:45-63) → fetch POST com timeout de 10 s e `redirect: 'manual'` (:172-183) → não-2xx (inclusive 3xx) lança (:184-186).
+5. **Retry**: backoff exponencial do BullMQ = round(2^(tentativa-1) × 2000) ms (backoffs.js:36-46). Com maxAttempts=5: ~2, 4, 8 e 16 s; n8n fora por mais de ~30 s (mais os timeouts de 10 s) manda o evento para a DLQ.
+6. **DLQ**: `worker.on('failed')` (webhook-queue.ts:112-132): attemptsMade ≥ attempts, ou UnrecoverableError → `void toDeadLetter` → `webhook_dead_letters {webhookId, url, body, error, attempts}`, sem secret e sem headers (:191-206).
+7. **Reentrega**: `POST /api/webhooks/dead-letters/redeliver` (webhooks.controller.ts:104-107) → `redeliverDeadLetters` (webhook-queue.ts:219-274): até 100, do mais antigo; pula webhook removido ou desabilitado; reserva atômica `redeliveredAt` (:240-247); enqueue com a config ATUAL e jobId `dlq-redeliver-${it.id}` (:249-260); se o enqueue falhar, desfaz a marca (:261-270).
+8. **Teste**: `POST /webhooks/:id/test` (webhooks.controller.ts:133-156) monta o envelope `'webhook.test'` e enfileira com attempts 1 e sem jobId, fora do EventBus.
+9. **Eventos que chegam hoje**: `message`, `message.ack`, `message.reaction`, `session.status` (com dedup), `session.throttled/quarantined/warming/recovered/banned`, `send.blocked`. `signal.463`/`signal.restriction` constam do catálogo (engine.port.ts:79-80; docs/INTEGRACAO.md:62), mas nada os emite.
+
+### 3.9 Gatilhos transversais (onde cada fluxo começa)
+
+| Gatilho                      | Onde                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP envio                   | `POST /api/sessions/:id/messages/text` (messages.controller.ts:483); media :509, media-url :573, location :645, poll :684 — todos via `sendWithIntent` (:447)                                                                                                                                                                                                                                                                                                          |
+| HTTP sessões                 | `POST /api/sessions` (sessions.controller.ts:95); `GET /:id/qr` (:364); `POST /:id/pairing-code` (:387); `POST /:id/new-qr` (:380); start/stop/restart/logout (:328-354); `DELETE /:id` (:356)                                                                                                                                                                                                                                                                         |
+| HTTP campanhas               | `POST /api/campaigns` (campaigns.controller.ts:105), `/:id/start` (:158), `/pause` (:163), `/resume` (:168), `/cancel` (:173)                                                                                                                                                                                                                                                                                                                                          |
+| HTTP guard-rail              | `GET /api/guardrail/:sessionId` → evaluate (guardrail.controller.ts:51-54) — único gatilho de transição automática; overrides `POST /api/sessions/:id/{quarantine,warmup,activate,pause}` (sessions.controller.ts:303-326)                                                                                                                                                                                                                                             |
+| HTTP webhooks                | `GET /api/webhooks/dead-letters` (webhooks.controller.ts:98), `POST …/dead-letters/redeliver` (:104), `POST /api/webhooks/:id/test` (:133, sem jobId e sem EventBus)                                                                                                                                                                                                                                                                                                   |
+| SSE                          | `GET /api/events/stream` → `EventsController.stream` (events.controller.ts:14-45); consumido por Atendimento.tsx:184 e Monitor.tsx:23                                                                                                                                                                                                                                                                                                                                  |
+| Fila `webhooks`              | Worker em `WebhookQueue.onModuleInit` (webhook-queue.ts:94-103), handler `deliver` (:151-187), `failed` → DLQ (:112-132)                                                                                                                                                                                                                                                                                                                                               |
+| Fila `campaigns`             | Worker em `CampaignQueue.onModuleInit` (campaign-queue.ts:89-93; autorun default true em worker.js:34, :115-117), handler `process` (:138-240); requeue sem jobId a cada 30 s (:129-136)                                                                                                                                                                                                                                                                               |
+| EventBus `'wa.event'`        | publicado por `SessionManager.handleEngineEvent` (session-manager.service.ts:238-242) e `GuardrailService.emit` (guardrail.service.ts:195-199); assinado por MessagePersister (message-persister.service.ts:25), WebhookDispatcher (webhook-dispatcher.service.ts:35), SessionEventLogger (session-event.logger.ts:23), EventsController (events.controller.ts:36), EventFanout (event-fanout.ts:47)                                                                   |
+| EventBus `'wa.event.remote'` | publicado por `EventFanout.onRemote` (event-fanout.ts:64-68); assinado por WebhookDispatcher (webhook-dispatcher.service.ts:38) e EventsController (events.controller.ts:39)                                                                                                                                                                                                                                                                                           |
+| Redis pub/sub `'wa:events'`  | event-fanout.ts:13 (subscribe :44, publish :48-49); desligado com `NODE_ENV=test` ou `EVENT_FANOUT=off` (:36-37)                                                                                                                                                                                                                                                                                                                                                       |
+| Eventos Baileys              | assinados em `BaileysEngine.connect` (baileys.engine.ts:618-648): creds.update, connection.update, messages.upsert, messages.update, contacts.upsert/update, messages.reaction, groups.update, group-participants.update. NÃO assinados: `message-capping.update` (Socket/messages-recv.js:190); o campo `reachoutTimeLock` de connection.update (Socket/messages-recv.js:159-181; Socket/socket.js:906-915) é ignorado por onConnectionUpdate (baileys.engine.ts:666) |
+| Boot                         | `SessionManager.onApplicationBootstrap` (session-manager.service.ts:69-93); onModuleInit de EventFanout (event-fanout.ts:35), MessagePersister (message-persister.service.ts:24), SessionEventLogger (session-event.logger.ts:22), WebhookQueue (webhook-queue.ts:77), WebhookDispatcher (webhook-dispatcher.service.ts:31), CampaignQueue (campaign-queue.ts:81)                                                                                                      |
+| Shutdown                     | `enableShutdownHooks` (main.ts:96) → `SessionManager.onModuleDestroy` (session-manager.service.ts:95-134), `WebhookQueue.onModuleDestroy` (webhook-queue.ts:276-291), `CampaignQueue.onModuleDestroy` (campaign-queue.ts:242-257), `EventFanout.onModuleDestroy` (event-fanout.ts:74-80)                                                                                                                                                                               |
+| Timers                       | reconexão Baileys (baileys.engine.ts:760-775); RetentionService a cada `RETENTION_SWEEP_HOURS` (padrão 6 h) (retention.service.ts:18-28); re-teste de proxies `PROXY_RETEST_INTERVAL_MIN` (padrão 30) (proxy.service.ts:82-97); timer de QR interno do Baileys (Socket/socket.js:709-725)                                                                                                                                                                              |
+| Processo                     | `uncaughtException`/`unhandledRejection` só logam e contam (main.ts:24-40)                                                                                                                                                                                                                                                                                                                                                                                             |
+| Container                    | `ENTRYPOINT` tini → docker-entrypoint.sh (apps/gateway/Dockerfile:82-83; docker-entrypoint.sh:38-43); `HEALTHCHECK /health` com start-period de 60 s (apps/gateway/Dockerfile:79-80)                                                                                                                                                                                                                                                                                   |
+
+### 3.10 Dependências entre módulos (quem usa quem)
+
+- **messaging → sessions** via SessionManager (injeção em messages.controller.ts:194; chamadas em :503, :559, :630) e SessionRefPipe (:40, :485); MessagingModule importa IamModule, SessionsModule e GuardrailModule (messaging.module.ts:16). **messaging → guardrail** no hard-gate: `canSendCold` (messages.controller.ts:208).
+- **campaigns → sessions** direto: `sendPresence/sendText/sendMedia` (campaign-queue.ts:178, :205, :215, :227), sem MessagesController nem SendIntentService; **campaigns → guardrail** em `canSendCold` (:149); CampaignsModule importa IamModule, SessionsModule e GuardrailModule (campaigns.module.ts:12).
+- **sessions → proxies** na conexão: `resolveAgent/resolveProxyConfig/reportFailure` (session-manager.service.ts:158-162); SessionsModule importa IamModule, ProxiesModule e GuardrailModule (sessions.module.ts:14). **sessions → infra**: `MediaStorage.put/presignedGetUrl` (session-manager.service.ts:163-164, :221) e `ContactDirectory.record/recordMany/lidMap/namesFor` (:165-184).
+- **SessionsController → guardrail** (`statesFor/health/override` — sessions.controller.ts:155, :180, :324), SessionConfigService (:181-182) e iam (`LicenseService.effective` — :113).
+- **guardrail → observability** via `ReplyRateService.compute` (guardrail.service.ts:237, :474); GuardrailModule importa IamModule e ObservabilityModule (guardrail.module.ts:10). guardrail publica no EventBus (guardrail.service.ts:195-199) e importa só tipos de `sessions/application/engine.port` (:8-11).
+- **webhooks, messaging (persistência) e observability (timeline)** se acoplam a sessions só pelo EventBus (webhook-dispatcher.service.ts:35; message-persister.service.ts:25; session-event.logger.ts:23).
+- **infra/redis** (EventFanout, provider do RedisModule global) liga o EventBus entre réplicas (event-fanout.ts:47-68); consumido por webhooks (webhook-dispatcher.service.ts:38) e SSE (events.controller.ts:39).
+- **Engines Baileys usam o Prisma direto** (não por repositório): usePostgresAuthState (`wa_sessions.creds`, `wa_auth_keys`), loadMessageForRetry, mergeLidMessages/mergeKnownLids (`wa_messages`) e clearCredentials (baileys.engine.ts:540-543, :1201, :1305, :1323, :1657-1663).
+- **Inbox** (messaging) lê `wa_messages` e `wa_conversation_triage` e deriva o semáforo (inbox.controller.ts:105-140; triage-status.ts:22-26); depende da persistência do §3.2. O ReplyRateService lê `wa_messages` gravada pelo MessagePersister (reply-rate.service.ts:100-125): perda de inbound (append) ou de ACK afeta o veredito do guard-rail.
+- **Fronteiras** checadas pelo depcruise: sem ciclos (.dependency-cruiser.cjs:13-20); módulo não importa domain/infrastructure alheio (:21-33); shared-kernel não importa modules (:34-41); infra não importa modules (:42-51).
+
+### 3.11 Invariantes transversais (não quebrar)
+
+- **R0/contrato público**: nenhuma rota ou payload de `/api` muda de forma incompatível (CLAUDE.md:38); payload novo entra ADITIVO e com `packages/contracts` no mesmo commit (CLAUDE.md:50). O node n8n 0.4.1 só trata 423; outro não-2xx vira erro (docs/analise-atualizacoes-2026-09.md:253-254). O código garante hoje: forma do 423 em session-quarantined.exception.ts:7-16; mapeamento 409 (reserve) / 423 (gate) / 400 (qualquer erro de envio) em messages.controller.ts:459-480; raw removido do webhook e do SSE (webhook-dispatcher.service.ts:49-55; events.controller.ts:24-33). Não existe teste de contrato do node n8n (proposto na P-062).
+- **jobId do BullMQ NUNCA com `:`** (CLAUDE.md:39): a lib lança `'Custom Id cannot contain :'` (job.js:1073-1075; só aceita `:` com exatamente 3 partes, legado de repeatable) e recusa id inteiro (:1068-1069). Montagem: `${env.id}-${w.id}` (webhook-dispatcher.service.ts:79), `dlq-redeliver-${it.id}` (webhook-queue.ts:259), `campaign-${id}[-resume-${ts}]-${r.id}` (campaign.service.ts:52, :74, :99). Teste só para o webhook (apps/gateway/test/webhooks.e2e-spec.ts:77-131); campanha sem teste de jobId (P-022).
+- **Dedup por jobId só vale enquanto a chave do job existe** (addStandardJob-9.lua:87-94; removeOnComplete 1000/2000). `/start` numa campanha PAUSED reaproveita o prefixo `campaign-${id}` e os ids ainda existentes são ignorados em silêncio; o resume usa prefixo com timestamp de propósito (campaign.service.ts:99).
+- **R6 — efeito crítico sem fire-and-forget silencioso** (CLAUDE.md:41). Pontos fire-and-forget HOJE, todos com log: `void handleEngineEvent` (session-manager.service.ts:156), MessagePersister (message-persister.service.ts:30-36, :41-65), enqueue de webhook (webhook-dispatcher.service.ts:66-83), emit do guard-rail com métrica (guardrail.service.ts:380-388, :411-414, :436-438), gravação da DLQ (webhook-queue.ts:126-131), timeline (session-event.logger.ts:27-49), mídia recebida (baileys.engine.ts:860), merge LID/contatos (:801, :803; session-manager.service.ts:166-181). O EventBus é só em memória, sem outbox (P-034).
+- **Sem contact-check de rede no envio**: `resolveJid` é local (baileys.engine.ts:1129-1131; toJid :1667-1671). `onWhatsApp` só existe no endpoint explícito `/contacts/check`, 1 consulta por número (:1494-1508); o WWEBJS usa `getNumberId` só no checkNumbers (wwebjs.engine.ts:2564-2572). Não reintroduzir onWhatsApp em sendText, campanhas ou pareamento.
+- **`shutdown()` de engine NUNCA persiste status** e roda fora do mutex (baileys.engine.ts:1614-1626; contrato em engine.port.ts:236-243; chamada em session-manager.service.ts:109; testes em baileys.shutdown.spec.ts:48-91; docs/agent-whatzapp_api.md:348-360). Encerramento novo (lease, draining) deve preservar isso, senão volta o P-043.
+- **Listeners do socket**: `detachSocketListeners` e o cleanup de `connect` removem SÓ `connection.update`, `creds.update` e `messages.upsert` (baileys.engine.ts:526-528, :1594-1596). Listener novo (message-capping.update, tratamento de ERROR etc.) precisa entrar nas duas listas, senão sobra listener em socket velho.
+- **Todo evento de engine passa por `deps.onEvent`**; o guard `this.engines.get(sessionId) !== created` (session-manager.service.ts:154-157) descarta eventos de engine órfã ou substituída. Não publicar no EventBus direto de dentro da engine.
+- **`persistStatus` roda SEMPRE, antes do dedup** de `session.status` (session-manager.service.ts:199-214; D-015). Só a publicação é deduplicada; mudar a ordem quebra o discardOrphan e a timeline.
+- **Ordem de boot**: assinantes do EventBus nascem no onModuleInit; a reidratação começa no onApplicationBootstrap, que só roda depois de TODOS os onModuleInit (nest-application.js:106-108). Antecipar o start de sessões perde eventos. O Worker de campanhas nasce no onModuleInit com autorun (campaign-queue.ts:89-93; worker.js:34, :115-117), ANTES da reidratação (causa do FAILED no boot da P-057).
+- **Ordem de shutdown**: SessionsModule e os módulos de fila têm a mesma distância 2; o destroy percorre a ordem de scan invertida (nest-application-context.js:252-259), então Campaigns e Webhooks fecham ANTES do SessionManager, e o HTTP só fecha no dispose, depois de todos os destroys (nest-application-context.js:201-203). Qualquer mudança de imports entre módulos pode alterar essa ordem.
+- **Mutex de ciclo de vida por engine**: `serialize` (baileys.engine.ts:501-508); stop/logout marcam stopped FORA da fila (:1565-1570, :1628-1631); timer de reconexão com geração (:758-775). Novos ramos de DisconnectReason (P-049) devem respeitar stopped e connectGeneration; `'open'` zera reconnectAttempts (:679).
+- **Idempotência em 2 camadas só no caminho HTTP**: `wa_send_intents` (reserva antes do transporte) + unique de `wa_messages` (schema.prisma:310, :334). A campanha só tem a 2ª camada + reserveRecipient. A pré-checagem "legado" (messages.controller.ts:432-440) não enxerga envio recém-feito (persistência assíncrona).
+- **`wa_messages` não tem unique em (sessionId,keyId)** (schema.prisma:304): aceitar `'append'` (P-047) ou ter dois processos na mesma sessão (P-056) pode duplicar mensagens. Unique novo = migration nova, forward-only (CLAUDE.md:37), tratando duplicatas existentes.
+- **ACK antes do INSERT vira no-op** (prisma-message.repository.ts:143-157): o status `sent` pode ficar nulo até o `delivered`.
+- **Guard-rail**: gate só para `cold=true` (messages.controller.ts:207) e campanhas com firstContact; throttled/aquecimento não bloqueiam (guardrail.service.ts:39-43); sem agendador de evaluate (guardrail.controller.ts:51-54); `cap_atual` não é aplicado no envio (session-config.service.ts:49-71); STICKY banida/pausa_manual (guardrail.service.ts:37).
+- **Multi-processo** (réplica ou overlap de deploy): QR/pairing code e cache de webhooks moram em memória por processo (session-manager.service.ts:443-449; webhook-dispatcher.service.ts:23, :42-44). A persistência assina só `'wa.event'` local (event-fanout.ts:15-21); webhook e SSE assinam local + remoto, com a dedup do webhook dependendo de `env.id` no jobId.
+- **SessionRefPipe** aceita nome OU id nas rotas `/sessions/:id` (session-ref.pipe.ts:21-28). NÃO passam pelo pipe: `/api/campaigns` (sessionId no corpo), `/api/observability/timeline/:sessionId` (observability.controller.ts:22-29) e `GET/PUT /api/sessions/:id/proxy` (proxies.controller.ts:145-177); o guard-rail resolve o nome por conta própria (reply-rate.service.ts:71-78).
+- **findAutostart** reidrata WORKING/STARTING/SCAN_QR_CODE/PAIRING_CODE/DEGRADED; STOPPED e FAILED ficam de fora (prisma-session.repository.ts:109-117). Status terminal novo (P-049: 403/411 → FAILED) sai da reidratação automática. Escrita de status por um processo que está saindo derruba a reidratação (P-043/P-056).
+- **Operação**: não reiniciar o gateway em rajada com sessão real (CLAUDE.md:42); não usar `nest build` com watch nem tocar em `dist/` em sessão de análise; não simular ações no Dokploy (CLAUDE.md:43).
+- **Eco próprio na rc14**: todo envio volta como `messages.upsert` `'append'` via `process.nextTick` + mutex (Defaults/index.js:55; Socket/messages-send.js:1135-1138). Hoje morre no filtro de baileys.engine.ts:783. Ao liberar `'append'` (P-047), a checagem de `sentMessages` (:787) vira a única barreira contra eco duplicado; se o upsert do eco pode chegar antes do `cacheSent` (:983) **não foi verificado**.
+
+## 4. Áreas
+
+### 4.1 Sessões e engines (`sessions`)
+
+Mapa gerado: [reference/mapa-codigo/gateway-sessions.md](reference/mapa-codigo/gateway-sessions.md) · proxies: [reference/mapa-codigo/gateway-proxies.md](reference/mapa-codigo/gateway-proxies.md)
+
+**Resumo.** O módulo `apps/gateway/src/modules/sessions/**` é dono do ciclo de vida das contas WhatsApp: cria, inicia, para, reinicia, desloga, gera QR ou pairing code e remove sessões, pelo caminho `SessionsController` (22 rotas) → `SessionManager`. No boot reidrata as sessões uma por vez, com teto de 15 s por start, e no SIGTERM as encerra sem gravar status. As engines ficam atrás da porta `IEngine` (engine.port.ts:230-341) e são criadas pelo `EngineFactory`: a `BaileysEngine` é o padrão (frota 100% Baileys segundo docs/analise-atualizacoes-2026-09.md:124) e a `WWebJSEngine` está com frota 0. Toda saída das engines passa por `deps.onEvent` e chega a `SessionManager.handleEngineEvent`, que grava o status, deduplica status repetido, pré-assina a URL da mídia e publica `'wa.event'`. Tabelas donas: `wa_sessions` (status + creds), `wa_auth_keys` (chaves Signal, lid-mapping e device-list) e `session_config` (G8, só informativa: nada a aplica em runtime). Depende de ProxyResolver (proxy a cada connect), MediaStorage, ContactDirectory, IAM (guards e licença) e GuardrailService (health, override e cap). `recordHardSignal` do guardrail continua sem chamador.
+
+#### Arquivos-chave
+
+| Arquivo                                                                             | Papel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/gateway/src/modules/sessions/application/session-manager.service.ts`          | Orquestrador (696 linhas). Mapas engines/names/lastStatusKey (L51-56); autostart escalonado (L69-93); shutdown com teto de 15 s (L95-134); getOrCreateEngine e deps (L136-188); handleEngineEvent, persistStatus e dedup (L190-262); discardOrphan (L264-286); start com teto (L293-338); withTimeout (L346-366); stop/restart/logout/newQr/remove (L368-441); getQr/getPairingCode/requestPairingCode (L443-464); sendText e fachada `working()` das operações F5 (L466-695). Importa WWebJSEngine só pelo `purgeAuthDir` estático (L23)                                                 |
+| `apps/gateway/src/modules/sessions/application/engine.port.ts`                      | Contrato `IEngine` (L230-341). Payloads SessionStatePayload/MessagePayload/MessageAckPayload/ReactionPayload (L3-62). EngineEventName, GuardrailEventName e WaEventEnvelope (L64-95). `UnsupportedEngineOperationError` → 501 (L220-228)                                                                                                                                                                                                                                                                                                                                                  |
+| `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.engine.ts`        | Engine principal (1671 linhas). Cache de versão (L98-132); mapeadores puros (L135-429); connect/makeWASocket e listeners (L520-649); connection.update com a matriz de reconexão (L663-777); messages.upsert (L779-872); ACK (L876-900); mídia recebida (L903-967); envios e eco (L969-1121); cacheSent (L1179-1185); getMessage durável (L1193-1224); safe (L1228-1245); sk (L1247-1250); LID (L1289-1338); grupos/contatos/canais (L1360-1555); pairing (L1557-1563); stop/detach/shutdown/logout/clearCredentials (L1565-1664); toJid (L1667-1671)                                     |
+| `apps/gateway/src/modules/sessions/infrastructure/baileys/postgres-auth-state.ts`   | Auth store no Postgres: creds em `wa_sessions.creds`, chaves em `wa_auth_keys`, via BufferJSON. `keys.set` é Promise.all sem transação (L46-69); `saveCreds` grava o JSON inteiro (L77-82)                                                                                                                                                                                                                                                                                                                                                                                                |
+| `apps/gateway/src/modules/sessions/infrastructure/baileys/browser-fingerprint.ts`   | Fingerprint [plataforma, navegador, versão] determinístico por sessionId (FNV-1a), entre 6 combinações (L21-43)                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`          | Engine alternativa (2648 linhas, frota 0). Chromium com LocalAuth, build fixa (L68), watchdogs de QR (L405-463) e de sync (L471-548), heal (L2160-2190), teto de init (L241, L861-871), shutdown limpo (L1292-1314) e LID outbound                                                                                                                                                                                                                                                                                                                                                        |
+| `apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.lid-outbound.ts`    | `withLidFallback` puro: repete o envio via `@lid` quando dá "No LID for user" (L51-84); `pageResolvePnToLid` (L92+)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `apps/gateway/src/modules/sessions/infrastructure/engine.factory.ts`                | Escolhe WWEBJS ou BAILEYS (padrão) e passa às duas as mesmas deps `BaileysEngineDeps` (L11-15)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `apps/gateway/src/modules/sessions/infrastructure/prisma-session.repository.ts`     | Repositório de `wa_sessions`. `updateStatus` usa updateMany e retorna false se a sessão sumiu (L76-99). `findAutostart` só pega WORKING/STARTING/SCAN_QR_CODE/PAIRING_CODE/DEGRADED (L105-121)                                                                                                                                                                                                                                                                                                                                                                                            |
+| `apps/gateway/src/modules/sessions/application/session-config.service.ts`           | G8: get/update de `session_config` com upsert idempotente (L28-45) e `capFor` derivado do estado do guardrail (L49-71)                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `apps/gateway/src/modules/sessions/interface/sessions.controller.ts`                | 22 rotas `/api/sessions` (a mesma lista está em docs/reference/mapa-codigo/README.md:84-144): create, list, get, health, config GET/PATCH, presence, profile status/name/photo, override do guardrail (quarantine/warmup/activate/pause), start, stop, restart, logout, delete, qr, new-qr e pairing-code                                                                                                                                                                                                                                                                                 |
+| `apps/gateway/src/modules/sessions/interface/session-ref.pipe.ts`                   | Resolve `:id` aceitando ULID ou NOME: findById e depois findByName (L21-28). Exportado e usado pelos controllers de outros módulos                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `apps/gateway/src/modules/sessions/interface/dto.ts`                                | Schemas zod: createSession (L3-16), pairing (L18-20), sessionConfig parcial (L23-34), presence (L37-46), profile (L49-52)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `apps/gateway/src/modules/sessions/sessions.module.ts`                              | Importa Iam, Proxies e Guardrail. Exporta SessionManager, SessionConfigService, SessionRefPipe e `SESSION_REPOSITORY` (L13-31)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.shutdown.spec.ts` | Único spec do projeto vitest `unit` que instancia a BaileysEngine: shutdown não emite status e stop emite STOPPED (L48-91). O mock de `@whiskeysockets/baileys` (L5-20) define `proto={}`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `apps/gateway/test/baileys-reaction.e2e-spec.ts`                                    | Testa a função pura exportada `mapBaileysReaction` com a lib REAL (projeto `e2e`). Padrão para testar mapeadores puros como `mapAckStatus`, que hoje não é exportado                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `apps/gateway/test/session-status-dedup.e2e-spec.ts`                                | Harness do SessionManager com fakes e construtor posicional (L41-50); 5 testes de dedup (L77-129). ÚNICO lugar que constrói o SessionManager à mão: setup-app.ts troca o provider por um fake (test/setup-app.ts:12, :84-85)                                                                                                                                                                                                                                                                                                                                                              |
+| `apps/gateway/src/modules/proxies/application/proxy-resolver.service.ts`            | Resolve o proxy da sessão a cada conexão (L32-95); `reportFailure` marca DEAD (L101-120); `resolveProxyConfig` serve o wwebjs (L124-139) e `resolveAgent` serve o Baileys (L142-164)                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `node_modules/@whiskeysockets/baileys/lib` (7.0.0-rc14, package.json:4)             | Fonte de verdade da lib: Defaults/index.js (config padrão); Socket/socket.js (end :472-507, logout :572-595, pairing :596-606, QR :709-724, pair-success :729-744, failure :798-801, authState/user :929-932); Socket/messages-recv.js (append/offline, 463/479, reachout); Socket/messages-send.js (emitOwnEvents); Utils/messages-media.js (download/upload); Utils/event-buffer.js (flush e destroy); Utils/generics.js (fetchLatestBaileysVersion e códigos de stream); Utils/noise-handler.js e Utils/validate-connection.js (Curve.verify); Signal/lid-mapping.js; Socket/groups.js |
+
+#### Pontos de entrada
+
+- HTTP com prefixo `/api` (main.ts:78). Guards `ApiKeyAuthGuard` + `RolesGuard` na classe (sessions.controller.ts:83). Sem `@MinRole`, GET exige VIEWER e mutação exige OPERATOR; API key conta como ADMIN (roles.guard.ts:43-49).
+- `POST /api/sessions` (ADMIN) → `create` (sessions.controller.ts:95-96) · `GET /api/sessions?state=` → list com guardrailState (:152) · `GET /:id` (:172) · `GET /:id/health` → guardrail.health + cap (:178) · `GET|PATCH /:id/config` (G8) (:187, :194) · `POST /:id/presence` (:211).
+- `POST /:id/profile/status|name|photo` (:227, :246, :266). A foto é baixada da URL com fetch direto, timeout de 20 s e teto de 10 MB (:280-293).
+- `POST /:id/quarantine|warmup|activate|pause` → `GuardrailService.setManualState` (:303-326) · `POST /:id/start|stop|restart|logout` (:328, :335, :342, :349) · `DELETE /:id` (ADMIN) (:356-357) · `GET /:id/qr` → `{status do banco, qr da memória, pairingCode?}` (:364-375) · `POST /:id/new-qr` (:380) · `POST /:id/pairing-code` (:387).
+- Hook de boot `SessionManager.onApplicationBootstrap` (session-manager.service.ts:69); hook de shutdown `onModuleDestroy`, ativado por `app.enableShutdownHooks` (main.ts:96) (session-manager.service.ts:95).
+- Eventos Baileys assinados por socket (baileys.engine.ts:618-648): creds.update, connection.update, messages.upsert, messages.update, contacts.upsert, contacts.update, messages.reaction, groups.update e group-participants.update. NÃO assina `message-capping.update`.
+- Callbacks do makeWASocket: `getMessage` → `loadMessageForRetry` (baileys.engine.ts:597) e `cachedGroupMetadata` (:600-610). Timer de reconexão Baileys, um por geração, com unref (:760-775).
+- Eventos wwebjs: loading_screen, qr, ready, auth_failure, change_state, code, disconnected, message_create, message_ack e message_reaction (wwebjs.engine.ts:776-855). Timers wwebjs: watchdog de QR (60 s) :405-413; watchdog de sync (60 s) :477-486; reconexão sem handle e sem unref :1161-1168; após o ready, mergeExistingLids em 4 s e syncAddressBook em 3 s (:809-811); espera de 3 s no fromMe (:1608).
+- Exports usados por outros módulos: SessionManager, SessionConfigService, SessionRefPipe e `SESSION_REPOSITORY` (sessions.module.ts:25-30). Importam o SessionManager: groups.controller.ts:16, contacts.controller.ts:16, channels.controller.ts:15, messages.controller.ts:39, campaign-queue.ts:17 e inbox-sync.service.ts:3.
+
+#### Fluxos internos
+
+**Boot — reidratação escalonada.** Ver §3.3 passos 7-9. Específicos:
+
+1. Ordena por peso, DEGRADED +2 e WWEBJS +1 (session-manager.service.ts:78-80): Baileys saudável sobe primeiro.
+2. O loop `void (async…)` roda fora do bootstrap do Nest (:81-92), uma sessão por vez; erro só loga (:86-89).
+3. Teto `START_TIMEOUT_MS=15s` (:293, :306-338): se estoura, passa para a próxima sessão e o start antigo continua em background. Erro tardio grava FAILED direto no repo (:318-331), sem evento, sem webhook, sem timeline e sem atualizar a chave de dedup.
+4. Sem lease nem fencing; com start-first (docs/PENDENCIAS.md:181-187, B-004) o container novo reidrata enquanto o antigo ainda está conectado (P-056).
+
+**Criação (POST /api/sessions).** Ver §3.5 passos 1-2. Específicos: `mode=pairing` só exige phoneNumber (sessions.controller.ts:105-109) e não gera pairing code; se `assignExclusive` falhar, apaga a sessão recém-criada (:138-145); um erro síncrono do start dentro dos 15 s propaga como erro da rota, mas a sessão já ficou criada (:146-148).
+
+**Start Baileys — criação do socket e opções.**
+
+1. `SessionManager.start` (session-manager.service.ts:295-301) → `getOrCreateEngine` (:136-188) → `EngineFactory.create` (engine.factory.ts:11-15). Deps: `requireProxy=WA_REQUIRE_PROXY` (session-manager.service.ts:145); logger pino no nível `WA_LOG_LEVEL` (:147-149); onEvent com guard de engine registrada (:154-157); resolveAgent/resolveProxyConfig/reportProxyFailure do ProxyResolver (:158-162); storeMedia do MediaStorage (:163-164); contacts do ContactDirectory (:165-184).
+2. `BaileysEngine.start` (baileys.engine.ts:510-518) → `serialize` (:501-508): stopped=false, reconnectAttempts=0, clearReconnectTimer, connectGeneration++ e então connect.
+3. `connect` (:520-649): se já existe sock, remove 3 listeners e chama `end()` (:521-538) — por isso `POST /start` numa sessão WORKING recria o socket. Depois `usePostgresAuthState` (:540-543), `latestBaileysVersion` com cache de 12 h (:545, :103-132) e `resolveAgent` (:548).
+4. Guard `WA_REQUIRE_PROXY`: sem agent e com requireProxy → stopped=true e FAILED com mensagem acionável (:554-564). FAILED não reidrata no boot.
+5. `makeWASocket` (:566-611): `version` só entra se definida (:567-569); `auth.keys = makeCacheableSignalKeyStore(state.keys)` (:574-580); `browser = browserFingerprint(sessionId)` (:585; browser-fingerprint.ts:41-43); `markOnlineOnConnect:false` e `syncFullHistory:false` (:586-587), contra o padrão true/true da lib (Defaults/index.js:62-63); transactionOpts 10/3000 (:592), igual ao padrão da rc14 (Defaults/index.js:70); `agent` e `fetchAgent` recebem o mesmo Agent (:595-596); `getMessage = loadMessageForRetry` (:597); cachedGroupMetadata com TTL de 10 min (:600-610). `countryCode` não é configurado e fica `'US'` (Defaults/index.js:79), que vai no ClientPayload (Utils/validate-connection.js:26).
+6. `groupMetaCache.clear` e setStatus STARTING (baileys.engine.ts:612-614). Listeners registrados dentro de `safe()` (:618-648), que isola erro por sessão (:1228-1245). A lib aplica `addTransactionCapability` sobre auth.keys (Socket/socket.js:270).
+
+**connection.update — QR, open e matriz de close.**
+
+1. `qr` → `QRCode.toDataURL` e SCAN_QR_CODE a cada renovação (baileys.engine.ts:668-675). A lib dá 60 s ao 1º QR e 20 s aos seguintes; esgotados, `end(Boom 'QR refs attempts ended', 408 timedOut)` (Socket/socket.js:709-724).
+2. `open` → qrBase64=null, reconnectAttempts=0 e WORKING com meJid/mePushName/error:null (baileys.engine.ts:677-685). Depois `warmLidCache` (:686, :1289-1299): carrega o lidMap do diretório e funde conversas `@lid`.
+3. close **401 loggedOut** → stopped=true, limpa sentMessages, detach, end, sock=null, `clearCredentials` (deleteMany em `wa_auth_keys` e creds=DbNull, :1656-1664) e STOPPED com lastError "Desconectada pelo celular" (:693-715). Terminal; não reidrata.
+4. close com stopped=true → STOPPED com error:null (:716-719).
+5. close cuja mensagem casa `/407|ERR_TUNNEL|tunneling socket|proxy|connect ECONNREFUSED|connect ETIMEDOUT|getaddrinfo ENOTFOUND|EHOSTUNREACH/` → `reportProxyFailure` marca DEAD o currentProxyId antes de reagendar (:727-742; proxy-resolver.service.ts:101-120).
+6. Todo outro código (408, 428, 440, 500, 503, 515, 403, 405, 411) recebe o mesmo tratamento: reconnectAttempts++. Acima de 5 (`MAX_RECONNECT` baileys.engine.ts:431) → DEGRADED "Falha ao reconectar após 5 tentativas" (:744-750). Abaixo, delay = min(30 s, 1 s·2^n) + jitter até 1 s (:751-753), com um timer por geração que re-checa stopped/gen dentro da fila (:760-775).
+7. Durante o backoff não há setStatus nem sock=null: `getStatus()` mantém o status anterior (normalmente WORKING) e `sk()` devolve o socket fechado (:689-776, :1247-1250). No timer, `connect()` zera sock (:537) antes de ler o banco e o proxy; se lançar (DB ou resolveAgent), só aparece o log "erro ao reconectar" (:771-773) e não há nova tentativa.
+8. Origem dos códigos na rc14: o enum DisconnectReason não tem 405 (Types/index.js:14-24). `CB:failure` usa o reason cru, padrão 500 (Socket/socket.js:798-801). `stream:error` usa o code do nó, depois o CODE_MAP (conflict → 440, Utils/generics.js:282-284) e por fim badSession 500 (:289-300). 515 chega depois do pair-success (Socket/socket.js:727-744). 408 connectionLost vem do keepalive (:539-540).
+9. `end()` emite `connection.update` close e em seguida `ev.destroy()`, que remove TODOS os listeners e descarta os eventos ainda bufferizados (Socket/socket.js:499-506; Utils/event-buffer.js:173-192).
+
+**Stop / restart / logout / new-qr / remove.**
+
+1. `POST /:id/stop` (sessions.controller.ts:335-340) → `SessionManager.stop`: `withTimeout(engine.stop, 10s)`, que engole erro (session-manager.service.ts:346-370). `BaileysEngine.stop` marca stopped FORA da fila e serializa doStop (baileys.engine.ts:1565-1570): clearReconnectTimer, `detachSocketListeners` (só connection.update, creds.update e messages.upsert — :1589-1600) ANTES do end, sock=null, qr=null e STOPPED com error:null (:1572-1587).
+2. `POST /:id/restart` → stop + start (session-manager.service.ts:372-376).
+3. `POST /:id/logout` (:378-399). Com engine: `withTimeout(engine.logout, 12s)`, depois engines.delete e lastStatusKey.delete (names fica). O doLogout do Baileys chama `sock.logout()`, que envia o iq remove-companion-device com sendNode, sem esperar resposta, e dispara `void end(401)` (Socket/socket.js:572-595); em seguida detach, end, clearCredentials e STOPPED com meJid/mePushName null (baileys.engine.ts:1633-1652). Sem engine: apaga `wa_auth_keys`, grava creds=DbNull, `purgeAuthDir` (no-op no Baileys) e STOPPED direto no repo (session-manager.service.ts:386-398).
+4. `POST /:id/new-qr` (:407-426): tira a engine do mapa e zera o dedup ANTES do stop, então o STOPPED tardio da engine velha é ignorado pelo guard. Depois stop (10 s), deleteMany em `wa_auth_keys`, creds=DbNull, purgeAuthDir e start com engine nova. Não chama `sock.logout`, de propósito (:401-406).
+5. `DELETE /:id` (ADMIN) (:428-441): tira do mapa, de names e do dedup; stop (8 s), purgeAuthDir e `repo.delete`. O cascade limpa as filhas (schema.prisma:147-156; onDelete Cascade em WaAuthKey :490, WaMessage :301 e SessionConfig :176).
+
+**Pairing code.**
+
+1. `POST /:id/pairing-code` (sessions.controller.ts:387-414): `pairingSchema` (sessions/interface/dto.ts:18-20) → `manager.requestPairingCode`. Qualquer erro vira 409; se a mensagem casar a regex (sessions.controller.ts:407-409), inclusive qualquer texto com "undefined", a resposta é genérica.
+2. `SessionManager.requestPairingCode` (session-manager.service.ts:451-464): engine STOPPED → startWithTimeout + sleep fixo de 1,5 s (:458-462). Em qualquer outro status, inclusive WORKING, chama direto.
+3. `BaileysEngine.requestPairingCode` (baileys.engine.ts:1557-1563) exige sock, chama `sock.requestPairingCode(dígitos)` e grava PAIRING_CODE; o código não é logado. Na rc14 a lib sobrescreve `creds.me` e emite `creds.update` (Socket/socket.js:596-606), e saveCreds persiste. Não há guarda contra sessão já pareada.
+4. O Baileys não implementa `getPairingCode`, então `GET /qr` não traz pairingCode para sessões Baileys (session-manager.service.ts:447-449; sessions.controller.ts:369-374). Só o wwebjs guarda e expõe o código renovado (wwebjs.engine.ts:375-377, :828-838).
+
+**Evento de engine → EventBus → consumidores.** Ver §3.1 passos 11-13. Específicos:
+
+1. `handleEngineEvent` captura engineName antes dos awaits (session-manager.service.ts:198). Para `session.status`, `persistStatus` roda SEMPRE (:200, :245-262): updateMany em `wa_sessions`; count 0 → `discardOrphan` (:258, :269-286). Só depois vem o dedup pela chave `status|erro` (:211-214).
+2. `message` com mediaKey → `presignedGetUrl`; falha só gera log (:217-228).
+3. Publica `'wa.event'` com o envelope `{id, timestamp, event, sessionId, session=nome, payload, engine}` (:229-242; engine.port.ts:87-95) no EventEmitter in-process, que também emite `'*'` (event-bus.ts:21-24).
+4. Consumidores: MessagePersister grava `wa_messages` e o ACK (message-persister.service.ts:24-66); SessionEventLogger grava `wa_session_events` (session-event.logger.ts:22-51); WebhookDispatcher filtra por events (webhook-dispatcher.service.ts:35-38, :65); SSE (events.controller.ts:36-43); fanout Redis (event-fanout.ts:47-53). WebhookDispatcher e SSE também assinam `'wa.event.remote'`, que chega de OUTRA instância (webhook-dispatcher.service.ts:38; events.controller.ts:39; event-fanout.ts:57-68). Com dois containers vivos (start-first), eventos do antigo podem sair pelo novo.
+
+**Mensagem recebida — messages.upsert (Baileys).** Ver §3.2. Específicos:
+
+1. O filtro `'notify'` (baileys.engine.ts:783) também descarta newsletters marcadas `'append'` (Socket/messages-recv.js:346) e o resend de placeholder (:1257); no flush do buffer o lote inteiro leva o type da 1ª mensagem (Utils/event-buffer.js:569-575).
+2. `senderJid` = me se fromMe, senão chatJid, INCLUSIVE em grupo, ignorando `key.participant`; `source='phone'` para fromMe; timestamp = messageTimestamp (baileys.engine.ts:828-838).
+3. `extractMessageContent` desembrulha deviceSentMessage; protocolMessage e senderKeyDistributionMessage são ignorados (:844-855).
+4. Mídia: `downloadMediaMessage(m,'buffer',{},{reuploadRequest})` SEM teto próprio e SEM proxy (o fetch da lib só recebe dispatcher/method/headers, Utils/messages-media.js:297-302, e nenhum dispatcher é passado). O único limite são os timeouts padrão do undici, 300 s para headers e 300 s entre chunks (doc oficial do undici, branch main; **não conferido** no undici 8.0.2 embutido no Node 26). Enquanto o download pendura, nenhum evento sai.
+
+**Envio (sendText) + eco + retry de descriptografia.** Ver §3.1 passos 9-11. Específicos: operações além de sendText passam por `working()` (session-manager.service.ts:561-568), que lança "Sessão não iniciada" ou "Sessão não está conectada"; `sendMedia` (baileys.engine.ts:1001-1054) também sobe a própria mídia ao S3; sendLocation e sendPoll usam `emitOutbound` (:1056-1121). Retry receipt → `getMessage` → `loadMessageForRetry` (:1193-1224): cache → `wa_messages.raw` (decodeProto, só fromMe) → `{conversation:text}`.
+
+**ACK — messages.update.** Ver §3.1 passos 15-16. Específico: o timestamp do `message.ack` é a hora local, não a do recibo (baileys.engine.ts:885-898). Na rc14 um ack com erro emite `messages.update` status ERROR (Socket/messages-recv.js:1511-1567) com `messageStubParameters=[código]`, mas para `'463'` vira `['463', 'Your account has been restricted']`, porque `isReachoutTimelocked` compara com NACK_REASONS 463 (:1512, :1563; Utils/decode-wa-message.js:30, :39). Hoje o gateway ignora esse ERROR.
+
+**Auth store Postgres.**
+
+1. `usePostgresAuthState` (postgres-auth-state.ts:20-29) lê `wa_sessions.creds` (BufferJSON) ou usa `initAuthCreds`.
+2. `keys.get`: findMany em `wa_auth_keys` por (sessionId, type, keyId in ids); `app-state-sync-key` passa por `proto.fromObject` (:32-45).
+3. `keys.set`: Promise.all de upsert/deleteMany por chave, SEM transação (:46-69). Pilha: `addTransactionCapability` da lib (Socket/socket.js:270) sobre `makeCacheableSignalKeyStore` (baileys.engine.ts:576-579) sobre este store; o commit é repetido até maxCommitRetries (Utils/auth-utils.js:143-163).
+4. `saveCreds` faz `waSession.update` do objeto creds inteiro (postgres-auth-state.ts:77-82) a cada creds.update, sem encadeamento (baileys.engine.ts:618-620). Sessão sumiu → P2025, que `safe()` loga.
+5. `wa_auth_keys` também guarda o lid-mapping interno da lib, type `'lid-mapping'` (Signal/lid-mapping.js:47, :75), e a device-list própria gravada após o login (Socket/socket.js:776-780).
+
+**Shutdown do processo (SIGTERM).** Ver §3.4 passos 3-4. Específico: `WWebJSEngine.shutdown` (wwebjs.engine.ts:1292-1314) faz destroy com teto de 7 s (:340) e grava marcador de fechamento limpo; não desliga listeners, mas `Client.destroy` do wwebjs não emite `'disconnected'` (node_modules/whatsapp-web.js/src/Client.js:1334-1344).
+
+**Engine órfã.** `persistStatus` recebe count 0 do updateMany (sessão apagada por fora) → `discardOrphan` (session-manager.service.ts:258, :269-286): tira a engine do mapa, de names e do dedup e chama stop(); o set `discarding` (:266) evita reentrada. SessionEventLogger ignora P2003 (FK) dos status tardios (session-event.logger.ts:37-45).
+
+**Config de envio por sessão (G8).** `GET/PATCH /:id/config` (sessions.controller.ts:187-208) → `SessionConfigService.get/update` com upsert idempotente (session-config.service.ts:28-45); schema parcial (sessions/interface/dto.ts:23-34). `cap_atual = capFor(estado)` (session-config.service.ts:49-71): quarentena, banida e pausa_manual → 0; throttled → 50%; aquecimento → warmupCurve[0]; ativa → capBase. `GET /:id/health` junta guardrail.health e cap (sessions.controller.ts:178-184). Fora do controller/service, o único leitor de `session_config` é `CampaignRepository.sessionTimezone`, que lê só `timezone` pela relação da campanha (campaign.repository.ts:194-205, conferido 25/09): janela, modo, capBase, regiaoDdd e device NÃO são aplicados em runtime.
+
+**WWebJSEngine — ciclo de vida (frota 0).**
+
+1. `start` → `serialize(doStart)` (wwebjs.engine.ts:583-585). doStart (:589-872): no-op se já existe client (:590); consome o marcador de shutdown limpo (:595); limpa SingletonLock (:600); `resolveProxyConfig` e guard `WA_REQUIRE_PROXY` (:604-642); checa o Chromium (:648-660); resolveWebVersion/ensureWebVersionHtml (:663-667, :923-988); forwarder proxy-chain para proxy com auth (:677-698); `new Client` com LocalAuth e args do puppeteer (:700-760); geração e current() (:761-765); STARTING (:769); listeners (:776-855); initialize com teto `WWEBJS_INIT_TIMEOUT_MS`, 240 s por padrão (:861-871, :241).
+2. `handleInitFailure` (:994-1097): timeout de init tenta mais 1× (:1026-1038); erro de proxy auth/tunnel → DEAD e próximo candidato, só em RANGE/GLOBAL_ROUND_ROBIN (:1044-1066); build fixa → tenta a mesma build e depois live (:1069-1088); senão FAILED com mensagem acionável (:1089-1096).
+3. `handleDisconnect` (:1107-1169): destroy com teto; se stopped → STOPPED; senão DEGRADED "reconectando (x/5)" a cada tentativa, backoff igual ao do Baileys e setTimeout sem handle (:1161). Não distingue LOGOUT/UNPAIRED/CONFLICT/TOS_BLOCK.
+4. Watchdogs: QR/pairing parado por 5 min → destroy+start, até 3 heals, depois FAILED (:405-463, :245-247). Sync a cada 60 s: 3 falhas → DEGRADED; UNPAIRED/CONFLICT → DEGRADED (:471-548). `healWedgedPage` faz page.reload com cooldown de 120 s e sem teto total (:2160-2190).
+5. stop/shutdown/logout (:1264-1351): shutdown fora do mutex (destroy 7 s + marcador); logout usa raceStoreOp de 8 s (:235, :1328-1332), depois destroy (até 7 s) e purgeAuthDir.
+6. Mídia: teto de 24 MB pelo `_data.size` declarado (:93-94, :1663-1688); downloadMedia converte para base64 no renderer, sem teto de tempo (:1692); crash dispara heal (:1722-1724).
+7. LID: inbound via resolveNumberJid + mergeLidMessages (:1810-1819, :1966); outbound via `withLidFallback` (wwebjs.lid-outbound.ts:51-84); probe da página antes de enviar (`assertPageResponsive` wwebjs.engine.ts:2122).
+
+#### Relações
+
+- **→ proxies** pelas deps da engine: `ProxyResolver.resolveAgent/resolveProxyConfig/reportFailure` (session-manager.service.ts:158-162 → proxy-resolver.service.ts:142, :124, :101), chamados A CADA connect ou reconexão (baileys.engine.ts:548; wwebjs.engine.ts:604). O Agent vem de `buildProxyAgent` com https-proxy-agent/socks-proxy-agent (proxy-agent.factory.ts:14-20). Na lib, o WebSocket usa `config.agent` (Socket/Client/websocket.js:30) e o upload usa `fetchAgent` (Utils/messages-media.js:643-673). `SessionsController.create` usa `ProxyService.ensureAvailable/assignExclusive` (sessions.controller.ts:120-145).
+- **→ EventBus**: publica `'wa.event'` (session-manager.service.ts:238-242); assinam message-persister.service.ts:25, session-event.logger.ts:23, webhook-dispatcher.service.ts:35, events.controller.ts:36 e event-fanout.ts:47; webhook e SSE também `'wa.event.remote'`.
+- **→ guardrail** pelo SessionsController: statesFor (sessions.controller.ts:155), health (:180), getState (:190, :206) e setManualState (:324). GuardrailModule é importado em sessions.module.ts:14 e exporta GuardrailService em guardrail.module.ts:13; importa só Iam e Observability (guardrail.module.ts:10), então injetar GuardrailService no SessionManager não cria ciclo de DI.
+- **guardrail → sessions** só por tipos (guardrail.service.ts:8-11 importa engine.port.ts). O guardrail publica os próprios `'wa.event'` (:177-200), fora do dedup do SessionManager. `recordHardSignal` (:427-454) não tem chamador em src; só guardrail.service.spec.ts:460-490.
+- **messaging → SessionManager** (messages.controller.ts): setChatFlag :332, markRead :396, sendReaction :416, sendText :503, sendMedia :559 e :630, sendLocation :672, sendPoll :710. InboxSyncService usa fetchChatHistory e listChats (inbox-sync.service.ts:30, :48).
+- **groups, contacts e channels** usam o SessionManager pelos controllers (groups.controller.ts:54-235, contacts.controller.ts:98-174, channels.controller.ts:38-61) e resolvem `:id` com SessionRefPipe (session-ref.pipe.ts:21-28).
+- **campaigns → SessionManager**: sendPresence (campaign-queue.ts:179, :228), sendText (:205), sendMedia (:215); gate cold próprio em canSendCold (:149).
+- **→ infra**: `MediaStorage.put/presignedGetUrl` (session-manager.service.ts:163-164, :221); `ContactDirectory.record/recordMany/lidMap/namesFor` (:165-184 → contact-directory.service.ts:34, :69, :190, :150); PrismaService, com a engine lendo e escrevendo `wa_messages` direto (baileys.engine.ts:1201, :1305, :1323).
+- **→ iam**: ApiKeyAuthGuard/RolesGuard (sessions.controller.ts:83), `@MinRole('ADMIN')` em create e delete (:96, :357) e `LicenseService.effective().maxSessions` (:113).
+- **observability**: MetricsService expõe métricas padrão do Node e três gauges — `wa_sessions`, `wa_messages` e `gateway_process_errors_total` (metrics.service.ts:41-62). Não há métrica de desconexão por código.
+- **contracts**: `WEBHOOK_EVENTS` (packages/contracts/src/index.ts:256) é o catálogo público; payload novo de evento exige mudar o contrato no mesmo commit (CLAUDE.md, Convenções).
+- **Fronteiras**: o depcruise proíbe ciclos e importar domain/infrastructure de outro módulo (.dependency-cruiser.cjs:13-33); SessionManager importa `proxies/application`, o que é permitido (depcruise não rodado nesta verificação).
+
+#### Dados e config
+
+- **`wa_sessions`** (schema.prisma:132-159). Escritas: status/meJid/mePushName/lastError via updateMany (prisma-session.repository.ts:85-97); creds via saveCreds (postgres-auth-state.ts:77-82); creds=DbNull em logout, new-qr e loggedOut (session-manager.service.ts:388-391, :417-420; baileys.engine.ts:1660-1663); create com STOPPED (prisma-session.repository.ts:46-55); delete (:101-103). Leituras: findUnique/findMany/findAutostart (:59-121) e creds (postgres-auth-state.ts:24-29).
+- **`wa_auth_keys`** (schema.prisma:484-495; PK sessionId+type+keyId): get/upsert/deleteMany (postgres-auth-state.ts:33-67); deleteMany total em logout, new-qr e loggedOut (session-manager.service.ts:386, :415; baileys.engine.ts:1657-1659). Guarda também lid-mapping (Signal/lid-mapping.js:47, :75) e device-list (Socket/socket.js:776-780).
+- **`session_config`** (schema.prisma:163-179): padrões capBase 20, warmupCurve [5,10,20], modo cold_ok, janela 8-20, timezone America/Sao_Paulo. Upsert em session-config.service.ts:28-45. Sem consumidor em runtime (exceto o timezone, lido pela campanha — §4.2).
+- **`wa_messages`** lido e escrito pela engine: findFirst raw/text fromMe para retry (baileys.engine.ts:1201-1204); updateMany de chatJid no merge LID (:1305-1308); findMany distinct chatJid `@lid` (:1323-1330). Índice (sessionId,keyId) NÃO único (schema.prisma:304); o único unique é (sessionId,idempotencyKey) (:310).
+- **`wa_contacts`** via ContactDirectory: record/recordMany fire-and-forget com log (session-manager.service.ts:165-181); lidMap em contact-directory.service.ts:190-200.
+- **`session_proxy_assignments` e `proxies`** (schema.prisma:480, :466) via ProxyResolver: setCurrent a cada resolve não-SINGLE (proxy-resolver.service.ts:93) e updateTest DEAD em reportFailure (:111-115).
+- **`wa_session_events`**: uma linha por `session.status` publicado depois do dedup (session-event.logger.ts:27-36).
+- **Env** `WA_LOG_LEVEL` (padrão `'error'`, config.ts:102-104) → nível do pino das engines (session-manager.service.ts:147-149). `WA_REQUIRE_PROXY` (padrão false, config.ts:110): com true a engine recusa conectar sem agent/proxyConfig (baileys.engine.ts:554-564; wwebjs.engine.ts:631-642); valor em produção **não verificado** (B-001 dizia ligado em 13/08, docs/PENDENCIAS.md:11; conferir a env do Dokploy novo — B-007). `GUARDRAIL_ENFORCE` (padrão false, config.ts:95). `WWEBJS_CHROME_PATH/DATA_PATH/WEB_VERSION/USER_AGENT/INIT_TIMEOUT_MS` lidas no escopo do módulo (wwebjs.engine.ts:53-55, :69, :104, :241) e declaradas no zod (config.ts:116-124); `WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES` (24 MB, wwebjs.engine.ts:93-94) NÃO está no zod. `EVENT_FANOUT` (padrão `'on'`), desligado com `NODE_ENV=test` (event-fanout.ts:36-37).
+- **Constantes do SessionManager**: `START_TIMEOUT_MS` 15 s (:293); stop 10 s (:369); logout 12 s (:381); stop do new-qr 10 s (:414); remove 8 s (:436); onModuleDestroy 15 s (:119); sleep do pairing 1,5 s (:461).
+- **Constantes do Baileys**: `MAX_RECONNECT` 5 (baileys.engine.ts:431); backoff min(30 s, 2^n·1 s)+jitter (:751-753); `BAILEYS_VERSION_TTL` 12 h (:110); `SENT_CACHE_MAX` 1000 (:432); `GROUP_META_TTL` 10 min e 500 entradas (:436-437). Padrões da rc14 não sobrescritos (Defaults/index.js:48-83): connectTimeoutMs 20000, keepAliveIntervalMs 30000, defaultQueryTimeoutMs 60000, maxMsgRetryCount 5, emitOwnEvents true, enableRecentMessageCache true, countryCode `'US'`. Versão embutida 2.3000.1043857760 (Defaults/index.js:5), a mesma do fallback de fetchLatestBaileysVersion (Utils/generics.js:4).
+- **Constantes do wwebjs**: `MAX_RECONNECT` 5 (wwebjs.engine.ts:118); STORE_PROBE 10 s e STORE_OP 45 s (:229-230); LOGOUT 8 s (:235); watchdog de QR 60 s, stale 5 min, 3 heals (:245-247); BUILD_AGE_WARN 14 dias (:250); destroy 7 s (:340); cooldown do heal 120 s (:2162); build padrão 2.3000.1045101284-alpha (:68).
+
+#### Invariantes e armadilhas
+
+- **1 engine por sessão por processo** (session-manager.service.ts:51); o guard de onEvent descarta eventos de engine não registrada (:154-157). Toda operação que troca ou descarta a engine faz `engines.delete` ANTES do stop e limpa `lastStatusKey`, como newQr (:411-413), remove (:432-434) e discardOrphan (:273-275).
+- **`shutdown()` NUNCA chama setStatus** (engine.port.ts:236-243; baileys.engine.ts:1614-1626; docs/agent-whatzapp_api.md:348, §6B.11): um STOPPED no shutdown impede a reidratação (findAutostart ignora STOPPED, prisma-session.repository.ts:108-117). No Baileys, desligar connection.update antes do `end()` é obrigatório porque `end()` emite close antes do `ev.destroy()` (Socket/socket.js:499-506).
+- **`detachSocketListeners` remove só 3 eventos** (baileys.engine.ts:1589-1600); os outros só morrem no `ev.destroy()` do `end()`, que também DESCARTA os eventos bufferizados (Utils/event-buffer.js:173-192): um close durante o buffering perde mensagens do lote sem aviso.
+- **Só WORKING/STARTING/SCAN_QR_CODE/PAIRING_CODE/DEGRADED reidratam** (prisma-session.repository.ts:110-116). FAILED fica de fora em todas as origens: WA_REQUIRE_PROXY (baileys.engine.ts:559), start tardio (session-manager.service.ts:324-325), FAILED do wwebjs; o STOPPED por loggedOut (baileys.engine.ts:708) também não volta.
+- **`persistStatus` antes do dedup** (session-manager.service.ts:200); chave `status|erro` (:212). Escritas diretas no repo (FAILED tardio :324-325; STOPPED do logout sem engine :395-398) não passam pelo dedup nem geram webhook.
+- **Mutex de ciclo de vida** (baileys.engine.ts:501-508; wwebjs.engine.ts:360-367): stop e logout marcam stopped FORA da fila (baileys.engine.ts:1568, :1629); a reconexão agendada checa stopped e geração dentro da fila (:764-770). Todo caminho novo de reconexão segue o mesmo padrão.
+- **Close transitório não emite status nem zera sock** (:689-776): durante o backoff `getStatus()` segue WORKING e working()/sendText aceitam, mas o envio falha com erro da lib (texto exato **não verificado**). Se `connect()` lançar no timer (:767-773), nada reagenda: sessão "WORKING fantasma" com sock=null (:537), envios falhando em "Sessão não conectada" (:974) até start manual.
+- **`POST /start` numa sessão Baileys WORKING derruba e recria o socket** (:510-517 → :521-538); no wwebjs o start é no-op quando já existe client (wwebjs.engine.ts:590).
+- **Logout acima de 12 s** (withTimeout, session-manager.service.ts:381-383) tira a engine do mapa e o STOPPED final (baileys.engine.ts:1651; wwebjs.engine.ts:1350) é descartado pelo guard (session-manager.service.ts:155): banco com status antigo e creds limpas, boot pode reidratar sem creds. Mais provável no wwebjs (logout até 8 s :235 + destroy até 7 s :340 = 15 s) ou com fila pendurada; no Baileys `sock.logout()` só envia o iq (Socket/socket.js:575-594). Sem evidência de produção.
+- **Não verificado (corrida de microtasks)**: em doLogout, `sock.logout()` dispara `void end(401)`; se o close chegar antes do detach (baileys.engine.ts:1641), o ramo loggedOut roda e a sessão emite dois STOPPED com erros diferentes (dois webhooks).
+- **Teto de 15 s do onModuleDestroy** (session-manager.service.ts:119) é maior que o grace padrão de 10 s do Docker citado em wwebjs.engine.ts:337-340; B-004 propõe StopGracePeriod 30 s (docs/PENDENCIAS.md:190-192); grace real em produção **não verificado**.
+- **Reidratação em loop void sem cancelamento** (session-manager.service.ts:81-92): um start em andamento durante o SIGTERM cria engine depois do snapshot do onModuleDestroy (:106). Corrida teórica.
+- **Sem onWhatsApp no envio** (política de 31/08, baileys.engine.ts:1123-1131); `checkNumbers` só pela rota explícita (:1494-1508). **Pairing code nunca vai para o log** (WA-18): baileys.engine.ts:1557-1563, wwebjs.engine.ts:828-838.
+- **`version` só entra no makeWASocket se definida** (baileys.engine.ts:567-569): `version: undefined` sobrescreveria o padrão embutido e quebraria o handshake.
+- **`wa_messages` sem unique (sessionId,keyId)** (schema.prisma:304) e o MessagePersister cria uma linha por evento (prisma-message.repository.ts:16-53, só trata o P2002 de idempotencyKey): reemitir a mesma mensagem (P-047) duplica linhas e webhooks.
+- **Eco próprio da rc14**: com `emitOwnEvents` true, nossos envios voltam como `messages.upsert` `'append'` via process.nextTick + messageMutex, agendado antes de sendMessage retornar (Socket/messages-send.js:1135-1139); só o filtro notify (baileys.engine.ts:783) os esconde; o `cacheSent` acontece depois do await (:983) e a ordem entre os dois não é garantida.
+- **Não remover `raw` do eco fromMe**: é o que alimenta o retry de descriptografia depois de reconexão/restart (baileys.engine.ts:995, :1050, :1117 → :1193-1224).
+- **Em grupo, `senderJid` é o chatJid do grupo**, sem o participante (baileys.engine.ts:832; wwebjs.engine.ts:1617-1619). Mudar altera o campo público `senderJid`; quais consumidores dependem disso **não verificado**.
+- **`BaileysEngineDeps` é o tipo de deps das DUAS engines** (engine.factory.ts:11-15; wwebjs.engine.ts:356): mudar afeta baileys.shutdown.spec.ts:27-35 e wwebjs.lifecycle.spec.ts:75-85.
+- **Construtor posicional do SessionManager** só no harness test/session-status-dedup.e2e-spec.ts:41-50; setup-app.ts usa fake (test/setup-app.ts:12, :84-85). Injetar dependência nova quebra o harness; método novo usado por controller precisa entrar no `fakeSessionManager`.
+- **Proxy re-resolvido a cada connect** (baileys.engine.ts:548): ROUND_ROBIN/RANDOM trocam de IP a cada reconexão (proxy-resolver.service.ts:70-90); SINGLE devolve o proxy mesmo DEAD/desabilitado (:38-39 + prisma-proxy.repository.ts:132-135), e WA_REQUIRE_PROXY não bloqueia esse caso (baileys.engine.ts:554).
+- **Não transformar 440 em terminal antes de existir lease** (mecanismo do P-043) e **não introduzir 429** no contrato: o node n8n 0.4.1 só trata 423 (docs/analise-atualizacoes-2026-09.md:252-255, §11). Mudou payload de evento → `packages/contracts` no mesmo commit; efeito crítico em fire-and-forget exige e2e de efeito (R6).
+- **`session_config` (G8) é só informativo** (exceto `timezone`, usado no teto diário da campanha — campaign.repository.ts:194-205); `browserFingerprint` ignora `device` (browser-fingerprint.ts:41-43). `mode='pairing'` no create só valida phoneNumber e sobe QR como qualquer sessão (sessions.controller.ts:104-109, :146).
+- **Cobertura da BaileysEngine**: só o spec unit do shutdown e o e2e de `mapBaileysReaction`. connection.update, messages.upsert, messages.update, handleIncomingMedia, requestPairingCode e postgres-auth-state não têm teste. O mock de baileys.shutdown.spec.ts:5-20 define `proto={}`: para testar `mapAckStatus`, exporte a função e teste como em baileys-reaction.e2e-spec.ts (lib real) ou forneça `proto.WebMessageInfo.Status` no mock.
+
+### 4.2 Mensagens, inbox, contatos/grupos/canais e campanhas (`messaging`, `contacts`, `groups`, `channels`, `campaigns`)
+
+Mapas gerados: [gateway-messaging.md](reference/mapa-codigo/gateway-messaging.md) · [gateway-campaigns.md](reference/mapa-codigo/gateway-campaigns.md) · [gateway-contacts.md](reference/mapa-codigo/gateway-contacts.md) · [gateway-groups.md](reference/mapa-codigo/gateway-groups.md) · [gateway-channels.md](reference/mapa-codigo/gateway-channels.md) · [gateway-infra.md](reference/mapa-codigo/gateway-infra.md)
+
+**Resumo.** API pública de mensagens (`/api/sessions/:id/messages/*`). Envio: MessagesController → dedup legado em `wa_messages` → intenção durável em `wa_send_intents` (replay, 409 ou takeover) → gate cold do guardrail (423) → SessionManager → engine. A persistência não passa pelo controller: engine → `SessionManager.handleEngineEvent` → EventBus `'wa.event'` → MessagePersister, que grava `wa_messages` (entrada, eco de saída e ACK); no mesmo EventBus assinam webhooks e SSE. Em volta: a caixa única `/api/inbox` (leitura agregada de todas as sessões + marca 🟡 em `wa_conversation_triage`), os controllers finos de contatos, grupos, leads e canais, e o `infra/directory`, que grava `wa_contacts` a partir das engines. Não existe ritmo humano no envio pela API: presença "digitando" e espaçamento só existem nas campanhas. As campanhas (CampaignService/Repository/Queue em BullMQ) agendam cada destinatário com delay acumulado, reservam o destinatário atomicamente (SELECT FOR UPDATE + teto diário por dia local) e enviam via SessionManager com idempotencyKey determinística, sem passar por `wa_send_intents`. Em PAUSED o job é reenfileirado a cada 30 s (rajada no resume) e qualquer erro de sessão fora de WORKING vira FAILED definitivo (P-057).
+
+#### Arquivos-chave
+
+| Arquivo                                                                          | Papel                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/gateway/src/modules/messaging/interface/messages.controller.ts`            | API pública de mensagens: envio (text/media/media-url/location/poll) via `sendWithIntent` (L447-481), leitura (list/search/conversations), download de mídia, markRead (sem try/catch, L389-398), reaction, sync (backfill), chat flag                                               |
+| `apps/gateway/src/modules/messaging/application/send-intent.service.ts`          | Reserva durável da intenção (`wa_send_intents`): reserve/complete/fail com CAS de takeover (L26-116)                                                                                                                                                                                 |
+| `apps/gateway/src/modules/messaging/application/send-intent.decision.ts`         | Decisão pura `conflict \| replay \| in-flight \| takeover` (L29-50) + `sendFingerprint` sha256 com chaves ordenadas (L53-56); TTL de pending = 2 min (L27)                                                                                                                           |
+| `apps/gateway/src/modules/messaging/application/message-persister.service.ts`    | Assina `'wa.event'` e grava `wa_messages` (message) e o status do ACK (message.ack), fire-and-forget com catch que loga (L24-67)                                                                                                                                                     |
+| `apps/gateway/src/modules/messaging/infrastructure/prisma-message.repository.ts` | `wa_messages`: save engole P2002 do unique idempotencyKey (L16-54), saveHistorical com dedupe por keyId na aplicação (L56-98), updateStatusByKey em SQL atômico com ranking (L131-158), listConversations com DISTINCT ON (L250-281)                                                 |
+| `apps/gateway/src/modules/messaging/infrastructure/prisma-inbox.repository.ts`   | Caixa única: consulta agregada com LATERAL (L44-122), feed (L125-156), findLastInbound/markIgnored/clearTriage (L158-202); exclui `@g.us`/`@broadcast`/`@newsletter` (L13)                                                                                                           |
+| `apps/gateway/src/modules/messaging/interface/inbox.controller.ts`               | Rotas `/api/inbox`: conversations com semáforo e contadores (L107-140), messages (L144-154, limit padrão 100, máx. 300), triage com anti-atropelo por keyId (L158-197)                                                                                                               |
+| `apps/gateway/src/modules/messaging/application/triage-status.ts`                | Semáforo puro: answered se lastFromMe; ignored se a âncora ainda vale; senão pending (L22-40)                                                                                                                                                                                        |
+| `apps/gateway/src/modules/messaging/application/inbox-sync.service.ts`           | Backfill só do wwebjs direto em `wa_messages`, sem EventBus (L25-86); no Baileys dá 501                                                                                                                                                                                              |
+| `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`            | Fila BullMQ `'campaigns'`: Worker concurrency 4 (L89-93), enqueueSend com jobId (L114-127), requeue de 30 s sem id (L129-136), process = gate → reserva → digitando → revalida → envio → SENT/FAILED (L138-240)                                                                      |
+| `apps/gateway/src/modules/campaigns/infrastructure/campaign.repository.ts`       | transitionToRunning atômico (L115-121); reserveRecipient com FOR UPDATE, stale, `MAX_ATTEMPTS=2` e cap por dia local (L128-184); release/markSent/markFailed/refreshCounts (L187-261)                                                                                                |
+| `apps/gateway/src/modules/campaigns/application/campaign.service.ts`             | create/start/schedulePending com delay acumulado aleatório (L58-78), pause (L80-83), resume que reagenda com prefixo novo (L88-104), cancel, remove                                                                                                                                  |
+| `apps/gateway/src/modules/campaigns/interface/campaigns.controller.ts`           | Rotas `/api/campaigns`; schema zod com firstContact padrão true e até 100k destinatários (L18-47)                                                                                                                                                                                    |
+| `apps/gateway/src/modules/sessions/application/session-manager.service.ts`       | Fachada de envio (sendText L466-478, `working()` L561-568), handleEngineEvent → envelope + presign + publish (L190-243), wiring de storeMedia e do diretório nas engines (L163-184)                                                                                                  |
+| `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.engine.ts`     | Engine da frota: onMessagesUpsert descarta type≠notify (L783), handleIncomingMedia→S3 (L903-966), send\* + eco fromMe `'api'` (L969-1121), toJid local (L1667-1671), grupos/contatos/canais (L1384-1555). makeWASocket sem `emitOwnEvents` explícito (L566-611) → padrão true da lib |
+| `apps/gateway/src/modules/sessions/application/engine.port.ts`                   | Contratos internos: MessagePayload (L15-40), SendOptions cold/idempotencyKey/mentions (L102-108), PresenceState, IEngine                                                                                                                                                             |
+| `apps/gateway/src/infra/storage/media-storage.service.ts`                        | S3: put (L103-112), getObject em stream com StorageUnavailableError (L118-140), presignedGetUrl com TTL (L144-150), probeWrite (L80-101)                                                                                                                                             |
+| `apps/gateway/src/infra/directory/contact-directory.service.ts`                  | Único escritor de `wa_contacts`: record (upsert sem sobrescrever com null, L34-61), recordMany em chunks de 200 com ON CONFLICT COALESCE (L69-144), namesFor, lidMap, list                                                                                                           |
+| `apps/gateway/src/modules/contacts/interface/contacts.controller.ts`             | directory/check/profile-picture/block/save/remove (L58-181)                                                                                                                                                                                                                          |
+| `apps/gateway/src/modules/groups/interface/groups.controller.ts`                 | Grupos + leads (L75-97); photo usa fetch cru, sem política de egress (L212-238)                                                                                                                                                                                                      |
+| `apps/gateway/src/modules/channels/interface/channels.controller.ts`             | Canais/newsletter beta (L29-74)                                                                                                                                                                                                                                                      |
+| `apps/gateway/prisma/schema.prisma`                                              | `wa_messages` (L275-312), `wa_send_intents` (L319-338), `wa_conversation_triage` (L346-361), `wa_contacts` (L366-393), `campaigns`/`campaign_recipients` (L513-564), `session_config` (L163-179)                                                                                     |
+| `apps/dashboard/src/routes/Atendimento.tsx`                                      | Tela da caixa única: loadConversations com limit 300 (L145-152), polling 20 s (L159-178), SSE (L183-261), item do feed com name:null (L233), reply com idempotencyKey (L327-359)                                                                                                     |
+| `packages/contracts/src/index.ts`                                                | DTOs de mensagem/inbox/campanha (L117-231, L512-566); SendTextRequest sem mentions/cold/idempotencyKey (L223-231)                                                                                                                                                                    |
+
+#### Pontos de entrada
+
+- **MessagesController** (`@Controller('sessions/:id/messages')`, guards ApiKeyAuthGuard+RolesGuard, messages.controller.ts:187-188): GET conversations :215 · GET (list) :225 · GET search :254 · POST sync :290 · POST :chatId/flag :319 · GET :msgId/media :351 · POST :msgId/read :389 · POST :msgId/reaction :401 · POST text :483 · POST media (multipart) :509 · POST media-url :573 · POST location :645 · POST poll :684.
+- **InboxController** (`@Controller('inbox')`, inbox.controller.ts:98-99): GET conversations :107 · GET messages :144 · POST sessions/:id/triage :158.
+- **ContactsController** (`sessions/:id/contacts`, contacts.controller.ts:49-50): GET directory :58 · POST check :89 · GET :jid/profile-picture :106 · POST block :121 · POST save :140 · POST remove :164.
+- **GroupsController** (`sessions/:id/groups`, groups.controller.ts:47-48): GET :52 · POST :57 · GET :groupId :65 · GET :groupId/leads :75 · POST participants :99 · POST leave :112 · POST subject :121 · POST description :132 · GET invite :145 · POST invite/revoke :156 · GET/POST membership-requests :168/:177 · POST settings :191 · POST photo :212.
+- **ChannelsController** (`sessions/:id/channels`, channels.controller.ts:24-25): POST :29 · GET :jid :42 · POST :jid/follow :47 · POST :jid/unfollow :56.
+- **CampaignsController** (`campaigns`, campaigns.controller.ts:95-96): GET :100 · POST :105 · GET :id :140 · GET :id/recipients :145 · POST :id/start :158 · pause :163 · resume :168 · cancel :173 · DELETE :id :178.
+- Papel mínimo implícito (sem `@MinRole` nesses controllers): GET exige VIEWER, escrita exige OPERATOR; API key = ADMIN (roles.guard.ts:43-48).
+- EventBus: `MessagePersister.onModuleInit` assina `'wa.event'` (message-persister.service.ts:24-25), publicado por `SessionManager.handleEngineEvent` (session-manager.service.ts:238).
+- BullMQ: Queue e Worker `'campaigns'` em `CampaignQueue.onModuleInit` (campaign-queue.ts:81-110; desligados com `NODE_ENV=test` em :84); add `'send'` com jobId em :120 (id `${jobPrefix}-${r.id}` montado em campaign.service.ts:71-75) e requeue sem id em campaign-queue.ts:130.
+- Hooks: `CampaignQueue.onModuleDestroy` fecha worker e fila (:242-257); `MediaStorage.onModuleInit` garante o bucket (media-storage.service.ts:58-72); `SessionManager.onApplicationBootstrap` reidrata em série e em background (session-manager.service.ts:69-93).
+- Eventos do socket Baileys da área: messages.upsert (baileys.engine.ts:624-626), messages.update/ACK (:628-630), contacts.upsert/update → diretório (:632-637), messages.reaction (:639-641), `'open'` → WORKING + warmLidCache (:677-687).
+- Timers: RetentionService purga `wa_messages` e `wa_send_intents` (retention.service.ts:18-48); o painel da caixa única faz polling de 20 s + SSE `/api/events/stream` (Atendimento.tsx:172-178, :184).
+
+#### Fluxos internos
+
+**Envio de texto pela API.** Ver §3.1 (passos 1-14, com todos os arquivos:linha). Específico: o caminho da API não tem ritmo humano — nenhum delay nem presença é aplicado. Presença é rota separada, `POST /sessions/:id/presence` (docs/INTEGRACAO.md:140), e só a campanha chama sendPresence (campaign-queue.ts:177-186).
+
+**Envio de mídia, localização e enquete.**
+
+1. Upload multipart (messages.controller.ts:509-570): `req.file()` com limite fixo de 100 MB e files:1 (fastify-adapter.ts:5, :17-19; main.ts:44 não passa o teto), sem usar `MEDIA_MAX_BYTES`. Os campos precisam vir ANTES do arquivo (messages.controller.ts:507-508). type validado ou inferido do mimetype (:119-124, :529-533). `cold` chega como string `'true'` (:536). O fingerprint inclui o sha256 do conteúdo só quando há idempotencyKey (:553-555).
+2. media-url (:573-642): o download acontece DENTRO de `send()`, então falha de download = intenção failed e retry permitido. Usa `safeFetch` com `egressPolicyFromEnv`, maxBytes = `MEDIA_MAX_BYTES` e timeout de 20 s (:608-612); EgressBlockedError e BodyTooLargeError viram 400 (:621-629).
+3. `SessionManager.sendMedia/sendLocation/sendPoll` passam por `working()`, que exige WORKING (session-manager.service.ts:480-502, :561-568).
+4. `BaileysEngine.sendMedia` (baileys.engine.ts:1001-1054): buildMediaContent (:291-315) → sendMessage → cacheSent. Depois guarda a própria mídia no S3 com a chave `media/<sessionId>/<keyId sanitizado>.<ext>` (:1017-1026) via `deps.storeMedia` → `MediaStorage.put` (session-manager.service.ts:163-164; media-storage.service.ts:103-112). Falha no S3 vira log e mediaKey=null, sem falhar o envio (baileys.engine.ts:1027-1033). O eco vai com mediaKey, fileSize e raw.
+5. Localização e enquete: sendMessage + `emitOutbound` (cacheSent + eco fromMe `'api'`) (:1056-1121). Na enquete, selectableCount 0 = múltipla escolha e 1 = única (:1086-1090).
+6. Intenção, gate cold, persistência e webhook iguais ao texto (messages.controller.ts:447-481).
+
+**Recebimento (inbound) → wa_messages / webhook / SSE, mídia e ACK.** Ver §3.2 e §3.1 passos 15-16. Específicos:
+
+1. `fromMe` da entrada chega como `'phone'` porque o eco da API já foi filtrado pelo sentMessages (baileys.engine.ts:836). Só protocolMessage e senderKeyDistributionMessage são ignorados (:846-855); qualquer outro tipo sem mídia (ex.: reactionMessage) segue adiante.
+2. `mergeLidMessages` atualiza SÓ `wa_messages` (:1303-1318), não a triagem.
+3. SessionManager anexa `mediaUrl` pré-assinada, que não é persistida (session-manager.service.ts:216-227).
+4. ACK: `updateStatusByKey` faz UPDATE atômico na linha mais recente de (sessionId, keyId) só se o rank subir (sent 1 < delivered 2 < read 3; status desconhecido é no-op) (prisma-message.repository.ts:125-158).
+5. **Reação recebida vira mensagem**: `messages.reaction` → `mapBaileysReaction` → `'message.reaction'` (baileys.engine.ts:175-197, :653-661), não persistido. MAS a mesma reação também chega em `messages.upsert`, porque upsertMessage emite toda mensagem decriptada (Socket/chats.js:917-918); como reactionMessage não é filtrado (baileys.engine.ts:849-855), vira `'message'` type `'other'`, text null (:864-871): é persistida, conta como última entrada na caixa única e como resposta no reply-rate. Confirmado por leitura; **não verificado em produção**.
+
+**Leitura, presigned, download de mídia e ações.**
+
+1. `GET /messages?chatId` (messages.controller.ts:225-249): chatId obrigatório. `candidateJids` gera as variantes com e sem o 9º dígito BR e os sufixos `@s.whatsapp.net`/`@c.us` (:130-149) → listByChat (prisma-message.repository.ts:200-211) → presignedGetUrl por mensagem com mídia (media-storage.service.ts:144-150; TTL `MEDIA_URL_TTL`); falha no presign vira mediaUrl null + warn.
+2. `GET /search` (messages.controller.ts:254-283 → prisma-message.repository.ts:213-232): ILIKE parametrizado sem índice dedicado.
+3. `GET /messages/conversations` (messages.controller.ts:215-223 → prisma-message.repository.ts:250-281): DISTINCT ON chatJid + LEFT JOIN em `wa_contacts` por jid/waId/lid.
+4. `GET /:msgId/media` (messages.controller.ts:351-386): `findByRef` aceita ULID ou keyId, vence a mais recente (prisma-message.repository.ts:236-245) → getObject em stream (media-storage.service.ts:118-140). Sem mediaKey ou sem objeto → 404; StorageUnavailableError → 503.
+5. `POST /:msgId/read` (messages.controller.ts:389-398): findByKeyId → `SessionManager.markRead` → `readMessages` (baileys.engine.ts:1158-1162). Sem try/catch: o Error genérico de `working()` (session-manager.service.ts:561-568) vira 500, não 400 como nas outras rotas.
+6. `POST /:msgId/reaction` (messages.controller.ts:401-427): usa o fromMe gravado → `BaileysEngine.sendReaction` (baileys.engine.ts:1166-1177), que não faz cacheSent. Não passa por intenção nem pelo gate.
+7. `POST /sync` (messages.controller.ts:290-314) → InboxSyncService (inbox-sync.service.ts:25-63) → listChats/fetchChatHistory. No Baileys lança UnsupportedEngineOperationError → 501 (baileys.engine.ts:1254-1266). No wwebjs grava com saveHistorical sem EventBus (prisma-message.repository.ts:56-98).
+8. `POST /:chatId/flag` (messages.controller.ts:319-345): no Baileys dá 501 (baileys.engine.ts:1270-1278).
+
+**Caixa única (`/api/inbox`) e `wa_conversation_triage`.**
+
+1. `GET /inbox/conversations` (inbox.controller.ts:107-140): valida status; limit 1-500, padrão 200; `?sessions` aceita id ou nome, até 50 (:42-50).
+2. `PrismaInboxRepository.listConversations` (prisma-inbox.repository.ts:44-122): DISTINCT ON (sessionId, chatJid) em `wa_messages`, excluindo `@g.us`/`@broadcast`/`@newsletter` (:13, :20-27), filtrado por sessão via subquery em `wa_sessions` (:31-38). Os LATERAL trazem a última entrada (keyId/timestamp), a última saída, a contagem de entradas pendentes após a última saída e o contato mais recente em `wa_contacts`; LEFT JOIN em `wa_conversation_triage`.
+3. `deriveTriageStatus` (triage-status.ts:22-40): lastFromMe → answered; âncora igual ao keyId da última entrada (ou, sem keyId, timestamp ≥) → ignored; senão pending. Os contadores são calculados sobre as linhas JÁ LIMITADAS (inbox.controller.ts:118-132); depois vem o filtro por status (:136-138).
+4. `GET /inbox/messages` (:144-154 → prisma-inbox.repository.ts:125-156): feed cronológico com nome de `wa_contacts`; limit padrão 100, máx. 300.
+5. `POST /inbox/sessions/:id/triage` (inbox.controller.ts:158-197): chatJid tem de ser 1:1 (:168-172). `state=pending` → clearTriage (deleteMany, prisma-inbox.repository.ts:198-202). `state=ignored` → findLastInbound (:158-168); keyId enviado diferente do atual → devolve pending sem gravar (anti-atropelo, inbox.controller.ts:184-186); senão upsert com a âncora da última entrada, ou `new Date()` se não houver entrada (prisma-inbox.repository.ts:171-196).
+6. Painel (Atendimento.tsx): lista com limit 300 (:145-152), então os contadores cobrem só as 300 conversas mais recentes. EventSource `/api/events/stream` (:184). Mensagem nova → item do feed com name:null (:218-242) + reload com debounce de 800 ms (:187-194) + recarga da conversa aberta (:244-255). Polling de segurança a cada 20 s (:172-178). Reply com idempotencyKey `'painel-<uuid>'` reaproveitada no retry (:327-359; envio :342). Item do feed não tem onClick (:564-588).
+
+**Contatos e diretório (`wa_contacts`).**
+
+1. Escrita: engines chamam `deps.contacts.record/recordMany` em fire-and-forget com catch → warn (session-manager.service.ts:165-181).
+2. `ContactDirectory.record`: upsert por (sessionId, waId) sem sobrescrever com null (contact-directory.service.ts:34-61). `recordMany`: dedupe e merge no lote + `INSERT … ON CONFLICT DO UPDATE COALESCE` em chunks de 200 (:69-144); chunk com erro cai para `record()` um a um, com catch silencioso (:102-111).
+3. Fontes no Baileys: mensagens (baileys.engine.ts:803-825, source `'message'`), contacts.upsert/update (:1341-1346 com contactToRecord :135-151, source `'contacts-sync'`), participantes de grupo (:1348-1358, source `'group'`).
+4. Leitura: `GET /contacts/directory` (contacts.controller.ts:58-86) → `ContactDirectory.list` com limit até 1000 (padrão 1000) e offset (contact-directory.service.ts:202-220). `namesFor` (:150-187). `lidMap` aquece o cache LID↔PN no `'open'` (:190-200; baileys.engine.ts:1289-1299).
+5. `POST /check` (contacts.controller.ts:89-104) → `BaileysEngine.checkNumbers`: onWhatsApp em série para até 50 números (baileys.engine.ts:1494-1508). Consulta de rede; NÃO grava no diretório.
+6. `POST /block` (contacts.controller.ts:121-137 → updateBlockStatus, baileys.engine.ts:1518-1520) · `POST /save` (contacts.controller.ts:140-161 → addOrEditContact com `saveOnPrimaryAddressbook=syncToPhone`, baileys.engine.ts:1521-1533) · `POST /remove` (:1534-1536) · `GET profile-picture` (:1509-1517; erro vira null). Nos quatro: Unsupported → 501, resto → 400.
+
+**Grupos e leads.**
+
+1. `GroupsController.run` mapeia UnsupportedEngineOperationError → 501 e o resto → 400 (groups.controller.ts:241-251). Todas as ações exigem WORKING (session-manager.service.ts:571-652).
+2. `GET` grupos → `listGroups`: groupFetchAllParticipating + cache de metadata + recordGroupParticipants + namesFor (baileys.engine.ts:1384-1391).
+3. `GET :groupId` e `:groupId/leads` → `groupInfo` faz groupMetadata na rede a cada chamada (:1392-1399). `resolveParticipantPhone` usa `p.jid ?? p.phoneNumber` (:331-344). leads filtra quem tem phone; `?all=true` inclui todos (groups.controller.ts:75-97).
+4. `recordGroupParticipants` grava jid a partir de `p.jid`, campo que não existe na rc14, e ignora `p.phoneNumber` (baileys.engine.ts:1348-1358 vs Socket/groups.js:334-341, onde o participante tem id, phoneNumber e lid): participante `@lid` perde o par LID↔PN no diretório (P-052).
+5. membership-requests: no Baileys a aprovação/rejeição em massa é UMA chamada `groupRequestParticipantsUpdate`, sem pausa (baileys.engine.ts:1446-1465). Só o wwebjs passa sleep [250,500] ms para a lib (wwebjs.engine.ts:2536).
+6. `POST photo`: fetch cru com timeout de 20 s, sem política de egress, lendo o corpo inteiro antes de checar o limite de 10 MB (groups.controller.ts:219-233).
+
+**Canais (newsletter).** `ChannelsController.run`: Unsupported → 501, resto → 400 (channels.controller.ts:65-74). create/info/follow/unfollow → SessionManager (session-manager.service.ts:680-695) → `newsletterCreate/newsletterMetadata('jid')/newsletterFollow/newsletterUnfollow` (baileys.engine.ts:1539-1555). Mensagens de `@newsletter` chegam em messages.upsert (Socket/messages-recv.js:1425-1432), não são filtradas no upsert (baileys.engine.ts:790 só filtra status@broadcast) e são persistidas; a caixa única as exclui por sufixo (prisma-inbox.repository.ts:13).
+
+**Campanha: criação, start e agendamento.** Ver §3.6 passos 1-4. Específicos:
+
+1. `sessionId` NÃO passa por SessionRefPipe (só id; nome ou id inválido vira erro de FK → 400 com a mensagem do Prisma, campaigns.controller.ts:135-137).
+2. `CampaignRepository.create` (campaign.repository.ts:37-63): dedupe de destinatários só por string trim (:39-41), sem normalizar dígitos ou 9º dígito; nested create de todos os recipients numa chamada.
+3. `schedulePending` faz `enqueueSend` em await serial (N adds no Redis dentro da requisição HTTP) (campaign.service.ts:58-78).
+4. O BullMQ ignora add com jobId já existente (node_modules/bullmq/dist/esm/interfaces/base-job-options.d.ts:90-97; addStandardJob-9.lua:88-94): start em campanha PAUSED (só via API; o painel chama resume, apps/dashboard/src/routes/Campaigns.tsx:321-323) reusa os jobIds do start original e não reagenda quem ainda tem job retido.
+
+**Campanha: worker `CampaignQueue.process` (por job).** Ver §3.6 passos 5-11. Específicos:
+
+1. PAUSED → requeue `queue.add` sem jobId, delay 30 s (`PAUSE_REQUEUE_MS`, campaign-queue.ts:26) (:141-145, :129-136): cada job vira um loop de 30 s enquanto pausada.
+2. Gate firstContact bloqueado → PAUSED + requeue (:148-158): não grava motivo e não há retomada automática.
+3. `reserveRecipient`: destinatário inexistente ou ≠ PENDING → skip; cap considera o timezone da `session_config` ou America/Sao_Paulo (campaign.repository.ts:159-160, :194-205; shared-kernel/local-day.ts:8-47). `skip` retorna SEM refreshCounts (campaign-queue.ts:173).
+4. "Digitando": duração 800-2500 ms, não depende do tamanho do texto (:177-186).
+5. Revalidação antes do efeito: `releaseRecipient` é updateMany WHERE PENDING, attempts−1 (campaign.repository.ts:187-192).
+6. `opts = {cold: firstContact, idempotencyKey: 'campaign-<c>-<r>'}` (campaign-queue.ts:198-201); mídia via `fetchMedia` com safeFetch, egress, `MEDIA_MAX_BYTES` e 20 s (:41-59, :208-213). NÃO passa por SendIntentService: a key só alimenta o eco e o unique de `wa_messages`.
+7. typingPreview → presença `'paused'` (:226-234) → `markRecipientSent(keyId)` (:235; campaign.repository.ts:207-212).
+8. QUALQUER exceção — inclusive "Sessão não iniciada/não está conectada" (session-manager.service.ts:473-476, :561-567), erro de download e até falha do próprio `markRecipientSent` depois de um envio real — vira `markRecipientFailed` DEFINITIVO (campaign-queue.ts:236-238; campaign.repository.ts:214-219) — P-057.
+9. `refreshCounts`: groupBy e, se RUNNING e sem PENDING, DONE + finishedAt (campaign-queue.ts:239; campaign.repository.ts:233-261).
+
+**Campanha: pause, resume, cancel, remove e a rajada.**
+
+1. `pause` (campaign.service.ts:80-83): updateStatus PAUSED sem checar o status atual (também "pausa" DONE e CANCELLED).
+2. Na pausa, cada job cujo delay vence entra no loop de requeue de 30 s (campaign-queue.ts:141-145); os ainda delayed mantêm o horário original.
+3. `resume` (campaign.service.ts:88-104): só age em PAUSED → transitionToRunning → schedulePending com prefixo `campaign-<id>-resume-<epochSec>`, reagendando TODOS os PENDING com espaçamento novo a partir de agora.
+4. **Rajada (P-057)**: até 30 s após o resume, todos os jobs em loop executam juntos, com concurrency 4 (campaign-queue.ts:92) e só 0,8-2,5 s de "digitando" entre eles. Jobs novos do resume e delayed antigos convivem; a reserva impede envio duplo, mas não garante espaçamento.
+5. Não há retomada automática: nada transita PAUSED→RUNNING fora de start/resume (grep: só campaign.service.ts:46 e :91 chamam transitionToRunning) — vale para pausa por cap, guardrail e manual.
+6. `cancel` (:106-110): CANCELLED + cancelPending (campaign.repository.ts:221-226). Jobs seguem no Redis e terminam ao ver CANCELLED; contadores não recalculados.
+7. `remove` (campaign.service.ts:112-114): delete com cascade dos recipients (schema.prisma:560); permitido com a campanha RUNNING; jobs órfãos retornam em findById=null.
+
+**Boot e shutdown (ordem Nest) e o efeito nas campanhas.** Ver §3.3 passo 5 e §3.4 passo 2. Específicos: `NestApplication.init` chama callInitHook ANTES de callBootstrapHook (nest-application.js:106-108); o Worker nasce com autorun true (worker.js:34) e consome jobs vencidos antes da reidratação → `'Sessão não iniciada'` → FAILED definitivo. No shutdown, o TopologyTree religa cada módulo ao importador mais profundo (injector/topology-tree/topology-tree.js; scanner.js:208-224) e `worker.close` espera os jobs ativos (worker.js:784-801) ANTES do shutdown das engines. Defaults BullMQ 5.81.4: maxStalledCount 1, stalledInterval 30000, lockDuration 30000 (worker.js:34): um job travado reexecutado em menos de 10 min cai em skip e o destinatário fica PENDING reservado SEM job (órfão até pause+resume).
+
+#### Relações
+
+- **messaging → sessions** via SessionManager (sendText/sendMedia/sendLocation/sendPoll/markRead/sendReaction/listChats/fetchChatHistory/setChatFlag) (messages.controller.ts:39, :194; inbox-sync.service.ts:30-34, :48).
+- **messaging → guardrail** só no gate cold: `canSendCold` (messages.controller.ts:206-212 → guardrail.service.ts:406-418); GuardrailModule importado em messaging.module.ts:16.
+- **messaging → infra/storage** para presign e stream (messages.controller.ts:239, :273, :365). O UPLOAD para o S3 é feito pelas engines via `deps.storeMedia` (session-manager.service.ts:163-164).
+- **engines escrevem em tabela do messaging**: `mergeLidMessages` faz updateMany de `wa_messages.chatJid` (baileys.engine.ts:1303-1318; wwebjs faz o mesmo em wwebjs.engine.ts:1968) e loadMessageForRetry lê `wa_messages.raw` (baileys.engine.ts:1193-1224).
+- **caixa única lê `wa_contacts` e `wa_sessions` por SQL cru** (prisma-inbox.repository.ts:80, :107-116, :143-150); o MessageRepository também faz LEFT JOIN em `wa_contacts` (prisma-message.repository.ts:272-274).
+- **contacts** usa SessionManager + ContactDirectory.list (contacts.controller.ts:52-55, :67); **groups** e **channels** usam só o SessionManager (groups.controller.ts:50; channels.controller.ts:27).
+- **campaigns** usa SessionManager (sendText/sendMedia/sendPresence), guardrail (canSendCold), Redis (redisConnection) e safeFetch (campaign-queue.ts:10-18, :85, :149, :178-229); imports em campaigns.module.ts:12.
+- **campaigns NÃO usa SendIntentService** por DI, não por depcruise: o MessagingModule não exporta providers (messaging.module.ts:15-26). A regra do dependency-cruiser só proíbe importar `domain/` e `infrastructure/` de outro módulo (.dependency-cruiser.cjs:21-33); SendIntentService está em `application/` e poderia ser reusado se exportado. PrismaMessageRepository (infrastructure/) não pode.
+- **observability lê `wa_messages`**: reply-rate casa cold enviado com inbound no MESMO chatJid (reply-rate.service.ts:100-125); RetentionService purga `wa_messages`, zera raw e purga `wa_send_intents` (retention.service.ts:31-48, :58-71).
+- **webhooks**: um job por envelope com jobId `${env.id}-${w.id}` (webhook-dispatcher.service.ts:66-79); `env.id` é newId() por emissão (session-manager.service.ts:230), então não deduplica por keyId.
+- **dashboard → gateway**: Atendimento.tsx consome `/api/inbox/*`, `/api/sessions/:id/messages[/text]` + SSE (Atendimento.tsx:145-157, :184, :342); Campaigns.tsx chama start/resume (Campaigns.tsx:317-327); cliente HTTP em apps/dashboard/src/lib/api.ts:154, :255-295.
+- **contracts**: MessageDto/Inbox\*/Campaign\* em packages/contracts/src/index.ts:117-231, :512-566, consumidos pelo dashboard; o node n8n (repo externo) consome o contrato HTTP de docs/INTEGRACAO.md:19-33, :111-118.
+
+#### Dados e config
+
+- **`wa_messages`** (schema.prisma:275-312). Escrita: PrismaMessageRepository.save/saveHistorical/updateStatusByKey (prisma-message.repository.ts:16-158), BaileysEngine.mergeLidMessages (baileys.engine.ts:1303-1318), merge do wwebjs (wwebjs.engine.ts:1968), RetentionService (retention.service.ts:32-34, :58-71). Índices [sessionId,chatJid,timestamp], [sessionId,keyId] e [createdAt]; unique (sessionId, idempotencyKey) com NULLS DISTINCT; SEM unique em keyId (schema.prisma:303-310).
+- **`wa_send_intents`** (schema.prisma:319-338): status pending/sent/failed, fingerprint sha256, attempts; unique (sessionId, idempotencyKey). Escrita por SendIntentService (send-intent.service.ts:33-35, :66-77, :93-97, :106-110); purga por `RETENTION_INTENTS_DAYS`, padrão 90 (retention.service.ts:45-47).
+- **`wa_conversation_triage`** (schema.prisma:346-361): 1 linha por (sessionId, chatJid) com markedKeyId/markedTimestamp; escrita por markIgnored/clearTriage (prisma-inbox.repository.ts:171-202); FORA da retenção (retention.service.ts:30-48); sem índice por idade.
+- **`wa_contacts`** (schema.prisma:366-393): unique (sessionId, waId) + índices lid/jid/phone; único escritor ContactDirectory (contact-directory.service.ts:50-60, :128-143). Coluna source documentada como `message | onwhatsapp | group | contacts-sync` (schema.prisma:378).
+- **`campaigns`** (schema.prisma:513-544) e **`campaign_recipients`** (:546-564): reservedAt e attempts (ABE-04); enum CampaignStatus DRAFT/RUNNING/PAUSED/DONE/CANCELLED (:497-503), sem coluna de motivo de pausa.
+- **`session_config.timezone`** (padrão America/Sao_Paulo, schema.prisma:172): lida por `CampaignRepository.sessionTimezone` (campaign.repository.ts:194-205), fallback `DEFAULT_TZ` (:31). capBase/warmupCurve/modo/janelaInicio/janelaFim (schema.prisma:166-171) NÃO são consumidos por nenhum caminho de envio (session-config.service.ts:5-71; sessions/interface/dto.ts:23-34).
+- **`session_guardrail.state`** (schema.prisma:184-198): lido por canSendCold; `BLOCKS_COLD` = quarentena/banida/pausa_manual (guardrail.service.ts:39-43).
+- **Env**: `MEDIA_MAX_BYTES` (64 MB, config.ts:133) — teto do media-url (messages.controller.ts:610) e do fetchMedia da campanha (campaign-queue.ts:212), NÃO do multipart (100 MB fixo, fastify-adapter.ts:5, :17-19). `MEDIA_URL_TTL` (3600 s, config.ts:132; media-storage.service.ts:45, :144-150). `S3_ENDPOINT/REGION/BUCKET/ACCESS_KEY/SECRET_KEY/FORCE_PATH_STYLE` (config.ts:126-131; media-storage.service.ts:43-54). `EGRESS_ALLOW_PRIVATE` (false) e `EGRESS_ALLOW_HOSTS` (config.ts:145-146), lidas direto de process.env por `egressPolicyFromEnv` (safe-fetch.ts:23-35), usadas em media-url (messages.controller.ts:609) e campanha (campaign-queue.ts:47); o groups photo NÃO usa (groups.controller.ts:222). `GUARDRAIL_ENFORCE` (false = observação, config.ts:95; guardrail.service.ts:126): o gate cold só bloqueia por override manual. `NODE_ENV=test` desliga fila e Worker de campanhas (campaign-queue.ts:84; vitest injeta em apps/gateway/vitest.config.ts:14). Retenção lida direto de process.env, fora do config.ts: `RETENTION_SWEEP_HOURS` 6, `RETENTION_MESSAGES_DAYS` 90, `RETENTION_MESSAGE_RAW_DAYS` 7, `RETENTION_INTENTS_DAYS` 90 (retention.service.ts:20, :32, :45, :59).
+- **Constantes**: `PENDING_INTENT_TTL_MS` 2 min (send-intent.decision.ts:27); `PAUSE_REQUEUE_MS` 30 s e `RESERVATION_STALE_MS` 10 min (campaign-queue.ts:26, :29); `MAX_RECIPIENT_ATTEMPTS` 2 (campaign.repository.ts:30); Worker concurrency 4 (campaign-queue.ts:92); digitando 800-2500 ms (:185); `SENT_CACHE_MAX` 1000 (baileys.engine.ts:432); `START_TIMEOUT_MS` 15 s (session-manager.service.ts:293).
+- **Chaves S3**: `media/<sessionId>/<keyId sanitizado>.<ext>`, iguais na entrada (baileys.engine.ts:927-932) e na saída (:1019-1025); a retenção apaga as linhas mas não os objetos S3 (retention.service.ts:30-48).
+- **BullMQ 5.81.4**: maxStalledCount 1, stalledInterval 30000, lockDuration 30000, autorun true (worker.js:34); jobId com `:` rejeitado, exceto com exatamente 3 partes, e jobId inteiro também (job.js:1067-1076). **Baileys rc14**: `emitOwnEvents` true (Defaults/index.js:55), não sobrescrito (baileys.engine.ts:566-611).
+
+#### Invariantes e armadilhas
+
+- **R0/contrato**: o node n8n 0.4.1 só trata 423 (docs/analise-atualizacoes-2026-09.md:253); qualquer gate novo que devolva outro não-2xx (429 etc.) quebra fluxos. Formato do 423: `{code:'SESSION_QUARANTINED', state, message}` (session-quarantined.exception.ts:7-15).
+- **jobId sem `:`** (job.js:1073-1076): `campaign-<id>-<rid>` e `campaign-<id>-resume-<epoch>-<rid>` (campaign.service.ts:52, :74, :99); nenhum teste garante isso para campanhas (P-022).
+- **`wa_messages` sem unique (sessionId, keyId)** (schema.prisma:303-310): reemissão de `'message'` vira linha E webhook duplicados, porque o jobId do webhook é o id do envelope (webhook-dispatcher.service.ts:79; session-manager.service.ts:230). Deduplicar ANTES do onEvent.
+- **`save` engole QUALQUER P2002 em silêncio** (prisma-message.repository.ts:43-51): se um envio real sair duas vezes com a mesma idempotencyKey (retry de campanha após reserva velha), a segunda mensagem REAL fica invisível no banco.
+- **idempotencyKey não impede transporte**: sendText/sendMedia só a repassam ao eco (baileys.engine.ts:969-999, :1001-1054). A proteção real da API é `wa_send_intents`; a da campanha é a reserva do destinatário.
+- **MessagePersister é fire-and-forget** (message-persister.service.ts:30-36, :41-65) e NÃO tem teste de efeito (nenhum spec referencia MessagePersister, updateStatusByKey ou saveHistorical) — contraria R6.
+- **Ranking do ACK travado em sent/delivered/read** (prisma-message.repository.ts:125-129, :144-157): status novo (ex.: `'error'` do P-048) é no-op até entrar no `ACK_RANK` E no CASE SQL.
+- **`source: 'phone'` em fromMe depende do cache em memória `sentMessages`** (baileys.engine.ts:453, :787, :836). A rc14 reemite TODO envio nosso como `'append'` (Socket/messages-send.js:1135-1139); hoje só o filtro de type (baileys.engine.ts:783) evita que vire `'phone'`. Depois de restart o cache está vazio; eco nosso que passe pelo upsert vira `'phone'` e dispara o handoff (a IA pausa), como documentado em engine.port.ts:10-12.
+- **Reação recebida é persistida como mensagem** (baileys.engine.ts:849-855, :864-871): a conversa volta a 🔴 na caixa única e a reação conta como resposta no reply-rate (reply-rate.service.ts:115-122). Confirmado por leitura; **não verificado em produção**.
+- **`mergeLidMessages` reescreve só `wa_messages.chatJid`** (baileys.engine.ts:1303-1309): marca 🟡 ancorada no `@lid` fica órfã e a conversa volta a 🔴 depois do merge.
+- **Contadores da caixa única sobre linhas já limitadas** (limit ≤500; o painel pede 300 em Atendimento.tsx:147) (inbox.controller.ts:118-132): com mais conversas que o limit, o total mente.
+- **API sem ritmo humano, cap, janela nem modo** (session-config.service.ts:5-71 só deriva cap); ritmo só na campanha (campaign-queue.ts:177-186).
+- **Worker de campanhas nasce antes da reidratação** (nest-application.js:106-108; session-manager.service.ts:69-93): jobs vencidos no boot → FAILED definitivo (campaign-queue.ts:236-238).
+- **Erro de sessão fora de WORKING é Error genérico por texto** (session-manager.service.ts:473-476, :561-567): distinguir "sessão indisponível" de "envio falhou" exige erro tipado; casar string é frágil. `POST /:msgId/read` sem try/catch devolve 500 (messages.controller.ts:389-398).
+- **Job em PAUSED gera job novo a cada 30 s por destinatário vencido** (campaign-queue.ts:129-145): churn no Redis + findById por iteração, e rajada ao retomar.
+- **skip sem refreshCounts** (campaign-queue.ts:173): se o último PENDING virar FAILED por tentativas esgotadas (campaign.repository.ts:148-156), a campanha fica RUNNING para sempre.
+- **Job travado** (maxStalledCount 1, worker.js:34) reexecutado em menos de 10 min cai em skip "reservado por outro worker" (campaign.repository.ts:145-147): destinatário PENDING+reservado sem job; resume só age em PAUSED (campaign.service.ts:90) → precisa pause+resume.
+- **`pause` não valida status** (campaign.service.ts:80-83): pausar DONE/CANCELLED e retomar deixa RUNNING sem pendentes e sem refreshCounts.
+- **`start` em PAUSED reusa jobIds**; o BullMQ ignora o add (base-job-options.d.ts:90-97), então start ≠ resume para quem tem job retido (removeOnComplete 2000, campaign-queue.ts:123).
+- **Concurrency 4 global** para todas as sessões e campanhas, por réplica (campaign-queue.ts:92). O rate limiter do Worker opera globalmente na fila, mesmo com vários workers (docs.bullmq.io/guide/rate-limiting, via Context7) — não serve como teto por sessão.
+- **Campanha de até 100k destinatários** faz nested create único e N `queue.add` seriais dentro da requisição HTTP (campaigns.controller.ts:29; campaign.repository.ts:42-61; campaign.service.ts:69-76). `queue.addBulk` existe no BullMQ instalado (node_modules/bullmq/dist/esm/classes/queue.d.ts:183).
+- **groups photo** usa fetch sem egress e lê o corpo inteiro antes do limite de 10 MB (groups.controller.ts:222-233): SSRF e memória (P-031).
+- **checkNumbers** faz onWhatsApp em série para até 50 números (baileys.engine.ts:1494-1508), o mesmo padrão retirado do envio por risco ao chip (:1123-1128).
+- **Download de mídia recebida sem await** (baileys.engine.ts:860), com options `{}` (:920): getHttpStream sem signal nem dispatcher (Utils/messages-media.js:297-302). Se pendurar, a mensagem nunca é emitida (P-050).
+- **Fronteira**: depcruise proíbe campaigns importar `domain/`/`infrastructure/` do messaging (.dependency-cruiser.cjs:21-33; docs/ARQUITETURA.md:43). Para reusar SendIntentService, o MessagingModule exporta e o CampaignsModule importa; para consultar `wa_messages`, Prisma no próprio CampaignRepository.
+
+### 4.3 Eventos, webhooks, SSE, observabilidade, health e guard-rail (`events`, `webhooks`, `observability`, `health`, `guardrail`)
+
+Mapas gerados: [gateway-events.md](reference/mapa-codigo/gateway-events.md) · [gateway-webhooks.md](reference/mapa-codigo/gateway-webhooks.md) · [gateway-guardrail.md](reference/mapa-codigo/gateway-guardrail.md) · [gateway-observability.md](reference/mapa-codigo/gateway-observability.md) · [gateway-health.md](reference/mapa-codigo/gateway-health.md) · [gateway-shared-kernel.md](reference/mapa-codigo/gateway-shared-kernel.md) · [gateway-infra.md](reference/mapa-codigo/gateway-infra.md)
+
+**Resumo.** O "sistema nervoso" do gateway. Todo evento de engine (`session.status`, `message`, `message.ack`, `message.reaction`) e todo evento de proteção do guard-rail vira um `WaEventEnvelope` publicado como `'wa.event'` no EventBus em memória, que vai para cinco consumidores locais: fan-out Redis, timeline, persistência de mensagens, webhooks e SSE. Com mais de uma réplica, eventos de outras instâncias voltam como `'wa.event.remote'`, e só webhooks e SSE reagem a eles. Os webhooks saem por uma fila BullMQ (`'webhooks'`) com HMAC-SHA512, backoff exponencial, dead-letter no Postgres e reentrega manual. Observability cuida de `/metrics` (prom-client com `METRICS_TOKEN`), do reply-rate G4 (`session_metrics`), da timeline (`wa_session_events`) e da retenção. `/health` tem prazo por probe. O `GuardrailService` é a máquina de estados G5–G7 (ativa/throttled/quarentena/aquecimento/banida/pausa_manual) com C10, CAS, cooldown e hard-gate 423 para envios cold — mas só avalia sob demanda (`GET /api/guardrail/:sessionId`), e `recordHardSignal` não tem chamador em produção.
+
+#### Arquivos-chave
+
+| Arquivo                                                                         | Papel                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/gateway/src/shared-kernel/event-bus/event-bus.ts`                         | EventBus em memória (EventEmitter com captureRejections:true, L12; listener de `'error'` só loga, L16-18). publish emite o nome e `'*'` (L21-24). subscribe/unsubscribe L26-32. subscribeAll L34-36 sem uso                                                                                                  |
+| `apps/gateway/src/shared-kernel/domain-event.ts`                                | DomainEvent `{name, occurredAt, payload}` (L2-6)                                                                                                                                                                                                                                                             |
+| `apps/gateway/src/modules/sessions/application/engine.port.ts`                  | Contrato dos eventos: SessionStatePayload (L3-8), MessagePayload (L15-40), MessageAckPayload (L46-52), EngineEventName (L64-65), GuardrailEventName (L73-81), WaEventName (L84), WaEventEnvelope `{id,timestamp,event,sessionId,session,payload,engine}` (L87-95)                                            |
+| `apps/gateway/src/modules/sessions/application/session-manager.service.ts`      | Principal publicador de `'wa.event'`: handleEngineEvent (L190-243) — dedup de status (L211-214), presign de mídia (L216-228), envelope com id=newId() (L229-237) e publish (L238-242)                                                                                                                        |
+| `apps/gateway/src/infra/redis/event-fanout.ts`                                  | Ponte entre réplicas pelo canal Redis `'wa:events'` (L13). Publica todo `'wa.event'` local (L47-53); onRemote republica como `'wa.event.remote'` sem eco (L57-72). Desligada em NODE_ENV=test ou EVENT_FANOUT=off (L36-37)                                                                                   |
+| `apps/gateway/src/infra/redis/redis.module.ts`                                  | `@Global`; registra RedisService e EventFanout (L5-9)                                                                                                                                                                                                                                                        |
+| `apps/gateway/src/modules/webhooks/application/webhook-dispatcher.service.ts`   | Assina `'wa.event'` e `'wa.event.remote'` (L35-38). Cache dos webhooks habilitados (L23, L42-44), filtro por sessão e evento (L58-65), remove raw (L13-17, L49-55), enfileira com jobId `${env.id}-${w.id}` (L79)                                                                                            |
+| `apps/gateway/src/modules/webhooks/infrastructure/webhook-queue.ts`             | Fila/Worker BullMQ `'webhooks'` (L40, L81, L94-103). enqueue L135-149. deliver com egress, HMAC-SHA512, headers reservados e redirect manual (L151-187). DLQ no evento `'failed'` (L112-132, L191-206). listDeadLetters L209-215. redeliverDeadLetters com reserva atômica (L219-274)                        |
+| `apps/gateway/src/modules/webhooks/interface/webhooks.controller.ts`            | REST `/api/webhooks` (MinRole ADMIN, L45-46): list, create (egress L71-82 e refresh L93), dead-letters, redeliver, enable/disable/remove, test (L133-156)                                                                                                                                                    |
+| `apps/gateway/src/modules/webhooks/interface/dto.ts`                            | createWebhookSchema (L3-11): events aceita qualquer string (L6), secret 8..128 (L7), maxAttempts 1..20 padrão 5 (L10)                                                                                                                                                                                        |
+| `apps/gateway/src/modules/webhooks/infrastructure/prisma-webhook.repository.ts` | CRUD em `webhooks` (L39-78). secret gravado em texto puro (L46)                                                                                                                                                                                                                                              |
+| `apps/gateway/src/modules/events/interface/events.controller.ts`                | SSE `GET /api/events/stream` (L14-45): filtro `?session` (L17-22), remove raw (L25-33), assina os dois nomes (L36-39), desassina no teardown (L40-43)                                                                                                                                                        |
+| `apps/gateway/src/modules/events/interface/sse-auth.guard.ts`                   | Auth do SSE: JWT pelo cookie `token` ou `?token=` (L22-23), verifyAsync (L26). Não aceita API key e não checa papel                                                                                                                                                                                          |
+| `apps/gateway/src/modules/observability/session-event.logger.ts`                | Timeline `wa_session_events` a partir do `'wa.event'` local, só `session.status` (L23-25). Tipo error/status (L32). Ignora P2003 (L40-45)                                                                                                                                                                    |
+| `apps/gateway/src/modules/observability/metrics.service.ts`                     | Registry próprio do prom-client (L20): default metrics (L41), gauges `wa_sessions` (L43-48), `wa_messages` (L49-54) e `gateway_process_errors_total` (L57-62). collect/refresh (L66-69, L104-115). Contadores com cache Redis de 10 s (L30-31, L117-152). summary L72-86, timeline L89-102                   |
+| `apps/gateway/src/modules/observability/metrics.controller.ts`                  | `GET /metrics` fora do `/api`. Exige `METRICS_TOKEN` por Bearer ou `?token` (L28-36)                                                                                                                                                                                                                         |
+| `apps/gateway/src/modules/observability/observability.controller.ts`            | `GET /api/observability/summary` (L17-20), timeline/:sessionId com limit 1..200 (L22-29), reply-rate/:sessionId?window=7\|30 (L33-43)                                                                                                                                                                        |
+| `apps/gateway/src/modules/observability/reply-rate.service.ts`                  | G4. SQL de reply-rate com maturidade de 72 h (L100-125), score (L139-141), Nmin (DB > env > 20, cache 60 s, L51-68). Upsert em `session_metrics` (L155-159)                                                                                                                                                  |
+| `apps/gateway/src/modules/observability/retention.service.ts`                   | Timers de retenção (L18-28). sweep L30-48: zera raw (L58-71) e purga por idade `wa_messages`, `wa_session_events`, `wa_audit_logs` e `wa_send_intents` (L73-91)                                                                                                                                              |
+| `apps/gateway/src/modules/health/health.service.ts`                             | `/health` com probes DB, Redis e S3 (withDeadline L31-43, prazos L28-29). memoryOk L63-64. ok/degraded/unhealthy L66-71. version L84                                                                                                                                                                         |
+| `apps/gateway/src/modules/health/health.controller.ts`                          | `GET /health`: 503 só quando unhealthy (L10-17)                                                                                                                                                                                                                                                              |
+| `apps/gateway/src/modules/guardrail/guardrail.service.ts`                       | Máquina G5–G7: estados e constantes (L19-53), cfg/cache (L144-174), emit (L177-200), getState (L203-209), fleetMedian (L217-233), evaluate (L236-309), apply com C10/CAS (L316-392), canSendCold (L406-418), recordHardSignal (L427-454), setManualState (L457-470), health (L473-492), statesFor (L495-503) |
+| `apps/gateway/src/modules/guardrail/guardrail.controller.ts`                    | GET/PATCH `/api/guardrail/config` (L32-47; schema L16-22 sem enforce). `GET /api/guardrail/:sessionId` chama evaluate (L51-54)                                                                                                                                                                               |
+| `apps/gateway/src/modules/guardrail/session-quarantined.exception.ts`           | HTTP 423 `{code:'SESSION_QUARANTINED', state, message}` (L5-18)                                                                                                                                                                                                                                              |
+| `apps/gateway/src/shared-kernel/process-errors.ts`                              | Contador em memória de erros engolidos (L7-15), exposto em `gateway_process_errors_total`. Chamado em main.ts:25, :33, guardrail.service.ts:397 e audit.interceptor.ts:72                                                                                                                                    |
+| `apps/gateway/src/bootstrap/logging-exception.filter.ts`                        | Filtro global (main.ts:54) que estende BaseExceptionFilter, loga 4xx/5xx e responde via super.catch (L1-12); é por ele que o 423 sai como o Nest faria                                                                                                                                                       |
+| `apps/gateway/src/modules/messaging/interface/messages.controller.ts`           | Hard-gate cold: assertColdAllowed (L206-212), chamado no envio (L467); intent failed se bloqueado (L469-470)                                                                                                                                                                                                 |
+| `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`           | Campanha firstContact passa por canSendCold; bloqueada → PAUSED + requeue (L148-157)                                                                                                                                                                                                                         |
+| `apps/gateway/src/modules/sessions/interface/sessions.controller.ts`            | G7: list com guardrailState e `?state` (L152-170), health com cap (L178-184), config (L187-208), overrides quarantine/warmup/activate/pause (L303-326)                                                                                                                                                       |
+| `packages/contracts/src/index.ts`                                               | HealthResponse (L20-32), TimelineEvent (L47-53), EventEnvelope (L56-63), WebhookDto (L234-243), CreateWebhookRequest (L245-253), WEBHOOK_EVENTS (L256)                                                                                                                                                       |
+| `apps/gateway/prisma/schema.prisma`                                             | SessionGuardrail (L184-198), WebhookDeadLetter (L204-216), GuardrailConfig (L220-230), SessionMetric (L235-255), WaSessionEvent (L258-272), Webhook (L396-410)                                                                                                                                               |
+| `apps/gateway/src/modules/guardrail/guardrail.service.spec.ts`                  | Unit G5: tabela de decisão (L187-285), C10 (L287-312), canSendCold (L314-340), mediana (L342-389), cooldown/manual (L391-458), recordHardSignal (L460-495), CAS (L496+)                                                                                                                                      |
+| `apps/gateway/test/webhooks.e2e-spec.ts`                                        | e2e: auth/400/201, EventBus → job com jobId `${envelopeId}-${webhookId}` aceito pelo BullMQ (L77-131, getJob em L119), egress (L133+). Não testa a entrega (Worker não sobe em test)                                                                                                                         |
+| `apps/gateway/test/g6.e2e-spec.ts`                                              | e2e: session.quarantined (L49-59), send.blocked (L61-67), redeliver da DLQ (L69-100)                                                                                                                                                                                                                         |
+
+#### Pontos de entrada
+
+- **SSE** `GET /api/events/stream`: EventsController.stream (events.controller.ts:14-45) com SseAuthGuard.canActivate (sse-auth.guard.ts:16-31). Consumido por apps/dashboard/src/routes/Monitor.tsx:23-25 e Atendimento.tsx:184 (withCredentials).
+- **Webhooks REST**: GET/POST `/api/webhooks`, DELETE `/api/webhooks/:id`, POST `/api/webhooks/:id/enable|disable|test` (webhooks.controller.ts:55-156), guards ApiKeyAuthGuard + RolesGuard + `@MinRole('ADMIN')` (:45-46); `GET /api/webhooks/dead-letters` e `POST /api/webhooks/dead-letters/redeliver` (:98-107).
+- **`GET /metrics`** (FORA do `/api`; exclusão em main.ts:78-83): MetricsController.scrape (metrics.controller.ts:22-39). Sujeito ao rate-limit global — só `/health` está no allowList (main.ts:73).
+- **`GET /health`** (FORA do `/api`, main.ts:78-83): HealthController.check (health.controller.ts:10-17). Chamado pelo Docker HEALTHCHECK `curl -fsS http://127.0.0.1:3000/health` a cada 30 s (apps/gateway/Dockerfile:79-80) e pelo dashboard (apps/dashboard/src/lib/api.ts:155).
+- **Observability**: `GET /api/observability/summary | /timeline/:sessionId | /reply-rate/:sessionId` (observability.controller.ts:17-43). Sem MinRole: GET exige VIEWER (roles.guard.ts:20, :45).
+- **Guard-rail**: `GET /api/guardrail/config`, `PATCH /api/guardrail/config` (ADMIN) e `GET /api/guardrail/:sessionId` (guardrail.controller.ts:32-54). Rotas de sessions que entram no guard-rail: `GET /api/sessions` (statesFor), `GET /:id/health`, `GET/PATCH /:id/config`, `POST /:id/quarantine|warmup|activate|pause` (sessions.controller.ts:152-208, :303-326).
+- **Hard-gate**: `POST /api/sessions/:id/messages/{text,media,media-url,location,poll}` com `cold:true` → assertColdAllowed (messages.controller.ts:206-212, :467); worker de campanha com firstContact (campaign-queue.ts:148-157).
+- **Publicadores** de `'wa.event'`: SessionManager.handleEngineEvent (session-manager.service.ts:238-242) e GuardrailService.emit (guardrail.service.ts:195-199); de `'wa.event.remote'`: EventFanout.onRemote (event-fanout.ts:64-68). **Assinantes** de `'wa.event'`: EventFanout (:47), SessionEventLogger (session-event.logger.ts:23), MessagePersister (message-persister.service.ts:25), WebhookDispatcher (webhook-dispatcher.service.ts:35), EventsController por conexão (events.controller.ts:36); de `'wa.event.remote'`: WebhookDispatcher (:38) e EventsController (:39).
+- **Redis pub/sub** `'wa:events'`: subscribe em event-fanout.ts:44-45 numa conexão dedicada (duplicate() em :40).
+- **Fila BullMQ `'webhooks'`**, job `'deliver'`: Queue (webhook-queue.ts:81), Worker (:94-103), eventos do Worker `'error'` (:106-111) e `'failed'` (:112-132).
+- **Boot**: WebhookQueue.onModuleInit (webhook-queue.ts:77), WebhookDispatcher.onModuleInit (webhook-dispatcher.service.ts:31), EventFanout.onModuleInit (event-fanout.ts:35), SessionEventLogger.onModuleInit (session-event.logger.ts:22), MetricsService.onModuleInit (metrics.service.ts:39), RetentionService.onApplicationBootstrap (retention.service.ts:18).
+- **Timers**: RetentionService com setTimeout de 2 min + setInterval de `RETENTION_SWEEP_HOURS` h, ambos unref (retention.service.ts:23-26). O guard-rail NÃO tem timer: os únicos setInterval do src são retention.service.ts:25, proxy.service.ts:86 e wwebjs.engine.ts:407, :480.
+- **Shutdown**: WebhookQueue.onModuleDestroy (webhook-queue.ts:276-291; `worker.close` espera os jobs ativos, esm worker.js:770-800), EventFanout.onModuleDestroy (event-fanout.ts:74-80), `app.enableShutdownHooks` (main.ts:96).
+- **Processo**: uncaughtException/unhandledRejection chamam recordProcessError (main.ts:24-40), exposto em `gateway_process_errors_total`.
+
+#### Fluxos internos
+
+**F1 — Evento de engine vira `'wa.event'`.** Ver §3.1 passos 11-13. Específicos: `BaileysEngine.setStatus` manda `session.status` (baileys.engine.ts:491-497) — inclusive STARTING a cada `connect()`, também nas reconexões (:614); `EventBus.publish` emite o nome e `'*'` de forma síncrona (event-bus.ts:21-24) e os listeners rodam na ordem de assinatura (doc Node 26, `<DIOGGO_ROOT>/agentes/docs/node/26/events.md:146-150`).
+
+**F2 — Fan-out entre réplicas (`'wa.event.remote'`).**
+
+1. EventFanout.onModuleInit (event-fanout.ts:35-55) sai cedo se `NODE_ENV=test` ou `EVENT_FANOUT=off` (:36-37). Duplica a conexão Redis (:40), subscribe em `'wa:events'` (:44-45) e assina o `'wa.event'` local (:47).
+2. A cada `'wa.event'` local publica JSON `{i: instanceId, e: evento}` (:48-52); falha só gera warn.
+3. Na outra réplica, onRemote (:57-72) faz JSON.parse, ignora o próprio eco (:63) e republica como `'wa.event.remote'` com occurredAt reidratado (:64-68).
+4. Só WebhookDispatcher (webhook-dispatcher.service.ts:38) e SSE (events.controller.ts:39) reagem a `'wa.event.remote'`; persistência (mensagens e timeline) fica só na réplica dona da sessão.
+5. Redis Pub/Sub entrega no máximo uma vez; subscriber caído perde a mensagem (`<DIOGGO_ROOT>/agentes/docs/redis/7/develop/pubsub/_index.md:74-79`).
+
+**F3 — Entrega de webhook.** Ver §3.8. Específicos: `WebhookDispatcher.onModuleInit` chama `refresh()`, que carrega `listEnabled` no cache em memória (webhook-dispatcher.service.ts:31-44 → prisma-webhook.repository.ts:62-65); no evento `'failed'`, `attemptsMade` já foi incrementado (job.js:580; worker.js:685-686); reagendamento em job.js:514-520; `GET /api/webhooks/dead-letters` → listDeadLetters (webhook-queue.ts:209-215, pendentes, take 200).
+
+**F4 — CRUD de webhook, cache e teste.**
+
+1. `POST /api/webhooks` (webhooks.controller.ts:60-95): zod (webhooks/interface/dto.ts:3-11), egress com `dnsFailure:'allow'` → 400 com motivo (webhooks.controller.ts:71-82), repo.create (:83-92), `dispatcher.refresh()` (:93) e toDto sem o secret, só `hasSecret` (:32-43).
+2. enable/disable/remove (:109-131): ensure → 404 se não existir (:158-162); setEnabled/delete e refresh(). Só o cache da réplica que atendeu é recarregado.
+3. `POST :id/test` (:133-156): envelope sintético `'webhook.test'`, engine fixo `'baileys'` e sessionId `'global'` quando o webhook é global; attempts=1 SEM jobId (:145-154).
+
+**F5 — SSE `/api/events/stream`.**
+
+1. SseAuthGuard (sse-auth.guard.ts:16-31) lê o JWT do cookie `token` ou de `?token=` (:22-23) e aplica `jwt.verifyAsync` (:26); falha → 401.
+2. EventsController.stream (events.controller.ts:14-45) cria um Observable; o handler aplica `?session` por nome ou id (:17-22), remove raw de qualquer evento (:25-33) e chama `subscriber.next({data: envelope})` (:34).
+3. Assina `'wa.event'` e `'wa.event.remote'` (:36-39); o teardown desassina os dois (:40-43).
+4. O SseStream do Nest manda Connection keep-alive, Cache-Control no-cache e X-Accel-Buffering: no (router/sse-stream.js:80-91). Não há heartbeat no controller.
+
+**F6 — Timeline de sessão (`wa_session_events`).** SessionEventLogger.onModuleInit (session-event.logger.ts:22-51) assina só o `'wa.event'` local e descarta o que não é `session.status` (:25); grava `{type: error se p.error, senão status; status; detail=error}` (:27-36); P2003 ignorado, resto vira log error (:37-49). `GET /api/observability/timeline/:sessionId?limit` (observability.controller.ts:22-29, limit 1-200) → MetricsService.timeline com orderBy createdAt desc (metrics.service.ts:89-102). Retenção apaga acima de `RETENTION_EVENTS_DAYS`, padrão 30 (retention.service.ts:35-39).
+
+**F7 — Scrape `/metrics` e summary.**
+
+1. `GET /metrics` → MetricsController.scrape (metrics.controller.ts:22-39): sem `METRICS_TOKEN` no ambiente, ou com token errado (Bearer ou `?token`), 401 (:28-36).
+2. MetricsService.collect → refresh (metrics.service.ts:66-69, :104-115).
+3. counters() (:117-152): cache Redis `'obs:counters'` (TTL 10 s, :30-31); senão promessa em voo compartilhada (:125) com groupBy de waSession por status e 2 counts full-table de waMessage (:127-136), depois setex (:139-143).
+4. Gauges `wa_sessions{status}` zerados e repostos (:106-109); `wa_messages{direction}` (:110-111); `gateway_process_errors_total{kind}` a partir de processErrorTotals (:112-114; process-errors.ts:13-15). Métricas default do Node via collectDefaultMetrics (metrics.service.ts:41).
+5. Devolve `registry.metrics()` com o content-type do registry (metrics.controller.ts:37-38). `GET /api/observability/summary` (observability.controller.ts:17-20) → summary() (metrics.service.ts:72-86), com os mesmos counters + memoryStats.
+
+**F8 — `/health`.**
+
+1. Docker HEALTHCHECK (apps/gateway/Dockerfile:79-80) e dashboard (apps/dashboard/src/lib/api.ts:155) chamam `GET /health` (fora do `/api`, main.ts:78-83; isento do rate-limit, main.ts:73).
+2. HealthService.check (health.service.ts:53-87): Promise.all de checkDatabase `SELECT 1` (:89-96) com prazo de 3 s, redis.ping (redis.service.ts:18-24) com 3 s e `media.probeWrite` (media-storage.service.ts:80-101, cache de 5 min) com 5 s, todos via withDeadline (fallback=false em erro ou timeout, health.service.ts:31-43).
+3. memoryStats (shared-kernel/memory.ts:45-70) calcula memoryUsedPct (cgroup ou heap); memoryOk = memoryUsedPct < 0.9 (health.service.ts:63-64).
+4. Status (:66-71): unhealthy só se DB E Redis falham; ok se DB, Redis e memória bem; senão degraded. Storage só informativo (:13-15).
+5. 503 só em unhealthy, senão 200 (health.controller.ts:15). `version = process.env.npm_package_version ?? '0.1.0'` (health.service.ts:84).
+
+**F9 — Reply-rate G4 (`session_metrics`).** Entradas: `GET /api/observability/reply-rate/:sessionId` (observability.controller.ts:33-43: window 7 ou 30 → compute; sem window → snapshot 7d+30d), GuardrailService.evaluate (guardrail.service.ts:237) e health (:474). `resolveSessionId` aceita id ou nome, 404 se não achar (reply-rate.service.ts:71-78). computeFor (:100-125): cold = fromMe AND isCold na janela; mature = cold com mais de 72 h; responded = mature com inbound no mesmo chatJid em até 72 h; delivered e read sobre cold. replyRate = responded/coldMature, deliveryRate e readRate sobre coldTotal, score = 100·(0.6·reply + 0.25·read + 0.15·delivery) (:134-141). reliable = sample ≥ nmin (:149; nmin do DB, senão env, senão 20, cache 60 s, :51-68). Upsert em `session_metrics` por (sessionId, windowDays) (:155-159).
+
+**F10 — Avaliação G5 (evaluate).** Ver §3.7 passos 2-5. Específicos: `getState` cria `'ativa'` sem passar eventTs (guardrail.service.ts:239, :203-209); a coluna tem `DEFAULT CURRENT_TIMESTAMP` (apps/gateway/prisma/migrations/20260625150000_add_guardrail/migration.sql:13), mas **não verificado** se o Prisma 7 deixa o banco preencher ou gera now() no cliente (a doc diz que o now() no banco era o comportamento antes da 4.4.0: `<DIOGGO_ROOT>/agentes/docs/prisma/7/orm/reference/prisma-schema-reference.mdx:3000`). `fleetMedianReplyRate` (:217-233) exige snapshots de 7d reliable com computedAt ≤ 24 h e sample ≥ nmin, 2+ sessões; mediana 0 → null. Só aplica se enforce && target≠current && !STICKY (:288-294); devolve GuardrailEvaluation com `applied` (:296-308).
+
+**F11 — Transição de estado (apply) e eventos G6.** `apply(sessionId, state, reason, eventTs=new Date(), ctx, attempt)` (guardrail.service.ts:316-392): C10 — se `existing.eventTs >= eventTs`, devolve a linha sem gravar (:324-329); quarentenaDesde mantém a existente ou usa eventTs; null para ativa (:331-336); cooldownAte = eventTs + cooldownHours para quarentena, null para ativa, herdado nos outros (:337-343). Sem linha: create; P2002 repete até 3× (:347-355). Com linha: updateMany WHERE eventTs igual ao lido (CAS, :357-360); perdeu → relê e decide de novo até 3×, depois mantém com warn (:361-371). Mudou o estado → `STATE_EVENT[state]` (:47-53; pausa_manual sem evento) → emit sem aguardar com payload `{state, motivo, quarentena_desde, cooldown_ate, reply_rate, amostra, cap_novo:null}` (:377-390). emit (:177-200) lê name/engine em waSession, monta envelope com id=newId() e publica `'wa.event'`; erro → `recordProcessError('guardrail_emit')` + warn (:396-401).
+
+**F12 — Hard-gate de envio cold (423) e campanhas.** Ver §3.1 passo 8 e §3.7 passo 7. Específico: o filtro global LoggingExceptionFilter (main.ts:54) loga e delega a `super.catch` do BaseExceptionFilter, que envia o objeto como está (exceptions/base-exception-filter.js:19-28): o corpo do 423 sai sem statusCode.
+
+**F13 — Override manual, saúde e config (G7/G8).** Overrides → `setManualState` (guardrail.service.ts:457-470): resolve id ou nome e `apply(MANUAL_TO_STATE[action], 'override manual: <ação>')`, independente de enforce. `GET /api/sessions/:id/health` (sessions.controller.ts:178-184) → guardrail.health (compute 7d + getState, guardrail.service.ts:473-492) + `sessionConfig.capFor` (session-config.service.ts:49-71). `GET /api/sessions?state=a,b` (sessions.controller.ts:152-170) → statesFor (guardrail.service.ts:495-503): sessão sem linha conta como `'ativa'`. `GET/PATCH /api/guardrail/config` (guardrail.controller.ts:32-47) → upsert do singleton + `cfgCache=null` (guardrail.service.ts:160-174); enforce vem só do env.
+
+**F14 — recordHardSignal (sem chamador).** Chamadas só em guardrail.service.spec.ts:465, :477, :478, :490. Se chamado: `'463'` → `signal.463`; `'restriction'|'ban'` → `signal.restriction`; outros não geram evento (guardrail.service.ts:429-434); o emit acontece sempre, com ou sem enforce (:435-439). Alvo: ban/restriction → banida; 463 → quarentena; 401/loggedOut/outros sem transição (:440-445); apply só com enforce (:446-448). Upsert de `ultimoSinal` (:449-453), exposto em `health.ultimos_sinais`, que guarda só o último (:489).
+
+**F15 — Retenção (purge).** RetentionService.onApplicationBootstrap (retention.service.ts:18-28): desligado em NODE_ENV=test; hours = `RETENTION_SWEEP_HOURS` (padrão 6; ≤0 desliga); primeira varredura 2 min após o boot, depois setInterval, ambos unref. sweep (:30-48) em sequência: stripOldRaw (`UPDATE wa_messages SET raw=NULL` com createdAt < 7d, :58-71); purge (deleteMany por createdAt) de `wa_messages` (90d), `wa_session_events` (30d), `wa_audit_logs` (180d) e `wa_send_intents` (90d) (:32-47). purge/cutoff (:50-54, :73-91): janela do env, 0 ou inválido desliga; DELETE único, sem lotes; erro só loga; sem lock entre réplicas.
+
+#### Relações
+
+- **sessions → events/webhooks/observability**: SessionManager.handleEngineEvent publica `'wa.event'` (session-manager.service.ts:238-242); envelope tipado em engine.port.ts:87-95.
+- **guardrail → EventBus**: GuardrailService.emit publica `'wa.event'` (guardrail.service.ts:195-199), então os eventos G6 saem pelos mesmos webhooks, SSE e fan-out.
+- **guardrail → observability**: GuardrailModule importa ObservabilityModule (guardrail.module.ts:10) e injeta ReplyRateService (guardrail.service.ts:122, usado em :237 e :474); ObservabilityModule exporta só ReplyRateService (observability.module.ts:19).
+- **guardrail → `wa_sessions`** (dona: sessions): lê name/engine em emit (guardrail.service.ts:182-185) e resolve ref em setManualState (:458-461).
+- **messaging → guardrail** (assertColdAllowed, messages.controller.ts:206-212); **campaigns → guardrail** (canSendCold, campaign-queue.ts:149); **sessions → guardrail** (SessionsModule importa GuardrailModule, sessions.module.ts:14; SessionsController usa statesFor/health/getState/setManualState, sessions.controller.ts:155, :180, :190, :324). SessionManager NÃO injeta GuardrailService hoje (construtor em session-manager.service.ts:58-67), mas poderia sem ciclo (guardrail.module.ts:10).
+- **webhooks → infra/redis** (redisConnection, webhook-queue.ts:80) e **→ shared-kernel/safe-fetch** (assertEgressAllowed/parseEgressUrl/egressPolicyFromEnv na entrega webhook-queue.ts:154-166 e no cadastro webhooks.controller.ts:71-82).
+- **webhooks/events/observability/guardrail → iam**: ApiKeyAuthGuard e RolesGuard (webhooks.controller.ts:45-46; guardrail.controller.ts:25; observability.controller.ts:9). SseAuthGuard usa o JwtService do IamModule (events.module.ts:7; sse-auth.guard.ts:14).
+- **infra/redis → EventBus**: EventFanout assina e publica (event-fanout.ts:47, :64); registrado pelo RedisModule `@Global` (redis.module.ts:5-9).
+- **observability → Redis** (cache `'obs:counters'`, metrics.service.ts:119, :139) e **→ Prisma** (waSession, waMessage, waSessionEvent, sessionMetric, sendIntent, waAuditLog — metrics.service.ts:90, :127-136; reply-rate.service.ts:100, :155; retention.service.ts:33-46).
+- **health → infra**: PrismaService, RedisService.ping, MediaStorage.probeWrite (health.service.ts:47-58) e shared-kernel/memory.ts.
+- **process-errors**: main.ts:24-40 (handlers globais), audit.interceptor.ts:72 (`'audit_write'`), guardrail.service.ts:397 (`'guardrail_emit'`); lido por metrics.service.ts:112.
+- **messaging → EventBus**: MessagePersister assina só `'wa.event'` → persiste só na réplica dona (message-persister.service.ts:25).
+- **dashboard → área**: SSE (Monitor.tsx:23-25, Atendimento.tsx:184), CRUD de webhooks (api.ts:334-349), `/health` (api.ts:155), summary/timeline (api.ts:508-514). O dashboard NÃO chama `/api/guardrail` (grep sem ocorrências em apps/dashboard/src).
+- **contracts → dashboard**: HealthResponse, TimelineEvent, WebhookDto e WEBHOOK_EVENTS (packages/contracts/src/index.ts:20-32, :47-53, :234-256) usados em apps/dashboard/src/lib/api.ts:23, :42 e apps/dashboard/src/routes/Webhooks.tsx:3, :127.
+- **n8n** (node externo, **não verificado** nesta sessão) consome o envelope, `x-webhook-signature`, o 423 SESSION_QUARANTINED e os eventos session.\*/send.blocked de docs/INTEGRACAO.md:44-71, :107-127.
+- **Fronteiras**: sem ciclos; módulo não importa domain/infrastructure alheio; shared-kernel e infra não importam modules (.dependency-cruiser.cjs:13-51). Um contador novo em shared-kernel pode ser importado pela engine.
+
+#### Dados e config
+
+- **`webhooks`** (schema.prisma:396-410): escrita por PrismaWebhookRepository.create/setEnabled/delete (prisma-webhook.repository.ts:39-78); lida por list/listEnabled/findById e por redeliverDeadLetters (webhook-queue.ts:230). `secret` em texto puro (schema.prisma:401).
+- **`webhook_dead_letters`** (schema.prisma:204-216; índice [redeliveredAt, failedAt] :214; sem FK para webhooks): escrita por toDeadLetter (webhook-queue.ts:196-205) e redeliver (:240-243, :262-263); lida por listDeadLetters (:210-214) e redeliver (:222-226). Fora da retenção.
+- **`wa_session_events`** (schema.prisma:258-272; índices [sessionId, createdAt] e [createdAt]): SessionEventLogger (session-event.logger.ts:27-36) → MetricsService.timeline (metrics.service.ts:90-94); retenção (retention.service.ts:35-39).
+- **`session_guardrail`** (schema.prisma:184-198; sessionId único; eventTs TIMESTAMP(3) sem timezone com DEFAULT CURRENT_TIMESTAMP, migration 20260625150000_add_guardrail/migration.sql:13): escrita por apply (guardrail.service.ts:349, :357), getState (upsert, :204) e recordHardSignal (upsert, :449); lida por apply (:324), statesFor (:496) e, via getState, evaluate/canSendCold/health.
+- **`guardrail_config`** (schema.prisma:220-230; singleton; campo null = usa o env): escrita por updateConfig (guardrail.service.ts:167-171); lida por cfg (:146) e ReplyRateService.nmin (reply-rate.service.ts:58-61).
+- **`session_metrics`** (schema.prisma:235-255; único [sessionId, windowDays]): upsert do ReplyRateService (reply-rate.service.ts:155-159); lida por fleetMedianReplyRate (guardrail.service.ts:219-226).
+- **`wa_messages`** (índices schema.prisma:303-306): lida pelo SQL do reply-rate (reply-rate.service.ts:100-125) e pelos counts de métricas (metrics.service.ts:134-135); raw zerado e linhas apagadas pela retenção (retention.service.ts:32-34, :62-64). `wa_send_intents` e `wa_audit_logs` apagadas pela retenção (:40-47).
+- **Redis**: canal `'wa:events'` (event-fanout.ts:13), fila `'webhooks'` (webhook-queue.ts:40), chave `'obs:counters'` TTL 10 s (metrics.service.ts:30-31). **S3**: objeto `'health/.probe'` (media-storage.service.ts:88).
+- **Env guard-rail**: `GUARDRAIL_ENFORCE` (false, config.ts:95) lido só no construtor (guardrail.service.ts:126) — mudar exige restart; o PATCH não altera. `GUARDRAIL_NMIN=20`, `GUARDRAIL_THROTTLE_MULT=0.75`, `GUARDRAIL_QUARANTINE_MULT=0.6`, `GUARDRAIL_TARGET_REPLY_RATE=0.35`, `GUARDRAIL_COOLDOWN_HOURS=48` (config.ts:96-100), sobrepostos por `guardrail_config` (guardrail.service.ts:127-135, :150-156).
+- **Env webhooks/egress**: `WEBHOOK_CONCURRENCY` (8, config.ts:139; webhook-queue.ts:101; o default do BullMQ seria 1, esm worker.js:31). `EGRESS_ALLOW_PRIVATE` (false) e `EGRESS_ALLOW_HOSTS` (config.ts:145-146), lidas por safe-fetch.ts:23-35, aplicadas no cadastro e em cada entrega.
+- **Env fora do zod**: `EVENT_FANOUT` (`'on'`, event-fanout.ts:37); `METRICS_TOKEN` (sem padrão, metrics.controller.ts:28 — sem ele `/metrics` responde 401); `RETENTION_SWEEP_HOURS=6` (retention.service.ts:20), `RETENTION_MESSAGE_RAW_DAYS=7` (:59), `RETENTION_MESSAGES_DAYS=90` (:32), `RETENTION_EVENTS_DAYS=30` (:35), `RETENTION_AUDIT_DAYS=180` (:40), `RETENTION_INTENTS_DAYS=90` (:45); 0 desliga.
+- **`NODE_ENV=test`** desliga fan-out (event-fanout.ts:36), Worker de webhooks (webhook-queue.ts:93) e retenção (retention.service.ts:19).
+- **`npm_package_version`** (health.service.ts:84): o npm só define essa variável ao rodar scripts npm (/opt/homebrew/lib/node_modules/npm/docs/content/using-npm/scripts.md:268-272); o container roda `exec node dist/main.js` (docker-entrypoint.sh:43).
+- **`RATE_LIMIT_MAX`** (600/min, main.ts:68): `/health` isento (:73); `/metrics` não.
+- **Constantes**: `PROBE_TIMEOUT_MS=3000` e `STORAGE_PROBE_TIMEOUT_MS=5000` (health.service.ts:28-29); `FLEET_SNAPSHOT_MAX_AGE_MS=24h` (guardrail.service.ts:109); `NMIN_CACHE_MS=60s` (reply-rate.service.ts:31); fila de webhooks com timeout 10 s, backoff 2000 ms exponencial e removeOnComplete/Fail 1000 (webhook-queue.ts:142-144, :180); DLQ take 200 e redeliver limit 100 (:213, :220); lockDuration 30 s e maxStalledCount 1 (defaults, esm worker.js:31).
+
+#### Invariantes e armadilhas
+
+- **jobId**: sem `:` e não inteiro; `:` só com exatamente 2 dois-pontos (job.js:1067-1076). Montado nos CHAMADORES (webhook-dispatcher.service.ts:79; webhook-queue.ts:259). Sem teste unitário da montagem; o de webhook tem cobertura e2e indireta (webhooks.e2e-spec.ts:77-131), redeliver e campanha não.
+- **Dedup por jobId só enquanto o job existe no Redis** (addStandardJob-9.lua:88-94 → handleDuplicatedJob); com removeOnComplete/removeOnFail=1000 (webhook-queue.ts:143-144) a janela é limitada.
+- **Handler do EventBus NUNCA pode lançar síncrono**: o EventEmitter chama os listeners em sequência síncrona; um throw aborta os seguintes e sobe para o `publish()` de quem publicou. captureRejections só cobre rejeição async, que vai para `'error'` e só gera log (event-bus.ts:12-18; `<DIOGGO_ROOT>/agentes/docs/node/26/events.md:146-150`, :342-346; reconferido no Node v26.0.0).
+- **Regra de assinatura**: quem PERSISTE assina só `'wa.event'` (SessionEventLogger :23, MessagePersister :25); quem produz efeito externo assina os dois (WebhookDispatcher :35-38, SSE :36-39). Consumidor novo escolhe de propósito (event-fanout.ts:15-21).
+- **Envelope com `id=newId()` em CADA réplica** (session-manager.service.ts:230): duas engines na mesma conta (start-first, B-004) geram 2 envelopes para a mesma mensagem e o webhook sai duplicado apesar do jobId.
+- **Cache de webhooks por processo** (webhook-dispatcher.service.ts:23, :42-44), recarregado só no boot e no CRUD da réplica que atendeu: a outra réplica pode entregar para webhook desabilitado ou ignorar um novo.
+- **`cfgCache` do guardrail sem TTL**, invalidado só localmente (guardrail.service.ts:118, :144-158, :172); nmin do ReplyRate vive 60 s (reply-rate.service.ts:31, :51-68); `GUARDRAIL_ENFORCE` só muda com restart.
+- **Guard-rail SOB DEMANDA**: evaluate só via `GET /api/guardrail/:sessionId` (guardrail.controller.ts:51-54), sem timer; `session_metrics` só é atualizado quando alguém chama compute, então a mediana da frota (snapshots ≤ 24 h, guardrail.service.ts:109, :223) tende a null e o baseline vira targetReplyRate.
+- **GET com efeito colateral**: com enforce=true, `GET /api/guardrail/:sessionId` APLICA a transição e emite eventos (guardrail.service.ts:288-294), bastando VIEWER (roles.guard.ts:20, :45). `GET /api/sessions/:id/health` e `GET /api/observability/reply-rate` também gravam em `session_metrics`.
+- **Modo observação ≠ sem bloqueio**: override manual (quarentena/pausa) bloqueia cold com 423 mesmo com enforce=false (guardrail.service.ts:403-418; apps/gateway/test/g5.e2e-spec.ts:57).
+- **throttled e aquecimento não bloqueiam nada**; `cap_atual` só informativo (session-config.service.ts:49-71), exibido só em sessions.controller.ts:178-208. Só BLOCKS_COLD bloqueia (guardrail.service.ts:39-43), e só em cold/firstContact.
+- **O 423 é lançado FORA do try do envio** para não virar 400 (messages.controller.ts:466-472); corpo `{code, state, message}` sem statusCode (base-exception-filter.js:19-28, via LoggingExceptionFilter em main.ts:54).
+- **C10**: apply compara o eventTs gravado com um `new Date()` do Node (guardrail.service.ts:248, :320, :327); a linha criada por getState não passa eventTs e a coluna tem DEFAULT CURRENT_TIMESTAMP em TIMESTAMP(3) sem timezone (migration.sql:13). Se o banco preencher, relógios diferentes e a conversão pela TimeZone da sessão (`<DIOGGO_ROOT>/agentes/docs/postgresql/18/postgresql-18-full.txt:12007-12010`; TimeZone de produção **não verificado**) podem fazer a primeira transição ser pulada (nota da P-022). Um teste com relógio controlado decide.
+- **emit sem aguardar e só em mudança de estado** (guardrail.service.ts:377-390): falha no findUnique só conta `guardrail_emit`; falha no enqueue do webhook NÃO chega em emitFailed — é engolida no catch do dispatcher (webhook-dispatcher.service.ts:81-83). `pausa_manual` não tem evento (guardrail.service.ts:47-53): pausar não gera webhook.
+- **recordHardSignal faz 2 escritas não atômicas** (apply + upsert de ultimoSinal, :446-453); `ultimos_sinais` guarda só 1 sinal (:489).
+- **Dedup de `session.status`** (session-manager.service.ts:211-214) filtra webhooks, SSE e timeline de uma vez: mudar o texto de `error` (P-049) muda a chave e volta a gerar eventos — risco de alerta repetido (P-020/D-015).
+- **Reconexão Baileys sem código no evento**: o ramo de close só loga "reconectando sessão" (baileys.engine.ts:744-775); a reconexão chama `connect()`, que emite STARTING (:614), e o `'open'` emite WORKING (:681) — cada reconexão aparece como STARTING→WORKING sem o código da queda. Só a 6ª falha seguida vira DEGRADED com texto (:745-750).
+- **HMAC-SHA512 cobre só o corpo**, sem timestamp nem id no header (webhook-queue.ts:167-178): sem proteção contra replay; o consumidor valida sobre os bytes crus.
+- **Entrega pelo menos uma vez**: retry e job stalled (lockDuration 30 s, maxStalledCount 1; esm worker.js:31) reenviam o MESMO `envelope.id`; o consumidor deduplica por `id`.
+- **~30 s até a DLQ** com os padrões (maxAttempts 5, webhooks/interface/dto.ts:10; backoffs.js:36-46; job.js:514-520); reentrega manual. UnrecoverableError (egress) vai direto para a DLQ (webhook-queue.ts:120-125; job.js:514-517).
+- **Gravação da DLQ no `'failed'` local sem aguardar** (webhook-queue.ts:126-130): Postgres falhando nesse momento → evento perdido (fica só no failed-set do BullMQ, limitado a 1000).
+- **Headers reservados** (content-type, content-length, host, transfer-encoding, connection e x-webhook-signature) não podem ser sobrescritos (webhook-queue.ts:45-52). Com `redirect: 'manual'`, 3xx conta como !res.ok e é retentado; se o undici devolve o 3xx cru **não verificado**.
+- **Filtro de evento por igualdade exata ou `'*'`** (webhook-dispatcher.service.ts:65) e o dto aceita qualquer string (webhooks/interface/dto.ts:6): nome digitado errado nunca casa e não dá erro. `stripRaw` só atua em `message` (webhook-dispatcher.service.ts:49-55); o SSE remove raw de qualquer evento (events.controller.ts:25-33).
+- **SSE aceita só JWT**, sem API key, sem checar papel nem revogação (sse-auth.guard.ts:22-26): qualquer usuário logado vê eventos de TODAS as sessões (`?session` é opcional). Sem heartbeat (router/sse-stream.js:80-91 só envia headers).
+- **`gateway_process_errors_total` é Gauge** (metrics.service.ts:57-62) alimentado por Map em memória (process-errors.ts:7) que zera a cada restart. No prom-client 15.1.3, Counter não tem `set` (só inc/reset/remove; node_modules/prom-client/lib/counter.js:39-55, :102, :131) e Gauge tem (lib/gauge.js:31).
+- **`/health` só dá 503 com DB E Redis fora** (health.service.ts:66-71): só o DB fora → 200 degraded e o HEALTHCHECK `curl -f` não reinicia. Responde 200 antes da reidratação (void, session-manager.service.ts:81-92). version é sempre `'0.1.0'` no container.
+- **Retenção**: sem lock entre réplicas; DELETE único sem lotes (retention.service.ts:33-46); `webhook_dead_letters`, `refresh_tokens`, `wa_conversation_triage`, campanhas e mídia S3 ficam de fora.
+- **Timeline só aceita id**, não nome (observability.controller.ts:22-29 → metrics.service.ts:91), ao contrário de reply-rate e guardrail.
+- **Fan-out publica o envelope inteiro no Redis**, inclusive o raw das mensagens fromMe (event-fanout.ts:48-49; raw só existe em fromMe, engine.port.ts:36-39). JSON inválido só gera warn (event-fanout.ts:69-71).
+- **Ordem dos hooks**: onModuleInit de todos antes de onApplicationBootstrap (`<DIOGGO_ROOT>/agentes/docs/nestjs/11/fundamentals/lifecycle-events.md:40-41`, :50; nest-application.js:106-108): fila e dispatcher já estão prontos quando o primeiro evento de sessão chega.
+- **Testes**: Worker, fan-out e retenção desligados em NODE_ENV=test; nenhum teste exercita entrega HTTP, HMAC, DLQ via `'failed'` ou eco entre réplicas — só o enqueue (webhooks.e2e-spec.ts:77-131) e o redeliver (g6.e2e-spec.ts:69-100).
+
+### 4.4 Plataforma, segurança, proxies e build (`bootstrap`, `iam`, `proxies`, `infra`, `shared-kernel`, Docker/CI)
+
+Mapas gerados: [gateway-raiz.md](reference/mapa-codigo/gateway-raiz.md) · [gateway-bootstrap.md](reference/mapa-codigo/gateway-bootstrap.md) · [gateway-iam.md](reference/mapa-codigo/gateway-iam.md) · [gateway-proxies.md](reference/mapa-codigo/gateway-proxies.md) · [gateway-infra.md](reference/mapa-codigo/gateway-infra.md) · [gateway-shared-kernel.md](reference/mapa-codigo/gateway-shared-kernel.md)
+
+**Resumo.** Camada transversal do gateway. O bootstrap Nest 11.2.3 + Fastify 5.11.3 (main.ts, app.module.ts e `bootstrap/`) monta o adapter com trustProxy, helmet, rate-limit global por IP (teto menor no login), CORS, pino estruturado com redação, filtro global que loga cada exceção e a ponte console→pino. O IAM cobre login com scrypt, JWT de acesso curto em cookie, refresh opaco rotacionado com detecção de reuso, API keys `cz_*` guardadas em SHA-512 (sempre valem ADMIN), RBAC por `@MinRole` ou pelo verbo HTTP, CSRF por Origin/Sec-Fetch-Site só para credencial de cookie, licença Ed25519 em cache de processo, branding público e auditoria de mutações por interceptor. Proxies: pool (manual/Webshare), teste contra o ipify, re-teste a cada 30 min, resolução por modo (NONE/SINGLE/RANGE/GLOBAL_ROUND_ROBIN) × estratégia (STICKY/ROUND_ROBIN/LEAST_LATENCY/RANDOM) a cada conexão, DEAD em uso real. Infra global e shared-kernel: Prisma 7 (adapter pg), ioredis + fan-out pub/sub, S3, diretório de contatos, egress anti-SSRF, crypto, EventBus em processo, memória por cgroup e contadores de erro. Build: `npm ci` (postinstall patch-package do wwebjs) → `prisma generate` → `nest build` → prune → imagem node:26-bookworm-slim com Chromium, tini+gosu e entrypoint que dá 50% do cgroup ao heap e roda `migrate deploy`. O CI (1 job) não constrói imagem nem confere `dist/main.js`. Achados conferidos no código instalado: rate-limit e auditoria decidem por `req.url` cru (contornável com %-encoding e forma absoluta); o contador do rate-limit é um só por IP (login e resto compartilham); o rate-limit roda DEPOIS dos middlewares Nest; o egress aceita IPv4-mapeado em hex (`[::ffff:7f00:1]`), reproduzido em Node 26.
+
+#### Arquivos-chave
+
+| Arquivo                                                                          | Papel                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/gateway/src/main.ts`                                                       | Bootstrap. Guarda de uncaught/unhandled (L24-40), NestFactory com bodyParser:false+bufferLogs (L42-48), pino (L51), LoggingExceptionFilter (L54), ponte console (L57), helmet sem CSP (L63), rate-limit por req.url (L68-75), prefixo `/api` exceto health/metrics (L78-83), CORS (L86-93), shutdown hooks (L96), listen 0.0.0.0 (L98-99), `bootstrap()` em L106 |
+| `apps/gateway/src/app.module.ts`                                                 | ConfigModule global com validateEnv (L27). LoggerModule/pino-http: nível (L34-40), redact (L44), serializers (L45), pino-pretty em dev (L46-49), autoLogging.ignore por req.url (L50-53), customLogLevel com GET 2xx silencioso (L54-58). Ordem dos módulos (L61-78)                                                                                             |
+| `apps/gateway/src/bootstrap/fastify-adapter.ts`                                  | FastifyAdapter com trustProxy:true (L13), multipart 100 MB/1 arquivo (L5, L17-19), cookie (L22), parser JSON tolerante a corpo vazio (L23-36). Reusado pelos e2e                                                                                                                                                                                                 |
+| `apps/gateway/src/bootstrap/config.ts`                                           | Schema zod 3 do env: envBool (L18-26), envStr (L30-31), catálogo (L33-147), superRefine DB/Redis (L149-166), validateEnv fail-fast (L170-179)                                                                                                                                                                                                                    |
+| `apps/gateway/src/bootstrap/log-redaction.ts`                                    | maskUrlSecrets (L29-54), redactHeaders/redactQuery (L56-76), serializers req/res tolerantes ao embrulho do pino-http (P-041, L99-135), aliases de Error (L141-152), LOG_REDACT_PATHS (L161-168)                                                                                                                                                                  |
+| `apps/gateway/src/bootstrap/logging-exception.filter.ts`                         | `@Catch()` global: describeException (L30-69) + uma linha de log por exceção (L100-126); resposta idêntica via super.catch (L91-98)                                                                                                                                                                                                                              |
+| `apps/gateway/src/bootstrap/console-bridge.ts`                                   | console.\* → pino: log/info/debug/trace viram debug, warn e error mantêm o nível, truncado em 4000 caracteres (L42-70)                                                                                                                                                                                                                                           |
+| `apps/gateway/src/modules/iam/iam.module.ts`                                     | JwtModule com JWT_SECRET e JWT_EXPIRES_IN (L39-47), AuditInterceptor como APP_INTERCEPTOR (L78), exporta JwtModule, guards, ApiKeyService e LicenseService (L81-88)                                                                                                                                                                                              |
+| `apps/gateway/src/modules/iam/interface/auth.controller.ts`                      | POST login (L47-67), refresh (L71-90), logout (L92-101), GET me (L103-112). Cookies `token` (Path=/) e `refresh_token` (Path=/api/auth, L33-34), secure só em production (L125-146)                                                                                                                                                                              |
+| `apps/gateway/src/modules/iam/application/auth-session.service.ts`               | login com dummy scrypt para usuário inexistente e re-hash (L57-83); refresh rotaciona: `'reused'` → `{error:'reused'}` (L99), demais não-ok → `{error:'invalid'}` (L100); logout (L116-121); issue (L123-149)                                                                                                                                                    |
+| `apps/gateway/src/modules/iam/infrastructure/prisma-refresh-token.repository.ts` | rotate em transação: unknown (L36) / reused revoga a família (L40-46) / expired (L47) / raced (L51-55) / ok (L57-68). revokeFamilyByToken (L72-81), revokeAllForUser (L83-89)                                                                                                                                                                                    |
+| `apps/gateway/src/modules/iam/interface/auth.guard.ts`                           | extractToken via Bearer ou cookie `token` (L33-38), CSRF só quando a credencial é cookie (L46-54, L72-74), JwtAuthGuard só verifica assinatura/expiração (L56-83)                                                                                                                                                                                                |
+| `apps/gateway/src/modules/iam/interface/api-key-auth.guard.ts`                   | X-Api-Key → ApiKeyService.validate (L37-47; key inválida = 401 sem cair para JWT); senão JWT Bearer/cookie com CSRF (L49-64)                                                                                                                                                                                                                                     |
+| `apps/gateway/src/modules/iam/interface/roles.guard.ts`                          | RBAC: `@MinRole` explícito (L30-33), ou VIEWER para leitura e OPERATOR para escrita (L42-45). API key = ADMIN fixo (L47-49)                                                                                                                                                                                                                                      |
+| `apps/gateway/src/modules/iam/interface/csrf.ts`                                 | csrfVerdict: métodos seguros passam; Origin na allowlist normalizada; `'null'` recusado; Sec-Fetch-Site same-origin/none; sem os dois passa (L44-61). assertCsrfSafe → 403 (L69-87)                                                                                                                                                                              |
+| `apps/gateway/src/modules/iam/interface/audit.interceptor.ts`                    | Audita POST/PUT/PATCH/DELETE em `/api/*` exceto caminhos com `/messages`, decidindo por req.url (L47-51). Gravação fire-and-forget com contador `audit_write` (L53-77)                                                                                                                                                                                           |
+| `apps/gateway/src/modules/iam/application/api-key.service.ts`                    | Gera `cz_`+24B base64url, guarda sha512 e prefixo de 11 caracteres (L25-31). validate + touch fire-and-forget a cada request (L42-47)                                                                                                                                                                                                                            |
+| `apps/gateway/src/modules/iam/domain/license.ts`                                 | Token `CZL1.<claims>.<sig>` verificado com Ed25519 e chave pública embutida (L38, L46-75). Fallback COMMUNITY (L25-35)                                                                                                                                                                                                                                           |
+| `apps/gateway/src/modules/iam/application/license.service.ts`                    | Cache em memória (L23). reload no boot, do banco ou de LICENSE_KEY (L40-53). install (L55-64); remove (L66-69); na comunidade limites MAX_SEATS/MAX_SESSIONS (L71-81)                                                                                                                                                                                            |
+| `apps/gateway/src/modules/iam/application/user.service.ts`                       | Limite de assentos (L50-67), protege o último OWNER (L69-79, L97-101), revoga refresh ao mudar papel, resetar senha ou remover (L83-85, L94, L102)                                                                                                                                                                                                               |
+| `apps/gateway/src/shared-kernel/crypto.ts`                                       | Custo scrypt lido do process.env (L39-44), hash versionado (L59-66), parseStored legado/novo (L75-109), verify em tempo constante (L111-121), rehash (L125-137), dummy (L142-146), hmacSha512/sha512 (L149-156)                                                                                                                                                  |
+| `apps/gateway/src/shared-kernel/safe-fetch.ts`                                   | Política de egress do env (L23-36), isPrivateAddress (L71-88), parseEgressUrl (L90-109), assertEgressAllowed com DNS (L119-158), safeFetch com redirect manual e teto de bytes (L186-253)                                                                                                                                                                        |
+| `apps/gateway/src/shared-kernel/memory.ts`                                       | memoryStats: heap vs heap_size_limit e working set do cgroup v2 (L22-36, L45-70)                                                                                                                                                                                                                                                                                 |
+| `apps/gateway/src/shared-kernel/event-bus/event-bus.ts`                          | EventEmitter síncrono com captureRejections (L12); publish emite o nome e `'*'` (L21-24)                                                                                                                                                                                                                                                                         |
+| `apps/gateway/src/infra/prisma/prisma.service.ts`                                | PrismaClient com adapter pg: pool tunado (L47-57), SSL aplicado só no caminho por partes (L22-33, L58-68); $connect/$disconnect (L72-79)                                                                                                                                                                                                                         |
+| `apps/gateway/src/infra/redis/redis-connection.ts`                               | Opções ioredis a partir de REDIS_URL (redis/rediss) ou das partes, TLS e maxRetriesPerRequest:null (L21-59). Usado também pelo BullMQ                                                                                                                                                                                                                            |
+| `apps/gateway/src/infra/redis/event-fanout.ts`                                   | Ponte `wa.event` → canal Redis `wa:events` → `wa.event.remote` nas outras réplicas (L35-72)                                                                                                                                                                                                                                                                      |
+| `apps/gateway/src/infra/storage/media-storage.service.ts`                        | S3: garante o bucket no boot (L58-72), probe de escrita com cache de 5 min (L80-101), getObject distingue 404 de indisponível (L118-140), URL pré-assinada (L144-150)                                                                                                                                                                                            |
+| `apps/gateway/src/modules/proxies/application/proxy-resolver.service.ts`         | resolve por modo × estratégia (L32-95), reportFailure marca DEAD (L101-120), resolveProxyConfig para wwebjs (L124-139), resolveAgent para Baileys com log de conexão sem proxy (L142-164)                                                                                                                                                                        |
+| `apps/gateway/src/modules/proxies/application/proxy.service.ts`                  | Timer de re-teste (L82-97), CRUD e bulk (L103-176), test/testAll com concorrência 8 (L178-196), exclusividade por proxy (L205-244), setAssignment (L246-266), syncWebshare (L273-322)                                                                                                                                                                            |
+| `apps/gateway/src/modules/proxies/infrastructure/proxy-health-tester.ts`         | GET em PROXY_TEST_ECHO_URL (ipify) pelo agent do proxy; só 2xx = ALIVE; 407 = PROXY_AUTH; timeout de socket 8 s (L23-78)                                                                                                                                                                                                                                         |
+| `apps/gateway/src/modules/proxies/infrastructure/prisma-proxy.repository.ts`     | findById sem filtro (L132-135), listInRange enabled (L137-143), listEnabledAlive (L145-151), updateTest (L153-166), setCurrent (L203-208), usedProxyIds (L210-223)                                                                                                                                                                                               |
+| `apps/gateway/src/modules/proxies/interface/proxies.controller.ts`               | REST `/api/proxies*` e `/api/sessions/:id/proxy`, com ApiKeyAuthGuard+RolesGuard e MinRole ADMIN (L53-178). As rotas `sessions/:id/proxy` NÃO usam SessionRefPipe (L145-177)                                                                                                                                                                                     |
+| `apps/gateway/Dockerfile`                                                        | Build: PUPPETEER_SKIP_DOWNLOAD (L11), DATABASE_URL dummy (L14), patches antes do npm ci (L28-29), generate+build (L33), prune (L40). Runtime: Chromium/tini/gosu via apt (L52-54), cópia do node_modules aninhado (L68), HEALTHCHECK curl /health (L79-80), ENTRYPOINT tini (L83)                                                                                |
+| `apps/gateway/docker-entrypoint.sh`                                              | root → chown do volume → gosu node (L11-19); heap = 50% do memory.max do cgroup v2, mínimo 256 MB (L25-36); `prisma migrate deploy` (L38-40); `exec node dist/main.js` (L43)                                                                                                                                                                                     |
+| `apps/dashboard/Dockerfile`                                                      | Build Vite com VITE_API_URL em build-time (L11-12), patch-package também roda aqui (L20-21), nginx:1.27-alpine (L27), healthcheck com wget (L33-34)                                                                                                                                                                                                              |
+| `.github/workflows/ci.yml`                                                       | Job único ubuntu-latest (L25); checkout v4.2.2 e setup-node v4.4.0 pinados por SHA (L28-30); npm ci, lint, format, depcruise, typecheck ×3, audit informativo, compose, migrations, testes com cobertura, builds (L35-85). Sem docker build e sem checagem de dist/main.js                                                                                       |
+| `package.json` (raiz)                                                            | postinstall `patch-package` sem `--error-on-fail` (L31), patch-package devDependency (L40), override typescript 5.9.3 (L44-46), allowScripts desatualizado (L47-54)                                                                                                                                                                                              |
+| `patches/whatsapp-web.js+1.34.7.patch`                                           | Patch do wwebjs (Injected/Utils.js e Puppeteer.js) em `node_modules/whatsapp-web.js` da raiz (L1-4, L122-125); o marcador `window.WWebJS.getMsgKeyId` é ADICIONADO pelo patch (linhas +10, +21, +35, +61, +104)                                                                                                                                                  |
+| `apps/gateway/prisma.config.ts`                                                  | URL do CLI (migrate/generate): DATABASE_URL ou partes; sslmode=require só se `DB_SSL==='true'` (L8-21)                                                                                                                                                                                                                                                           |
+| `apps/gateway/test/setup-app.ts`                                                 | createTestApp: sem helmet, sem rate-limit, sem CORS e sem excluir /metrics do prefixo (L82-100). inject via light-my-request (L116-124)                                                                                                                                                                                                                          |
+
+#### Pontos de entrada
+
+- **Processo**: `bootstrap()` (main.ts:16, chamado em :106); handlers `uncaughtException`/`unhandledRejection` só contam e logam (:24-40). **Container**: ENTRYPOINT tini → /docker-entrypoint.sh (apps/gateway/Dockerfile:83), que roda migrate deploy e `exec node dist/main.js` (docker-entrypoint.sh:38-43). **Healthcheck**: `curl -fsS http://127.0.0.1:3000/health` a cada 30 s, start-period 60 s, 3 retries (apps/gateway/Dockerfile:79-80) → HealthController.check (health.controller.ts:10-17).
+- **Auth**: `POST /api/auth/login` (auth.controller.ts:47), sem guard, teto 10/min via req.url (main.ts:72). `POST /api/auth/refresh` (:71) e `POST /api/auth/logout` (:92): só cookie e CSRF obrigatório (:77, :97). `GET /api/auth/me` com JwtAuthGuard (:103-104).
+- **IAM (só JWT)**: `/api/api-keys` POST/GET/DELETE :id (api-keys.controller.ts:26, :37, :50; MinRole ADMIN :20-22); `/api/users` GET/POST/PATCH :id/POST :id/password/DELETE :id (users.controller.ts:79, :92, :97, :102, :108; MinRole OWNER :73-75); `/api/license` GET/POST/DELETE (license.controller.ts:40, :45, :52; OWNER :34-36); `/api/branding` GET público (branding.controller.ts:29-32) e PUT só OWNER (:35-38); `/api/audit` GET ADMIN (audit.controller.ts:9-15).
+- **Proxies** (proxies.controller.ts, classe :53-55 com ApiKeyAuthGuard+RolesGuard e MinRole ADMIN): GET `/api/proxies` (:59), GET `/available` (:66), GET `/webshare/status` (:71), POST (:76), POST `/bulk` (:96), POST `/test-all` (:107), POST `/webshare/sync` (:112), POST `/:id/test` (:117), `/:id/enable` (:126), `/:id/disable` (:132), DELETE `/:id` (:138), GET `/api/sessions/:id/proxy` (:145), PUT `/api/sessions/:id/proxy` (:160).
+- **Middleware global pino-http** de nestjs-pino (app.module.ts:32-60; forRoutes padrão `'*'` em node_modules/nestjs-pino/LoggerModule.js:30), rodando sobre `req.raw` via middie do Nest (fastify-middie.js:205-218), registrado como hook onRequest GLOBAL (fastify-middie.js:180-186) no `FastifyAdapter.init` (node_modules/@nestjs/platform-fastify/adapters/fastify-adapter.js:131-135, chamado em nest-application.js:101).
+- **Rate-limit**: o hook `onRoute` do @fastify/rate-limit anexa um onRequest DE ROTA (defaultHook `'onRequest'`, @fastify/rate-limit/index.js:13, :116) a cada rota registrada depois do plugin (:172-186, :233-243). O plugin é registrado em main.ts:70, antes do init/registerRouter disparado por `app.listen` (:99). O Fastify concatena hooks globais ANTES dos de rota (fastify/lib/route.js:389-395), então o rate-limit roda depois do middie/pino-http.
+- **Filtro e interceptor globais**: LoggingExceptionFilter (main.ts:54) e AuditInterceptor via APP_INTERCEPTOR (iam.module.ts:78).
+- **Hooks de boot**: PrismaService.onModuleInit `$connect` (prisma.service.ts:72-75); LicenseService.onModuleInit → reload (license.service.ts:30-32); MediaStorage.onModuleInit head/create do bucket (media-storage.service.ts:58-72); EventFanout.onModuleInit (event-fanout.ts:35-55); AdminSeeder.onApplicationBootstrap (apps/gateway/src/modules/iam/infrastructure/admin-seeder.ts:26-41); ProxyService.onApplicationBootstrap agenda o re-teste (proxy.service.ts:82-97).
+- **Timer**: setInterval testAll a cada `PROXY_RETEST_INTERVAL_MIN` (padrão 30 min), com unref e desligado em NODE_ENV=test (proxy.service.ts:83-96).
+- **Shutdown**: `app.enableShutdownHooks` (main.ts:96) → PrismaService.onModuleDestroy (prisma.service.ts:77-79), RedisService.onModuleDestroy quit (redis.service.ts:26-28), EventFanout.onModuleDestroy (event-fanout.ts:74-80).
+- **Engines**: SessionManager.getOrCreateEngine injeta requireProxy, resolveAgent, resolveProxyConfig e reportProxyFailure (session-manager.service.ts:144-162).
+- **npm lifecycle**: postinstall `patch-package` na raiz (package.json:31) em todo `npm ci`: local, CI (ci.yml:36) e imagens (apps/gateway/Dockerfile:29, apps/dashboard/Dockerfile:21).
+- **CI**: on push main e pull_request (.github/workflows/ci.yml:11-14). Push em `feature/*` sem PR não roda CI.
+
+#### Fluxos internos
+
+**Boot do container em produção.** Ver §3.3 passos 1-3 e 15. Específicos: o Dokploy constrói apps/gateway/Dockerfile com contexto na raiz (:6); no estágio build, `npm ci` roda o postinstall patch-package (:28-29; package.json:31), depois `prisma generate` + `nest build` (apps/gateway/Dockerfile:33) e `npm prune --omit=dev` (:40). Runtime node:26-bookworm-slim instala curl, tini, chromium, fonts, openssl e gosu (:52-54) e copia o node_modules da raiz e o aninhado do gateway, dist, prisma e prisma.config.ts (:62-73). Sem `max-old-space-size` em NODE_OPTIONS, o entrypoint lê `/sys/fs/cgroup/memory.max` e exporta 50% (mínimo 256 MB) (docker-entrypoint.sh:25-36); em cgroup v1 não há ajuste. `migrate deploy` lê prisma.config.ts (DATABASE_URL ou partes, apps/gateway/prisma.config.ts:8-21); com `set -e`, falha de migration derruba o container (docker-entrypoint.sh:4). ConfigModule valida o env (app.module.ts:27 → config.ts:170-179) e erro derruba o boot. Loga "Runtime: Node <versão>" (main.ts:101); a versão do Chromium não é logada.
+
+**Pipeline de uma request HTTP (ordem real).**
+
+1. O find-my-way faz o match: remove o prefixo `http(s)://host` da forma absoluta (find-my-way/index.js:571-572) e decodifica %xx não reservados (find-my-way/lib/url-sanitizer.js:46-81). `req.url` continua cru, porque o getter devolve raw.url (fastify/lib/request.js:164-168).
+2. Hooks onRequest GLOBAIS (helmet main.ts:63, CORS main.ts:86 e o middie do Nest — fastify-adapter.js:131-135). O middie roda os middlewares Nest sobre `req.raw` (fastify-middie.js:205-218): o pino-http cria o child logger e avalia `autoLogging.ignore(req)` na hora (node_modules/pino-http/logger.js:181-185; app.module.ts:51-52), com req.url já sem o trecho casado (fastify-middie.js:101-106; restaurado em :73). Ordem relativa helmet×CORS×middie **não verificada**.
+3. Depois o onRequest DE ROTA do rate-limit (fastify/lib/route.js:389-395; @fastify/rate-limit/index.js:233-243). key = `normalizeIP(req.ip, ipv6Subnet)` (index.js:58, :249-251). Com trustProxy:true, `req.ip` = entrada mais à esquerda do X-Forwarded-For (fastify/lib/request.js:47-50, :110-114; fastify-adapter.ts:13). `allowList(req.url==='/health')` (main.ts:73). `max(req)` = 10 se req.url começa com `/api/auth/login`, senão RATE_LIMIT_MAX (main.ts:72; avaliado em index.js:275). `LocalStore.incr` por chave (store/LocalStore.js:11-44).
+4. Guards: ApiKeyAuthGuard ou JwtAuthGuard, depois RolesGuard — depois dos middlewares e antes de interceptors e pipes (`<DIOGGO_ROOT>/agentes/docs/nestjs/11/guards.md:30`; `faq/request-lifecycle.md:85-110`).
+5. AuditInterceptor.intercept (audit.interceptor.ts:33-45) → pipes → handler.
+6. Exceção → LoggingExceptionFilter.catch registra uma linha (4xx warn, 5xx error) e chama super.catch (logging-exception.filter.ts:91-126).
+7. Fim da resposta: pino-http loga "request completed" conforme customLogLevel — GET 2xx silent, mutação info, 4xx warn, 5xx error (app.module.ts:54-58); serializers redigem a cópia (log-redaction.ts:103-135).
+
+**Login do painel.**
+
+1. `POST /api/auth/login` → AuthController.signIn (auth.controller.ts:47). loginSchema: username 1..64, password 1..256 (:23-26); schema inválido também responde 401 (:53-55).
+2. AuthSessionService.login (auth-session.service.ts:57): findByUsername; inexistente → verifyPasswordDummy para igualar o tempo (:63-67; crypto.ts:142-146).
+3. verifyPassword com scrypt e timingSafeEqual (crypto.ts:111-121); se passwordNeedsRehash, re-hash best-effort (auth-session.service.ts:72-81; crypto.ts:125-137).
+4. issue(): newRefresh `'rt_'`+32B com sha512 (token.service.ts:28-31); grava `refresh_tokens` com família = newId() (auth-session.service.ts:82, :128-138); signAccess com expiresIn = JWT_ACCESS_TTL (token.service.ts:21-26).
+5. setAuthCookies: `token` httpOnly Path=/ maxAge=ACCESS_TTL e `refresh_token` httpOnly Path=/api/auth maxAge=REFRESH_TTL, sameSite lax, secure só em production (auth.controller.ts:125-141). Body `{token,user}` (:66).
+6. AuditInterceptor grava a tentativa (inclusive 401 lançado no handler, pelo catchError) com actor `login:<username>` (audit.interceptor.ts:40-43, :58-59).
+
+**Refresh e logout.**
+
+1. `POST /api/auth/refresh` → assertCsrfSafe (auth.controller.ts:77); sem cookie `refresh_token` → limpa cookies e 401 (:78-82).
+2. AuthSessionService.refresh (auth-session.service.ts:85-114) → PrismaRefreshTokenRepository.rotate em `$transaction` (prisma-refresh-token.repository.ts:31-70).
+3. rotate: hash desconhecido → `'unknown'` (:36); linha já revogada → revoga a família e `'reused'` (:40-46); expiresAt vencido → `'expired'` (:47); updateMany WHERE revokedAt null com count≠1 → `'raced'` (:51-55); senão cria o próximo token na mesma família e `'ok'` (:57-68).
+4. `'reused'` → `{error:'reused'}` (auth-session.service.ts:99); os demais não-ok → `{error:'invalid'}` (:100); o controller trata os dois igual: limpa cookies e 401 (auth.controller.ts:84-87). Vale também para `'raced'`.
+5. ok → recarrega o usuário (papel atual) e assina novo access (auth-session.service.ts:102-108); controller seta os cookies (auth.controller.ts:88).
+6. Logout: CSRF (:97) → revokeFamilyByToken (prisma-refresh-token.repository.ts:72-81) → clearAuthCookies (auth.controller.ts:143-146).
+7. O dashboard faz single-flight do refresh por aba (apps/dashboard/src/lib/api.ts:85-95). Entre abas não há coordenação: uma 2ª aba que apresente o refresh DEPOIS do commit da 1ª cai em `'reused'` e revoga a família (prisma-refresh-token.repository.ts:40-46), derrubando também a 1ª; `'raced'` só ocorre quando as duas leem antes de qualquer commit.
+
+**Autenticação e autorização das rotas de API.**
+
+1. ApiKeyAuthGuard.canActivate (api-key-auth.guard.ts:28): com `x-api-key`, ApiKeyService.validate → findByHash(sha512) e confere revokedAt (api-key.service.ts:42-47). Válida → `req.apiKey={id,name}` + touch fire-and-forget (:45; prisma-api-key.repository.ts:55-63). Inválida → 401 sem tentar JWT (api-key-auth.guard.ts:42-44).
+2. Sem API key: extractToken (Bearer ou cookie `token`, auth.guard.ts:33-38). De cookie → assertCookieAuthCsrfSafe (:46-54 → csrf.ts:69-87). `jwt.verifyAsync` só verifica assinatura e expiração, sem banco (api-key-auth.guard.ts:56-61).
+3. RolesGuard (roles.guard.ts:29-60): required = `@MinRole` do método ou da classe (getAllAndOverride :30-33), senão VIEWER para leitura e OPERATOR para escrita (:42-45). Papel de `req.apiKey` (sempre `'ADMIN'`, :47-49) ou `req.user.role`. Rotas IAM (api-keys, users, license, audit, PUT branding) usam JwtAuthGuard: API key nunca as alcança (api-keys.controller.ts:20; users.controller.ts:73-75; license.controller.ts:34; audit.controller.ts:9; branding.controller.ts:36).
+4. CSRF (csrf.ts:44-61): GET/HEAD/OPTIONS passam. Com Origin, ela precisa estar na allowlist normalizada de CORS_ORIGIN; `'null'` recusado. Sem Origin, Sec-Fetch-Site só aceita same-origin ou none. Sem os dois headers, passa (cliente não-browser).
+
+**Auditoria de mutações.** AuditInterceptor.intercept (audit.interceptor.ts:33): `shouldAudit` exige método em MUTATIONS e `req.url` (sem query) começando com `'/api/'` e sem `'/messages'` (:47-51). Sucesso grava `res.statusCode` (:39); erro dentro de `next.handle()` grava `err.status` ou 500 e relança (:40-43). Actor: `'username (role)'`, `'key:<nome>'`, `'login:<username>'` ou `'anônimo'` (:54-60); `audit.log` → PrismaAuditRepository.create (apps/gateway/src/modules/iam/infrastructure/prisma-audit.repository.ts:14-25), sem await (audit.interceptor.ts:61). Falha → `recordProcessError('audit_write')` + warn (:69-76), exposto em /metrics (process-errors.ts:13-15; metrics.service.ts:112). 401/403 de guard nunca chegam aqui (guards antes dos interceptors); mutação em `/%61pi/...` ou em forma absoluta não começa com `'/api/'` em req.url e escapa da trilha. Retenção: `wa_audit_logs` acima de RETENTION_AUDIT_DAYS=180 (retention.service.ts:40-42).
+
+**Licença Ed25519.** LicenseService.onModuleInit → reload (license.service.ts:30-32, :40-53): token do banco (singleton, prisma-license.repository.ts:11-14) ou LICENSE_KEY. `verifyLicense` (license.ts:46-75): prefixo CZL1 e 3 partes; `verify(null, payloadB64, publicKey, sig)` Ed25519 (:57-62); claims via JSON.parse sem schema (:65-67); exp em ms, só checado se ≠ null (:68-70 — exp ausente nunca expira); falha → community(reason) (:40-42, :72-74). Comunidade: maxSeats/maxSessions de MAX_SEATS/MAX_SESSIONS, padrão 1 (license.service.ts:71-81; config.ts:88-89). `effective()` devolve o cache (license.service.ts:35-37), consumido por UserService.create/seats (user.service.ts:43-56) e SessionsController.create (sessions.controller.ts:113-118). `POST /api/license` → install: valida, grava e atualiza o cache só neste processo (license.service.ts:55-64); expiração só reavaliada em reload ou install.
+
+**Resolução de proxy na conexão (Baileys).** Ver §3.3 passo 11. Específicos: ProxyResolver.resolve (proxy-resolver.service.ts:32): GLOBAL_ROUND_ROBIN → listEnabledAlive (enabled e ≠DEAD) com cursor `proxy:rr:global`; RANGE sem faixa → null (:49-51); com faixa → listInRange(enabled) com cursor `proxy:rr:range:<a>-<b>` (:44-54); filtra DEAD (:57); sem candidatos → warn e null (:58-63). Estratégia (:66-91): STICKY = FNV-1a(sessionId) % n; ROUND_ROBIN = INCR do cursor; LEAST_LATENCY = menor latencyMs; RANDOM = INCR de `'<cursor>:rnd'`, determinístico. `setCurrent` (:93), mas nos modos rotativos o valor nunca é relido. null → loga o motivo e "conectando SEM proxy" (:144-158); senão buildProxyAgent: SocksProxyAgent ou HttpsProxyAgent com user:pass URL-encoded (proxy-agent.factory.ts:6-20). Sem agent e requireProxy (session-manager.service.ts:145; config.ts:110) → FAILED (baileys.engine.ts:554-564); senão makeWASocket com agent e fetchAgent (:566, :595-596). O wwebjs usa resolveProxyConfig com server sem credencial e auth separada (proxy-resolver.service.ts:124-139) e tem guard equivalente em wwebjs.engine.ts:631-642 (resolve em :604).
+
+**Marcação DEAD, teste e re-teste.** No close Baileys, mensagem casando `/407|ERR_TUNNEL|tunneling socket|proxy|connect ECONNREFUSED|connect ETIMEDOUT|getaddrinfo ENOTFOUND|EHOSTUNREACH/i` (baileys.engine.ts:727-742) → `reportProxyFailure` → `ProxyResolver.reportFailure` (proxy-resolver.service.ts:101-120): pega o currentProxyId e `updateTest DEAD`, global para todas as sessões do proxy; retorna `{mode, marked}`. A reconexão agenda backoff (baileys.engine.ts:431, :744-755); `'open'` zera o contador (:679); o próximo connect re-resolve — modos rotativos pulam o DEAD; SINGLE continua usando o proxy. ProxyService.test (proxy.service.ts:178-191) → ProxyHealthTester.test (GET no ipify pelo agent, timeout 8 s; só 2xx = ALIVE com exitIp e latência, proxy-health-tester.ts:23-78) → updateTest. `testAll` com mapLimit 8 (proxy.service.ts:193-196) a cada 30 min (:82-97) revive DEAD que respondem ao ipify; cada réplica/container vivo roda o próprio timer.
+
+**Atribuição de proxy.**
+
+1. Criação com proxyId: SessionsController.create → ProxyService.ensureAvailable (existe, enabled, ≠DEAD, fora de usedProxyIds) (sessions.controller.ts:119-126; proxy.service.ts:218-228).
+2. repo.create → assignExclusive, que revalida e faz setAssignment SINGLE/STICKY; falha → apaga a sessão criada (sessions.controller.ts:128-145; proxy.service.ts:232-244).
+3. `PUT /api/sessions/:id/proxy` → setAssignmentSchema (proxies/interface/dto.ts:25-49) → ProxyService.setAssignment: upsert; SINGLE grava currentProxyId=proxyId, NONE grava null, RANGE/GLOBAL não mexe no anterior (proxy.service.ts:246-266). Não valida existência, enabled ou exclusividade (proxies.controller.ts:160-177). `:id` vai cru, sem SessionRefPipe: usar o NOME cria um assignment que o resolver nunca lê.
+4. usedProxyIds considera só assignments com currentProxyId, modo ≠ NONE e sessão existente (prisma-proxy.repository.ts:210-223); exclusividade só para SINGLE (D-008, proxy.service.ts:202-204).
+5. A mudança só vale no próximo connect (baileys.engine.ts:548).
+
+**Sync Webshare.** `POST /api/proxies/webshare/sync` → ProxyService.syncWebshare (proxy.service.ts:273-322) → WebshareClient.fetchAll pagina `GET https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page_size=100` com `Authorization: Token` e timeout 15 s, seguindo `data.next` (apps/gateway/src/modules/proxies/infrastructure/webshare.client.ts:34-58); por remoto: findByWebshareId existente → updateConnection; senão create HTTP, source WEBSHARE, nova posição (proxy.service.ts:288-316).
+
+**Egress (webhook, mediaUrl, media-url).** `egressPolicyFromEnv` lê EGRESS_ALLOW_PRIVATE/HOSTS direto do process.env (safe-fetch.ts:23-36). `parseEgressUrl`: só http/https, sem credenciais e com host (:90-109). `assertEgressAllowed` (:119-158): allowlist ou allowPrivate liberam; localhost, `*.localhost` e `*.local` bloqueados; IP literal → isPrivateAddress; hostname → lookup(all), bloqueia se qualquer endereço for privado. `safeFetch` (:186-253): redirect manual com revalidação a cada salto (máx. 3), content-length acima do teto recusado, corpo em stream com corte no teto, timeout 20 s. Chamadores: WebhooksController.create (webhooks.controller.ts:71-82, dnsFailure `'allow'`) e WebhookQueue.deliver (webhook-queue.ts:154-166) com parse+assert; fetchMedia de campanha (campaign-queue.ts:41-59) e MessagesController.sendMediaUrl (messages.controller.ts:608-612) com safeFetch.
+
+**Cadeia de CI.** Dispara em push main e pull_request (.github/workflows/ci.yml:11-14), job único ubuntu-latest, timeout 20 min (:24-26); checkout v4.2.2 e setup-node v4.4.0 com Node 26 e cache npm, pinados por SHA (:28-33); `npm ci` (:36) — no GitHub Actions o ci-info detecta CI e o patch-package sai com código 1 se o patch falhar (node_modules/patch-package/dist/index.js:91-94); `.env` de teste de env.example (:39), prisma generate (:44), lint (:47), prettier --check (:50), depcruise (:53), `tsc --noEmit` em gateway, dashboard e contracts (:56-62), `npm audit` informativo com `|| true` (:65); `docker compose up --wait` (:68), bucket via mc (:71-73), migrate deploy (:76), vitest com cobertura unit+e2e (:79); gateway:build e dashboard:build (:82-85). Sem `test -f dist/main.js`, docker build de imagem, SBOM nem push.
+
+#### Relações
+
+- **sessions → proxies** via deps da engine (session-manager.service.ts:158-162) + `WA_REQUIRE_PROXY` (:145); consumo em baileys.engine.ts:548-564, :727-742 e wwebjs.engine.ts:604-642, :1001-1052.
+- **sessions → iam/proxies** no `POST /api/sessions`: LicenseService.effective (limite) e ProxyService.ensureAvailable/assignExclusive (sessions.controller.ts:113-145).
+- **Todos os controllers de API** usam ApiKeyAuthGuard e RolesGuard exportados pelo IamModule (iam.module.ts:81-88); todos os módulos de API importam IamModule (ex.: sessions.module.ts:14, webhooks.module.ts:10).
+- **events** usa JwtService via SseAuthGuard, com cookie `token` ou `?token=` e sem CSRF por ser GET (sse-auth.guard.ts:16-31); depende do nome do cookie `'token'` (auth.controller.ts:28-30).
+- **observability apaga tabelas de outros módulos**: `wa_audit_logs` do iam e `wa_messages`/`wa_send_intents` (retention.service.ts:30-48). MetricsService lê processErrorTotals e memoryStats (metrics.service.ts:5-6, :74, :112). `/metrics` compara METRICS_TOKEN com `!==` (metrics.controller.ts:28-36).
+- **health** usa PrismaService.$queryRaw, RedisService.ping, MediaStorage.probeWrite e memoryStats (health.service.ts:53-95).
+- **webhooks, campaigns e messaging usam o egress do shared-kernel** (WebhooksController.create e WebhookQueue.deliver com parse+assert; fetchMedia em campaign-queue.ts:41 e sendMediaUrl em messages.controller.ts:573 com safeFetch), teto MEDIA_MAX_BYTES (messages.controller.ts:610; campaign-queue.ts:212).
+- **Filas BullMQ** (webhooks, campanhas) usam `redisConnection` (campaign-queue.ts:81-85; webhook-queue.ts:77-80; redis-connection.ts:21-59).
+- **Upload de mídia** depende do multipart registrado no adapter (fastify-adapter.ts:17-19) em MessagesController.sendMedia com `req.file()` (messages.controller.ts:514).
+- **Engine Baileys loga com pino próprio** (nível WA_LOG_LEVEL), fora do nestjs-pino e dos serializers de redação (session-manager.service.ts:147-149).
+- **EventBus** usado por SessionManager, MessagePersister, WebhookDispatcher, SessionEventLogger, GuardrailService e EventsController; EventFanout faz a ponte com o Redis (event-fanout.ts:47-68).
+- **ContactDirectory** (infra/directory, módulo global) usado pelo SessionManager (deps.contacts, session-manager.service.ts:165-184) e escreve `wa_contacts` (contact-directory.service.ts:34-150).
+- **Dashboard** consome `/api/auth/*` e `/api/branding`; refresh com single-flight por aba (apps/dashboard/src/lib/api.ts:77-95).
+- **test/setup-app.ts** reusa buildFastifyAdapter e LoggingExceptionFilter mas não replica rate-limit, helmet, CORS nem a exclusão de `/metrics` (setup-app.ts:82-100).
+- **dependency-cruiser**: sem ciclos (.dependency-cruiser.cjs:13-20); módulo não importa domain/infrastructure alheios (:21-33); shared-kernel não importa modules (:34-41); infra não importa modules (:42-51); `bootstrap/` não tem regra própria.
+
+#### Dados e config
+
+- **Tabelas IAM**: `users` (PrismaUserRepository; AdminSeeder cria quando count=0, admin-seeder.ts:26-38). `refresh_tokens` (schema.prisma:40-58): tokenHash único sha512 (:43), sessionId = família (:44), índices userId/sessionId/expiresAt (:54-56), cascade com o user (:52); sem purge (P-005). `wa_api_keys`: hash único, prefix, scopes string[] (sempre [] via API — api-keys.controller.ts:34 não passa scopes; nunca aplicado), lastUsedAt atualizado a cada request, revokedAt (prisma-api-key.repository.ts:24-63). `wa_licenses` (singleton, schema.prisma:60-62) e `wa_branding` (singleton): prisma-license.repository.ts:11-27, prisma-branding.repository.ts. `wa_audit_logs`: actor, method, path (req.url sem query), statusCode, ip (prisma-audit.repository.ts:14-25); retenção 180 dias (retention.service.ts:40-42).
+- **Tabelas de proxy**: `proxies` (schema.prisma:445-467): position único, password em texto puro (:453), status UNTESTED/ALIVE/DEAD, enabled, webshareId único, índice (enabled,status). `session_proxy_assignments` (:470-481): PK sessionId, mode padrão NONE, strategy padrão STICKY, currentProxyId SEM FK para proxies nem wa_sessions (:476).
+- **Segredos persistidos em claro**: `wa_sessions.creds` (schema.prisma:141), `wa_auth_keys.data` (:488), `webhooks.secret` (:401), `proxies.password` (:453).
+- **Redis**: canal `'wa:events'` (event-fanout.ts:13); cursores `proxy:rr:global`, `proxy:rr:range:<a>-<b>` e sufixo `':rnd'`, sem TTL (proxy-resolver.service.ts:46, :53, :71, :87).
+- **Env de processo**: `NODE_ENV` (enum, padrão development, config.ts:34-36; a imagem define production, apps/gateway/Dockerfile:44) controla nível de log (app.module.ts:36-40), pino-pretty (:47), cookie secure (auth.controller.ts:126) e desliga timers/fanout em test (proxy.service.ts:83; event-fanout.ts:36). `PORT` 3000 (config.ts:37; main.ts:98).
+- **Postgres**: `DATABASE_URL` ou `DB_HOST/DB_USER/DB_NAME` (+ `DB_PORT` 5432, `DB_PASSWORD`) (config.ts:40-45, :149-158). `DB_SSL` false, `DB_SSL_CA` e `DB_SSL_REJECT_UNAUTHORIZED` false (:46-51) só valem no caminho por partes (prisma.service.ts:58-68). `DB_POOL_MAX` 10, `DB_POOL_CONNECT_TIMEOUT_MS` 5000, `DB_POOL_IDLE_TIMEOUT_MS` 300000 (config.ts:58-60; prisma.service.ts:48-57).
+- **Redis**: `REDIS_URL` ou `REDIS_HOST`; `REDIS_PORT` 6379, `REDIS_USERNAME` `'default'` (só enviado com senha), `REDIS_PASSWORD`, `REDIS_DB` 0, `REDIS_TLS` false (config.ts:63-70; redis-connection.ts:21-59).
+- **JWT**: `JWT_SECRET` min 16 (config.ts:72; iam.module.ts:42); `JWT_ACCESS_TTL` 900 s (config.ts:81; token.service.ts:24; cookie auth.controller.ts:132); `JWT_REFRESH_TTL` 2592000 s (config.ts:84; auth-session.service.ts:90, :129; cookie auth.controller.ts:139); `JWT_EXPIRES_IN` 43200 (config.ts:79), deprecated, ainda em signOptions (iam.module.ts:43-45) mas sobrescrito em todo sign (token.service.ts:22-25).
+- **Senha/seed/licença**: `PASSWORD_SCRYPT_LOG2N` 14 (12..20) validado pelo zod (config.ts:75) mas lido direto do process.env (crypto.ts:39-44). `API_KEY` opcional (config.ts:85): legado, nunca lido em runtime. `DASHBOARD_USERNAME` `'admin'` e `DASHBOARD_PASSWORD` min 6 (config.ts:86-87): só no seed do primeiro usuário (admin-seeder.ts:29-38). `MAX_SEATS` 1 e `MAX_SESSIONS` 1 na comunidade (config.ts:88-89; license.service.ts:73-78); `LICENSE_KEY` (config.ts:90; license.service.ts:41-44).
+- **Borda**: `CORS_ORIGIN` padrão `http://localhost:5173` (config.ts:101), usado pelo CORS com split(',') sem trim (main.ts:87) e pela allowlist CSRF normalizada (csrf.ts:23-32; auth.guard.ts:52; auth.controller.ts:122). `RATE_LIMIT_MAX` 600, 0 desliga (lido direto em main.ts:68-69, fora do zod); login fixo 10/min (main.ts:72). `LOG_LEVEL` fora do zod; padrão info em production, debug em dev, silent em test (app.module.ts:34-40).
+- **Engines/proxy**: `WA_LOG_LEVEL` `'error'` (config.ts:102-104; session-manager.service.ts:147-149). `WA_REQUIRE_PROXY` false (config.ts:107-110) → requireProxy (session-manager.service.ts:145); no Dokploy novo a env não existe, então vale o padrão (docs/PENDENCIAS.md:13-15, nota 07/09 do B-001; o cabeçalho :11 "JÁ ESTÁ LIGADO" vale para o Dokploy antigo). `PROXY_TEST_ECHO_URL` `https://api.ipify.org?format=json` (config.ts:106; proxy-health-tester.ts:24). `PROXY_RETEST_INTERVAL_MIN` 30, 0 desliga, fora do zod (proxy.service.ts:84). `WEBSHARE_API_KEY` (config.ts:105; webshare.client.ts:29-38).
+- **Egress**: `EGRESS_ALLOW_PRIVATE` false e `EGRESS_ALLOW_HOSTS`, validados no zod (config.ts:145-146) mas lidos direto por safe-fetch.ts:23-35.
+- **S3**: `S3_ENDPOINT` localhost:9000, `S3_REGION` us-east-1, `S3_BUCKET` wa-media, `S3_ACCESS_KEY` `'minio'`, `S3_SECRET_KEY` `'minio12345'`, `S3_FORCE_PATH_STYLE` true (config.ts:126-131) — sem as envs em produção, cai silenciosamente nas credenciais de dev. `MEDIA_URL_TTL` 3600 (config.ts:132; media-storage.service.ts:45, :148). `MEDIA_MAX_BYTES` 64 MB (config.ts:133) vale para mediaUrl e campanhas, não para o multipart (100 MB fixo, fastify-adapter.ts:5; `buildFastifyAdapter()` sem argumento em main.ts:44).
+- **Outras fora do zod**: `WEBHOOK_CONCURRENCY` 8 (config.ts:139); `EVENT_FANOUT` `'on'` (event-fanout.ts:37); `METRICS_TOKEN` (metrics.controller.ts:28); `RETENTION_*` (retention.service.ts:20, :32-59).
+- **Imagem**: `WWEBJS_CHROME_PATH=/usr/bin/chromium` e `WWEBJS_DATA_PATH=/data/wwebjs` (apps/gateway/Dockerfile:55-56; o entrypoint usa WWEBJS_DATA_PATH no chown, docker-entrypoint.sh:12). `NODE_OPTIONS` sem max-old-space-size → entrypoint acrescenta 50% do cgroup (:25-36). `PUPPETEER_SKIP_DOWNLOAD=true` no build e no runtime (apps/gateway/Dockerfile:11, :45; apps/dashboard/Dockerfile:14; ci.yml:21). `DATABASE_URL` dummy só no estágio build (apps/gateway/Dockerfile:14).
+- **Versões instaladas (node_modules, 25/09)**: fastify 5.11.3, find-my-way 9.7.0, @nestjs/core/common/platform-fastify 11.2.3, @fastify/rate-limit 11.2.0, @fastify/multipart 10.1.1, @fastify/cors 11.3.0, nestjs-pino 4.6.1, pino-http 11.0.0, bullmq 5.81.4, ioredis 5.11.1, Baileys 7.0.0-rc14, whatsapp-web.js 1.34.7, patch-package 8.0.1, prisma 7.10.0, zod 3.25.76 no gateway (apps/gateway/node_modules/zod) e 4.4.3 na raiz, typescript 5.9.3, protobufjs 7.6.5, light-my-request 6.6.0, path-to-regexp 8.4.2. Node 26.0.0 embute undici 8.0.2 (`process.versions.undici`); undici não está em node_modules.
+
+#### Invariantes e armadilhas
+
+- **`req.url` ≠ rota casada**: o getter devolve raw.url (fastify/lib/request.js:164-168), mas o router remove a forma absoluta (find-my-way/index.js:571-572) e decodifica %xx não reservados (find-my-way/lib/url-sanitizer.js:46-81). Decisão de segurança por req.url é contornável: main.ts:72-73, audit.interceptor.ts:49-50, app.module.ts:51-52. A rota casada está em `req.routeOptions.url` (fastify/lib/request.js:183-205), undefined em 404 (node_modules/fastify/types/request.d.ts:23-26; getter is404 em request.js:207-210).
+- **Contador do rate-limit é um só por IP**: chave `normalizeIP(req.ip)` (@fastify/rate-limit/index.js:58, :249-251), LocalStore por chave (store/LocalStore.js:11-44), todas as rotas sem config própria usam o mesmo pluginComponent/store (index.js:183-186); o `max(req)` de main.ts:72 só muda o limiar. Login dá 429 se o IP já fez mais de 10 requests de qualquer rota na janela, e cada login consome do teto de 600. Store próprio só com `config.rateLimit` por rota (index.js:173-179 → store.child, LocalStore.js:79-81).
+- **Rate-limit é onRequest DE ROTA e roda depois dos hooks globais** (fastify/lib/route.js:389-395): middie (pino-http), helmet e CORS já rodaram quando o 429 é decidido.
+- **`trustProxy:true` confia em todo mundo** (fastify-adapter.ts:13): `req.ip` = entrada mais à esquerda do X-Forwarded-For (fastify/lib/request.js:47-50, :110-114). A chave do rate-limit só é confiável se o Traefik sanear o XFF — **não verificado** (análise §7).
+- **Guards antes dos interceptors** (`<DIOGGO_ROOT>/agentes/docs/nestjs/11/guards.md:30`): o AuditInterceptor nunca registra 401/403 de guard, só erros de pipes/handler, como o 401 do login (audit.interceptor.ts:40-43).
+- **Refresh**: `'raced'` vira `'invalid'` (auth-session.service.ts:100) e o controller limpa cookies (auth.controller.ts:84-87), contra o comentário "NÃO é reuso… o outro request já entregou o par" (prisma-refresh-token.repository.ts:49-50; refresh-token.repository.ts:29-30). Pior: 2ª aba depois do commit da 1ª → `'reused'` e família revogada (prisma-refresh-token.repository.ts:40-46). Single-flight do painel é só por aba (apps/dashboard/src/lib/api.ts:85-95).
+- **Access JWT não é revogável**: JwtAuthGuard só verifica assinatura (auth.guard.ts:76-81); rebaixamento, remoção ou reset só valem depois de até JWT_ACCESS_TTL (user.service.ts:81-85).
+- **Detecção de reuso depende das linhas revogadas** (prisma-refresh-token.repository.ts:40-46): o purge da P-005 só pode apagar `expiresAt < now − margem`; apagar revogadas ainda válidas transforma `'reused'` em `'unknown'`.
+- **API key sempre = ADMIN**, scopes ignorado (roles.guard.ts:47-49; api-key.service.ts:25-31; api-keys.controller.ts:34); cada request com X-Api-Key faz um UPDATE de lastUsedAt (api-key.service.ts:45; prisma-api-key.repository.ts:55-63).
+- **Revogar key, enable/disable/remove de proxy com id inexistente** chama prisma update/delete sem tratamento (prisma-api-key.repository.ts:48-53; prisma-proxy.repository.ts:168-174): resultado provável 500 (describeException cai no ramo não-HTTP, logging-exception.filter.ts:64-68); **não verificado** em runtime.
+- **Licença avaliada só no boot e no install** (license.service.ts:23, :35-53, :55-64): expira rodando e continua valendo até o restart; com duas réplicas vivas (start-first), o install só atualiza uma. Claims sem schema (license.ts:65-67); exp ausente nunca expira (:68).
+- **DASHBOARD_PASSWORD aceita 6 caracteres** (config.ts:87), mas a política para senha nova é 8..128 (users.controller.ts:22-28); o seed só roda com `users` vazia (admin-seeder.ts:27).
+- **CORS compara origem exata** (node_modules/@fastify/cors/index.js:297-298) com split(',') sem trim (main.ts:87), enquanto o CSRF normaliza (csrf.ts:23-32): `'https://a.com, https://b.com'` passa no CSRF e falha no CORS. allowedHeaders não inclui X-Api-Key (main.ts:92).
+- **Egress aceita IPv4-mapeado em hex**: o parser WHATWG serializa `[::ffff:127.0.0.1]` como `[::ffff:7f00:1]` e o regex de isPrivateAddress só reconhece a forma pontuada (safe-fetch.ts:77). Reproduzido em Node 26.0.0 em 25/09 com cópia do safe-fetch.ts: `http://[::ffff:127.0.0.1]/`, `[::ffff:169.254.169.254]` e `[::7f00:1]` → ALLOWED; `http://127.0.0.1/` → BLOCKED. O spec só cobre a forma pontuada (safe-fetch.spec.ts:37-51). Exploração dentro do container (IPv6 desabilitado) **não verificada**. `net.BlockList` do Node 26 reconhece `::ffff:7f00:1` em 127/8 (testado), mas não `::7f00:1`.
+- **Egress: DNS rebinding não coberto** (documentado em safe-fetch.ts:14-16); redirect reenvia o mesmo método, corpo e headers para o novo host (:198-221).
+- **Com DATABASE_URL o PrismaService ignora DB_SSL/DB_SSL_CA** (prisma.service.ts:58-59); o migrate (prisma.config.ts:19) só liga sslmode=require com `DB_SSL === 'true'` literal, sem CA, enquanto o envBool aceita 1/yes/on (config.ts:16-26).
+- **patch-package só falha** com `--error-on-fail`, NODE_ENV=production+CI, CI detectado ou NODE_ENV=test (node_modules/patch-package/dist/index.js:91-94; README.md:204-215). O Dockerfile não define CI nem NODE_ENV no estágio build (apps/gateway/Dockerfile:9-40): no Dokploy patch que não aplica passa em silêncio; no GitHub Actions falha. O patch mira `node_modules/whatsapp-web.js` da raiz (patch:1-4, :122-125); se o hoisting mudar, o alvo some.
+- **Não há checagem de `dist/main.js`** no Dockerfile (:33) nem no CI (ci.yml:81-82): build vazio só estoura em `exec node dist/main.js` (docker-entrypoint.sh:43). Com start-first o Swarm segura o antigo; com stop-first (B-004) vira indisponibilidade.
+- **`migrate deploy` em todo start** (docker-entrypoint.sh:38-40); execuções concorrentes serializam por advisory lock (`<DIOGGO_ROOT>/agentes/docs/prisma/7/orm/more/best-practices.mdx:433`). Com containers sobrepostos o código antigo roda sobre o schema novo: migrations aditivas (CLAUDE.md:37).
+- **Heap de 50% só em cgroup v2** (docker-entrypoint.sh:26-35). O Node 26 tem `--max-old-space-size-percentage` sobre "available system memory" (`<DIOGGO_ROOT>/agentes/docs/node/26/cli.md:1894-1911`); se considera o limite do cgroup **não verificado**.
+- **Imagens e pacotes sem pin**: node:26-bookworm-slim (apps/gateway/Dockerfile:9, :43; apps/dashboard/Dockerfile:9), chromium do apt (apps/gateway/Dockerfile:52-54), nginx:1.27-alpine (apps/dashboard/Dockerfile:27). Rebuild pode trocar Node e Chromium sem registro; só a versão do Node é logada (main.ts:101).
+- **`/health` só 503 com Postgres E Redis fora** (health.service.ts:66-71; health.controller.ts:15); storage não entra no status. version = `npm_package_version ?? '0.1.0'` (health.service.ts:84); com `exec node` não há npm_package_version, e o fallback coincide com a versão do package (apps/gateway/package.json:3).
+- **O e2e não replica o main.ts** (sem rate-limit, helmet, CORS nem exclusão de /metrics, test/setup-app.ts:82-100). O inject do light-my-request reduz a URL a pathname+search (node_modules/light-my-request/lib/request.js:98-100): `%6C` sobrevive, mas a forma absoluta só é reproduzível com `app.listen(0)` + socket TCP cru.
+- **`autoLogging.ignore`** é avaliado dentro do middleware (pino-http/logger.js:181-185), quando o middie já removeu o trecho casado de req.url (fastify-middie.js:101-106; restaura em :73). Com path-to-regexp 8.4.2, `'/{*path}'` e `'*path'` reduzem `/health`, `/metrics` e `/api/x` a `'/'`. Qual path o Nest registra para o forRoutes('\*') e se o ignore funciona **não verificado**; efeito é ruído de log (GET 2xx já é silent, app.module.ts:54-58).
+- **EventBus.publish é emit síncrono** (event-bus.ts:21-24): handler síncrono que lança derruba quem publicou; captureRejections só cobre handler async (:12).
+- **SINGLE usa currentProxyId mesmo DEAD ou desabilitado** (proxy-resolver.service.ts:38-40; findById sem filtro em prisma-proxy.repository.ts:132-135), ao contrário do motivo logado (proxy-resolver.service.ts:152-153); o guard WA_REQUIRE_PROXY só dispara com agent null (baileys.engine.ts:554).
+- **`currentProxyId` sem FK** (schema.prisma:476): apagar um proxy deixa referência pendurada; SINGLE então resolve null e conecta direto, a menos que WA_REQUIRE_PROXY esteja ligado (proxy-resolver.service.ts:39, :143-158).
+- **Modos rotativos trocam de proxy a cada connect**: ROUND_ROBIN e RANDOM são INCR de cursor (proxy-resolver.service.ts:70-73, :82-90); STICKY = hash % n muda quando o pool muda (:67-68); currentProxyId gravado (:93) nunca relido (WA-16/P-058).
+- **reportFailure marca DEAD global** (proxy-resolver.service.ts:111-115) a partir de regex larga que inclui `'proxy'`, `'connect ETIMEDOUT'` e `'EHOSTUNREACH'` (baileys.engine.ts:731): proxy compartilhado morre para todas as sessões e o re-teste o revive porque o ipify responde (proxy.service.ts:82-97; proxy-health-tester.ts:24-58).
+- **ensureAvailable + setAssignment não é atômico** e não há unique em currentProxyId, apesar do comentário "fecha a corrida" (proxy.service.ts:230-244). `PUT /sessions/:id/proxy` não valida o proxy (proxies.controller.ts:160-177), não passa por SessionRefPipe e aceita sessionId inexistente (tabela sem FK).
+- **Auth store** faz `keys.set` com Promise.all de upserts soltos, sem transação (postgres-auth-state.ts:46-69), disputando o pool de 10 conexões (config.ts:58); `saveCreds` usa update (não updateMany) e lança P2025 se a sessão sumiu (postgres-auth-state.ts:77-82; isolado pelo safe() em baileys.engine.ts:618-620).
+- **`parseStored` não limita o N vindo do banco** (crypto.ts:75-99) e maxmemFor cresce com N (:46-49); só explorável com escrita no banco.
+- **Ponte de console instalada depois do NestFactory.create** (main.ts:42-57): console.\* na instanciação dos providers escapa; log/info viram debug e somem em produção (console-bridge.ts:57-62; nível info em app.module.ts:38-39).
+- **uncaughtException/unhandledRejection não encerram o processo**, só contam (main.ts:24-40); restart em rajada derrubaria a frota (CLAUDE.md:42) — não mudar sem plano.
+- Nunca `:` em jobId (CLAUDE.md:39); nunca `nest build` com o watch rodando; manter o override de TS 5.9.3 (package.json:44-46).
+
+### 4.5 Dashboard, contratos e testes (`apps/dashboard`, `packages/contracts`, vitest)
+
+Mapas gerados: [dashboard.md](reference/mapa-codigo/dashboard.md) · [contracts.md](reference/mapa-codigo/contracts.md) · [gateway-e2e.md](reference/mapa-codigo/gateway-e2e.md)
+
+**Resumo.** O painel (`apps/dashboard/src`, React 19 + RR7 + Vite 8) é uma SPA com 17 rotas lazy (App.tsx:17-38) protegidas só por "tem usuário" (App.tsx:48-54). Toda chamada HTTP passa por `lib/api.ts`: cookie httpOnly com `credentials:'include'`, silent refresh com uma única tentativa por aba e erros convertidos em `ApiError(status, message)`. O tempo real vem de 2 EventSource (Monitor, Atendimento) em `/api/events/stream`; o resto é polling de 2 a 20 s. `packages/contracts` é só um arquivo de tipos TS (index.ts, 568 linhas) consumido APENAS pelo dashboard (alias `@contracts`): o gateway não importa contracts e monta os DTOs à mão, então a regra "mudou payload → mudou contracts" é só disciplina, sem guarda automática — 7 desvios verificados (§6). Testes: 127 its unit (`src/**/*.spec.ts`, sem infra) e 198 its no projeto e2e (`test/*.e2e-spec.ts`), dos quais só 128 sobem a app via setup-app.ts com Postgres/Redis/MinIO; os outros 70 são lógica pura que só roda no projeto e2e. O dashboard não tem nenhum teste. Os caminhos críticos das Ondas 2–3 (upsert offline, DisconnectReason, sinais de restrição, download de mídia, pareamento, rate-limit, processamento de campanha, lease) têm cobertura zero.
+
+#### Arquivos-chave
+
+| Arquivo                                                          | Papel                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/dashboard/src/lib/api.ts`                                  | Cliente HTTP único: BASE=VITE_API_URL (L51), ApiError (L53-60), silent refresh single-flight (L68-98), coreFetch com 1 retry (L101-116), parseError só lê body.message (L118-127), request JSON (L129-143), requestForm multipart (L146-150), objeto `api` com ~70 endpoints (L154-515) |
+| `apps/dashboard/src/lib/auth.tsx`                                | AuthProvider: registra setUnauthorizedHandler e chama `GET /api/auth/me` no boot (L24-36); signIn (L38-41); signOut fire-and-forget (L43-46)                                                                                                                                            |
+| `apps/dashboard/src/App.tsx`                                     | Rotas RR7 lazy (L17-38), Protected (L48-54), ErrorBoundary+Suspense (L56-195), installPreloadErrorHandler (L11)                                                                                                                                                                         |
+| `apps/dashboard/src/main.tsx`                                    | Entrada: StrictMode > BrowserRouter > BrandingProvider > AuthProvider > App (L12-22)                                                                                                                                                                                                    |
+| `apps/dashboard/src/lib/branding.tsx`                            | BrandingProvider: `GET /api/branding` público e aplica cor e logo (L76, L100-123)                                                                                                                                                                                                       |
+| `apps/dashboard/src/lib/error-boundary.tsx`                      | UP-09: recarrega UMA vez no `vite:preloadError` (guard em sessionStorage `cz:preload-reloaded`, L7-18) e mostra tela de erro com ação (L24-73)                                                                                                                                          |
+| `apps/dashboard/src/routes/Atendimento.tsx`                      | Caixa única: polling de sessões 15 s (L131-140), conversas+feed 20 s (L158-178), SSE (L183-258), triagem (L295-325), resposta com idempotencyKey (L327-360)                                                                                                                             |
+| `apps/dashboard/src/routes/Monitor.tsx`                          | Event Monitor via SSE com os 200 últimos eventos (L20-37); tipo EventItem próprio, não usa contracts                                                                                                                                                                                    |
+| `apps/dashboard/src/routes/Inbox.tsx`                            | Inbox por sessão: polling sessões 5 s (L50), conversas 5 s (L93), mensagens 2,5 s (L118); envio de texto e mídia com intentKey/idempotencyKey (L33-43, L144-205); MediaBubble usa mediaUrl pré-assinada (L460-503)                                                                      |
+| `apps/dashboard/src/routes/Sessions.tsx`                         | CRUD de sessões com polling 3 s (L238-250); ConnectModal com polling de /qr a cada 2 s (L55-75), pairing (L93-105), new-qr (L107-121); ações start/stop/restart/logout/remove (L414-462)                                                                                                |
+| `apps/dashboard/src/routes/Campaigns.tsx`                        | Campanhas: polling 3 s (L47-58), create com firstContact (L74-117), start/pause/resume/cancel/remove (L318-357)                                                                                                                                                                         |
+| `packages/contracts/src/index.ts`                                | Tipos compartilhados (Auth, Health, Sessões, Mensagens, Inbox, Webhooks, API keys, Users, License, Branding, Audit, Proxies, Grupos, Contatos, Canais, Campanhas). Única constante de runtime: WEBHOOK_EVENTS (L256)                                                                    |
+| `packages/contracts/package.json`                                | private:true, main/types/exports apontam para src/index.ts (sem build); linkado em node_modules/@whatsapp-gateway/contracts                                                                                                                                                             |
+| `apps/gateway/test/setup-app.ts`                                 | Sobe a app dos e2e: AppModule com SessionManager trocado por fakeSessionManager (L12-63, L82-100), prefixo /api excluindo só health (L92-94), LoggingExceptionFilter; helpers inject/readSetCookie/login/seedSession/removeSession (L116-168)                                           |
+| `apps/gateway/vitest.config.ts`                                  | Projetos `unit` (src/\*\*/\*.spec.ts, 10 s) e `e2e` (test/\*\*/\*.e2e-spec.ts, 30 s, fileParallelism:false); env NODE_ENV=test, MAX_SESSIONS/SEATS=50; coverage v8 sem threshold (L14-49)                                                                                               |
+| `apps/gateway/src/modules/events/interface/events.controller.ts` | `GET(SSE) /api/events/stream`: assina `'wa.event'` e `'wa.event.remote'`, filtra `?session` e remove payload.raw (L14-45)                                                                                                                                                               |
+| `apps/gateway/src/modules/events/interface/sse-auth.guard.ts`    | Auth do SSE: cookie `token` ou `?token=`, sem CSRF e sem refresh (L16-31)                                                                                                                                                                                                               |
+| `apps/gateway/src/modules/iam/interface/csrf.ts`                 | CSRF para credencial de cookie: csrfVerdict por Origin/Sec-Fetch-Site (L44-61), assertCsrfSafe lança 403 (L69-87)                                                                                                                                                                       |
+| `apps/gateway/src/modules/iam/interface/auth.controller.ts`      | login/refresh/logout/me; cookies `token` (Path=/) e `refresh_token` (Path=/api/auth) (L28-34, L125-146); refresh e logout com assertCsrfSafe (L77, L97); /me sem `name` (L103-112)                                                                                                      |
+| `apps/gateway/src/main.ts`                                       | helmet (L63), rate-limit por req.url (L68-75), prefixo /api excluindo health e metrics (L78-83), CORS com credentials (L86-93). setup-app NÃO replica helmet, rate-limit nem CORS                                                                                                       |
+| `.github/workflows/ci.yml`                                       | lint, prettier, depcruise, tsc do gateway/dashboard/contracts (L55-62), infra docker (L67-76), test:cov (L78-79), builds (L81-85)                                                                                                                                                       |
+
+#### Pontos de entrada
+
+- `apps/dashboard/src/main.tsx:12-22` (render); App.tsx:11 (installPreloadErrorHandler: listener `'vite:preloadError'` + `'load'`, error-boundary.tsx:9-18); App.tsx:61-190 rotas `/login`, `/`, `/sessions`, `/inbox`, `/atendimento`, `/monitor`, `/webhooks`, `/api-keys`, `/users`, `/license`, `/branding`, `/audit`, `/proxies`, `/groups`, `/contacts`, `/campaigns`, `/health`, `*` → `/`.
+- Efeitos de boot: auth.tsx:24-36 (`GET /api/auth/me` + handler de 401 terminal) e branding.tsx:116-118 (`GET /api/branding`).
+- **Timers do painel**: Dashboard.tsx:28 (5 s /health); Health.tsx:57, :79 (5 s /health + summary + timeline); Inbox.tsx:50, :93, :118 (5 s/5 s/2,5 s); Sessions.tsx:70 (2 s /qr no modal), :248 (3 s /sessions); Campaigns.tsx:56 (3 s); Atendimento.tsx:138 (15 s), :173 (20 s); debounce do SSE de 800 ms (Atendimento.tsx:188-195).
+- **EventSource**: Monitor.tsx:23 e Atendimento.tsx:184 → `GET /api/events/stream` (events.controller.ts:14, `@UseGuards(SseAuthGuard)`). Publicadores do SSE no gateway: SessionManager.handleEngineEvent (session-manager.service.ts:190-246), GuardrailService.emit (guardrail.service.ts:177), EventFanout.onRemote (event-fanout.ts:57-70, desligado com NODE_ENV=test em :36).
+- **Testes**: vitest.config.ts:34-49 (projetos unit/e2e); scripts test, test:unit, test:e2e, test:cov (apps/gateway/package.json:18-22; raiz package.json:29-30). createTestApp (setup-app.ts:82-100) no beforeAll de 16 specs (auth, f5, f6, g4, g5, g6, g7, g8, health, inbox-triage, media, messaging, proxies, proxy-create-session, sessions, webhooks).
+- **CI**: ci.yml:67-79 (docker compose up --wait, bucket MinIO, prisma:deploy, test:cov); tsc do dashboard/contracts em ci.yml:58-62.
+- **Build do painel**: apps/dashboard/Dockerfile:11-12 (ARG/ENV VITE_API_URL no build) e :24 (`npm run dashboard:build`); nginx.conf com cache imutável em /assets e fallback de SPA.
+
+#### Fluxos internos
+
+**Boot do painel e restauração de sessão.**
+
+1. main.tsx:12-22 monta StrictMode > BrowserRouter > BrandingProvider > AuthProvider > App.
+2. BrandingProvider.load (branding.tsx:103-114) → `api.branding.get` (api.ts:207) → `GET /api/branding` (BrandingController.get, branding.controller.ts:29, sem guard) → applyBranding (branding.tsx:76); falha mantém o DEFAULT.
+3. AuthProvider (auth.tsx:24-36): `setUnauthorizedHandler(() => setUser(null))` (api.ts:72-74) e `api.me()` (api.ts:162) → `GET /api/auth/me` → JwtAuthGuard (auth.guard.ts:63-82) lê o cookie `token` → AuthController.me (auth.controller.ts:103-112) devolve `{id, username, role}`, SEM `name`.
+4. Access expirado: coreFetch (api.ts:110) recebe 401 → tryRefresh (:85-98) → retry único. Qualquer erro de /me (inclusive rede/5xx) vira setUser(null) (auth.tsx:33).
+5. Protected (App.tsx:48-54): Loading enquanto carrega; sem user → `<Navigate to='/login'>`. Chunk ausente → ErrorBoundary (error-boundary.tsx:35-72) ou reload único (:9-18).
+6. Dashboard.tsx:43 exibe `{user?.name}`: após reload fica vazio porque /me não traz name (desvio de contrato).
+
+**Login.** Login.onSubmit (Login.tsx:15) → signIn (auth.tsx:38-41) → `api.login` (api.ts:156-160) `POST /api/auth/login`; `isAuthEndpoint` (api.ts:77-81) impede refresh em 401. No gateway: rate-limit 10/min por req.url (main.ts:68-74, contornável — P-053); AuthController.signIn (auth.controller.ts:47-67) → cookies `token` (maxAge JWT_ACCESS_TTL 900 s, config.ts:81) e `refresh_token` (Path=/api/auth, maxAge JWT_REFRESH_TTL 30 d, config.ts:84), secure só em production (auth.controller.ts:125-141). Resposta `{token, user}` (user com name, auth-session.service.ts:151-156); o painel ignora o token e guarda o user (auth.tsx:40) → navigate('/') (Login.tsx:16). AuditInterceptor registra com actor `login:<username>` (audit.interceptor.ts:47-60). Testes: auth.e2e-spec.ts L41, L51, L64, L69; nada do lado do painel.
+
+**Silent refresh.** Qualquer request (api.ts:129-150) → coreFetch com `credentials:'include'` (:101-116); 401 fora de login/refresh → tryRefresh (:85-98): uma promise por aba (`refreshInFlight`, :68) → `POST /api/auth/refresh` sem body; `.then(r => r.ok).catch(() => false)` — erro de rede também vira false (UP-08). No gateway, ver §4.4 "Refresh e logout". OK → novos cookies e o coreFetch refaz 1× com allowRefresh=false (api.ts:112); falha → onUnauthorized → setUser(null) (auth.tsx:27) → /login. Risco com várias abas (lido no código, **não reproduzido**): a aba que perde a corrida recebe `'raced'` (clearAuthCookies apaga os cookies recém-emitidos pela vencedora) ou `'reused'` (revoga a família) → as duas abas deslogam. Testes: auth.e2e L91 (rotação), L108 (reuso), L124 (access expirado + refresh), L155 (logout revoga); cliente e várias abas sem teste.
+
+**CSRF e CORS nas requisições do painel.** O painel não envia token CSRF: a proteção depende do Origin/Sec-Fetch-Site do fetch cross-origin (conexozenvo.com → api.conexozenvo.com). extractToken prioriza Bearer, senão cookie com source='cookie' (auth.guard.ts:33-38); source cookie → assertCookieAuthCsrfSafe (auth.guard.ts:46-54, :72-74; api-key-auth.guard.ts:51-55) → csrfVerdict (csrf.ts:44-61). X-Api-Key é validado antes e não passa por CSRF (api-key-auth.guard.ts:37-47). CORS: origin=CORS_ORIGIN.split(','), credentials:true, métodos explícitos, allowedHeaders Content-Type/Authorization (main.ts:86-93); não existe nos e2e. Testes: csrf.spec.ts (unit, L9-159); auth.e2e L172-265.
+
+**Tratamento de erro no cliente.** `request` (api.ts:129-143) só envia `Content-Type: application/json` quando há body (:130-139) — o Fastify dava 400 em POST com body vazio; o servidor tolera (fastify-adapter.ts:23-36; teste em sessions.e2e L32). `!res.ok` → parseError (api.ts:118-127): message = body.message ?? statusText → `throw ApiError(status, message)`; o `code` do corpo (ex.: 423 SESSION_QUARANTINED, session-quarantined.exception.ts:4-15) é descartado. 204 → undefined; resto → res.json(). As telas engolem erros de polling (ex.: Inbox.tsx:48, Sessions.tsx:239-244, Campaigns.tsx:48-52) e mostram `(e as Error).message` nas ações (Sessions.tsx:280-287, Campaigns.tsx:64-72). Upload: requestForm (api.ts:146-150) sem Content-Type; campos de texto antes do arquivo (api.ts:285).
+
+**SSE em tempo real (Monitor e Atendimento).**
+
+1. Engine → SessionManager.handleEngineEvent (session-manager.service.ts:190-246): dedup de session.status (:211-215), presign de mídia (:217-229) → envelope (:230-238) → `EventBus.publish('wa.event')`; outros publicadores: GuardrailService.emit (guardrail.service.ts:177) e EventFanout (event-fanout.ts:47-53 → Redis; :57-70 → `'wa.event.remote'`).
+2. `GET /api/events/stream` → SseAuthGuard (sse-auth.guard.ts:16-31) → EventsController.stream (events.controller.ts:14-45): filtro `?session`, remove payload.raw; o Nest serializa objeto em JSON (router/sse-stream.js:13-14).
+3. Monitor.tsx:20-37: `new EventSource(BASE + '/api/events/stream', {withCredentials: true})`; onopen/onerror alternam o badge; guarda 200 eventos.
+4. Atendimento.tsx:183-258: onmessage aceita só `event==='message'` com chatJid; descarta `@g.us`/`@broadcast`/`@newsletter` (:221); filtra aparelho por env.sessionId (:223); insere no feed com name:null (:233, P-044); scheduleReload com debounce de 800 ms → loadConversations (:188-195, :243); conversa aberta → relê `api.sessions.messages` (:245-255).
+5. **Reconexão**: pela spec WHATWG (html.spec.whatwg.org/multipage/server-sent-events.html, acessado 25/09/2026), erro de rede → reestabelece; status ≠ 200 → "fail the connection" (CLOSED, sem retry). Como o SSE não passa pelo silent refresh, qualquer reconexão depois de 15 min de access (config.ts:81) leva 401 e o stream morre de vez. Nenhuma tela recria o EventSource; o Atendimento fica só no polling de 20 s.
+6. Testes: nenhum e2e de `/api/events/stream`; nenhum teste do cliente.
+
+**Inbox por sessão.** Sessões a cada 5 s, 1ª WORKING (Inbox.tsx:44-58); troca de sessão limpa chat/histórico/intenção (:62-67, UP-03). Conversas: `GET /api/sessions/:id/messages/conversations?limit=100` (api.ts:251-254 → messages.controller.ts:215) a cada 5 s com inFlight/alive (Inbox.tsx:71-99). Histórico: `GET /api/sessions/:id/messages?chatId&limit=50` (api.ts:247-250 → messages.controller.ts:225) a cada 2,5 s (Inbox.tsx:102-124); sem paginação e sem exibir ACK (m.status não é usado). send (:144-170): intentKey `'painel-<uuid>'` reaproveitado no retry (:33-43) → `api.sessions.sendText` (api.ts:256-272) → sendWithIntent (messages.controller.ts:447-477) → `{id,to,deduped}`. onPickFile (Inbox.tsx:172-205) → sendMedia multipart (api.ts:273-296) → `POST /messages/media` (messages.controller.ts:509; files:1 e 100 MB, fastify-adapter.ts:17-19). Testes do servidor: messaging.e2e (23 its; idempotência ABE-03 L234-360), media.e2e (7 its).
+
+**Atendimento (caixa única).** Ver §4.2 "Caixa única". Específicos do painel: sessões a cada 15 s (Atendimento.tsx:131-140); loadConversations → `api.inbox.conversations` (api.ts:302-315) com limit=300; loadFeed (Atendimento.tsx:154-157) → `GET /api/inbox/messages?limit=100`; filtro de cor aplicado no cliente (:284-291), contadores do servidor (:151); setTriage (:295-325) → `api.inbox.triage` (api.ts:327-331) — se o servidor devolver pending, o painel avisa que chegou mensagem nova; reply (Atendimento.tsx:327-360) com idempotencyKey reaproveitada. Testes: inbox-triage.e2e-spec.ts (16 its, L171-374); triage-status.spec.ts (8 its).
+
+**Sessões: criar, conectar (QR/pairing) e ciclo de vida.** Sessions.refresh (Sessions.tsx:238-250) `GET /api/sessions` a cada 3 s (sessions.controller.ts:152-170, com guardrailState fora do SessionDto). Formulário: `api.proxies.listAvailable` (Sessions.tsx:252-259, `GET /api/proxies/available`, MinRole ADMIN) → onCreate (:261-278) `POST /api/sessions {name, engine, proxyId?}` → ConnectModal (:32-224): `api.sessions.qr` a cada 2 s (:55-75) → `{status, qr, pairingCode?}` (sessions.controller.ts:364-375); botão "novo QR" só volta quando o QR muda ou após 20 s (Sessions.tsx:78-81, :107-121) → `POST /new-qr` (sessions.controller.ts:380-385). requestCode (Sessions.tsx:93-105) → `POST /pairing-code` (sessions.controller.ts:387-413) → §3.5 passo 7; erro → 409 (:401-412); o formulário só aparece com status ≠ WORKING (Sessions.tsx:152). Ações start (+ modal), stop, restart, logout, remove com confirm (:414-462). Testes: sessions.e2e (7 its), proxy-create-session.e2e (5 its); `/qr` e `/pairing-code` sem e2e; o fakeSessionManager não tem getPairingCode (setup-app.ts:12-63).
+
+**Campanhas: do painel ao worker.** Campaigns.refresh (Campaigns.tsx:47-58) a cada 3 s; onCreate (:74-117) com firstContact e autostart; start/resume/pause (§3.6). Testes: f6.e2e (4 its: auth, validação, criação DRAFT); processamento, pausa e resume sem teste.
+
+**Contrato de tipos (packages/contracts) × gateway × dashboard.**
+
+1. contracts/index.ts define os tipos (L4-567) e WEBHOOK_EVENTS (L256).
+2. Dashboard importa via alias `@contracts` (apps/dashboard/vite.config.ts:11-15; apps/dashboard/tsconfig.json:16-18); api.ts:1-49 tipa as respostas. Único consumidor com import (grep em apps/gateway sem ocorrência).
+3. Gateway monta DTOs à mão: sessions.controller.ts:44-58, messages.controller.ts:163 (toDto) e :152-162 (toConversationDto), webhooks.controller.ts:32, campaigns.controller.ts:71, proxies.controller.ts:24, users.controller.ts:52, license.controller.ts:19; validação zod nas bordas (ex.: messages.controller.ts:53-114, webhooks/interface/dto.ts:3-11).
+4. CI: `tsc --noEmit` do dashboard e do contracts (ci.yml:58-62) só pega quebra do lado CONSUMIDOR; não há checagem gateway↔contracts.
+5. A regra "mudou payload → contracts no mesmo commit" está em docs/ARQUITETURA.md:38, BASE_CONEXOZENVO.md:145, :250 e CLAUDE.md:49; hoje é só processo.
+6. Se o node n8n publicado usa este pacote **não foi verificado** (pacote private:true em packages/contracts/package.json:4; repo do node não encontrado localmente).
+
+**Como o e2e sobe a app.** Pré-requisito: `npm run infra:up` (Postgres 5436, Redis 6382, MinIO) + apps/gateway/.env (env.example:22 DATABASE_URL; :46-47 admin/admin123) + migrations; no CI, ci.yml:67-76. createTestApp (setup-app.ts:82-100): `Test.createTestingModule({imports:[AppModule]}).overrideProvider(SessionManager).useValue(fakeSessionManager)` → createNestApplication(buildFastifyAdapter(), {bodyParser:false}) → setGlobalPrefix('api', exclude health) → useGlobalFilters(LoggingExceptionFilter) → init → ready. Diferenças para main.ts: sem helmet (main.ts:63), rate-limit (:68-75), CORS (:86-93) e enableShutdownHooks (:96); `/metrics` fica em `/api/metrics` (setup-app.ts:92-94 × main.ts:78-83). NODE_ENV=test (vitest.config.ts:14): CampaignQueue sem fila (campaign-queue.ts:84), WebhookQueue com Queue mas sem Worker (webhook-queue.ts:80-92), EventFanout desligado (event-fanout.ts:36); MessagePersister, AuditInterceptor (iam.module.ts:78) e WebhookDispatcher seguem ativos. `login(app)` (setup-app.ts:140-148) devolve o Bearer; seedSession (:153-160) grava waSession direto (bypass de licença); limpeza por nome em afterAll. Projeto e2e: fileParallelism:false, timeouts 30 s (vitest.config.ts:40-49). Unit: `npm run test:unit`, sem infra (:32-38).
+
+**Mapa comportamento → teste.**
+
+- **Unit** (`src/**/*.spec.ts`, 127 its, sem infra): console-bridge.spec (5), log-redaction.spec (13) e log-redaction.pino-http.spec (1, regressão P-041), logging-exception.filter.spec (5), guardrail.service.spec (26: tabela G5, C10, canSendCold, mediana, cooldown/manual, recordHardSignal, CAS), csrf.spec (9), send-intent.decision.spec (5), triage-status.spec (8), baileys.shutdown.spec (3: shutdown×stop), wwebjs.lid-outbound.spec (19), wwebjs.lifecycle.spec (5, inclui pairing do wwebjs), crypto.spec (11: scrypt, HMAC webhook, sha512 api key), local-day.spec (5), query-int.spec (2), safe-fetch.spec (14).
+- **E2E com infra** (usam setup-app, 128 its): auth (16), f5 (19: grupos/contatos/canais com fake), f6 (4: campanhas, só validação), g4 (3: reply-rate), g5 (5: guard-rail 423), g6 (3: eventos guardrail + DLQ), g7 (4: health/override/config), g8 (5: config/presence/read), health (1), inbox-triage (16), media (7), messaging (23: validação, idempotência concorrente), proxies (6), proxy-create-session (5), sessions (7), webhooks (5: CRUD, jobId de dedup, egress).
+- **E2E sem infra** (lógica pura em test/, só no projeto e2e, 70 its): baileys-reaction (4), browser-fingerprint (4), config (5), session-status-dedup (5: SessionManager com fakes), wwebjs-engine (52).
+- **Dashboard**: 0 testes (apps/dashboard/package.json sem script de teste nem vitest); validação só tsc no CI (ci.yml:58-60) e build.
+- **Scripts manuais** (fora do CI): scripts/smoke-\*.sh, verify-cors.sh, verify-media.sh, verify-proxies.sh, test-all.sh — batem num servidor rodando.
+- **SEM TESTE** nos caminhos críticos: BaileysEngine.onMessagesUpsert/append (baileys.engine.ts:779-853); onConnectionUpdate e matriz DisconnectReason (:663-776); sinais reachoutTimeLock/message-capping/ERROR 463 (grep: zero); handleIncomingMedia do Baileys (:905+); requestPairingCode do Baileys e rotas `/qr` e `/pairing-code`; rate-limit (zero ocorrência de 429/rateLimit nos testes); AuditInterceptor (sem e2e); CampaignQueue.process e pausa/resume; lease/fencing (não existe); ProxyResolver.resolve/reportFailure; recordGroupParticipants; SSE `/api/events/stream`; cliente do painel (refresh, SSE, polling).
+
+#### Relações
+
+- **Dashboard → gateway** via `request/requestForm` (api.ts:129-150), com BASE = VITE_API_URL embutida no build (api.ts:51; apps/dashboard/Dockerfile:11-12).
+- **Dashboard → contracts** via `@contracts` (vite.config.ts:11-15; tsconfig.json:16-18). Tipos não usados diretamente pelo painel: EventEnvelope, SendTextRequest, CampaignRecipientDto, CreateGroupRequest e outros (levantamento por regex). **Gateway NÃO usa contracts** (grep); docs/ARQUITETURA.md:42 permite "qualquer → contracts"; workspace linkado em node_modules/@whatsapp-gateway/contracts.
+- **Monitor/Atendimento → EventsController.stream** (events.controller.ts:14) → EventBus `'wa.event'`/`'wa.event.remote'`, publicados por SessionManager.handleEngineEvent (session-manager.service.ts:241), GuardrailService.emit (guardrail.service.ts:195) e EventFanout.onRemote (event-fanout.ts:64).
+- **Atendimento → InboxController** (inbox.controller.ts:107, :144, :158) → PrismaInboxRepository e deriveTriageStatus. **Inbox/Atendimento → MessagesController** list/conversations/sendText/sendMedia (messages.controller.ts:215, :225, :483, :509).
+- **Sessions.tsx → SessionsController** (create/list/qr/new-qr/pairing-code/start/stop/restart/logout/remove) e ProxiesController.listAvailable (proxies.controller.ts:66, ADMIN). **Proxies.tsx** usa ProxiesController inteiro + GET/PUT `/api/sessions/:id/proxy` (proxies.controller.ts:145, :160), uma chamada por sessão (Proxies.tsx:71).
+- **Contacts.tsx → ContactsController** (check/directory/profile-picture/block) e ChannelsController; **Groups.tsx → GroupsController** (list/info/create/participants/leave/subject/description/invite/revoke).
+- **Campaigns.tsx → CampaignsController** (list/create/start/pause/resume/cancel/remove) → CampaignService → CampaignQueue → SessionManager.sendText/sendMedia (campaign-queue.ts:205, :215). O painel não chama `GET /api/campaigns/:id` nem `/recipients`.
+- **Webhooks.tsx** usa WEBHOOK_EVENTS (contracts:256) para os checkboxes (Webhooks.tsx:127) → só oferece `'*'`, `'message'` e `'session.status'`.
+- **Users/License/Branding/Audit/ApiKeys** usam os controllers do iam (JwtAuthGuard + MinRole OWNER/ADMIN). O painel só esconde cards por papel (Dashboard.tsx:153-191); quem autoriza é o RolesGuard.
+- **Guards de auth → csrf.ts** (auth.guard.ts:46-54; api-key-auth.guard.ts:51-55; auth.controller.ts:77, :97) com CORS_ORIGIN (config.ts:101).
+- **e2e** usa AppModule com SessionManager trocado (setup-app.ts:83-86); os specs dependem do fake para grupos/contatos/canais/envio. **session-status-dedup.e2e-spec.ts** instancia o SessionManager com 8 dependências falsas (L39-48): modelo para testes da P-056 sem infra. **baileys.shutdown.spec.ts** faz `vi.mock('@whiskeysockets/baileys')` e injeta um socket falso (L5-45): modelo para os unit de P-047..P-052.
+- **Dashboard → contrato público do n8n** só de forma indireta: mesmos endpoints `/api/sessions/:id/messages/*` e o envelope de webhook de docs/INTEGRACAO.md:44.
+
+#### Dados e config
+
+- `VITE_API_URL`: padrão `'http://localhost:3000'` (api.ts:51); BUILD-TIME (apps/dashboard/Dockerfile:3, :11-12).
+- sessionStorage `'cz:preload-reloaded'` (error-boundary.tsx:7, :11-17): guard contra loop de reload após deploy.
+- Cookie `'token'` (access JWT, Path=/, httpOnly, sameSite lax, maxAge JWT_ACCESS_TTL 900 s — config.ts:81; auth.controller.ts:127-133): não pode ser renomeado, o SseAuthGuard lê `req.cookies.token` (sse-auth.guard.ts:22-23). Cookie `'refresh_token'` (opaco, Path=/api/auth, maxAge JWT_REFRESH_TTL 2592000 s — config.ts:84; auth.controller.ts:134-140); clearCookie precisa do mesmo path (:143-146).
+- `CORS_ORIGIN` padrão `'http://localhost:5173'` (config.ts:101): origens do CORS (main.ts:87) E allowlist do CSRF (auth.guard.ts:50-53; auth.controller.ts:121-123). A memória local indica dashboard em :5174 → conferir a env local.
+- `RATE_LIMIT_MAX` 600/min por IP; 0 desliga (main.ts:68-75); login 10/min via `req.url.startsWith('/api/auth/login')` (:72); allowList `req.url === '/health'` (:73).
+- `refresh_tokens`: rotação/reuso em prisma-refresh-token.repository.ts:31-70. `wa_messages`: índice (sessionId,keyId) NÃO único, unique só (sessionId,idempotencyKey) (schema.prisma:303-310).
+- vitest: NODE_ENV=test, MAX_SESSIONS=50, MAX_SEATS=50 (vitest.config.ts:14); coverage v8 em src/\*\* sem threshold (:18-23). Infra e2e (apps/gateway/env.example): DATABASE_URL `postgresql://gateway:gateway@localhost:5436/gateway` (:22); Redis 6382 (:36, comentado); DASHBOARD_USERNAME=admin / DASHBOARD_PASSWORD=admin123 (:46-47), usados por login() (setup-app.ts:145). O e2e escreve direto em waSession (seedSession/removeSession, setup-app.ts:153-168) e cada spec limpa o que criou (ex.: webhooks.e2e-spec.ts:19-23).
+- `EVENT_FANOUT` padrão `'on'`; NODE_ENV=test desliga (event-fanout.ts:36-37).
+- Versões instaladas (25/09/2026): vitest 4.1.11, @whiskeysockets/baileys 7.0.0-rc14, @nestjs/core 11.2.3, fastify 5.11.3, @fastify/rate-limit 11.2.0, @fastify/multipart 10.1.1, bullmq 5.81.4, protobufjs 7.6.5, react 19.2.8, react-router-dom 7.18.3, vite 8.2.2; undici NÃO instalado.
+
+#### Invariantes e armadilhas
+
+- **SSE não passa pelo silent refresh**: pela spec WHATWG, resposta ≠ 200 = "fail the connection" (CLOSED, sem reconexão). Depois dos 15 min de access (config.ts:81), queda de rede + reconexão → 401 → stream morto: Monitor.tsx:27 fica "desconectado" e Atendimento.tsx:196-197 perde o feed (sobra o polling de 20 s). Nenhuma tela recria o EventSource.
+- **SSE sem heartbeat**: events.controller.ts:18-44 só manda evento real; router/sse-stream.js só define header keep-alive (conferência parcial). Proxy com idle timeout (Traefik) pode derrubar o stream ocioso — **não verificado** em produção.
+- **Várias abas**: cada aba tem seu `refreshInFlight` (api.ts:68); refresh concorrente com o mesmo cookie cai em `'raced'` → `'invalid'` → clearAuthCookies (auth-session.service.ts:99-100; auth.controller.ts:84-86), apagando os cookies novos da vencedora; refresh logo depois do commit cai em `'reused'` e revoga a família (prisma-refresh-token.repository.ts:40-45). Lido no código, **não reproduzido**.
+- **Qualquer falha do tryRefresh** (inclusive rede/5xx) dispara onUnauthorized e desloga (api.ts:91-92, :113; UP-08); /me com qualquer erro também zera o usuário (auth.tsx:33). **Logout fire-and-forget** (auth.tsx:43-46): se o POST falhar (CSRF/rede), a UI sai mas o refresh continua válido.
+- **`isAuthEndpoint`** (api.ts:77-81) precisa conter toda rota que não pode disparar refresh; rota nova em /api/auth que devolva 401 entra no retry.
+- **Content-Type JSON só com body** (api.ts:130-139) e, no multipart, campos antes do arquivo (api.ts:285): quebrar isso gera 400.
+- **Rate-limit precisa ser registrado ANTES das rotas** (hook onRoute, @fastify/rate-limit/index.js:171-186) — antes do `app.init()` no e2e. Ligar no createTestApp padrão quebra o auth.e2e, que faz ~15 logins na mesma app (9 loginRaw + 4 login + 2 diretos) contra o teto de 10/min.
+- **`req.routeOptions.url`** existe no fastify 5.11.3 (node_modules/fastify/types/request.d.ts:26, :103) e é a chave proposta para a P-053; req.url cru está em main.ts:72-73, app.module.ts:50-53 e audit.interceptor.ts:47-51.
+- **setup-app não replica main.ts**: sem helmet, rate-limit, CORS nem shutdown hooks; `/metrics` em `/api/metrics` nos e2e (setup-app.ts:92-94 × main.ts:78-83). Teste de borda precisa de app própria.
+- **fakeSessionManager** (setup-app.ts:12-63) não tem getPairingCode, sendReaction, sendLocation, sendPoll, setProfileName/Status/Photo, todos chamados pelos controllers: e2e novo nessas rotas dá 500 (TypeError) em vez de testar o controller.
+- **NODE_ENV=test desliga** Worker de webhooks (webhook-queue.ts:92), fila de campanhas (campaign-queue.ts:84, :119) e fanout (event-fanout.ts:36): efeito assíncrono de campanha/entrega não é testável via createTestApp sem extrair a lógica.
+- **70 its em test/\*.e2e-spec.ts são lógica pura** e só rodam no projeto e2e: `npm run test:unit` não os executa (vitest.config.ts:34-49). Spec nova sem infra vai em `src/**/*.spec.ts`.
+- **e2e com fileParallelism:false** (vitest.config.ts:47) e dados compartilhados: limpar por nome/prefixo, nunca assumir banco vazio (o banco de dev pode ter sessões reais — vitest.config.ts:12-13).
+- **`wa_messages` sem unique (sessionId,keyId)** (schema.prisma:303-310) e `save` só dedupa P2002 de idempotencyKey (prisma-message.repository.ts:43-50): aceitar `'append'` (P-047) sem dedup explícito duplica mensagem/webhook; unique nova exige migration forward-only e limpeza prévia (não fazer db push).
+- **jobId BullMQ nunca com `:`** (CLAUDE.md); os ids atuais usam `-` (campaign.service.ts:52, :74, :99; webhook-dispatcher.service.ts:79; webhook-queue.ts:259); mudar o formato altera a dedup de jobs em voo.
+- **Baileys rc14**: DisconnectReason sem 405 e com 408 duplicado (connectionLost=timedOut) (Types/index.d.ts:26-37); `MessageUpsertType = 'append' | 'notify'` (Types/Message.d.ts:299); Contact tem `lid?`/`phoneNumber?` e NÃO tem `jid` (Types/Contact.d.ts:5, :7); `IWebMessageInfo.pushName` existe (WAProto/index.d.ts:13616).
+- **Curve.verify da rc14 ignora o booleano**: devolve true sempre que a libsignal não lança (Utils/crypto.js:23-31), e `curve.verifySignature` DEVOLVE booleano e só lança por tamanho inválido (node_modules/libsignal/src/curve.js:130-142) — assinatura de 64 bytes qualquer passa (P-051; reconferido na síntese em 25/09).
+- **Gateway em commonjs + moduleResolution node** (apps/gateway/tsconfig.json:3, :6); contracts é ESM com types .ts. Importar contracts no código de produção do gateway pode mudar a raiz do nest build (dist/main.js, que a P-055 vai checar). Só `import type` em `*.spec.ts`, que o tsconfig.build.json exclui (:3); resolução **não verificada**, validar com `tsc --noEmit`.
+- **Papéis no painel são cosméticos** (Dashboard.tsx:153-191; App.tsx sem checagem de role): toda autorização fica no RolesGuard/MinRole.
+- **Monitor e Atendimento abrem conexões SSE independentes** (2 por usuário com as duas telas); o React StrictMode (main.tsx:13) pode montar os efeitos 2× em dev (comportamento do React não reconferido).
+- **Código duplicado**: Inbox.tsx:391-432 e Atendimento.tsx:43-79 duplicam numberFromJid/sendTarget/mediaLabel/displayName; corrigir num lugar e esquecer o outro é armadilha.
+
+## 5. Onde mexer por pendência
+
+Consolidado das verificações por área (mesclado, sem duplicar). IDs e títulos de docs/PENDENCIAS.md (seção "Análise de atualizações — 23/09/2026" e abertas/parciais anteriores); contexto em docs/analise-atualizacoes-2026-09.md (§5.1, §7, §8, §12). A tabela é o índice curto (linhas curtas, legíveis pelo Read); **o detalhe completo de cada pendência — todos os locais, o que muda, riscos, decisões e testes — está em §5.1**, no link da última coluna. Onde duas verificações divergiram, vale a conferida no código instalado (indicado no detalhe).
+
+| Pendência                                                | Locais principais                                                                                                                                            | O que muda / testes (resumo)                                                                                                                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P-001** — estabilidade Baileys (restos)                | `BaileysEngine.onConnectionUpdate` baileys.engine.ts:689-776; `findAutostart` prisma-session.repository.ts:105-121; dedup session-manager.service.ts:211-214 | DisconnectReason granular (com P-049), auto-heal de DEGRADED só para queda de rede, histerese DEGRADED↔WORKING. Unit com fake timers. [§5.1](#p-001)                         |
+| **P-002** — health-tester só prova túnel até o ipify     | `ProxyHealthTester.test` proxy-health-tester.ts:23-78; config.ts:106-110                                                                                     | Reputação exige evidência (endpoint não verificado); não mudar o padrão de WA_REQUIRE_PROXY (R0); depois da P-058. Spec com servidor HTTP falso. [§5.1](#p-002)              |
+| **P-005** — purge de `refresh_tokens`                    | porta refresh-token.repository.ts:38-46; prisma-refresh-token.repository.ts; padrão retention.service.ts:18-28                                               | Apagar só `expiresAt < now − margem`, nunca revogadas válidas (reuso). Dentro do iam, em lotes. e2e vencida × revogada válida. [§5.1](#p-005)                                |
+| **P-012** — `recordHardSignal` sem chamador              | guardrail.service.ts:427-454; engine.port.ts:79-80; docs/INTEGRACAO.md:62                                                                                    | Lado Baileys absorvido pela P-048; não remover `signal.*` do contrato (R0). Decisão de produto pendente. [§5.1](#p-012)                                                      |
+| **P-013** — contracts dos campos da W5                   | packages/contracts/src/index.ts:56-63, :223-231, :256; messages.controller.ts:72-116, :476; api.ts:255-295                                                   | Só tipos, aditivo: mentions/cold/idempotencyKey, deduped, SendReactionRequest, sessionId no envelope. Spec anti-drift com expectTypeOf. e2e mentions/reação. [§5.1](#p-013)  |
+| **P-018** — sessões nunca pareadas em loop de QR         | baileys.engine.ts:689-776; session-manager.service.ts:69-93; prisma-session.repository.ts:115                                                                | 408 "QR refs attempts ended" sem `creds.me` → STOPPED acionável, sem reconectar. Unit close 408 + creds sem me. [§5.1](#p-018)                                               |
+| **P-022** — testes unitários de domínio                  | jobId webhook-dispatcher.service.ts:79, webhook-queue.ts:259, campaign.service.ts:52/74/99; guardrail.service.ts:324-329                                     | `job-id.ts` que lança com `:` (mesma string); deliver com fetch mock; C10 com relógio controlado; funções puras. [§5.1](#p-022)                                              |
+| **P-023** — 9º dígito BR em `toJid`                      | baileys.engine.ts:1129-1131, :1667-1671; messages.controller.ts:130-149; campaign.repository.ts:39-41                                                        | Normalização local sem rede (função pura BR ou lookup em `wa_contacts`); regra da Anatel e EP pendentes. Unit table-driven. [§5.1](#p-023)                                   |
+| **P-024** — `cold`→`firstContact` no fio                 | messages.controller.ts:53, :72-116, :536; engine.port.ts:102-108                                                                                             | Aceitar os dois (aditivo), gateway → n8n → workflows. Manter messaging.e2e:71 e g5.e2e:64 verdes. [§5.1](#p-024)                                                             |
+| **P-027** — consentimento/supressão/exportações          | contacts.controller.ts:58-86; groups.controller.ts:73-97; campaign-queue.ts:188-201                                                                          | Tabelas novas de autorização/supressão; checar na campanha antes do envio; RBAC das exportações. Depende do dono. [§5.1](#p-027)                                             |
+| **P-028** — política única de envio e quotas             | messages.controller.ts:447-481; campaign-queue.ts:138-240; session-config.service.ts:49-71                                                                   | SendPolicyService no guardrail com decisão pura; quotas/janela; bloquear só com 423. Unit + e2e g5-like. [§5.1](#p-028)                                                      |
+| **P-029** — idempotência/consistência de campanhas       | campaign.repository.ts:128-157; campaign-queue.ts:173, :197-201, :235-238                                                                                    | Conciliar reserva velha via idempotencyKey em `wa_messages`; órfãos; refreshCounts no skip; pause validado. e2e transporte fake. [§5.1](#p-029)                              |
+| **P-033** — IAM: escopos, expiração, MFA                 | roles.guard.ts:47-49; api-key.service.ts:25-47; auth.guard.ts:63-82                                                                                          | Escopos preservando chaves legadas (R0), expiresAt, MFA no painel, tokenVersion opcional. e2e escopo/expiração. [§5.1](#p-033)                                               |
+| **P-034** — eventos duráveis/outbox                      | webhook-dispatcher.service.ts:46-85; webhook-queue.ts:112-274; event-fanout.ts:47-72                                                                         | Outbox no Postgres + relay; Retry-After via backoffStrategy; headers aditivos só com n8n. Unit de deliver + e2e de efeito. [§5.1](#p-034)                                    |
+| **P-035** — TLS e segredos em claro                      | prisma.service.ts:22-33, :58-68; prisma.config.ts:19; schema.prisma:141, :401, :453, :488                                                                    | SSL com DATABASE_URL; AES-256-GCM com leitura dupla; coordenar auth store com P-056; backup antes (B-005). [§5.1](#p-035)                                                    |
+| **P-036** — retenção completa e em lotes                 | retention.service.ts:18-91; schema.prisma:204-216                                                                                                            | DLQ, refresh_tokens, triage, campanhas, S3; DELETE em lotes; executor único. e2e com linhas antigas. [§5.1](#p-036)                                                          |
+| **P-037** — readiness, versão, caches distribuídos       | health.service.ts:53-87; contracts :20-32; webhook-dispatcher.service.ts:23, :42-44                                                                          | Readiness aditivo sem mudar a regra do 503; versão real no /health; invalidação por canal Redis. [§5.1](#p-037)                                                              |
+| **P-038** — CI da imagem e dependências                  | .github/workflows/ci.yml:11-85                                                                                                                               | Job de docker build (com P-055), SBOM, Fastify ≥ 5.12 bloqueado pelo pin do Nest. [§5.1](#p-038)                                                                             |
+| **P-039** — confiabilidade do dashboard                  | api.ts:85-127; auth.tsx:30-46; Monitor.tsx:20-37; Atendimento.tsx:183-258; auth.controller.ts:84-86                                                          | Refresh com 3 estados, várias abas, SSE recriado após 401, polling com aba oculta. Painel sem infra de teste. [§5.1](#p-039)                                                 |
+| **P-044** — feed sem nome e sem abrir conversa           | Atendimento.tsx:145-152, :198-243, :564-588                                                                                                                  | Opção A só no painel (Map convKey→name + onClick). Manual + dashboard:build. [§5.1](#p-044)                                                                                  |
+| **P-045** — caixa única sem aviso                        | Atendimento.tsx:151, :198-256, :383-411                                                                                                                      | Título com pendentes, som + Notification em gesto do usuário; depende do SSE vivo (P-039). [§5.1](#p-045)                                                                    |
+| **P-046** — triage fora da retenção                      | retention.service.ts:30-48; schema.prisma:346-361; baileys.engine.ts:1303-1318                                                                               | Purge por idade ou órfãs após o de `wa_messages`; migrar a marca no merge LID. e2e de retenção. [§5.1](#p-046)                                                               |
+| **P-047** — mensagens offline (`append`) descartadas     | baileys.engine.ts:779-872 (:783), :969-1121, :1166-1177; prisma-message.repository.ts:16-54; schema.prisma:303-310                                           | Decidir por mensagem; filtrar eco/newsletter/status; janela 24–48 h; dedupe por keyId antes do onEvent; flag aditiva de histórico. Unit + e2e de efeito (R6). [§5.1](#p-047) |
+| **P-048** — sinais de restrição ignorados                | baileys.engine.ts:618-648, :663-777, :876-900; guardrail.service.ts:406-454; messages.controller.ts:447-481                                                  | Ouvir reachoutTimeLock/message-capping e ERROR 463/479; recordHardSignal + fetchAccountReachoutTimelock; pausa geral com 423; evento aditivo. [§5.1](#p-048)                 |
+| **P-049** — matriz DisconnectReason + versão             | baileys.engine.ts:98-132, :689-776; metrics.service.ts:39-115                                                                                                | 515 sem contar, 405 alerta, 403/411 terminais, 440 sem terminal até P-056; métrica por código; não cachear isLatest:false. Unit table-driven. [§5.1](#p-049)                 |
+| **P-050** — download de mídia sem teto e sem proxy       | baileys.engine.ts:856-967, :547, :595-596; proxy-agent.factory.ts:14-20                                                                                      | Promise.race 60–120 s com fallback; dispatcher undici@8 para proxy; corrigir comentário :547. Unit com download pendurado. [§5.1](#p-050)                                    |
+| **P-051** — patch do Baileys (Curve.verify)              | patches/; package.json:31; Utils/crypto.js:23-31                                                                                                             | Curve.verify aceita qualquer assinatura de 64 bytes (conferido); patch mínimo #2751/#2815. Unit sem mock + validação com chip. [§5.1](#p-051)                                |
+| **P-052** — pairing, LID e caches                        | session-manager.service.ts:451-464; baileys.engine.ts:1348-1358, :1557-1563; sessions.controller.ts:387-414                                                  | 409 por status/`creds.me` (não `registered`); espera em vez de sleep; `p.phoneNumber` no roster; fallback getPNsForLIDs. e2e 409 + unit roster. [§5.1](#p-052)               |
+| **P-053** — segurança por `req.url`                      | main.ts:68-75; audit.interceptor.ts:47-51; app.module.ts:50-53                                                                                               | Usar `req.routeOptions.url`; store próprio do login; e2e com app própria (%6Cogin, forma absoluta, /%61pi). [§5.1](#p-053)                                                   |
+| **P-054** — patches sem major                            | apps/gateway/package.json:29-42; fastify-adapter.ts:17-19                                                                                                    | Nest 11.2.6, multipart 10.1.2, bullmq 5.81.5, protobufjs 7.6.6 exatos. Suíte completa + e2e 2 arquivos. [§5.1](#p-054)                                                       |
+| **P-055** — guardas de build                             | package.json:31; apps/gateway/Dockerfile:25-33; ci.yml:81-82                                                                                                 | `--error-on-fail`, grep do marcador, `test -f dist/main.js`, docker build no CI. Aceite: build quebrado falha. [§5.1](#p-055)                                                |
+| **P-056** — lease/fencing por sessão                     | session-manager.service.ts:69-301; postgres-auth-state.ts:46-82; prisma-session.repository.ts:76-99                                                          | Lease antes do start; sem lease não grava nem envia; auth em transação; authEpoch aditivo. Unit + e2e com Redis. [§5.1](#p-056)                                              |
+| **P-057** — rajada no resume e FAILED no boot            | campaign-queue.ts:129-240; campaign.service.ts:58-104; session-manager.service.ts:466-568                                                                    | PAUSED sem requeue + época; erro tipado → release + moveToDelayed; retomada automática exige migration. Unit do process + e2e da reserva. [§5.1](#p-057)                     |
+| **P-058** — afinidade de proxy                           | proxy-resolver.service.ts:32-164; baileys.engine.ts:548-564, :727-742; proxy.service.ts:246-266                                                              | Reusar currentProxyId; SINGLE inválido → FAILED; nunca direto fora de NONE; regex de DEAD mais estreita. Unit do resolver. [§5.1](#p-058)                                    |
+| **P-059** — wwebjs (se voltar)                           | wwebjs.engine.ts:57-69, :1107-1169, :2160-2190                                                                                                               | Build expira 13/10; distinguir reason no disconnect; teto do heal; patch de mediaOptions. [§5.1](#p-059)                                                                     |
+| **P-060** — wwebjs memória (se voltar)                   | wwebjs.engine.ts:727-757, :1648-1735, :809-811                                                                                                               | Medir por sessão antes; downloadMedia sem teto de tempo. [§5.1](#p-060)                                                                                                      |
+| **P-062** — manutenção (um major por deploy)             | apps/dashboard/Dockerfile:9, :27; apps/gateway/Dockerfile:9, :43; ci.yml:25-30                                                                               | Pins por digest, Actions v5, remover ts-node/allowScripts, preparar TS 6. [§5.1](#p-062)                                                                                     |
+| **P-063** — reconciliação documental                     | comentários em baileys.engine.ts, engine.port.ts, wwebjs.engine.ts, config.ts; AGENTS.md:23                                                                  | Só comentários/docs (itens na §6). Commit `docs:` separado. [§5.1](#p-063)                                                                                                   |
+| **P-064** — produto (Onda 7): métrica e cota             | reply-rate.service.ts:93-167; metrics.service.ts:104-152; baileys.engine.ts:1494-1508                                                                        | Métrica de destinatários novos sem resposta em observability; cota do /contacts/check sem vazar para o envio. [§5.1](#p-064)                                                 |
+| **P-065** (sugerida) — egress aceita IPv4-mapeado em hex | safe-fetch.ts:71-88, :119-158                                                                                                                                | `net.BlockList` v4+v6; registrar em PENDENCIAS antes (R9). Casos novos no spec. [§5.1](#p-065)                                                                               |
+
+### 5.1 Detalhe por pendência
+
+#### P-001
+
+**P-001** — estabilidade Baileys (restam: DisconnectReason granular, auto-heal DEGRADED, histerese)
+
+- **Locais:**
+  - `BaileysEngine.onConnectionUpdate` baileys.engine.ts:689-776
+  - `BaileysEngine.setStatus` baileys.engine.ts:491-497
+  - `PrismaSessionRepository.findAutostart` prisma-session.repository.ts:105-121
+  - `SessionManager.handleEngineEvent` (dedup) session-manager.service.ts:199-215
+- **O que muda:**
+  - DisconnectReason granular junto com a P-049 (mesmo bloco — mesmo chat ou em sequência).
+  - DEGRADED do Baileys hoje é terminal até start manual/próximo boot (baileys.engine.ts:745-750, sem timer) → retentativa lenta só para queda de rede (Onda 3, análise §12).
+  - Histerese DEGRADED↔WORKING: o dedup só corta repetição idêntica (session-manager.service.ts:211-214).
+  - Cuidado: DEGRADED periódico gera webhook e alerta no n8n.
+- **Testes:**
+  - unit com `vi.useFakeTimers`.
+
+#### P-002
+
+**P-002** — health-tester de proxies só prova túnel até o ipify
+
+- **Locais:**
+  - `ProxyHealthTester.test` proxy-health-tester.ts:23-78
+  - config.ts:106 (`PROXY_TEST_ECHO_URL`), :107-110 (`WA_REQUIRE_PROXY` padrão false)
+  - `ProxyService.onApplicationBootstrap/testAll` proxy.service.ts:82-97, :193-196
+  - `ProxyResolver.reportFailure` proxy-resolver.service.ts:101-120
+- **O que muda:**
+  - 2xx = ALIVE e 407 = PROXY_AUTH provam só túnel + credencial, não reputação.
+  - Teste de reputação exige evidência em doc oficial/produção (endpoint **não verificado**); nunca abrir conexão WA com conta real no teste.
+  - Trocar o padrão de `WA_REQUIRE_PROXY` para true quebra instalações sem proxy (R0) → dono liga via env (B-001) + D-xxx.
+  - Fazer depois da P-058.
+- **Testes:**
+  - spec novo do tester com servidor HTTP falso (200, 407, timeout).
+
+#### P-005
+
+**P-005** — purge de `refresh_tokens` expirados
+
+- **Locais:**
+  - Porta `RefreshTokenRepository` (apps/gateway/src/modules/iam/domain/refresh-token.repository.ts:38-46) + `purgeExpired` novo
+  - `PrismaRefreshTokenRepository` (prisma-refresh-token.repository.ts) — deleteMany expiresAt < cutoff
+  - Agendador novo no IAM (OnApplicationBootstrap, skip em NODE_ENV=test) no padrão de retention.service.ts:18-28, :73-91
+  - schema.prisma:56 (índice expiresAt já existe)
+  - env.example / env.production.example (`RETENTION_REFRESH_TOKENS_GRACE_DAYS` nova)
+  - docs/ARQUITETURA.md:28
+- **O que muda:**
+  - apagar só `expiresAt < now − margem`; NÃO apagar revogadas ainda válidas (a detecção de reuso depende delas, prisma-refresh-token.repository.ts:40-46).
+  - Implementar dentro do iam (IamModule não exporta o repositório, iam.module.ts:81-88); em lotes; idempotente (start-first = dois timers).
+  - Relaciona com P-036.
+- **Testes:**
+  - e2e com linha vencida + revogada ainda válida → só a vencida sai.
+
+#### P-012
+
+**P-012** — `recordHardSignal` sem chamador (resto da P-012)
+
+- **Locais:**
+  - `GuardrailService.recordHardSignal` guardrail.service.ts:427-454
+  - `GuardrailEventName` signal.463/signal.restriction engine.port.ts:79-80
+  - docs/INTEGRACAO.md:62
+  - `BaileysEngine.onMessagesUpdate` baileys.engine.ts:876-900
+  - `WWebJSEngine.handleDisconnect/auth_failure` wwebjs.engine.ts:1107-1169, :813-816
+  - guardrail.service.spec.ts:460-495
+- **O que muda:**
+  - só o spec chama → `signal.*` é catálogo morto.
+  - Lado Baileys absorvido pela P-048 (docs/PENDENCIAS.md:257); wwebjs só se voltar (TOS_BLOCK/auth_failure → sinal).
+  - Não remover `signal.*` do contrato (breaking, exige /api/v1 — R0): ligar é aditivo.
+  - Taxonomia: 401/loggedOut não vira banida (guardrail.service.ts:423-426, :440-445); o loggedOut (baileys.engine.ts:693-715) poderia chamar `recordHardSignal('401')` só para registrar o último sinal.
+  - Decisão de produto pendente (análise §14).
+
+#### P-013
+
+**P-013** — formalizar em contracts os campos da W5
+
+- **Locais:**
+  - packages/contracts/src/index.ts:223-231 (SendTextRequest/Response), :56-63 (EventEnvelope), :256 (WEBHOOK_EVENTS), :6-11 (AuthUser.name)
+  - `MessagesController` schemas messages.controller.ts:53-57, :72-78, :82-116; reactionSchema :95; deduped :447-477
+  - `AuthController.me` auth.controller.ts:103-112
+  - apps/dashboard/src/lib/api.ts:255-295 (sendText com tipo inline em :260)
+  - Atendimento.tsx:201-215 e Monitor.tsx:6-12 (tipar o envelope)
+  - setup-app.ts:12-63 (sendReaction no fake)
+  - messaging.e2e-spec.ts; docs/INTEGRACAO.md:27-31, :44, :54-61
+- **O que muda:**
+  - só tipos, aditivo (R0): SendTextRequest + `mentions?: string[]` (5..40 chars, até 50), `cold?`, `idempotencyKey?` (1..200); SendTextResponse + `deduped` (messages.controller.ts:476); `SendReactionRequest {emoji}` (`''` remove, :94-95); na mesma passada SendLocation/Poll/MediaUrlRequest espelhando :82-116; EventEnvelope + `sessionId`. À parte: WEBHOOK_EVENTS completo (Webhooks.tsx:127) e `name` no /me (corrige Dashboard.tsx:43).
+  - Casar com P-024 (declarar os dois campos).
+  - Guarda anti-drift: spec unit `contracts-drift.spec.ts` com `expectTypeOf` (vitest 4.1.11, node_modules/vitest/dist/index.d.ts:26) comparando `z.infer` dos schemas (exportar sendTextSchema/reactionSchema) com os tipos via `import type` — resolução do pacote ESM com moduleResolution node **não verificada** (rodar tsc antes).
+  - Contracts + INTEGRACAO no MESMO commit.
+- **Testes:**
+  - e2e mentions (201) e reação (201; `''` remove; 404 desconhecida) — exige sendReaction no fake; tsc gateway/dashboard, dashboard:build, depcruise.
+
+#### P-018
+
+**P-018** — Baileys: sessões nunca pareadas em loop de QR
+
+- **Locais:**
+  - `BaileysEngine.onConnectionUpdate` baileys.engine.ts:689-776
+  - `SessionManager.onApplicationBootstrap` session-manager.service.ts:69-93
+  - `PrismaSessionRepository.findAutostart` prisma-session.repository.ts:105-121 (DEGRADED em :115)
+  - Socket/socket.js:714-717
+- **O que muda:**
+  - 408 "QR refs attempts ended" (Socket/socket.js:716) cai no backoff genérico → 5 ciclos → DEGRADED → reidratado a cada boot.
+  - Se 408 e nunca pareada (sem `creds.me`: a lib escolhe o registro quando `!creds.me`, Socket/socket.js:320-325; `sock.user` é getter de creds.me, :931-932) → stopped=true e STOPPED com lastError acionável, sem reconectar.
+  - Opcional: bootstrap pular DEGRADED/SCAN_QR sem creds.
+  - Não confundir com 408 connectionLost de sessão pareada (Socket/socket.js:540): diferenciar pela mensagem do Boom e por creds.me.
+  - Fazer com P-049/P-001.
+- **Testes:**
+  - unit close 408 + creds sem me.
+
+#### P-022
+
+**P-022** — ampliar testes unitários de domínio
+
+- **Locais:**
+  - jobId: webhook-dispatcher.service.ts:79, webhook-queue.ts:259, campaign.service.ts:52, :74, :99
+  - `WebhookQueue.enqueue` webhook-queue.ts:135-149 (guarda contra `:`)
+  - `safeCustomHeaders` webhook-queue.ts:54-63; `withDeadline` health.service.ts:31-43; `stripRaw` (não exportada) webhook-dispatcher.service.ts:13-17
+  - randInt/sleep campaign-queue.ts:31-34, campaign.service.ts:8
+  - `verifyLicense` license.ts:46 + scripts/issue-license.mjs, scripts/gen-license-keys.mjs
+  - memory.ts:22-45
+  - C10 `GuardrailService.apply` guardrail.service.ts:324-329, getState :203-209, migration 20260625150000_add_guardrail/migration.sql:13
+  - vitest.config.ts:18-23
+- **O que muda (tudo unit, sem infra):**
+  - (1) `shared-kernel/job-id.ts` (ex.: `bullJobId(...parts)` que lança com `:`) + spec; migrar os 3 chamadores SEM mudar a string (jobs em voo seguem deduplicando).
+  - Hoje o erro do BullMQ é engolido pelo catch do dispatcher (já causou dias de webhooks mudos, docs/auditoria-2026-07.md:74); webhooks.e2e-spec.ts:77-131 cobre só o formato do dispatcher.
+  - (2) deliver com fetch mockado: HMAC `sha512=`, headers reservados, egress → UnrecoverableError.
+  - (3) C10: teste de relógio controlado para decidir se o Prisma 7 usa o DEFAULT do banco ou now() no cliente (**não verificado**); correção: eventTs=epoch no getState ou mesmo relógio (default novo = migration nova); teste de mesmo milissegundo (guardrail.service.spec.ts:287-312).
+  - (4) withDeadline, memory.ts (extrair parser de memory.stat/memory.current), stripRaw (exportar), randInt/sleep, verifyLicense (vetor fixo: inválido, expirado, assinatura trocada).
+  - (5) Threshold de coverage só após a baseline (D-018).
+  - O texto da P-022 diz "28 testes": hoje são 127 its unit.
+
+#### P-023
+
+**P-023** — 9º dígito BR determinístico em `toJid`
+
+- **Locais:**
+  - `toJid` baileys.engine.ts:1667-1671; `toContactJid` :426-429; `resolveJid` :1129-1131; toJid direto em sendPresence/markRead :1139, :1160
+  - `WWebJSEngine.toChatId` wwebjs.engine.ts:2052-2055
+  - `candidateJids` (leitura, já trata o 9º) messages.controller.ts:130-149
+  - `CampaignRepository.create` (dedupe só por string) campaign.repository.ts:39-41
+  - `ReplyRateService` (chatJid exato) reply-rate.service.ts:115-122
+  - `PrismaInboxRepository.listConversations` prisma-inbox.repository.ts:67-78
+  - `ContactDirectory` lookup contact-directory.service.ts:150-200; deps.contacts session-manager.service.ts:165-184
+- **O que muda:**
+  - hoje só extrai dígitos e anexa `@s.whatsapp.net`/`@c.us`; número grafado diferente do canônico gera eco, reply-rate e caixa única em chats diferentes da resposta.
+  - Duas propostas: (a) função pura BR — 55 + DDD + 8 dígitos começando em 6–9 → inserir o 9; não tocar `@` nem não-BR; aplicar nos 4 pontos + menções/contatos + sendPresence/markRead; (b) sem rede, consultar `wa_contacts` pelas duas variantes (lógica de candidateJids) e usar o jid conhecido, senão o valor cru — exige `resolvePhoneJid` em deps.contacts.
+  - Nos dois: mesmo normalizador na dedupe da campanha; nunca onWhatsApp no envio (baileys.engine.ts:1123-1128).
+  - Regra de numeração móvel BR NÃO conferida em doc oficial (validar na Anatel) e falta EP (amostra de `wa_contacts.jid` com e sem 9).
+  - Efeito: chatJid persistido, inbox e reply-rate.
+- **Testes:**
+  - unit table-driven (hoje nenhum); extrair candidateJids para o shared-kernel; spec da engine com contacts fake.
+
+#### P-024
+
+**P-024** — renomear `cold`→`firstContact` no fio
+
+- **Locais:**
+  - coldField e schemas de envio messages.controller.ts:53, :72-116; multipart `fields.cold` :536; `assertColdAllowed` :206-212
+  - `SendOptions.cold`/`MessagePayload.isCold` engine.port.ts:23-26, :102-108
+  - campanha já usa firstContact campaigns.controller.ts:36, campaign-queue.ts:198-201
+  - `session_config.modo` 'cold_ok' schema.prisma:169, sessions/interface/dto.ts:28
+  - docs/INTEGRACAO.md:19-33, :111-112
+- **O que muda:**
+  - cosmético e aditivo-primeiro (decisão do dono): aceitar `firstContact` E `cold` (efetivo = firstContact ?? cold; 400 se divergirem) em JSON e multipart; eco e webhook mantêm `isCold` (coluna `wa_messages.isCold`, schema.prisma:284).
+  - O fingerprint da intenção NÃO inclui cold (messages.controller.ts:500): replay/409 não mudam.
+  - Ordem: gateway → node n8n → workflows → só então remover o nome velho (nunca gateway-primeiro). contracts: declarar os dois (packages/contracts/src/index.ts:223-226).
+- **Testes:**
+  - manter verdes messaging.e2e-spec.ts:71 e g5.e2e-spec.ts:64; adicionar casos com firstContact.
+
+#### P-027
+
+**P-027** — autorização, supressão e governança de contatos/exportações
+
+- **Locais:**
+  - `ContactsController.listDirectory` contacts.controller.ts:58-86 (GET só VIEWER, até 1000/página; roles.guard.ts:43-45)
+  - `GroupsController.leads` groups.controller.ts:73-97
+  - `ContactsController.check` → `checkNumbers` contacts.controller.ts:89-104, baileys.engine.ts:1494-1508
+  - `CampaignRepository.create` campaign.repository.ts:37-63
+  - `CampaignQueue.process` (antes do efeito) campaign-queue.ts:188-201
+  - `MessagesController.sendWithIntent` messages.controller.ts:447-481
+- **O que muda:**
+  - não há consentimento, opt-out nem supressão no schema (CON-01, docs/auditoria-melhorias-2026-09.md:76-86).
+  - Tabelas novas (autorização com origem/finalidade/prova; supressão por empresa + destinatário canônico), migration forward-only.
+  - Checar supressão em `CampaignQueue.process` logo após a revalidação (:190-195) e antes do envio; na API só após decisão de produto (WA-02).
+  - Exportações (directory, leads) com `@MinRole` próprio + auditoria — o AuditInterceptor usa req.url (audit.interceptor.ts:49, :65) e é contornável (P-053).
+  - Não inferir autorização de participação em grupo (CON-02).
+  - Depende de decisões do dono e da migração de evidências externas (n8n) antes de qualquer enforcement.
+- **Testes:**
+  - e2e campanha com destinatário suprimido → retido com motivo; e2e de RBAC do directory e dos leads.
+
+#### P-028
+
+**P-028** — política única de envio e quotas
+
+- **Locais:**
+  - `MessagesController.sendWithIntent` messages.controller.ts:447-481
+  - `CampaignQueue.process` campaign-queue.ts:138-240
+  - `SessionConfigService.capFor` session-config.service.ts:49-71 (só em sessions.controller.ts:182)
+  - SessionConfig capBase/warmupCurve/modo/janela schema.prisma:163-179
+  - `GuardrailService.canSendCold` guardrail.service.ts:406-418
+- **O que muda:**
+  - parcial — campanha firstContact já passa pelo gate (campaign-queue.ts:148-158).
+  - Faltam quotas por sessão/destinatário/empresa e janela horária; API e campanha têm políticas independentes e o painel usa a API.
+  - Proposta: `SendPolicyService` no guardrail (já importado pelos dois: messaging.module.ts:16, campaigns.module.ts:12) com decisão pura, consumido nos dois pontos.
+  - Quota por destinatário = contar `wa_messages` fromMe por chatJid numa janela (índice [sessionId,chatJid,timestamp], schema.prisma:303); janela via session_config.janelaInicio/Fim/timezone (reusar startOfLocalDay, shared-kernel/local-day.ts:8-47).
+  - Entrar como métrica/observação antes de bloquear; bloquear só com 423 (n8n só trata 423, análise:253-254); campanha bloqueada = PAUSED com motivo, não FAILED.
+- **Testes:**
+  - unit da decisão pura + e2e no molde do g5.
+
+#### P-029
+
+**P-029** — idempotência durável e consistência de campanhas
+
+- **Locais:**
+  - `CampaignRepository.reserveRecipient` campaign.repository.ts:30, :128-157
+  - `CampaignQueue.process` idempotencyKey campaign-queue.ts:197-201; skip sem refreshCounts :173; markRecipientSent/FAILED :235-238
+  - `PrismaMessageRepository.save` (P2002 engolido) prisma-message.repository.ts:43-51
+  - `CampaignService.pause/resume` campaign.service.ts:80-104
+  - `SendIntentService` não exportado messaging.module.ts:15-26
+- **O que muda:**
+  - parcial (intenção na API ✅; reserva e cap na campanha ✅).
+  - Falta: (1) antes de reenviar destinatário com reserva velha (attempts ≥ 1), consultar `wa_messages` por idempotencyKey `campaign-<c>-<r>` (unique schema.prisma:310); existindo, SENT com o keyId — via Prisma no próprio CampaignRepository (depcruise proíbe o repositório do messaging, .dependency-cruiser.cjs:21-33).
+  - (2) Órfãos PENDING+reservados sem job (stall → skip): varredura que reenfileira pendentes de campanhas RUNNING sem job vivo, ou resume válido em RUNNING.
+  - (3) refreshCounts também no skip por tentativas esgotadas.
+  - (4) pause só a partir de RUNNING ou DRAFT.
+  - (5) Na API, `send()` que lança depois de o WhatsApp aceitar → failed → takeover → possível reenvio (messages.controller.ts:477-480); na campanha, falha do markRecipientSent após envio real vira FAILED.
+- **Testes:**
+  - e2e com transporte fake (padrão messaging.e2e-spec.ts:234-360) para worker morto após o envio + retry → sem 2º envio; unit das transições pause/resume.
+
+#### P-033
+
+**P-033** — revogação IAM, escopos, autenticação forte e CSRF
+
+- **Locais:**
+  - `RolesGuard.canActivate` roles.guard.ts:47-49
+  - `ApiKeyService.create/validate` api-key.service.ts:25-47; `ApiKeysController.create` api-keys.controller.ts:17, :26-35
+  - `PrismaApiKeyRepository` prisma-api-key.repository.ts:24-75 + WaApiKey (expiresAt, migration aditiva)
+  - `JwtAuthGuard.canActivate` auth.guard.ts:63-82 (tokenVersion)
+  - `AuthSessionService.login` auth-session.service.ts:57-83 (MFA)
+  - main.ts:87 (trim do CORS_ORIGIN); config.ts:87 (DASHBOARD_PASSWORD min 6 → 8)
+  - páginas API keys/usuários do dashboard + packages/contracts se o payload mudar
+- **O que muda:**
+  - já feito — revogação de refresh em reset/rebaixamento/remoção, senha 8..128, scrypt versionado, CSRF por cookie.
+  - Falta: (1) escopos com metadata no RolesGuard — chaves legadas têm scopes=[] e precisam manter acesso total, senão o node n8n quebra (R0); (2) expiração de key (expiresAt nullable); (3) MFA/TOTP só no painel; (4) opcional tokenVersion (1 leitura por request).
+- **Testes:**
+  - auth.e2e-spec.ts cobre CSRF e revogação; criar e2e de escopo e de key expirada.
+
+#### P-034
+
+**P-034** — eventos duráveis e reentrega de webhooks
+
+- **Locais:**
+  - `WebhookDispatcher.handle` webhook-dispatcher.service.ts:46-85 (catch só loga :81-83)
+  - `EventBus.publish` event-bus.ts:21-24; `SessionManager.handleEngineEvent` session-manager.service.ts:156, :238-242
+  - `WebhookQueue.enqueue` webhook-queue.ts:135-149; `deliver` :151-187 (sem Retry-After :184-186); Worker :94-103 (settings.backoffStrategy); failed/toDeadLetter :112-132, :191-206; redeliverDeadLetters :219-274
+  - `EventFanout` event-fanout.ts:47-72
+  - WebhookDeadLetter schema.prisma:204-216
+  - docs/INTEGRACAO.md:35-71, :129-134
+- **O que muda:**
+  - hoje evento→fila é no máximo uma vez: enqueue sem aguardar (Redis fora = perdido), fan-out pub/sub at-most-once (`<DIOGGO_ROOT>/agentes/docs/redis/7/develop/pubsub/_index.md:74-79`), DLQ gravada sem aguardar (webhook-queue.ts:126-130), fila fechada antes das engines no shutdown (§3.4 passo 6).
+  - Outbox durável: tabela nova (migration forward-only) gravada antes/junto da publicação; relay enfileira com jobId = id do outbox (sem `:`) e marca entregue; várias réplicas → reserva atômica no padrão updateMany WHERE … IS NULL da DLQ (:240-247). 429/Retry-After: estratégia custom `(attemptsMade, type, err, job)` (backoffs.js:49-58; job.js:514-520; AdvancedOptions.backoffStrategy em node_modules/bullmq/dist/esm/interfaces/advanced-options.d.ts:18), -1 encerra (job.js:520); deliver lança erro com retryAfter.
+  - Retry total hoje ≈30 s.
+  - Header aditivo (x-webhook-id, x-webhook-timestamp no HMAC) contra replay exige INTEGRACAO + node n8n, preservando x-webhook-signature (R0).
+- **Testes:**
+  - Worker não sobe em test (webhook-queue.ts:93) → unit de deliver com fetch mockado (HMAC, reservados, 429, Unrecoverable) + e2e de efeito do outbox (R6); existentes webhooks.e2e-spec.ts:77-131, g6.e2e-spec.ts:69-100.
+
+#### P-035
+
+**P-035** — TLS e segredos persistidos
+
+- **Locais:**
+  - `PrismaService` ctor/sslConfig prisma.service.ts:22-33, :58-68
+  - apps/gateway/prisma.config.ts:19
+  - schema.prisma:453 (proxies.password), :401 (webhooks.secret), :141 (wa_sessions.creds), :488 (wa_auth_keys.data)
+  - `usePostgresAuthState` keys.set/saveCreds postgres-auth-state.ts:46-69, :77-82
+  - `shared-kernel/secret-box.ts` novo + env nova em config.ts
+  - `PrismaProxyRepository.create/updateConnection` prisma-proxy.repository.ts:85-123 e repositório de webhooks
+- **O que muda:**
+  - TLS de Redis (redis-connection.ts:39, :54-56) e DB_SSL_CA nas partes já funcionam.
+  - Lacuna: com DATABASE_URL o ssl/CA é ignorado (prisma.service.ts:58-59) — como o pg combina connectionString/sslmode com o objeto ssl **não verificado** (consultar a doc do node-postgres).
+  - Envelope encryption AES-256-GCM (node:crypto) com chave em env nova validada no zod; migração sem downtime com leitura dupla; forward-only.
+  - Transação do auth store coordenada com a P-056; cuidado com o pool de 10 (config.ts:58) e transactionOpts do Baileys (baileys.engine.ts:588-592).
+  - Exige backup antes (B-005).
+
+#### P-036
+
+**P-036** — retenção completa, trilha e lotes
+
+- **Locais:**
+  - `RetentionService.sweep/purge/cutoff` retention.service.ts:30-91; `onApplicationBootstrap` :18-28 (sem lock)
+  - WebhookDeadLetter schema.prisma:204-216 (índice :214)
+  - RefreshToken.expiresAt schema.prisma:40-57 (índice :56) — P-005
+  - `wa_conversation_triage` — P-046
+  - `SessionEventLogger` session-event.logger.ts:25
+  - `MediaStorage` (media-storage.service.ts) — mídia S3
+- **O que muda:**
+  - RetentionService já purga tabelas de outros módulos (:40-47) → incluir `webhook_dead_letters` (por failedAt, de preferência as reentregues), `refresh_tokens` expirados (P-005), triage órfã (P-046), campanhas DONE/CANCELLED antigas e objetos S3 (lifecycle do bucket ou varredura).
+  - Lotes: hoje DELETE único por tabela (:33, :36, :41, :46) → lock/WAL grande em `wa_messages`; usar delete por lote com LIMIT/ctid via `$executeRaw` em loop.
+  - Executor único (pg_try_advisory_lock ou Redis SET NX).
+  - Trilha 401/403: gravar sinais/eventos do guard-rail em `wa_session_events` com type novo (schema.prisma:261 já prevê status/proxy/error). timestamptz: colunas TIMESTAMP(3) sem timezone (ex.: migration.sql:13) — migração forward-only delicada.
+  - Envs novas no zod.
+- **Testes:**
+  - nenhum hoje; `sweep()` é público → e2e com linhas antigas semeadas.
+
+#### P-037
+
+**P-037** — capacidade real, falhas fatais, exclusividade
+
+- **Locais:**
+  - `HealthService.check` health.service.ts:53-87; `HealthController` health.controller.ts:10-17
+  - HEALTHCHECK apps/gateway/Dockerfile:79-80
+  - HealthResponse packages/contracts/src/index.ts:20-32
+  - cache de webhooks webhook-dispatcher.service.ts:23, :42-44; `GuardrailService.cfgCache` guardrail.service.ts:118, :144-158, :172; `ReplyRateService.nminCache` reply-rate.service.ts:43, :51-68
+  - `EventFanout` (invalidação) event-fanout.ts:13, :40-53
+  - reidratação session-manager.service.ts:69-93
+  - apps/gateway/test/health.e2e-spec.ts:15
+- **O que muda:**
+  - entregue — prazo por probe, NoSuchKey como indisponível, contador de erros em /metrics.
+  - Falta: (a) readiness: /health 200 antes da reidratação e 200 degraded com DB fora (health.service.ts:66-71) → rota aditiva ou campos informativos sem mudar a regra de 503 (o Swarm reinicia por ela); (b) versão real: npm_package_version não existe no container (docker-entrypoint.sh:43) → process.version, versão do build e do Chromium como campos aditivos no HealthResponse (contracts no mesmo commit; falta também checks.storage); (c) invalidação distribuída de caches via canal Redis dedicado (padrão EventFanout) no CRUD de webhook e no PATCH de guardrail/config; (d) ownership/lease = P-056.
+- **Testes:**
+  - e2e com 2 apps no mesmo Redis exige fan-out ligado (desligado em test, event-fanout.ts:36).
+
+#### P-038
+
+**P-038** — CI da imagem, typecheck, dependências
+
+- **Locais:**
+  - .github/workflows/ci.yml:23-85 (job único), :64-65 (audit informativo), :11-14 (gatilhos)
+  - apps/gateway/Dockerfile e apps/dashboard/Dockerfile (docker build no CI, sem push)
+- **O que muda:**
+  - feito — typecheck de dashboard e contracts, permissions contents:read (ci.yml:16-17), actions por SHA, audit informativo.
+  - Falta: (1) CI da imagem em job separado (sobrepõe P-055); (2) SBOM (ferramenta **não verificada**); (3) Fastify ≥ 5.12 bloqueado pelo pin exato 5.11.3 do @nestjs/platform-fastify 11.2.6 (npm view reconferido); (4) push em feature/\* sem PR não roda CI.
+  - Atenção à issue Dokploy #5453 (análise §8, **não verificado**).
+
+#### P-039
+
+**P-039** — confiabilidade do dashboard (UP-06, UP-08, SSE)
+
+- **Locais:**
+  - apps/dashboard/src/lib/api.ts:85-98 (tryRefresh engole rede/5xx), :101-116 (coreFetch), :118-127 (parseError sem code), :247-254 (limit 50/100 sem paginação)
+  - auth.tsx:30-34 (/me catch→null), :43-46 (logout fire-and-forget)
+  - Monitor.tsx:20-37 e Atendimento.tsx:183-258 (EventSource sem recriação)
+  - Inbox.tsx:50, :93, :118, :126-128; Sessions.tsx:70, :248; Campaigns.tsx:56; Health.tsx:57, :79; Dashboard.tsx:28 (polling)
+  - auth.controller.ts:84-86 (clearAuthCookies também em raced); auth-session.service.ts:99-100; prisma-refresh-token.repository.ts:38-55
+- **O que muda:**
+  - abertos UP-06 e UP-08 (docs/PENDENCIAS.md:277) + SSE.
+  - UP-08: (a) tryRefresh com 3 estados (renovado / sessão terminada 401 / indisponível rede-5xx), onUnauthorized só no terminal; (b) /me separando 401 de rede; (c) logout com await e erro visível; (d) várias abas: coordenar entre abas (BroadcastChannel ou Web Locks — doc MDN **não verificada**) e/ou no servidor não limpar cookies em raced + janela curta ao token recém-rotacionado.
+  - SSE: hook em apps/dashboard/src/lib/ (ex.: useEventStream) para Monitor e Atendimento; onerror com readyState CLOSED → `api.me()` (dispara refresh) e recriar com backoff (spec WHATWG).
+  - UP-06: pausar polling com aba oculta (visibilitychange, doc pendente), AbortController, paginação (conferir parâmetros de messages.controller.ts:225), ACK (MessageDto.status, contracts:125), autoscroll só no fim.
+  - ApiError com code (aditivo) para tratar o 423.
+- **Testes:**
+  - servidor — auth.e2e-spec.ts com 2 refresh concorrentes (Promise.all de inject) sem deslogar e L108 (reuso) verde; painel sem infra de teste → vitest+jsdom no workspace (devDeps + passo no CI) ou extrair lógica pura para lib/\*.ts; senão manual.
+
+#### P-044
+
+**P-044** — caixa única: item do feed sem nome e sem abrir a conversa
+
+- **Locais:**
+  - Atendimento.tsx:198-243 (onmessage; name:null :233), :115-117 (padrão selectedRef), :145-152 (loadConversations; setConversations :150), :564-588 (item sem onClick), :40-41 (convKey)
+  - Opção B: `SessionManager.handleEngineEvent` session-manager.service.ts:216-237 (resolveNames :183); MessagePayload engine.port.ts:15-40; base baileys.engine.ts:830-839 (pushName lido em :807, :822); packages/contracts + docs/INTEGRACAO.md
+- **O que muda:**
+  - opção A (recomendada, só painel, sem contrato): `conversationsRef` com Map convKey→name atualizado em loadConversations; no onmessage preencher name (fallback: número do JID); clique abre a conversa (buscar por convKey ou montar InboxConversationDto mínimo).
+  - Conversa nova fica sem nome até o reload de 800 ms (aceitável).
+  - Opção B (não recomendada): nome/pushName no payload `message` (IWebMessageInfo.pushName existe, WAProto/index.d.ts:13616) — query no caminho quente e muda o webhook (contracts + INTEGRACAO no mesmo commit + unit do upsert).
+- **Testes:**
+  - painel sem testes → manual + `npm run dashboard:build`.
+
+#### P-045
+
+**P-045** — caixa única sem aviso sonoro/notificação
+
+- **Locais:**
+  - Atendimento.tsx:198-256 (handler SSE; inbound !fromMe filtrado em :218-223), :151 (counts.pending → document.title), :383-411 (cabeçalho: botão liga/desliga)
+  - hook novo em apps/dashboard/src/lib/ (ex.: useInboxAlerts)
+- **O que muda:**
+  - decisão do dono.
+  - Contador no `<title>` a partir de counts.pending (zerar ao focar); som curto + Notification só para entrada 1:1 nova (fromMe false); preferência em localStorage com try/catch; permissão e 1º `play()` só no clique do botão.
+  - DO: MDN Notification.requestPermission (acessado 25/09) — só em secure context (HTTPS), Promise com granted/denied/default (default = negado), em interação do usuário; autoplay de áudio **não verificado**.
+  - Não reabrir o EventSource a cada render: o efeito depende de `[deviceFilter, loadConversations]` (:261) → ler a preferência por ref.
+  - Hoje reação recebida chega como `message` não-fromMe e tocaria o alerta.
+  - Depende do SSE vivo (P-039).
+  - Sem mudança em gateway/contracts.
+- **Testes:**
+  - manual; com infra no painel, unit do hook (debounce de rajada, sem alerta para fromMe/grupo).
+
+#### P-046
+
+**P-046** — `wa_conversation_triage` fora da retenção
+
+- **Locais:**
+  - `RetentionService.sweep` retention.service.ts:30-48
+  - ConversationTriage schema.prisma:346-361 (sem índice por idade; unique (sessionId,chatJid) :359)
+  - `BaileysEngine.mergeLidMessages` baileys.engine.ts:1303-1318 (não migra a triagem)
+- **O que muda:**
+  - purge no sweep, DEPOIS do purge de `wa_messages`.
+  - Opção A: por idade (updatedAt < cutoff; env nova `RETENTION_TRIAGE_DAYS` no padrão `cutoff()` de retention.service.ts:50-54; índice em updatedAt via migration nova ou seq scan em tabela pequena).
+  - Opção B: órfãs (NOT EXISTS `wa_messages` para o mesmo sessionId+chatJid; usa o índice [sessionId,chatJid,timestamp]).
+  - Correlato: o merge LID→telefone move as mensagens mas não a marca 🟡 → atualizar `wa_conversation_triage.chatJid` no mergeLidMessages (conflito no unique :359 → apagar a do `@lid` se já houver a do telefone).
+- **Testes:**
+  - e2e de retenção (inexistente hoje): semear triage órfã e verificar remoção (`sweep()` é público).
+
+#### P-047
+
+**P-047** — Baileys: mensagens da fila offline descartadas
+
+- **Locais:**
+  - `BaileysEngine.onMessagesUpsert` baileys.engine.ts:779-872 (filtro :783)
+  - `sendText/sendMedia/emitOutbound` baileys.engine.ts:969-999, :1001-1054, :1097-1121 (cacheSent :983, :1015, :1106); `cacheSent` :1179-1185 e SENT_CACHE_MAX :432; sentMessages/source phone :453, :787, :836
+  - `sendReaction` (sem cacheSent) baileys.engine.ts:1166-1177; makeWASocket sem emitOwnEvents :566-611; handleIncomingMedia :903-967
+  - MessagePayload engine.port.ts:15-40 + EventEnvelope packages/contracts/src/index.ts:56-63
+  - `MessagePersister` message-persister.service.ts:39-65; `PrismaMessageRepository.save` prisma-message.repository.ts:16-54; WaMessage schema.prisma:275-312 (índices :303-310)
+  - `PrismaInboxRepository.listConversations` prisma-inbox.repository.ts:81-106; `ReplyRateService` reply-rate.service.ts:100-125
+- **O que muda:**
+  - decidir POR MENSAGEM em vez de descartar o lote.
+  - `'append'` traz offline (Socket/messages-recv.js:1432), newsletters (:346), resend de placeholder (:1257) e o ECO dos nossos envios (emitOwnEvents true, Defaults/index.js:55; Socket/messages-send.js:1135-1139); o flush rotula o lote com o type da 1ª (Utils/event-buffer.js:569-575).
+  - Ignorar `@newsletter` e status@broadcast; janela 24–48 h pelo messageTimestamp; dedupe por keyId com LRU na engine + `waMessage.findFirst({sessionId,keyId})` ANTES do onEvent (webhook não deduplica por keyId, webhook-dispatcher.service.ts:79; banco sem unique).
+  - Eco próprio: gerar o id antes (generateMessageIDV2, Utils/generics.d.ts:33) e passar `messageId` ao sendMessage (sobrescrito por `...options`, Socket/messages-send.js:1086-1087) → id em sentMessages antes do envio, fecha a corrida nextTick × cacheSent; reação não faz cacheSent → cacheSent em sendReaction, ou filtrar fromMe em append que não venha de outro device, ou `emitOwnEvents:false` (impacto **não verificado**).
+  - Após restart (sentMessages vazio): keyId já em `wa_messages` → pular (se o servidor reentrega ecos da API como offline: **não verificado**).
+  - Marcar histórico/offline com flag ADITIVA (contracts + INTEGRACAO no mesmo commit) para um fromMe antigo não disparar handoff source=phone nem a IA responder mensagem velha.
+  - Decidir se reactionMessage segue virando `message` type `other` (baileys.engine.ts:849-871).
+  - Unique parcial (sessionId,keyId) como 2ª camada exige checar duplicatas em produção (**não verificado**) e migration forward-only.
+  - Persistência/inbox não mudam (timestamp original gravado, message-persister.service.ts:53; semáforo por timestamp/keyId, triage-status.ts:22-40); reply-rate passa a contar respostas offline.
+  - Atenção: close durante o buffering descarta o lote (Utils/event-buffer.js:173-192).
+- **Testes:**
+  - unit de função pura `shouldAcceptUpsert(msg, type, now, seen)` (padrão baileys-reaction.e2e-spec.ts) + spec da engine com socket fake (padrão baileys.shutdown.spec.ts; `vi.mock` com importOriginal para manter extractMessageContent/getContentType/jidNormalizedUser reais — node_modules/@vitest/mocker/dist/types.d-BjI5eAwu.d.ts:88): lote misto notify+append+eco (inclusive de reação)+newsletter+status, fora da janela, keyId repetido, offline='0'.
+  - E2E de efeito (R6): 2 envelopes `message` com o mesmo keyId (padrão webhooks.e2e-spec.ts:77-129) → hoje gera 2 linhas; aceite: webhook/Inbox sem duplicar.
+
+#### P-048
+
+**P-048** — Baileys: sinais nativos de restrição ignorados
+
+- **Locais:**
+  - listeners `BaileysEngine.connect` baileys.engine.ts:618-648 + `detachSocketListeners` :1589-1600 + cleanup :526-528
+  - `onConnectionUpdate` baileys.engine.ts:663-777 (destructuring :666); `onMessagesUpdate` + `mapAckStatus` :876-900, :273-288 (continue :879); `BaileysEngineDeps` :56-96
+  - `SessionManager` ctor/getOrCreateEngine session-manager.service.ts:58-67, :136-188; handleEngineEvent :190-243; sendText/working :466-478, :561-568
+  - `GuardrailService.recordHardSignal/canSendCold/emit/health` guardrail.service.ts:427-454, :406-418, :177-200, :489
+  - `MessagesController.sendWithIntent/assertColdAllowed` messages.controller.ts:206-212, :447-481; `CampaignQueue.process` campaign-queue.ts:148-158
+  - `PrismaMessageRepository.updateStatusByKey`/ACK_RANK prisma-message.repository.ts:125-158
+  - SessionGuardrail schema.prisma:184-198 (campo novo); SessionEventLogger session-event.logger.ts:25
+  - EngineEventName/GuardrailEventName engine.port.ts:64-81; WEBHOOK_EVENTS packages/contracts/src/index.ts:256; docs/INTEGRACAO.md:54-63, :107-127
+- **O que muda:**
+  - a rc14 emite `connection.update.reachoutTimeLock {isActive, timeEnforcementEnds, enforcementType}` (Socket/messages-recv.js:151-182; também via fetchAccountReachoutTimelock, Socket/socket.js:906-917) e `'message-capping.update'` (messages-recv.js:183-191; Types/Events.d.ts:157) — nenhum é ouvido.
+  - No ack com erro, o 463 cai no 1º if (SERVER_ERROR_CODES.MessageAccountRestriction='463', Utils/decode-wa-message.js:65) e só tenta o tctoken; o else-if isReachoutTimelocked (NACK_REASONS 463, :39) é inalcançável → fetchAccountReachoutTimelock nunca roda (messages-recv.js:1511-1557); no fim sai `messages.update` ERROR (:1558-1566) com messageStubParameters `['463','Your account has been restricted']` ou `[código]`, descartado por mapAckStatus.
+  - Proposta: tratar ERROR lendo messageStubParameters[0]; 463 → callback novo em deps (ex.: onHardSignal) ou SessionManager injetando GuardrailService (sem ciclo: sessions.module.ts:14, guardrail.module.ts:10) → `recordHardSignal('463')` + `sock.fetchAccountReachoutTimelock()` (Socket/chats.d.ts:122); 479 → contador (P-049).
+  - Não criar EngineEventName público via `'wa.event'` antes do contracts (vazaria para webhooks/SSE/fan-out); se o guardrail assinar o bus, SÓ o `'wa.event'` local (com remoto, cada réplica aplicaria em dobro).
+  - Listener novo também no detach e no cleanup.
+  - Pausa até timeEnforcementEnds: o timelock "prevents outgoing messages and calls" (Types/State.d.ts:38-41) → pausa geral, não só cold: campo novo (ex.: timelockAte) consultado em sendWithIntent para qualquer envio (423 no MESMO formato SESSION_QUARANTINED com state novo, intents.fail para retry; nada de 429) e em CampaignQueue.process (PAUSED com motivo e retomada — depende da P-057), ou no `SessionManager.working()/sendText`.
+  - ACK de erro precisa entrar no ACK_RANK e no CASE SQL.
+  - Evento aditivo = GuardrailEventName + WEBHOOK_EVENTS + INTEGRACAO no MESMO commit.
+  - Decisões do dono: 463 → quarentena (hoje, só com enforce, guardrail.service.ts:440-445), banida ou só alerta; timelock vale com enforce=false? Riscos: recordHardSignal faz 2 escritas não atômicas (:446-453); ultimos_sinais guarda 1.
+  - Injetar o GuardrailService quebra só o harness posicional (test/session-status-dedup.e2e-spec.ts:41-50).
+- **Testes:**
+  - unit ERROR 463/479 → sinal/callback (engine com sock falso); e2e do evento aditivo + ultimoSinal (aceite Onda 2, análise:276-280) no padrão g6.e2e-spec.ts:49-67; e2e g5-like com cold=false bloqueado sob timelock; taxonomia já coberta em guardrail.service.spec.ts:460-495.
+
+#### P-049
+
+**P-049** — matriz por DisconnectReason + política de versão
+
+- **Locais:**
+  - `onConnectionUpdate` (close) baileys.engine.ts:689-776 (statusCode :690-691, loggedOut :693-715, backoff :744-775, DEGRADED :745-750; STARTING em connect :614); MAX_RECONNECT :431
+  - `latestBaileysVersion` + cache baileys.engine.ts:98-132, uso :545, :569; `setStatus` :491-497
+  - config.ts (env nova de override de versão)
+  - `MetricsService.onModuleInit/refresh` metrics.service.ts:39-63, :104-115 + contador no padrão process-errors.ts:7-15 (ex.: shared-kernel/disconnect-stats.ts)
+  - SessionStatePayload.error engine.port.ts:3-8; SessionDto.lastError packages/contracts/src/index.ts:88
+  - dedup session-manager.service.ts:211-214; persistStatus :245-262; findAutostart prisma-session.repository.ts:105-121; SessionEventLogger session-event.logger.ts:22-51
+- **O que muda:**
+  - hoje todo código ≠ 401 tem o mesmo backoff (5 tentativas → DEGRADED, sem retentativa lenta).
+  - Origem na rc14: enum sem 405 e com 408 duplicado (Types/index.js:14-24; Types/index.d.ts:26-37); 405/403 crus de CB:failure (Socket/socket.js:798-801); conflict → 440 (Utils/generics.js:282-284); 515 após pair-success (Socket/socket.js:727-744; generics.js:293-295); 408 = QR esgotado (socket.js:716) ou keepalive (:540); 500 padrão (generics.js:292).
+  - Proposta: 515 não conta tentativa; 405 ramo próprio com alerta client_too_old (statusCode cru); 403 → FAILED com código bruto; 440 no máximo 1 retentativa tardia SEM persistir terminal até a P-056 (análise:251-252); 411 terminal; 403/411 FAILED saem do findAutostart (decisão consciente); lastError `{code, reason}` (Boom output.statusCode + message) com texto estável por código — muda a chave de dedup e cada texto novo vira webhook (risco P-020).
+  - Métrica `wa_disconnects_total{engine,code}` incrementada NA ENGINE no close (único lugar com o statusCode; reconexão só aparece como STARTING→WORKING), via Map no shared-kernel (depcruise permite, .dependency-cruiser.cjs:34-41) copiado no scrape — Gauge com set ou Counter.inc (node_modules/prom-client/lib/counter.js:39-55; Counter não tem set); code string com conjunto limitado, desconhecido → other; zera no restart (usar rate()); /metrics exige METRICS_TOKEN; não criar session.status extra por close.
+  - Versão: fetchLatestBaileysVersion NÃO lança e devolve a embutida com isLatest:false (generics.js:179-212), fetch sem signal/dispatcher (:182-186) → catch de baileys.engine.ts:125-131 é morto e o fallback fica 12 h como fresco (:122-124): timeout externo, não cachear isLatest:false, logar versão por conexão, override por env (zod) com canário.
+  - Junto: connect() que lança no timer (:767-773) não reagenda.
+  - Respeitar stopped/connectGeneration; `'open'` zera reconnectAttempts (:679).
+  - Ver P-001 e P-018.
+- **Testes:**
+  - hoje nenhum.
+  - Unit table-driven (função pura `classifyDisconnect(statusCode, message)` + engine com sock falso e `vi.useFakeTimers`) para 401/403/405/408/411/428/440/500/503/515; 515 não incrementa; 405 alerta sem 5 reconexões (aceite Onda 2); isLatest:false não cacheia; teste do contador; session-status-dedup.e2e-spec.ts:77-114 segue verde.
+
+#### P-050
+
+**P-050** — download de mídia sem timeout e sem proxy
+
+- **Locais:**
+  - `onMessagesUpsert` → `void handleIncomingMedia` baileys.engine.ts:856-861
+  - `handleIncomingMedia` baileys.engine.ts:903-967 (lib :917-925, options `{}` :920, fallback :949-965)
+  - comentário e agent/fetchAgent baileys.engine.ts:547-548, :595-596; `BaileysEngineDeps` :56-96
+  - `SessionManager.getOrCreateEngine` session-manager.service.ts:158
+  - `buildProxyAgent` proxy-agent.factory.ts:14-20; `ProxyResolver.resolveAgent` proxy-resolver.service.ts:142-164
+- **O que muda:**
+  - na rc14, downloadMediaMessage (Utils/messages.js:833-878) → downloadContentFromMessage → downloadEncryptedContent → getHttpStream = fetch só com dispatcher/method/headers (Utils/messages-media.js:297-302, :416-465); `signal` não é repassado → teto como `Promise.race` externo de 60–120 s caindo no fallback (metadados sem mediaKey).
+  - Hoje só os timeouts do undici (300 s headers / 300 s entre chunks — doc do undici main, **não conferido** no 8.0.2).
+  - Proxy: `{ options: { dispatcher } }` no 3º argumento (spread em messages-media.js:431, :461-464; `MediaDownloadOptions.options: RequestInit` em messages-media.d.ts:84-90); o http.Agent atual não é Dispatcher → dep nova ou a factory devolver os dois. undici NÃO está em node_modules; o Node 26.0.0 embute 8.0.2 (`process.versions.undici`; imagem node:26-bookworm-slim, apps/gateway/Dockerfile:43) → adicionar undici@8 (consultar a doc antes); SOCKS só após teste. fetchAgent só vale no upload (messages-media.js:643-673; no Node o upload usa https nativo, :633-641) → corrigir o comentário de baileys.engine.ts:547.
+  - O reupload (Utils/messages.js:834-845) pode dobrar o tempo.
+- **Testes:**
+  - unit com downloadMediaMessage que nunca resolve + `vi.useFakeTimers` → fallback dentro do teto, sem rejeição tardia não tratada (análogo em wwebjs-engine.e2e L393); saída pelo IP do proxy só manual com a sessão de teste (B-007).
+
+#### P-051
+
+**P-051** — patch-package mínimo do Baileys + teste de pareamento
+
+- **Locais:**
+  - patches/ (hoje só whatsapp-web.js+1.34.7.patch); package.json:31 (postinstall)
+  - apps/gateway/Dockerfile:25-29 (patches antes do npm ci; guarda — P-055)
+  - Utils/crypto.js:23-31 (Curve.verify); node_modules/libsignal/src/curve.js:130-142
+  - usos: Utils/noise-handler.js:153-154 e Utils/validate-connection.js:157
+  - Utils/signal.js (domainType — linha **não verificada**)
+  - §3.5 como roteiro de validação
+- **O que muda:**
+  - Curve.verify da rc14 chama verifySignature e IGNORA o booleano (crypto.js:23-31; curve.js:130-142 devolve `curveJs.verify`; node_modules/curve25519-js/lib/index.js:1623-1637 devolve boolean): só dá false se lançar (tamanho inválido) — qualquer assinatura de 64 bytes passa (reconferido na síntese em 25/09; uma verificação disse "não reproduzido", mas o código confirma).
+  - Usado no pair-success (validate-connection.js:157) E na cadeia de certificado do handshake Noise (noise-handler.js:153-154).
+  - Patch mínimo: #2751 (+ domainType hosted) e #2815; #2789, #2765 e #2781 só com evidência (B-007: pareamento com chip; smax-invalid 479 nos logs, messages-recv.js:1547-1548).
+  - Conteúdo dos PRs upstream **não verificado**.
+  - Patch sobre o JS compilado em lib/.
+  - Risco: patch deixar de aplicar sem aviso → `--error-on-fail` + grep no Dockerfile (P-055).
+- **Testes:**
+  - unit SEM mock — `import { Curve } from '@whiskeysockets/baileys'` (lib/index.js:3 → Utils/index.js:6): `Curve.verify(pub, msg, Buffer.alloc(64)) === false` após o patch (hoje true) e assinatura de Curve.sign segue true; opcional guarda de "patch aplicado" (como wwebjs-engine.e2e L699-722); handshake/QR/código/reconexão/mídia manual com chip.
+
+#### P-052
+
+**P-052** — Baileys: pairing/LID/caches
+
+- **Locais:**
+  - `SessionManager.requestPairingCode` session-manager.service.ts:451-464 (sleep :461)
+  - `BaileysEngine.requestPairingCode` baileys.engine.ts:1557-1563
+  - `SessionsController.pairingCode` sessions.controller.ts:387-414 (regex :405-409)
+  - `recordGroupParticipants` baileys.engine.ts:1348-1358 (p.jid :1351); `resolveParticipantPhone` :331-344; `warmLidCache/mergeKnownLids` :1289-1338; resolução @lid :812-815, :885-888; makeWASocket :566-611
+  - setup-app.ts:12-63 (getPairingCode no fake); sessions.e2e-spec.ts
+- **O que muda:**
+  - (a) requestPairingCode da rc14 sobrescreve `creds.me` e emite creds.update (Socket/socket.js:596-606) → numa sessão pareada corrompe as creds.
+  - Guarda: 409 se status WORKING ou `sock.user`/`creds.me` existir (getter em :929-932; no QR creds.me é gravado no pair-success :733-735 e no CB:success :764).
+  - `creds.registered` só vira true no fluxo de pairing code (messages-recv.js:881-940; nasce false em Utils/auth-utils.js:295) → **registered sozinho NÃO serve** (a PENDENCIAS e duas verificações propunham registered; a verificação de sessions refutou no código).
+  - Erro específico mapeado para 409 (já no contrato).
+  - Trocar o sleep de 1,5 s por espera de connection.update `'connecting'` ou do 1º qr, com teto.
+  - (b) roster da rc14 traz `phoneNumber` quando o id é @lid e `lid` quando é PN (Socket/groups.js:333-341); recordGroupParticipants lê `p.jid` (inexistente) e perde o par → ler `p.phoneNumber` (a exibição já usa, :335).
+  - (c) fallback local `signalRepository.lidMapping.getPNsForLIDs` (Signal/lid-mapping.js:202-268): só cache e `wa_auth_keys` lid-mapping, sem rede; PN com sufixo de device (:229) → jidNormalizedUser.
+  - (d) msgRetryCounterCache/userDevicesCache recriados por socket (messages-recv.js:27; messages-send.js:24) → avaliar com métrica.
+  - (e) countryCode `'US'` (Defaults/index.js:79) → `'BR'` por coerência, sem prova de efeito anti-ban.
+  - (f) contar pre-keys = linhas `wa_auth_keys` type pre-key por sessão.
+- **Testes:**
+  - e2e `POST /pairing-code` em sessão WORKING → 409 (sobrescrever fakeSessionManager.requestPairingCode; testar a frase final por causa da regex); getPairingCode no fake para GET /qr; unit (engine com creds.me) sem chamar sock.requestPairingCode; unit recordGroupParticipants com `{id:'x@lid', phoneNumber:'55…@s.whatsapp.net'}` → recordMany recebe o par.
+
+#### P-053
+
+**P-053** — rate-limit, autoLogging e auditoria por `req.url`
+
+- **Locais:**
+  - main.ts:68-75 (max/allowList)
+  - `AuthController.signIn` auth.controller.ts:47 (`@RouteConfig({ rateLimit: { max: 10, timeWindow: '1 minute' } })` de @nestjs/platform-fastify — decorators/route-config.decorator.js; aplicado em adapters/fastify-adapter.js:474-503)
+  - `AuditInterceptor.shouldAudit/record` audit.interceptor.ts:47-51, :53-77
+  - LoggerModule `autoLogging.ignore` app.module.ts:50-53
+  - `createTestApp` setup-app.ts:82-100 + novo `bootstrap/rate-limit.ts` (ou configure-http.ts) compartilhado com main.ts:61-93
+  - novos e2e rate-limit.e2e-spec.ts e audit.e2e-spec.ts
+- **O que muda:**
+  - trocar `req.url` por `req.routeOptions.url` (fastify 5.11.3, fastify/lib/request.js:183-205; types/request.d.ts:26, :103; undefined em 404); no onRequest o routeOptions já existe (o rate-limit lê `req.routeOptions.config` no hook, @fastify/rate-limit/index.js:252); com prefixo = `/api/auth/login`, com parâmetro = `/api/sessions/:id/proxy`.
+  - Coluna path da auditoria: decidir padrão da rota × path concreto normalizado (o painel exibe o path); manter a exclusão de `/messages`.
+  - Login robusto: `config.rateLimit` por rota → store próprio (index.js:173-179), sem compartilhar o contador do IP (store/LocalStore.js:11-44) — mudança de semântica → D-xxx.
+  - `autoLogging.ignore` recebe IncomingMessage cru sem routeOptions (fastify-middie.js:205-218) e talvez nem veja /health → tratar como ruído e validar capturando log.
+  - Sem impacto no contrato do n8n (429 já existia).
+- **Testes:**
+  - não há teste de rate-limit hoje.
+  - Unit de max/allowList com req falso; e2e com app PRÓPRIA registrando o plugin ANTES do `app.init()` (NÃO no createTestApp padrão: o auth.e2e faz ~15 logins); `/api/auth/%6Cogin` → 429 no 11º (inject); forma absoluta só com `app.listen(0)` + net.Socket (light-my-request normaliza); audit.e2e: POST em `/%61pi/webhooks` com Bearer → linha em waAuditLog (roteamento de %61pi só na análise §7, **não reverificado**).
+  - Aceite (§12 Onda 1): 11º login → 429 nas duas variantes; mutação em `/%61pi/...` auditada.
+
+#### P-054
+
+**P-054** — patches de segurança/estabilidade (sem major)
+
+- **Locais:**
+  - apps/gateway/package.json:29 (@fastify/multipart ^10.1.1 → 10.1.1), :32-36 (@nestjs/\* ^11.2.1 → lock 11.2.3), :40 (bullmq ^5.81.3 → 5.81.4), :42 (fastify 5.11.3 exato)
+  - package-lock.json (protobufjs 7.6.5, transitivo do Baileys); package.json:47-54 (allowScripts cita protobufjs@7.6.4)
+  - fastify-adapter.ts:17-19 (files:1) + `MessagesController.sendMedia` messages.controller.ts:509-570
+  - Workers webhook-queue.ts:77-133, campaign-queue.ts:81-110
+  - log-redaction.pino-http.spec.ts; workflow agendado novo em .github/workflows/
+- **O que muda:**
+  - npm view (25/09, reconferido): @nestjs/core e platform-fastify 11.2.6 (exige fastify 5.11.3 exato → pin fica), @fastify/multipart 10.1.2 (corrige 2 arquivos → 500 no POST /messages/media), bullmq 5.81.5 (Worker volta a consumir após queda do Redis), protobufjs 7.6.6.
+  - GHSA-9c5c-9qcx-q35q **não conferido**.
+  - Versões exatas; diff do lockfile só nesses pacotes; NÃO usar `npm audit fix --force`.
+  - Após o bump do Nest, reconferir a ordem de hooks init/destroy (§3.3/§3.4) no código instalado.
+  - Checagem de advisories em job agendado, informativo, permissions mínimas.
+- **Testes:**
+  - typecheck, test:unit, e2e completo + spec P-041; novo it em media.e2e: multipart com 2 arquivos → 4xx (500 hoje segundo a análise, não reproduzido); BullMQ manual em dev com NODE_ENV=development derrubando o Redis (e2e não sobe Worker, webhook-queue.ts:93).
+
+#### P-055
+
+**P-055** — guardas de build (pré-requisito do stop-first, B-004)
+
+- **Locais:**
+  - package.json:31 (postinstall → `patch-package --error-on-fail`)
+  - apps/gateway/Dockerfile:25-33 (após o npm ci: `RUN grep -q 'window.WWebJS.getMsgKeyId' node_modules/whatsapp-web.js/src/util/Injected/Utils.js`; `&& test -f apps/gateway/dist/main.js`), :79-83
+  - apps/dashboard/Dockerfile:20-21 (herda o postinstall)
+  - .github/workflows/ci.yml:35-85 (`test -f` após o build, :81-82) + job novo `docker build -f apps/gateway/Dockerfile .` sem push
+  - docker-entrypoint.sh:38-43
+  - docs/deploy-dokploy.md (runbook de rollback manual com tempo medido)
+- **O que muda:**
+  - fora de CI, sem a flag, falha de patch sai com 0 (node_modules/patch-package/dist/index.js:91-94).
+  - O marcador é adicionado pelo patch (linhas +10/+21/+35/+61/+104) e existe no instalado (Utils.js:585, :630, :845, :947, :1027); considerar marcador do hunk de Puppeteer.js (patch:122-126).
+  - `--error-on-fail` também quebra `npm install` local quando o wwebjs mudar (desejado); decidir se deve quebrar o dashboard. docker build no CI instala Chromium via apt e pode estourar timeout-minutes 20 (ci.yml:26) → job separado.
+  - Com stop-first, imagem quebrada = indisponibilidade.
+  - Só build/CI; mexer em Dockerfile/CI afeta deploy (R0) → feature/\* + build local.
+- **Testes (aceite):**
+  - patch corrompido → npm ci/Docker build FALHA; build sem dist/main.js FALHA.
+
+#### P-056
+
+**P-056** — exclusividade de sessão entre processos (lease/fencing)
+
+- **Locais:**
+  - `SessionManager.onApplicationBootstrap` session-manager.service.ts:69-93; start/getOrCreateEngine :295-301, :136-188; persistStatus/handleEngineEvent :190-265; sendText/working :466-478, :561-568; onModuleDestroy :95-134
+  - `usePostgresAuthState` keys.set/saveCreds postgres-auth-state.ts:46-82 + creds.update baileys.engine.ts:618-620
+  - `PrismaSessionRepository.updateStatus` prisma-session.repository.ts:76-99
+  - `RedisService.client` redis.service.ts:10-14; instanceId event-fanout.ts:27; EventFanout :35-72
+  - WaSession schema.prisma:132-159 (authEpoch aditivo)
+  - novo `session-lease.*` + spec; novo session-lease.e2e-spec.ts; harness session-status-dedup.e2e-spec.ts:25-50
+- **O que muda:**
+  - dois processos (start-first, B-004) abrem a mesma conta; os dois gravam status (updateMany sem condição de dono) e auth (keys.set Promise.all sem transação; saveCreds sobrescreve o JSON inteiro sem epoch); webhook/SSE consomem `'wa.event.remote'` do outro.
+  - Lease no Redis (SET NX PX por sessão, renovado) ou epoch no Postgres, adquirido ANTES do start (reidratação e manual); sem lease não persiste status nem auth e não envia; keys.set em `prisma.$transaction`; saveCreds encadeado (hoje update simples que lança P2025); authEpoch em migration ADITIVA nova; engines antigas em draining; DEGRADED com retentativa lenta só para queda de rede.
+  - Preservar `shutdown()` sem status (P-043) e o guard de onEvent.
+  - Destrava o 440 da P-049; com stop-first o overlap diminui, mas o lease segue necessário (rollback e réplicas).
+  - Riscos: lease perdido por pausa de GC ou Redis fora derruba a sessão; reinício em rajada derruba a sessão real (CLAUDE.md).
+- **Testes:**
+  - unit de fencing/epoch com store falso + SessionManager com fakes (sem lease → sem updateStatus e sem connect); e2e com Redis real (2 owners → só um adquire; TTL expira → outro assume; renovação mantém); dois SessionManagers sobre o mesmo banco/Redis com engine fake → só um conecta; auth store em transação + authEpoch com Postgres.
+  - Com WhatsApp real não dá em CI: aceite da Onda 3 é manual/controlado.
+
+#### P-057
+
+**P-057** — campanhas: rajada ao retomar e FAILED no boot
+
+- **Locais:**
+  - `CampaignQueue.process` campaign-queue.ts:138-240 — PAUSED :141-145, gate :148-158, cap :165-172, revalidação :188-195, catch → FAILED :236-238
+  - `CampaignQueue.requeue` campaign-queue.ts:129-136 e PAUSE_REQUEUE_MS :26; `onModuleInit` Worker :89-93 (processor `(job) => this.process(job.data)`)
+  - `CampaignService.resume/schedulePending` campaign.service.ts:58-104
+  - `CampaignRepository.releaseRecipient/markRecipientFailed` campaign.repository.ts:187-219
+  - `SessionManager.working/sendText` session-manager.service.ts:466-478, :561-568; `onApplicationBootstrap` :69-93
+  - Campaign schema.prisma:513-544; CampaignDto packages/contracts/src/index.ts:519-541
+  - novos campaign-queue.spec.ts e campaign.service.spec.ts
+- **O que muda:**
+  - (1) PAUSED: parar de reenfileirar e só retornar — o resume já reagenda os PENDING (campaign.service.ts:96-100); para os delayed antigos não somarem aos novos, `scheduleEpoch` na campanha (migration) no CampaignJob: process descarta época velha, start/resume incrementam.
+  - (2) Sessão fora de WORKING: erro tipado (ex.: SessionNotWorkingError em engine.port) em working()/sendText, sem mudar a mensagem atual (vira 400 na API, messages.controller.ts:479); no process, checar antes da reserva ou no catch: releaseRecipient + `job.moveToDelayed(ts, token)` + `throw DelayedError` (API no 5.81.4: node_modules/bullmq/dist/esm/classes/job.d.ts:480; errors/delayed-error.js; padrão docs.bullmq.io/patterns/process-step-jobs via Context7) — exige processor `(job, token) =>`; alternativa queue.add com delay crescente e contador em job.data.
+  - (3) "Worker só após reidratação": o item 2 resolve por sessão; `autorun:false` (worker.js:34, :115-117) + `worker.run()` (:242) exigiria sinal de fim da reidratação (hoje void async, session-manager.service.ts:81-92).
+  - (4) `Worker.limiter {max, duration}` é teto GLOBAL da fila (docs.bullmq.io/guide/rate-limiting), não por sessão.
+  - (5) Cap e guardrail: sem requeue; retomada automática (o que o log de campaign-queue.ts:167 promete) exige pauseReason/pausedUntil (migration + CampaignDto aditivo no mesmo commit) e timer/job repetível que chame resume — ou só corrigir a doc (decidir).
+  - Riscos: não quebrar a reserva atômica nem MAX_RECIPIENT_ATTEMPTS; releaseRecipient decrementa attempts (campaign.repository.ts:190).
+- **Testes:**
+  - NÃO existe teste do process nem de reserveRecipient (e2e desligam a fila, campaign-queue.ts:84; f6.e2e-spec.ts:32-99 só auth/validação/criação/cancel).
+  - Unit com fakes (repo/manager/guardrail, `this.queue = {add: vi.fn()}` por cast), de preferência com a decisão extraída para função pura (como send-intent.decision.ts): PAUSED sem requeue; "Sessão não iniciada" → release + delay, NÃO FAILED; cap; revalidação no typing.
+  - CampaignService: resume após pausa longa respeita minDelaySec.
+  - E2E novo de reserveRecipient (FOR UPDATE, stale, MAX_ATTEMPTS, cap por dia local).
+  - Aceite Onda 3: pausa de 10 min + resume sem envios abaixo do espaçamento; restart com jobs vencidos sem FAILED "sessão não iniciada" (análise:284-286).
+
+#### P-058
+
+**P-058** — proxy: afinidade por conta (WA-16)
+
+- **Locais:**
+  - `ProxyResolver.resolve` proxy-resolver.service.ts:32-95 (SINGLE :38-40, estratégias :66-91, setCurrent :93); `resolveAgent/resolveProxyConfig` :124-164; `reportFailure` :101-120
+  - `PrismaProxyRepository.findById/listInRange/listEnabledAlive/setCurrent` prisma-proxy.repository.ts:132-151, :203-208
+  - `BaileysEngine.connect` guard baileys.engine.ts:548-564; regex de close :727-742
+  - `WWebJSEngine.doStart/handleInitFailure` wwebjs.engine.ts:604-642, :1001-1066
+  - deps session-manager.service.ts:144-162
+  - `ProxyService.setAssignment`/`ProxiesController.setAssignment` proxy.service.ts:246-266, proxies.controller.ts:160-177
+  - WA_REQUIRE_PROXY config.ts:110; re-teste proxy.service.ts:82-97
+  - novo proxy-resolver.service.spec.ts
+- **O que muda:**
+  - cada connect/reconexão re-resolve: ROUND_ROBIN/RANDOM avançam o cursor no Redis e trocam de IP (:70-90); STICKY faz hash sobre a lista não-DEAD (:57, :68), então proxy morto muda o escolhido de outras sessões; SINGLE devolve o pinado sem checar status/enabled (:38-39; findById sem filtro), contra o log de :149-154; currentProxyId (:93) nunca relido.
+  - (1) Afinidade: reusar `a.currentProxyId` se estiver entre os candidatos.
+  - (2) SINGLE inexistente/desabilitado/DEAD → erro tipado que a engine converte em FAILED explícito, mesmo com WA_REQUIRE_PROXY=false.
+  - (3) resolveAgent só null para NONE ou sem assignment: nunca conexão direta fora de NONE.
+  - (4) Regex de DEAD (baileys.engine.ts:731): tirar `proxy` genérico e erros de rede ambíguos; avaliar N falhas seguidas (marcação é global).
+  - (5) Validar proxyId no PUT SINGLE (reusar ensureAvailable, respeitando a própria sessão) e passar `:id` por SessionRefPipe.
+  - Só depois o dono liga WA_REQUIRE_PROXY (B-001).
+  - Risco: sessões SINGLE com proxy apagado param de conectar → antes do deploy, SELECT em session_proxy_assignments LEFT JOIN proxies.
+  - Corrigir o comentário de wwebjs.engine.ts:626 (aponta :489-499; real :554-564).
+- **Testes:**
+  - resolver sem unit hoje → repo falso (getAssignment/findById/listInRange/listEnabledAlive/setCurrent/updateTest) + redis falso (`{client:{incr}}`): afinidade em RANGE/GLOBAL, SINGLE desabilitado/DEAD → erro, nunca null fora de NONE; regex como função pura (restartRequired/connectionReplaced não podem casar); proxies.e2e (6) e proxy-create-session.e2e (5) verdes.
+  - Aceite Onda 3: reconexão mantém o proxy; queda > 2 min volta sozinha em ≤ 15 min.
+
+#### P-059
+
+**P-059** — wwebjs (só se voltar a ser usado)
+
+- **Locais:**
+  - `DEFAULT_WEB_VERSION`/`WEB_VERSION_MODE` wwebjs.engine.ts:57-69; `ensureWebVersionHtml/resolveWebVersion` :923-955, :957-988; `checkPinnedBuildAge` :877+
+  - `handleDisconnect` wwebjs.engine.ts:1107-1169; doStart reset/listeners :589-591, :798-838; `healWedgedPage` :2160-2190
+  - patches/whatsapp-web.js+1.34.7.patch
+- **O que muda:**
+  - build fixa 2.3000.1045101284-alpha (:68) expira em 13/10/2026 (comentário :63). handleDisconnect não distingue reason: LOGOUT/UNPAIRED/TOS_BLOCK/CONFLICT reconectam 5× e voltam a gerar QR (:1139-1168) — deveriam virar STOPPED/FAILED com o código. start() não zera reconnectAttempts (só no ready, :802; doStart :589-591).
+  - Timer de reconexão sem handle (:1161): benigno pelo `if (this.client) return` (:590), mas não cancelável.
+  - Código de pareamento renovado fica em memória enquanto PAIRING_CODE (:828-838), limitado só pelo watchdog de QR.
+  - Heal com cooldown de 120 s e sem teto total (:2162-2170).
+  - Versão entra no path sem validação (:924); referência #201930 (path traversal) **não verificada**. getWWebVersion não aparece no engine.
+  - Patch precisa do filtro de mediaOptions (`__x_id`) e do fallback de WID.
+- **Testes:**
+  - test/wwebjs-engine.e2e-spec.ts e wwebjs.lifecycle.spec.ts (FakeClient; :113-205) cobrem ciclo, teto de init, watchdog de QR e pairing code.
+
+#### P-060
+
+**P-060** — wwebjs perfil leve de memória (só se voltar)
+
+- **Locais:**
+  - `doStart` args do puppeteer wwebjs.engine.ts:727-757 (--js-flags :744; --disable-software-rasterizer :741)
+  - `handleIncomingMedia` wwebjs.engine.ts:1648-1735 (downloadMedia :1692; teto :93-94)
+  - ready → mergeExistingLids/syncAddressBook wwebjs.engine.ts:809-811
+  - `sendMedia` wwebjs.engine.ts:1396
+- **O que muda:**
+  - downloadMedia converte para base64 no renderer, só com teto de TAMANHO declarado (`_data.size`, :1663-1667), nenhum de tempo; mídia de grupo baixada automaticamente; syncAddressBook a cada ready.
+  - O comentário em session-manager.service.ts:203-204 diz que o ready re-dispara a cada heal — **não verificado** em runtime.
+  - Medir por sessão antes de mexer (JSHeap/PSS/IndexedDB).
+  - Plano em docs/analise-wwebjs-memoria-2026-09.md.
+
+#### P-062
+
+**P-062** — manutenção (um major por deploy)
+
+- **Locais:**
+  - apps/dashboard/Dockerfile:27 (nginx:1.27-alpine → 1.30.5-alpine@sha256)
+  - apps/gateway/Dockerfile:9, :43 e apps/dashboard/Dockerfile:9 (node:26-bookworm-slim → tag+digest)
+  - .github/workflows/ci.yml:25 (ubuntu-latest → ubuntu-24.04), :28, :30 (checkout/setup-node ≥ v5 por SHA)
+  - apps/gateway/package.json:70 (remover ts-node); package.json:47-54 (remover allowScripts)
+  - apps/gateway/tsconfig.json:6 (moduleResolution node) e :15 (baseUrl) — preparar TS 6
+  - main.ts:101 (logar versão do Chromium/base)
+- **O que muda:**
+  - um major por deploy (análise §12, Onda 5).
+  - Nest 12.1.x só no runtime (piso 12.0.4) com CLI 11 + TS 5.9.3, e2e de contrato do node n8n e conferência da ordem de shutdown; BullMQ 6 com ioredis 5; Prisma só 7.10.x/7.11. vitest já declara `extends:true` nos dois projetos (vitest.config.ts:29, :37). **Não verificado:** allowScripts inerte no npm 11 e deprecações do TS 6.
+  - O Dockerfile ainda instala Chromium (apps/gateway/Dockerfile:52-54) com frota 100% Baileys: decisão da P-061.
+  - Mudança em .github/workflows exige CI verde no PR.
+
+#### P-063
+
+**P-063** — reconciliação documental (Onda 0B)
+
+- **Locais:**
+  - comentários baileys.engine.ts:98-102, :547, :588-591, :984, :1602-1611
+  - engine.port.ts:236-243
+  - wwebjs.engine.ts:63-65, :117, :120, :626, :1101, :1104
+  - session-manager.service.ts:202; sessions.controller.ts:367-368; config.ts:107-109
+  - AGENTS.md:23
+- **O que muda:**
+  - só documentação e comentários, sem mudança de comportamento; itens concretos na §6 (fetchAgent, transactionOpts, eco próprio, fallback de versão, "stop-first" onde o overlap é start-first, referências de linha obsoletas, pairingCode no Baileys, WA_REQUIRE_PROXY "só Baileys", rc13 no AGENTS.md).
+  - Commit `docs:` separado, sem deploy funcional.
+
+#### P-064
+
+**P-064** — redução estrutural e regras de produto (Onda 7)
+
+- **Locais:**
+  - Métrica: `ReplyRateService.computeFor` reply-rate.service.ts:93-167; `ObservabilityController.replyRateMetrics` observability.controller.ts:33-43; `MetricsService.refresh/counters` metrics.service.ts:104-152; índice [sessionId, chatJid, timestamp] schema.prisma:303; retenção 90d retention.service.ts:32; SessionMetric schema.prisma:235-255
+  - Cota /contacts/check: `BaileysEngine.checkNumbers` baileys.engine.ts:1494-1508
+- **O que muda:**
+  - decisão de produto.
+  - Métrica "destinatários novos sem resposta em 30 dias": lugar técnico é observability (dona de session_metrics); definir "novo" com o dono (1º fromMe para o chatJid na janela, ou isCold=true); SQL no molde do CTE de reply-rate.service.ts:100-125 com o índice.
+  - Reações recebidas hoje contam como inbound (baileys.engine.ts:849-871).
+  - Olhar para trás limitado por RETENTION_MESSAGES_DAYS (90d).
+  - Exposição: campo aditivo em /observability/reply-rate e/ou gauge `wa_new_recipients_unanswered{session}`; cachear com os counters (Redis 10 s, metrics.service.ts:30-31) ou calcular periodicamente.
+  - Cota em /contacts/check: hoje 1 onWhatsApp por número em laço; lote/cota não pode vazar para o caminho de envio (invariante do contact-check).
+  - Demais itens (canal oficial, BSUID, add/createGroup, inventário de plataforma, whatsmeow) sem local de código mapeado.
+- **Testes:**
+  - e2e no molde do g4 (apps/gateway/test/g4.e2e-spec.ts:66-94) com timestamps controlados.
+
+#### P-065
+
+**P-065 (sugerida, ainda não registrada)** — egress aceita IPv4-mapeado em hex
+
+- **Locais:**
+  - `isPrivateAddress` safe-fetch.ts:71-88 (regex :77)
+  - `assertEgressAllowed` safe-fetch.ts:119-158
+  - safe-fetch.spec.ts:37-51
+- **O que muda:**
+  - reproduzido em 25/09 (Node 26.0.0, cópia do safe-fetch.ts): `new URL('http://[::ffff:127.0.0.1]/').hostname` = `[::ffff:7f00:1]` passa; idem `[::ffff:169.254.169.254]` (vira `[::ffff:a9fe:a9fe]`) e `[::7f00:1]`.
+  - Correção: `net.BlockList` com faixas v4 e v6 (`check('::ffff:7f00:1','ipv6')` = true para 127/8, testado) + bloquear ::/96, 2002::/16 e 2001::/32.
+  - Afeta webhook, campanha e media-url.
+  - Exploração no container **não verificada**: tratar como correção de segurança.
+  - Registrar em docs/PENDENCIAS.md antes de implementar (R9).
+- **Testes:**
+  - casos novos em safe-fetch.spec.ts (forma hex, ::/96, 2002::/16, 2001::/32).
+
+## 6. Divergências doc × código
+
+Encontradas nas verificações de 25/09/2026. Formato: **o que a doc/comentário diz** (arquivo:linha) × **o que o código faz** (arquivo:linha). A correção é na doc/comentário (P-063), salvo indicação. Nada aqui muda contrato.
+
+### 6.1 Comentários da engine Baileys × lib rc14
+
+- baileys.engine.ts:547 diz que o mesmo Agent serve ao download de mídia (`fetchAgent`) × na rc14 `fetchAgent` só é usado no upload (Utils/messages-media.js:643-673); o download usa fetch com `options.dispatcher` (:297-302, :461-464) e o gateway passa `{}` (baileys.engine.ts:920) → download sai sem proxy. Já registrado em docs/analise-atualizacoes-2026-09.md:82 (P-050).
+- baileys.engine.ts:588-591 diz que o padrão do Baileys é mais baixo (maxCommitRetries=5, delayBetweenTriesMs=1000) × na rc14 o padrão já é 10/3000 (Defaults/index.js:70); docs/agent-whatzapp_api.md:146 também apresenta esse valor como ajuste de robustez.
+- baileys.engine.ts:984 diz "O Baileys não emite messages.upsert para o que enviamos" × a rc14 emite, como `'append'` via process.nextTick (Socket/messages-send.js:1135-1139; `emitOwnEvents` true em Defaults/index.js:55); o eco só não aparece por causa do filtro notify (baileys.engine.ts:783).
+- baileys.engine.ts:98-102 (e :125-131) diz "em falha, reusa a última versão … ou a default" × na rc14 `fetchLatestBaileysVersion` nunca lança e devolve a versão embutida com `isLatest:false` (Utils/generics.js:206-211): o catch é código morto e o fallback fica 12 h no cache como fresco (baileys.engine.ts:122-124).
+- baileys.engine.ts:321 e :1351 (`RawParticipant.jid`, `recordGroupParticipants` usa `p.jid`) × na rc14 o participante tem id, phoneNumber e lid, não jid (Socket/groups.js:334-341) → o diretório perde LID↔PN (P-052).
+- `BaileysEngineDeps.deviceName` (baileys.engine.ts:58), preenchido em session-manager.service.ts:141-143, é campo morto: nenhuma engine o lê (o próprio comentário de :141-142 admite "Mantido só pela forma da deps").
+
+### 6.2 Deploy: "stop-first" × start-first
+
+- engine.port.ts:239-240 e baileys.engine.ts:1604 atribuem o overlap de containers ao deploy "stop-first" × o overlap é de start-first, que o Dokploy v0.30.2 aplica com Update Config vazio (docs/PENDENCIAS.md:181-187, B-004; docs/deploy-dokploy.md:73-77; D-020 em docs/DECISOES.md:348). docs/agent-whatzapp_api.md:348-352 já foi corrigido na árvore de trabalho; a D-014 (docs/DECISOES.md:220-222) mantém "default stop-first" no texto, superada pela D-020.
+
+### 6.3 Referências de linha obsoletas em comentários
+
+- session-manager.service.ts:202 cita baileys.engine.ts:628 para o WORKING do open × real :681.
+- wwebjs.engine.ts:117 cita baileys.engine.ts:398 para MAX_RECONNECT × real baileys.engine.ts:431. wwebjs.engine.ts:120 cita baileys.engine.ts:226 para extOf × real baileys.engine.ts:259.
+- wwebjs.engine.ts:626 cita baileys.engine.ts:489-499 para o guard de proxy × real :554-564.
+- wwebjs.engine.ts:1104 cita baileys.engine.ts:641-666 × real :689-776. wwebjs.engine.ts:1101 cita "doStart:140" × real :590.
+
+### 6.4 Contrato público (INTEGRACAO, contracts) × payload real
+
+- packages/contracts/src/index.ts:256 `WEBHOOK_EVENTS = ['*','message','session.status']` × o gateway despacha 12 nomes (engine.port.ts:64-84: message.ack, message.reaction e os 8 GuardrailEventName) + `'webhook.test'` (webhooks.controller.ts:139); o dashboard só oferece os 3 (apps/dashboard/src/routes/Webhooks.tsx:127); o zod aceita qualquer string (webhooks/interface/dto.ts:6).
+- docs/INTEGRACAO.md:59 descreve `message.ack` como `{ msg_id, status }` × o código emite `{keyId, chatJid, fromMe, status, timestamp}` (engine.port.ts:46-52; baileys.engine.ts:892-898). Corrigir a doc, não o código (R0).
+- packages/contracts/src/index.ts:56-63 (EventEnvelope) sem `sessionId` e com session/engine nullable × o envelope real tem `sessionId` e session/engine obrigatórios (engine.port.ts:87-95; session-manager.service.ts:229-237; docs/INTEGRACAO.md:44); o painel lê `env.sessionId` fora do contrato (Atendimento.tsx:223, :228, :230).
+- packages/contracts/src/index.ts:223-231 (SendTextRequest só `{to,text}`; SendTextResponse `{id,to}`) × a API aceita mentions/cold/idempotencyKey e devolve `deduped` (messages.controller.ts:72-78, :455, :463, :476); api.ts:256-272 monta os campos à mão (P-013).
+- packages/contracts/src/index.ts:6-11 (`AuthUser.name`) × `GET /api/auth/me` devolve só `{id, username, role}` (auth.controller.ts:103-112) → Dashboard.tsx:43 mostra nome vazio após reload.
+- packages/contracts/src/index.ts:79-91 (SessionDto) × `GET /api/sessions` devolve também `guardrailState` (sessions.controller.ts:156-158).
+- packages/contracts/src/index.ts:20-32 (HealthResponse) sem `checks.storage` × o gateway devolve (health.service.ts:15, :79).
+- packages/contracts/src/index.ts:1-2 ("contratos compartilhados entre o gateway e o dashboard") × o gateway não importa contracts em nenhum arquivo (grep); só o dashboard (apps/dashboard/vite.config.ts:12; apps/dashboard/tsconfig.json:17).
+- BASE_CONEXOZENVO.md:758 ("packages/contracts consumido EXTERNAMENTE pelo node n8n") × packages/contracts/package.json:4 `private:true` e main em src/index.ts (não publicável); consumo externo **não verificado**.
+- docs/INTEGRACAO.md:62 e engine.port.ts:79-80 publicam `signal.463`/`signal.restriction` × nenhum código de produção chama `recordHardSignal` (só guardrail.service.spec.ts:465-490): o evento nunca é emitido.
+- docs/INTEGRACAO.md:68-71 ("reconexão transitória que volta a WORKING não gera novo evento") e o comentário de session-manager.service.ts:201-205 × no Baileys cada reconexão passa por `connect()`, que emite STARTING (baileys.engine.ts:614), e depois WORKING no open (:681): duas transições reais que o dedup não filtra (só evita WORKING→WORKING repetido).
+- docs/INTEGRACAO.md:66 ("se o n8n cair, o evento não some", pela DLQ) × vale para falha do destino; há perdas do lado do gateway não cobertas: enqueue sem aguardar com Redis fora (webhook-dispatcher.service.ts:81-83), falha ao gravar a DLQ (webhook-queue.ts:126-130) e fan-out at-most-once (event-fanout.ts:47-53).
+- docs/INTEGRACAO.md:27-28 (idempotencyKey = dedup forte) × vale para as rotas de envio via `wa_send_intents`; reaction e markRead não usam intenção (messages.controller.ts:389-427) e a campanha não usa `wa_send_intents`.
+- docs/INTEGRACAO.md:116 e campaign-queue.ts:197 ("idempotencyKey determinística: retry/stall não gera 2ª mensagem") × a key não é verificada no transporte (baileys.engine.ts:969-999; campanha chama SessionManager.sendText direto, campaign-queue.ts:203-206); quem evita o duplicado é a reserva de 10 min + attempts:1 (campaign.repository.ts:128-184; campaign-queue.ts:122). Após a reserva vencer (attempts 2, campaign.repository.ts:145-157) pode haver 2º envio, e o eco duplicado é engolido pelo P2002 (prisma-message.repository.ts:43-51).
+- docs/INTEGRACAO.md:113-115 ("sessão em quarentena/pausa manual → a campanha é pausada, não falha por destinatário") × vale só para o gate do guardrail; sessão desconectada ou em reidratação marca cada destinatário FAILED definitivo (campaign-queue.ts:236-238).
+
+### 6.5 Campanhas e caixa única
+
+- campaign-queue.ts:167 (log "retoma no próximo dia local ou com /resume") × não existe retomada automática: nada transita PAUSED→RUNNING fora de start/resume (campaign.service.ts:46, :91); jobs PAUSED só re-agendam a cada 30 s (campaign-queue.ts:141-145).
+- campaign.service.ts:38-39 ("o jobId determinístico dedupa o agendamento") × o BullMQ ignora em silêncio jobId existente (addStandardJob-9.lua:87-94), inclusive num `/start` legítimo sobre campanha PAUSED que reaproveita o prefixo `campaign-${id}`: os ids ainda presentes no Redis não são reagendados.
+- inbox.controller.ts:106 ("os contadores vêm do conjunto INTEIRO"), packages/contracts/src/index.ts:189 e Atendimento.tsx:142-144 × os contadores vêm das linhas já cortadas pelo limit (padrão 200, máx. 500; o painel pede 300 em Atendimento.tsx:147) (inbox.controller.ts:118-132).
+- engine.port.ts:311 e groups.controller.ts:176 ("anti-flood na engine" em aprovar/rejeitar em massa) × o Baileys faz uma única chamada `groupRequestParticipantsUpdate` sem pausa (baileys.engine.ts:1446-1465); só o wwebjs passa sleep 250-500 ms (wwebjs.engine.ts:2536).
+- schema.prisma:363-365, :378 (fonte `'onwhatsapp'` do diretório) × nenhum código grava source `'onwhatsapp'`; o checkNumbers do Baileys não registra no diretório (baileys.engine.ts:1494-1508).
+- messages.controller.ts:602-604 (MEDIA_MAX_BYTES como teto de mídia) × vale só para media-url e campanha; o upload multipart usa 100 MB fixo (fastify-adapter.ts:5, :17-19; main.ts:44).
+
+### 6.6 docs/ARQUITETURA.md × módulos reais
+
+- docs/ARQUITETURA.md:18 lista como dependências de sessions só "proxies (ProxyResolver), EventBus" × sessions.module.ts:14 importa IamModule e GuardrailModule, e o controller usa GuardrailService, LicenseService e ProxyService (sessions.controller.ts:86-93).
+- docs/ARQUITETURA.md:18 ("config de envio por sessão (G8)") e schema.prisma:173 (`device Json? // fingerprint estável/pinado`) × nenhum consumidor de `session_config` em runtime além do `timezone` da campanha (campaign.repository.ts:194-205); `browserFingerprint` deriva só do sessionId (browser-fingerprint.ts:41-43).
+- docs/ARQUITETURA.md:20 diz que messaging faz "ritmo humano" × não há delay, presença nem chunking no messaging; humanização só na campanha (campaign-queue.ts:177-186) e na rota de presença do sessions. docs/PENDENCIAS.md:249 (P-022) cita "ritmo humano do messaging (delays/chunking)" como candidato a teste: esse código não existe.
+- docs/ARQUITETURA.md:20 diz que "engines em sessions/infrastructure fazem updateMany de ack" × o ACK é gravado pelo MessagePersister → updateStatusByKey em SQL cru (message-persister.service.ts:28-37; prisma-message.repository.ts:131-158); o updateMany das engines é o merge de LID (baileys.engine.ts:1303-1309). `wa_send_intents` (escrita pelo messaging) não aparece como tabela do módulo.
+- docs/ARQUITETURA.md:20 ("mídia S3 (upload/download)" no messaging) × o UPLOAD é das engines via `deps.storeMedia` (session-manager.service.ts:163-164; baileys.engine.ts:933, :1026); o messaging só faz presign e stream.
+- docs/ARQUITETURA.md:22 atribui ao events "timeline REST + SSE" × a timeline REST está em observability (observability.controller.ts:22-29 → metrics.service.ts:89-102); events tem só o SSE (events.controller.ts:14).
+- docs/ARQUITETURA.md:25 ("extração de leads em massa = wwebjs/Store") × frota 100% Baileys (docs/analise-atualizacoes-2026-09.md:33) e leads saem de groupMetadata do Baileys (baileys.engine.ts:1392-1399; groups.controller.ts:75-97).
+- docs/ARQUITETURA.md:27 cita "ProxyResolverService" × a classe é ProxyResolver (proxy-resolver.service.ts:24). docs/ARQUITETURA.md:28 lista as tabelas do iam sem `refresh_tokens` (schema.prisma:40-58) e cita "AuthGuard" × a classe é JwtAuthGuard (auth.guard.ts:56-57).
+- docs/ARQUITETURA.md (regras: cada tabela tem módulo dono) × RetentionService (observability) apaga `wa_audit_logs` do iam e `wa_messages`/`wa_send_intents` do messaging (retention.service.ts:32-47).
+
+### 6.7 Guard-rail, eventos e observabilidade
+
+- docs/ARQUITETURA.md:57 ("GUARDRAIL_ENFORCE=false = só observa"), :60 ("423 quando enforce=true"), docs/INTEGRACAO.md:123-124 ("NÃO bloqueia"), config.ts:93-94 ("NÃO bloqueia envios") e schema.prisma:181-183 ("hard-gate 423 só atua com enforce=true") × `canSendCold` bloqueia com 423 os estados de override manual mesmo com enforce=false (guardrail.service.ts:403-418; apps/gateway/test/g5.e2e-spec.ts:57). O comentário de guardrail.service.ts:14-17 está correto.
+- schema.prisma:191 e guardrail.service.ts:420 ("sinal duro: 463, close não-recuperável, restrição") × nenhum close grava sinal (baileys.engine.ts:689-776 não chama o guard-rail).
+- schema.prisma:261 (WaSessionEvent.type "status, proxy, error") × só `status` e `error` são gravados (session-event.logger.ts:32).
+- docs/auditoria-2026-07.md:64 ("2 réplicas = 1 entrega" pelo jobId) × só vale com uma engine emitindo; com 2 engines na mesma conta (start-first) cada réplica gera um envelope.id próprio (session-manager.service.ts:230) e o webhook sai duplicado.
+- observability.controller.ts:8 (scrape em "/metrics, sem auth") × metrics.controller.ts:28-36 exige METRICS_TOKEN e fecha o endpoint sem ele.
+- event-bus.ts:7 ("pode ganhar backend Redis pub/sub") × esse backend já existe (event-fanout.ts:15-23).
+- engine.port.ts:86 (envelope "consumido por SSE e pela persistência de mensagens") × também consomem webhooks, fan-out e timeline (docs/reference/mapa-codigo/README.md:184-185).
+- health.service.ts:84 lê `npm_package_version` × o container sobe com `exec node dist/main.js` (docker-entrypoint.sh:43) e o npm só define essa variável em scripts (npm docs using-npm/scripts.md:268-272): o /health de produção sempre mostra `'0.1.0'`.
+
+### 6.8 Sessões, pairing e config
+
+- sessions.controller.ts:367-368 ("a engine renova a cada ~3 min") × o BaileysEngine não implementa `getPairingCode`: `GET /qr` nunca traz pairingCode em sessão Baileys (só o wwebjs, wwebjs.engine.ts:375-377); engine.port.ts:281-283 já avisa que o método é opcional.
+- sessions/interface/dto.ts:10 aceita mode `'qr'`/`'pairing'` × `SessionsController.create` (sessions.controller.ts:104-146) só valida phoneNumber quando mode=pairing e sobe QR igual; o código não é gerado.
+- docs/PENDENCIAS.md P-052 propõe "409 se creds.registered" × na rc14 `registered` só vira true no fluxo de pairing code (Socket/messages-recv.js:940); sessão pareada por QR pode manter false; a guarda precisa usar `creds.me` (Socket/socket.js:733-735, :764) e o status.
+- wwebjs.engine.ts:63-65 ("se expirar sem troca, o retry live + warn seguram a operação") × docs/analise-atualizacoes-2026-09.md:76 e :130 dizem que isso é falso desde ~17/09 (builds novas quebram envio de mídia); **não verificado** em runtime.
+- config.ts:111-115 (o zod documenta o catálogo WWEBJS\_\*) × `WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES` é lido em wwebjs.engine.ts:93-94 e não está no zod.
+- config.ts:107-109 (só "a engine Baileys RECUSA conectar" sem proxy) × o wwebjs também aplica o guard (wwebjs.engine.ts:631-642).
+
+### 6.9 Plataforma, segurança e build
+
+- main.ts:65-67 ("O login tem teto próprio bem mais baixo") × só troca o limiar sobre um contador único por IP compartilhado com todas as rotas (main.ts:72; @fastify/rate-limit/store/LocalStore.js:11-44; index.js:183-186), e é contornável por forma absoluta/percent-encoding (P-053).
+- prisma-refresh-token.repository.ts:49-50 e refresh-token.repository.ts:29-30 ("raced não é erro; o outro request entrega o par") × auth-session.service.ts:100 converte em `'invalid'` e auth.controller.ts:84-87 limpa os cookies e responde 401.
+- proxy-resolver.service.ts:149-154 (log "SINGLE sem proxy vivo (currentProxyId ausente ou DEAD)") × `resolve()` devolve o proxy SINGLE mesmo DEAD ou desabilitado (proxy-resolver.service.ts:38-40; findById sem filtro em prisma-proxy.repository.ts:132-135).
+- proxy.service.ts:230-231 (assignExclusive "fecha a corrida") × ensureAvailable + setAssignment não é atômico e não há constraint única (proxy.service.ts:232-244; schema.prisma:470-481).
+- proxy-resolver.service.ts:82-84 chama a estratégia de RANDOM e cita que "Math.random é proibido no ambiente de workflow" × o código é um INCR determinístico (:85-89).
+- config.ts:76-78 (JWT_EXPIRES_IN "não é mais usado para assinar") × continua em signOptions do JwtModule (iam.module.ts:43-45), neutralizado pelo override em token.service.ts:22-25; apps/gateway/env.example:43 ainda diz "validade do token em segundos (12h)".
+- config.ts:82 (refresh em "cookie httpOnly restrito a /api/auth/refresh") × o Path real é /api/auth (auth.controller.ts:33-34, :138), enviado também em login/logout.
+- docs/PENDENCIAS.md:286 (P-035 marca "DB_SSL_CA ✅") × só vale com DB_HOST etc.; com DATABASE_URL o ssl/CA é ignorado (prisma.service.ts:58-59) e o migrate só usa sslmode=require com `DB_SSL === 'true'` (apps/gateway/prisma.config.ts:19).
+- roles.guard.ts:23-24 ("Decisão de produto: API key equivale a ADMIN") × a tabela tem `scopes` (prisma-api-key.repository.ts:13, :31), gravada vazia e nunca aplicada (P-033).
+- apps/gateway/Dockerfile:25-27 (sem a pasta patches o install "passaria SEM aplicar") × mesmo com a pasta, falha de aplicação passa com código 0 fora de CI (node_modules/patch-package/dist/index.js:91-94): proteção parcial.
+- docker-entrypoint.sh:22 ("O Node NÃO ajusta --max-old-space-size pelo cgroup") × o Node 26 documenta `--max-old-space-size-percentage` sobre "available system memory" (`<DIOGGO_ROOT>/agentes/docs/node/26/cli.md:1894-1911`); se usa o cgroup **não verificado**.
+- test/setup-app.ts:95 ("Paridade com main.ts") × só para o filtro; rate-limit, helmet, CORS e exclusão de /metrics não são replicados (setup-app.ts:82-100 × main.ts:61-93).
+- docs/analise-atualizacoes-2026-09.md:174-175 atribui o bypass de autoLogging a req.url (app.module.ts:52) × ali o req é o IncomingMessage cru dentro do middie, com o trecho casado já removido (fastify-middie.js:101-106); efeito real **não verificado**.
+- sse-auth.guard.ts:10-11 e auth.guard.ts:28-32 vendem o cookie como forma de autenticar o SSE × o EventSource não passa pelo silent refresh (apps/dashboard/src/lib/api.ts:101-116) e, depois do access de 15 min, uma reconexão falha de vez (spec WHATWG); nenhuma doc do projeto registra isso.
+
+### 6.10 Docs de processo e índice gerado
+
+- CLAUDE.md no HEAD (`git show HEAD:CLAUDE.md`, linha 23: "Baileys 7.0.0-rc13") e AGENTS.md:23 (novo, não versionado: "Baileys 7.0.0-rc13") × o instalado é 7.0.0-rc14 (node_modules/@whiskeysockets/baileys/package.json:4; apps/gateway/package.json:39 `^7.0.0-rc14`). O CLAUDE.md da árvore de trabalho já diz rc14 (CLAUDE.md:23), sem commit.
+- CLAUDE.md ("Typecheck sem tocar dist: npx tsc --noEmit") × com `incremental:true` (apps/gateway/tsconfig.json:16) e outDir ./dist (:14) o tsc grava `dist/tsconfig.tsbuildinfo` (o arquivo existe, 25/09 06:52). Não corrompe JS, mas escreve em dist.
+- docs/PENDENCIAS.md:236 (P-022: "projeto vitest unit, 28 testes") × hoje há 127 its em `src/**/*.spec.ts` (325 no total, docs/reference/mapa-codigo/README.md:8).
+- docs/auditoria-melhorias-2026-09.md UP-04 (CI sem typecheck do dashboard/contratos) × já faz (ci.yml:58-62; P-038 marca como feito); o resto do UP-04 (testes dos fluxos críticos do painel) segue sem nada.
+- docs/reference/mapa-codigo/README.md:62, :69 (gerado) lista `/api/health` e `/api/metrics` × main.ts:78-83 exclui os dois do prefixo (rotas reais `/health` e `/metrics`; nos e2e só health é excluído, setup-app.ts:92-94) — o gerador não considera o exclude.
+- docs/reference/mapa-codigo/README.md:215-285 (tabela de envs gerada) omite `RETENTION_MESSAGES_DAYS/EVENTS_DAYS/AUDIT_DAYS/INTENTS_DAYS/MESSAGE_RAW_DAYS`, lidas dinamicamente por `process.env[envName]` (retention.service.ts:51).
+- docs/reference/mapa-codigo/README.md:5 apontava para docs/MAPA-CODIGO.md, que não existia — **resolvida** com a criação desta página em 25/09/2026.

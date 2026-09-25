@@ -112,6 +112,11 @@ diretor é este:
 7. Proxies: N/A para META_CLOUD (HTTPS direto à Graph API)
 8. LID: N/A — a API oficial entrega wa_id; o merge LID→telefone continua
    sendo assunto só das engines não-oficiais
+   **[Corrigido 25/09/2026 (P-063): desde abr/2026 os webhooks da Cloud API
+   trazem o BSUID (`user_id`) e omitem o telefone de quem ativou username,
+   salvo interação anterior — a META_CLOUD também precisa mapear
+   identificador↔contato. Fonte oficial e detalhe em
+   docs/motores-whatsapp.md §2.9.]**
 9. n8n: o node n8n-nodes-conexozenvo-gateway ganha o tipo de engine novo na
    criação de sessão (repo separado — registrar dependência em DECISOES.md)
 
@@ -126,6 +131,11 @@ REGRAS ESPECÍFICAS DESTA FEATURE:
   Meta documentado em docs/how-to/
 - billing: conversa na Cloud API é PAGA por janela — comparativo e
   trade-offs ficam em docs/motores-whatsapp.md (documento já existente)
+  **[Corrigido 25/09/2026 (P-063): a cobrança por conversa foi
+  descontinuada — desde 01/07/2025 a Meta cobra por MENSAGEM de template
+  entregue (developers.facebook.com/docs/whatsapp/pricing). A API oficial
+  também pode ter envio limitado ou acesso removido pela Business Messaging
+  Policy — não é "sem ban". Detalhe em docs/motores-whatsapp.md §2.9.]**
 
 ---
 

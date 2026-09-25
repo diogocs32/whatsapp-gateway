@@ -17,16 +17,19 @@
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
-- **23/09 · analise-atualizacoes (doc-only, branch `feature/analise-atualizacoes-20260923`):**
-  (1) **Dokploy com Update Config VAZIO aplica `start-first`**, não stop-first (código Dokploy
-  v0.30.2 `utils.ts:681-696`) — o runbook `deploy-dokploy.md` §Update Config, a D-014 e o §6B.11
-  estão ERRADOS; todo deploy sobrepõe containers até o dono fazer o **B-004**. (2) O `.cloud` **é a
-  produção** desde 31/08 — não existe homologação; canário = sessão/chip de teste. (3) **Frota
-  100% Baileys** segundo o dono (23/09) — prioridade vai para P-047..P-052. (4) `npm audit` não vê
-  advisories de repositório (Nest GHSA-9c5c high afeta a 11.2.3 de prod → P-054). Relatórios:
+- **25/09 · onda0b-mapa-roteiro (doc-only, branch `feature/onda0b-mapa-roteiro`) — absorve e
+  substitui o aviso de 23/09:** (1) **o trabalho segue o [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md)**
+  — 1 etapa = 1 chat, "Regras de toda etapa", PR por onda, **merge é do dono**; (2) **mapa do código:**
+  [MAPA-CODIGO.md](MAPA-CODIGO.md) (fluxos, áreas, "onde mexer" por pendência) + inventário gerado em
+  `docs/reference/mapa-codigo/` — **quem mudar código roda `node scripts/mapa-codigo.mjs` e commita**
+  (`--check` acusa mapa velho); (3) **Dokploy com Update Config vazio = `start-first`** (D-020): até o
+  B-004, todo deploy abre as mesmas contas duas vezes; (4) **as duas engines seguem vivas** (D-021):
+  Baileys = frota atual, wwebjs pronto sob demanda — Onda 6 obrigatória antes de 13/10; (5) sinal duro
+  de restrição → pausar até o fim + alertar (D-022); (6) `.cloud` é a produção (sem homologação;
+  canário = sessão/chip de teste); (7) `npm audit` não vê advisories de repositório (P-054); (8) P-065
+  nova (egress IPv6 v4-mapeado). Relatórios de 23/09 seguem válidos:
   [analise-atualizacoes-2026-09.md](analise-atualizacoes-2026-09.md) e
-  [analise-wwebjs-memoria-2026-09.md](analise-wwebjs-memoria-2026-09.md); pendências B-004..B-007 e
-  P-047..P-064. Quem abrir sessão de deploy/engine deve ler o relatório §4 e §12 antes.
+  [analise-wwebjs-memoria-2026-09.md](analise-wwebjs-memoria-2026-09.md).
 
 - **15/09 · caixa-unica-triagem (EM PRODUÇÃO 15/09 ~14:07 UTC — deploy `768fb26`):** migration
   aditiva `20260915140000_conversation_triage` APLICADA em prod (tabela `wa_conversation_triage`,
@@ -47,6 +50,7 @@
 
 | ID                                       | Período                  | Entregue                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Branch/PR                                                       |
 | ---------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 2026-09-25-0700-onda0b-mapa-roteiro      | 25/09                    | **Etapa E1 do roteiro (doc-only)**: mapa do código gerado pelo type-checker (`scripts/mapa-codigo.mjs` → `docs/reference/mapa-codigo/`) + mapa de relações verificado (`MAPA-CODIGO.md`: 8 fluxos, 5 áreas, onde mexer P-001..P-065, 1.049 afirmações conferidas) · `ROTEIRO-ONDAS-2026-09.md` (E1–E21, 1 etapa = 1 chat) · reconciliação P-063 · D-020 (start-first), D-021 (duas engines vivas), D-022 (sinal duro → pausa) · P-065 (egress IPv6)                                                                                                                                                                                             | feature/onda0b-mapa-roteiro (PR — merge do dono)                |
 | 2026-09-23-1750-analise-atualizacoes     | 23/09→24/09              | **Análise de atualizações + estabilidade das contas (doc-only)**: workflow de 17 agentes (8 frentes + verificação adversarial + crítico) e 2ª rodada de 8 sobre memória/CPU do wwebjs. Achados-chave: Dokploy aplica start-first com Update Config vazio (runbook/D-014 errados), produção sem backup, MinIO community com CVE-2026-41145, Nest GHSA-9c5c (high) invisível ao npm audit, nenhuma versão nova de engine, lacunas do Baileys (append descartado, sinais de restrição ignorados, mídia sem proxy), wwebjs sem "modo leve" (maior alavanca = mídia) e provavelmente dispensável. B-004..B-007, P-047..P-064                         | feature/analise-atualizacoes-20260923 (commit local, sem push)  |
 | 2026-09-15-1019-caixa-unica-triagem      | 15/09                    | **Caixa única de triagem EM PRODUÇÃO 15/09 ~14:07 UTC** (PR #4, CI verde com e2e novo 16/16, merge ff `768fb26`): página `/atendimento` — conversas de TODOS os aparelhos sem escolher sessão, semáforo 🔴/🟢/🟡 derivado de `wa_messages` (verde inclusive respondendo pelo celular, `source=phone`; entrada nova SEMPRE volta a 🔴 — D-019), tabela nova `wa_conversation_triage` (só o amarelo), rotas aditivas `/api/inbox/*` com anti-atropelo por keyId, fluxo ao vivo via SSE. Validado em prod: rotas 404→401, bundle novo com a rota, health ok. Fix de carona: MinIO do CI/dev → quay.io pinado (Docker Hub negou pull). P-044..P-046 | feature/caixa-unica-triagem (PR #4, mergeada)                   |
 | 2026-09-09-1745-baileys-shutdown         | 09/09                    | **`BaileysEngine.shutdown()` (P-043) EM PRODUÇÃO 09/09 18:15 UTC** (CI verde, merge ff `301d42d`, container `047606fd42a3`): Baileys deixa de gravar STOPPED no `onModuleDestroy` (caía no `stop()`; agora fecha o socket sem `setStatus`, como o wwebjs). Causa cravada com o log do container antigo (`Shutdown: todas as engines fecharam` = carimbo do STOPPED do Diogo, que seguia enviando). Diogo ficou WORKING limpo. 3 testes novos. Ressalva: prova cabal no próximo deploy (container que sai já com a correção)                                                                                                                     | feature/baileys-shutdown-sem-persistir-status (PR #3, mergeada) |

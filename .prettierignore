@@ -8,3 +8,5 @@ apps/gateway/auth/
 .wwebjs_auth/
 **/coverage/**
 docs/observacao/
+# mapa do código — GERADO por scripts/mapa-codigo.mjs (o --check compara byte a byte)
+docs/reference/mapa-codigo/

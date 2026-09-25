@@ -198,6 +198,7 @@
   `issued high` sem resposta); pinar HEAD da main (rejeitado: o `1780711` exato tem
   precedente de produção por terceiro — menos variáveis); bisect de build "estável" do
   wa-version (rejeitado: premissa furada — não há curadoria de estabilidade, ver pesquisa §0.4).
+- **Nota 25/09/2026:** foco de engine substituído pela D-021 (Baileys = frota atual; wwebjs mantido e pronto para uso sob demanda); o pin do tarball `1780711` segue válido enquanto não houver pin melhor (P-059).
 
 ## D-013 — 2026-08-14 — Patch `$1` via patch-package + política de build do WA Web pinada
 
@@ -228,6 +229,7 @@
   `wwebjs-p015-shutdown-limpo`); o "zero-downtime" nunca valeu para a sessão WhatsApp.
 - **Alternativas:** start-first (rejeitado — corrompe perfil compartilhado); reduzir grupos da
   sessão (paliativo fraco — refutado pela contra-evidência do dono: pós-scan a mesma conta roda leve).
+- **Nota 25/09/2026:** premissa do stop-first corrigida pela D-020 (Update Config vazio no Dokploy = `start-first`; stop-first só com configuração explícita — B-004).
 
 ## D-015 — 2026-08-16 — Dedup de `session.status` idêntico consecutivo na fonte (fim do spam de alerta)
 
@@ -272,6 +274,7 @@
   socket), proxy-chain 3 (usado no wwebjs.engine — arquivo de sessão ativa), ulid 3 (ESM-only,
   zero ganho funcional), dotenv 17 (sem ganho; usado pelo prisma.config no entrypoint).
 - **Rollback:** reverter o commit de deps (lockfile junto) e redeployar.
+- **Nota 25/09/2026 (P-063):** motivos corrigidos, texto acima mantido como histórico — (i) `@hapi/boom`: não há `instanceof Boom` em `apps/`/`packages/` (grep = 0; `baileys.engine.ts:19` importa `Boom` e `:690` só o usa como tipo), o motivo real é "sem ganho + Baileys declara `^9.1.3`" (`node_modules/@whiskeysockets/baileys/package.json:45`); (ii) `ulid 3` não é ESM-only — `npm view ulid@3 exports` traz `require: ./dist/node/index.cjs` (3.0.0–3.0.2); (iii) BullMQ 6 é testado upstream com **ioredis 5.11.1** (`npm view bullmq@6.3.8`: devDependency `ioredis 5.11.1`, peer `ioredis >=5.0.0` opcional) e o ioredis 6.0.0 usa RESP3 por padrão (README do pacote, seção "RESP3 Protocol") → BullMQ 6 entra com ioredis 5 (P-062).
 
 ## D-017 — 2026-08-18 — M2 encerrada por reconciliação: `GUARDRAIL_ENFORCE` ativo é o estado oficial
 
@@ -341,3 +344,81 @@
 - **Rollback:** remover o `InboxController` + o provider `INBOX_REPOSITORY` e a rota do painel — a
   tabela pode ficar (é aditiva e inerte; forward-only, correção = migration nova). Nada em
   `/api/sessions/:id/messages/*` foi tocado (R0).
+
+## D-020 — 2026-09-25 — Deploy do gateway — premissa da D-014 corrigida: Update Config vazio aplica start-first; stop-first exige configuração explícita (B-004)
+
+- **Decisão:** a premissa da D-014 (a) — "Update Config SEM start-first (default stop-first)" —
+  está errada para o Dokploy: deixar o campo vazio **não** dá stop-first. O estado-alvo do gateway
+  passa a ser **Update Config e Rollback Config preenchidos explicitamente com
+  `"Order": "stop-first"`** (JSON no B-004 e em `deploy-dokploy.md` §2), conferidos com
+  `docker service inspect`. Até o dono executar o B-004, vale como fato: **todo deploy do gateway
+  sobe o container novo com o antigo vivo** (as mesmas contas conectadas duas vezes por alguns
+  segundos). O resto da D-014 (volume, Memory Limit 4GB) não muda; a regra (c) de re-scan é
+  tratada na D-021.
+- **Evidência (código do Dokploy, fonte primária):** tag `v0.30.2` (commit `8c2d4d5`),
+  `packages/server/src/utils/docker/utils.ts:678-685` — sem `rollbackConfigSwarm`, o serviço recebe
+  `RollbackConfig {Parallelism:1, Order:"start-first"}`; `:687-696` — sem `updateConfigSwarm`,
+  recebe `UpdateConfig {Parallelism:1, Order:"start-first", FailureAction:"rollback"}`. Schema
+  aceito: `packages/server/src/db/schema/shared.ts:142-151` (`UpdateConfigSwarmSchema`, `.strict()`,
+  `Parallelism` e `Order` obrigatórios). Conferido em 25/09/2026 (achado da análise de 23/09,
+  `analise-atualizacoes-2026-09.md` §3).
+- **Evidência (produção):** sobreposição de ~15 s entre container antigo e novo registrada no P-043
+  (09/09), compatível com start-first. Dokploy registrado como v0.30.2 em 25/08
+  (`analise-atualizacoes-2026-09.md` §6). Se o Update Config de produção segue vazio depois da
+  migração de 31/08: **não verificado** (pergunta aberta no §14 da análise; a resposta vem com o
+  B-004).
+- **Custo aceito:** o stop-first perde a rede do start-first (16/08: o container antigo segurou a
+  API quando o novo caiu com `Cannot find module 'zod'` — `ESTADO.md`, cadeia do dia 16/08). Por
+  isso as guardas de build da P-055 vêm antes ou junto do B-004.
+- **Alternativas:** manter start-first (rejeitado — duas conexões Baileys com as mesmas credenciais:
+  disputa 440 e dois escritores do auth store; com wwebjs, dois Chromium no mesmo perfil — B-004);
+  reescrever a D-014 (rejeitado — log append-only; a D-014 ganha só uma nota apontando para cá).
+- **Rollback:** esvaziar Update/Rollback Config no Dokploy e fazer Deploy volta ao `start-first`
+  injetado pelo código acima.
+- **Consequências:** `deploy-dokploy.md` §2, `agent-whatzapp_api.md` §6B.11 e a nota da P-015
+  corrigidos em 25/09 (P-063). O B-004 fecha quando o inspect mostrar `stop-first` nos dois configs
+  e o 1º deploy seguinte não registrar 440/"replaced".
+
+## D-021 — 2026-09-25 — Duas engines vivas: Baileys é a frota atual, wwebjs fica pronto para uso sob demanda (substitui a D-012 quanto ao foco)
+
+- **Fato (dono, 23/09/2026):** a frota de produção roda **100% Baileys**; o wwebjs saiu da operação
+  por consumo de memória e CPU (fala registrada em `analise-atualizacoes-2026-09.md:14`: _"hoje está
+  tudo Baileys, pois o wwebjs consome muita memória e processamento"_). **Data da migração:
+  desconhecida** — o último registro de composição é de 31/08 (18 sessões WWEBJS,
+  `sessions/ATIVA-2026-08-31-1930-lid-envio-wwebjs.md:9`) e o ESTADO de 23/09 a situa depois de
+  15/09; a composição real por `GET /api/sessions` ainda não foi conferida (B-007).
+- **Decisão (dono, 25/09/2026, na abertura da sessão `onda0b-mapa-roteiro`):** _"quero as 2 engines
+  atualizadas com o melhor funcionamento possível, pois usarei as 2 quando necessário"_. Logo:
+  (a) as **duas engines continuam suportadas** e recebem manutenção — o Baileys pelas Ondas 2–3
+  (P-047..P-052, P-056..P-058) e o wwebjs pela **Onda 6 (P-059 + P-060), que passa a ser
+  obrigatória** e tem prazo: a build fixa `2.3000.1045101284-alpha` sai do catálogo em
+  **13/10/2026 07:01 UTC** e as builds de ~17/09 em diante quebram o envio de mídia na 1.34.7 (nota
+  de 25/09 no B-002); (b) o foco de estabilidade da frota ATUAL é o Baileys (substitui a D-012 quanto
+  ao foco); (c) a parte da D-012 sobre a dependência pinada no tarball `1780711` e a D-013 (patch
+  `$1`) seguem válidas até a P-059 definir pin/patch melhores; (d) **remover o wwebjs ou o Chromium
+  da imagem está fora de cogitação** enquanto esta decisão valer (a P-061 fica restrita ao A/B de
+  leads como informação, sem remoção).
+- **Consequências:** o roteiro (`ROTEIRO-ONDAS-2026-09.md`) põe a Onda 6 logo depois da Onda 1 (as
+  guardas de build da P-055 protegem o patch do wwebjs e o stop-first do B-004 evita dois Chromium no
+  mesmo perfil). A regra (c) da D-014 ("deploy pode custar re-scan do wwebjs") volta a valer para
+  qualquer sessão wwebjs que for ligada — deploy com sessão wwebjs real conectada só em janela calma.
+- **Alternativas:** Baileys-only com remoção do wwebjs (rejeitado pelo dono em 25/09); manter o foco
+  da D-012 no wwebjs (rejeitado — a frota atual e o risco das contas estão no Baileys, §5.1 da análise).
+
+## D-022 — 2026-09-25 — Sinal duro de restrição do WhatsApp: pausar a sessão até o fim informado e alertar (P-048)
+
+- **Decisão (dono, 25/09/2026):** quando o WhatsApp sinalizar restrição real numa sessão — ack de
+  erro `463`, `connection.update.reachoutTimeLock` ativo ou `message-capping.update` (rc14) — o
+  gateway **suspende os envios de 1º contato da sessão até o horário informado pelo próprio WhatsApp
+  (`timeEnforcementEnds`)**, grava o sinal (`recordHardSignal`), emite evento aditivo e alerta; ao
+  vencer o prazo, **volta sozinho**. A sessão **não** é travada como `banida` (que exige liberação
+  manual) nem fica só em observação.
+- **Motivo:** o sinal é a informação mais direta que o WhatsApp dá sobre restrição; ignorá-lo (hoje
+  o `recordHardSignal` não tem chamador — P-012) mantém a sessão enviando durante a punição, e travar
+  como banida gera trabalho manual para um bloqueio que tem prazo conhecido.
+- **Como aplicar:** implementação na etapa E8 do roteiro (P-048), com contrato aditivo
+  (`packages/contracts` + `INTEGRACAO.md` no mesmo commit) e sem novos códigos HTTP de erro para o node
+  n8n 0.4.1 (que só trata 423): a pausa usa o mecanismo de quarentena/423 já existente do guard-rail
+  ou fila interna — a E8 escolhe com base no código e documenta.
+- **Alternativas:** marcar como `banida` (rejeitado pelo dono); só registrar e alertar (rejeitado
+  pelo dono).

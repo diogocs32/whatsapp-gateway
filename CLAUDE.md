@@ -20,11 +20,12 @@ Encerramento de sessão (R9): reconciliação documental (diff × mapa de gatilh
 - Monorepo npm workspaces: `apps/gateway` (NestJS 11 + Fastify 5) · `apps/dashboard` (React 19 + RR7 + Vite + Tailwind 4) · `packages/contracts`
 - Node >=22 (dev em Node 26/WSL) · TypeScript com **override fixo 5.9.3** (TS 6 transitivo QUEBRA o `nest build`)
 - Prisma 7 (adapter pg, client gerado em `src/generated` — rodar `prisma generate` antes de buildar) · PostgreSQL 18 · BullMQ 5 + Redis (ioredis)
-- Engines: Baileys 7.0.0-rc13 (principal) · whatsapp-web.js 1.34.7 (Store/leads) · zod nas bordas · Vitest 4 (e2e) · ESLint 10 + Prettier 3
+- Engines: Baileys 7.0.0-rc14 (principal) · whatsapp-web.js 1.34.7 (Store/leads) · zod nas bordas · Vitest 4 (e2e) · ESLint 10 + Prettier 3
 - Deploy: Dokploy (Docker Swarm), imagem não-root, auto-deploy via webhook Git na main
 
-## Comandos (executar no WSL: `wsl.exe -d Ubuntu -u diogocs32 -- bash -lc '...'`)
+## Comandos (máquina Windows: executar no WSL `wsl.exe -d Ubuntu -u diogocs32 -- bash -lc '...'`)
 
+- **macOS:** os comandos rodam direto na raiz do repo, sem o prefixo `wsl.exe` (validado em 25/09/2026 com Node v26.0.0 / npm 11.12.1: `npm run test:unit` 133/133 · `npx tsc --noEmit -p apps/gateway/tsconfig.json` · `npm run lint` · `npm run depcruise` — todos verdes). O prefixo `wsl.exe` vale só para a máquina Windows.
 - `npm run dev` — gateway :3000 + dashboard :5173 (`nest start --watch` REINICIA a cada save de .ts)
 - `npm run lint` · `npm run format:check` · `npm run depcruise` (fronteiras — D-018) · `npm run test:unit` (SEM infra) · `npm run test` (unit+e2e, precisa da infra: `npm run infra:up`)
 - `npm run gateway:build` · `npm run dashboard:build`
