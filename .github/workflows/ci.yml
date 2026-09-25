@@ -146,3 +146,36 @@ jobs:
           echo "::error::o container não respondeu /health ok (banco, Redis e storage) em 120 s"
           docker logs gw 2>&1 | tail -100
           exit 1
+
+      # P-053: o main.ts REAL da imagem limita o login pela rota resolvida — 10 tentativas alternando
+      # origin-form, %-encoding e forma absoluta contam no MESMO balde e a 11ª é 429 (antes, as
+      # variantes caíam no teto global de 600/min). Corpo inválido → 401 sem custo de scrypt.
+      - name: Smoke do rate-limit do login (rota resolvida — P-053)
+        run: |
+          base=http://127.0.0.1:3000
+          # `|| true`: com `bash -e` uma falha de transporte do curl (conexão recusada/fechada, timeout)
+          # abortaria o passo sem ::error::; o -w já imprime 000 e cai nos ifs abaixo.
+          tentar() {
+            curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST \
+              -H 'content-type: application/json' -d '{}' "$@" || true
+          }
+          for i in $(seq 1 10); do
+            case $((i % 4)) in
+              0) code=$(tentar "$base/api/auth/login") ;;
+              1) code=$(tentar "$base/api/auth/%6Cogin") ;;
+              2) code=$(tentar "$base/%61pi/auth/login") ;;
+              3) code=$(tentar --request-target "$base/api/auth/login" "$base/") ;;
+            esac
+            if [ "$code" != 401 ]; then
+              echo "::error::tentativa $i de login deu $code (esperado 401)"
+              docker logs gw 2>&1 | tail -50
+              exit 1
+            fi
+          done
+          code=$(tentar --request-target "$base/api/auth/%6Cogin" "$base/")
+          if [ "$code" != 429 ]; then
+            echo "::error::11ª tentativa de login deu $code (esperado 429 — teto do login contornado?)"
+            docker logs gw 2>&1 | tail -50
+            exit 1
+          fi
+          echo "login: 10 × 401 e a 11ª = 429 (origin-form, %-encoding e forma absoluta no mesmo balde)"

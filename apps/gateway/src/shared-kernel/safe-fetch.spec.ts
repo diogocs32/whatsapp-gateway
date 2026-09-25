@@ -5,6 +5,7 @@ import {
   BodyTooLargeError,
   EgressBlockedError,
   egressPolicyFromEnv,
+  fetchImageByUrl,
   isPrivateAddress,
   parseEgressUrl,
   safeFetch,
@@ -53,6 +54,100 @@ describe('isPrivateAddress', () => {
 
   it('string que não é IP conta como bloqueada', () => {
     expect(isPrivateAddress('nao-e-ip')).toBe(true);
+    for (const ip of ['', '127.1', '0x7f.1', '127.000.000.001']) {
+      expect(isPrivateAddress(ip), ip).toBe(true);
+    }
+  });
+
+  // P-065: o URL do WHATWG normaliza [::ffff:127.0.0.1] para [::ffff:7f00:1] (hexa) — a regex
+  // antiga só via a forma pontuada e tratava o loopback/metadata como público.
+  it('IPv4-mapeado em hexa e em qualquer grafia segue as faixas IPv4', () => {
+    for (const ip of [
+      '::ffff:7f00:1', // 127.0.0.1
+      '0:0:0:0:0:ffff:7f00:1',
+      '::FFFF:7F00:1',
+      '::ffff:a9fe:a9fe', // 169.254.169.254 (metadata)
+      '::ffff:a00:1', // 10.0.0.1
+      '::ffff:ac10:1', // 172.16.0.1
+      '::ffff:c0a8:101', // 192.168.1.1
+      '::ffff:6440:1', // 100.64.0.1
+      '::ffff:0:0', // 0.0.0.0
+    ]) {
+      expect(isPrivateAddress(ip), ip).toBe(true);
+    }
+    for (const ip of ['::ffff:808:808', '::ffff:68a5:9f90']) {
+      expect(isPrivateAddress(ip), ip).toBe(false);
+    }
+  });
+
+  it('bloqueia v6 que embute IPv4 ou está fora do unicast global (2000::/3)', () => {
+    for (const ip of [
+      '::7f00:1', // IPv4-compatível (::/96, deprecado)
+      '::127.0.0.1',
+      '::808:808',
+      '::ffff:0:7f00:1', // IPv4-traduzido
+      '64:ff9b::7f00:1', // NAT64
+      '64:ff9b::808:808',
+      '64:ff9b:1::a00:1',
+      '2002:7f00:1::1', // 6to4
+      '2002:808:808::1',
+      '2001:0:4136:e378:8000:63bf:3fff:fdd2', // Teredo
+      '2001:2::1', // benchmarking
+      '2001:db8::1',
+      '2001:0db8::1',
+      '3fff::1', // documentação (RFC 9637)
+      '100::1', // discard
+      '5f00::1', // SRv6
+      'fec0::1', // site-local (deprecado)
+      'fe80::1%lo0', // zone id
+      '0:0:0:0:0:0:0:1',
+      '0::1',
+    ]) {
+      expect(isPrivateAddress(ip), ip).toBe(true);
+    }
+    for (const ip of [
+      '2001:4860:4860::8888',
+      '2a03:2880:f12f:83:face:b00c:0:25de',
+      '2804:14c::1',
+      '2001:200::1', // 1º bloco de RIR logo depois de 2001::/23
+    ]) {
+      expect(isPrivateAddress(ip), ip).toBe(false);
+    }
+  });
+
+  it('faixas IPv4 de documentação/6to4 bloqueadas; limites vizinhos seguem públicos', () => {
+    for (const ip of [
+      '192.0.2.1',
+      '198.51.100.1',
+      '203.0.113.1',
+      '192.88.99.1',
+      '100.127.255.255',
+      '198.19.255.255',
+    ]) {
+      expect(isPrivateAddress(ip), ip).toBe(true);
+    }
+    for (const ip of [
+      '100.128.0.1',
+      '198.20.0.1',
+      '192.0.1.1',
+      '192.31.196.1',
+    ]) {
+      expect(isPrivateAddress(ip), ip).toBe(false);
+    }
+  });
+
+  // Guarda: uma regra IPv6 que contenha ::ffff:0:0/96 faz a BlockList bloquear TODO IPv4 — o egress
+  // inteiro pararia (webhook vai direto para a dead-letter). Se isto falhar, reveja BLOCKED_V6.
+  it('guarda: IPv4 público segue liberado (nenhuma regra v6 engole o IPv4 inteiro)', () => {
+    for (const ip of [
+      '8.8.8.8',
+      '1.1.1.1',
+      '104.165.159.144',
+      '172.32.0.1',
+      '::ffff:8.8.8.8',
+    ]) {
+      expect(isPrivateAddress(ip), ip).toBe(false);
+    }
   });
 });
 
@@ -99,6 +194,29 @@ describe('parseEgressUrl / assertEgressAllowed', () => {
     await expect(
       assertEgressAllowed(new URL('https://8.8.8.8/'), strict),
     ).resolves.toBeUndefined();
+    await expect(
+      assertEgressAllowed(new URL('http://[::ffff:8.8.8.8]/'), strict),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertEgressAllowed(new URL('https://[2606:4700:4700::1111]/'), strict),
+    ).resolves.toBeUndefined();
+  });
+
+  it('P-065: IPv6 que embute loopback/metadata/privado é recusado depois da normalização do URL', async () => {
+    for (const u of [
+      'http://[::ffff:127.0.0.1]/',
+      'http://[0:0:0:0:0:ffff:7f00:1]/',
+      'http://[::ffff:169.254.169.254]/latest',
+      'http://[::ffff:10.0.0.5]:5678/',
+      'http://[::127.0.0.1]/',
+      'http://[::ffff:0:127.0.0.1]/',
+      'http://[64:ff9b::127.0.0.1]/',
+      'http://[2002:7f00:1::1]/',
+    ]) {
+      await expect(assertEgressAllowed(new URL(u), strict), u).rejects.toThrow(
+        EgressBlockedError,
+      );
+    }
   });
 
   it('host que não resolve: bloqueado por default, aceito com dnsFailure=allow (cadastro)', async () => {
@@ -128,9 +246,12 @@ describe('parseEgressUrl / assertEgressAllowed', () => {
 describe('safeFetch — corpo em fluxo com teto e redirects validados', () => {
   let server: Server;
   let base = '';
+  let port = 0;
+  let hits = 0;
 
   beforeAll(async () => {
     server = createServer((req, res) => {
+      hits++;
       if (req.url === '/big') {
         // chunked, sem content-length, 1 MB em pedaços de 64 KB
         res.writeHead(200, { 'content-type': 'application/octet-stream' });
@@ -168,12 +289,22 @@ describe('safeFetch — corpo em fluxo com teto e redirects validados', () => {
         res.end();
         return;
       }
+      if (req.url === '/img') {
+        res.writeHead(200, { 'content-type': 'image/png; charset=binary' });
+        res.end('png');
+        return;
+      }
+      if (req.url === '/sumiu') {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
       res.writeHead(200, { 'content-type': 'text/plain' });
       res.end('ok');
     });
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
-    const addr = server.address() as { port: number };
-    base = `http://127.0.0.1:${addr.port}`;
+    port = (server.address() as { port: number }).port;
+    base = `http://127.0.0.1:${port}`;
   });
   afterAll(async () => {
     await new Promise<void>((r) => server.close(() => r()));
@@ -222,5 +353,39 @@ describe('safeFetch — corpo em fluxo com teto e redirects validados', () => {
     await expect(
       safeFetch(`${base}/ok`, { policy: strict, maxBytes: 1024 }),
     ).rejects.toThrow(EgressBlockedError);
+  });
+
+  // P-065 ponta a ponta: antes da correção o fetch em [::ffff:127.0.0.1] CHEGAVA ao servidor local
+  // (reproduzido no macOS e no Linux do Docker) e o corpo voltava para o chamador.
+  it('loopback escrito como IPv6 v4-mapeado é recusado sem tocar o servidor', async () => {
+    const before = hits;
+    for (const u of [
+      `http://[::ffff:127.0.0.1]:${port}/x`,
+      `http://[0:0:0:0:0:ffff:7f00:1]:${port}/y`,
+    ]) {
+      await expect(
+        safeFetch(u, { policy: strict, maxBytes: 1024 }),
+        u,
+      ).rejects.toThrow(/privado/);
+    }
+    expect(hits).toBe(before);
+  });
+
+  // P-070: foto de grupo/perfil por URL passa pela mesma política (antes: fetch cru).
+  it('fetchImageByUrl: baixa com a política, recusa destino privado e repassa HTTP de erro', async () => {
+    const img = await fetchImageByUrl(`${base}/img`, open);
+    expect(img.buffer.toString()).toBe('png');
+    expect(img.mimetype).toBe('image/png');
+    const before = hits;
+    await expect(fetchImageByUrl(`${base}/img`, strict)).rejects.toThrow(
+      /URL da imagem recusada/,
+    );
+    await expect(
+      fetchImageByUrl(`http://[::ffff:127.0.0.1]:${port}/img`, strict),
+    ).rejects.toThrow(/URL da imagem recusada/);
+    expect(hits).toBe(before);
+    await expect(fetchImageByUrl(`${base}/sumiu`, open)).rejects.toThrow(
+      /HTTP 404/,
+    );
   });
 });

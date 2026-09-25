@@ -348,7 +348,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `sendMedia(id, req)` · L512 · async · @Post('media')
   - chama: `sendFingerprint` (send-intent.decision.ts:53), `inferType` L119, `sendWithIntent` L447, `SessionManager.sendMedia` (session-manager.service.ts:480)
 - `sendMediaUrl(id, body)` · L582 · async · @Post('media-url')
-  - chama: `inferType` L119, `sendWithIntent` L447, `SessionManager.sendMedia` (session-manager.service.ts:480), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:186)
+  - chama: `inferType` L119, `sendWithIntent` L447, `SessionManager.sendMedia` (session-manager.service.ts:480), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
 - `sendLocation(id, body)` · L654 · async · @Post('location')
   - chama: `sendWithIntent` L447, `SessionManager.sendLocation` (session-manager.service.ts:488)
 - `sendPoll(id, body)` · L693 · async · @Post('poll')

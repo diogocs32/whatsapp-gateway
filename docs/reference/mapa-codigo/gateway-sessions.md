@@ -24,7 +24,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/infrastructure/wwebjs/wwebjs.lifecycle.spec.ts` | 226 |
 | `modules/sessions/interface/dto.ts` | 53 |
 | `modules/sessions/interface/session-ref.pipe.ts` | 30 |
-| `modules/sessions/interface/sessions.controller.ts` | 422 |
+| `modules/sessions/interface/sessions.controller.ts` | 414 |
 | `modules/sessions/sessions.module.ts` | 33 |
 
 ## `modules/sessions/application/engine.port.ts`
@@ -211,14 +211,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `constructor(prisma)` · L25
 - `get(sessionId)` · L28 · async
   - chama: `newId` (ulid.ts:4)
-  - chamado por: `SessionsController.getConfig` (sessions.controller.ts:187), `SessionsController.health` (sessions.controller.ts:178)
+  - chamado por: `SessionsController.getConfig` (sessions.controller.ts:188), `SessionsController.health` (sessions.controller.ts:179)
   - banco: `sessionConfig.upsert`
 - `update(sessionId, patch)` · L36 · async
   - chama: `newId` (ulid.ts:4)
-  - chamado por: `SessionsController.patchConfig` (sessions.controller.ts:194)
+  - chamado por: `SessionsController.patchConfig` (sessions.controller.ts:195)
   - banco: `sessionConfig.upsert`
 - `capFor(cfg, state)` · L49
-  - chamado por: `SessionsController.getConfig` (sessions.controller.ts:187), `SessionsController.health` (sessions.controller.ts:178), `SessionsController.patchConfig` (sessions.controller.ts:194)
+  - chamado por: `SessionsController.getConfig` (sessions.controller.ts:188), `SessionsController.health` (sessions.controller.ts:179), `SessionsController.patchConfig` (sessions.controller.ts:195)
 
 **Tipos**
 - interface `SessionConfigPatch` L7 · 8 propriedade(s)
@@ -258,7 +258,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `START_TIMEOUT_MS` · L293 · private · static · campo
 - `start(sessionId)` · L295 · async
   - chama: `IEngine.start` (engine.port.ts:234), `getOrCreateEngine` L136, `startWithTimeout` L306, `SessionRepository.findById` (session.repository.ts:20)
-  - chamado por: `newQr` L407, `onApplicationBootstrap` L69, `restart` L372, `SessionsController.create` (sessions.controller.ts:95), `SessionsController.start` (sessions.controller.ts:328)
+  - chamado por: `newQr` L407, `onApplicationBootstrap` L69, `restart` L372, `SessionsController.create` (sessions.controller.ts:96), `SessionsController.start` (sessions.controller.ts:320)
 - `startWithTimeout(sessionId, op)` · L306 · private · async
   - chama: `SessionRepository.updateStatus` (session.repository.ts:25)
   - chamado por: `requestPairingCode` L451, `start` L295
@@ -266,30 +266,30 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `logout` L378, `newQr` L407, `remove` L428, `stop` L368
 - `stop(sessionId)` · L368 · async
   - chama: `IEngine.stop` (engine.port.ts:235), `withTimeout` L346
-  - chamado por: `restart` L372, `SessionsController.stop` (sessions.controller.ts:335)
+  - chamado por: `restart` L372, `SessionsController.stop` (sessions.controller.ts:327)
 - `restart(sessionId)` · L372 · async
   - chama: `start` L295, `stop` L368
-  - chamado por: `SessionsController.restart` (sessions.controller.ts:342)
+  - chamado por: `SessionsController.restart` (sessions.controller.ts:334)
 - `logout(sessionId)` · L378 · async
   - chama: `IEngine.logout` (engine.port.ts:244), `withTimeout` L346, `SessionRepository.updateStatus` (session.repository.ts:25), `WWebJSEngine.purgeAuthDir` (wwebjs.engine.ts:577)
-  - chamado por: `SessionsController.logout` (sessions.controller.ts:349)
+  - chamado por: `SessionsController.logout` (sessions.controller.ts:341)
   - banco: `waAuthKey.deleteMany`, `waSession.updateMany`
 - `newQr(sessionId)` · L407 · async
   - chama: `IEngine.stop` (engine.port.ts:235), `start` L295, `withTimeout` L346, `WWebJSEngine.purgeAuthDir` (wwebjs.engine.ts:577)
-  - chamado por: `SessionsController.newQr` (sessions.controller.ts:380)
+  - chamado por: `SessionsController.newQr` (sessions.controller.ts:372)
   - banco: `waAuthKey.deleteMany`, `waSession.updateMany`
 - `remove(sessionId)` · L428 · async
   - chama: `IEngine.stop` (engine.port.ts:235), `withTimeout` L346, `SessionRepository.delete` (session.repository.ts:30), `WWebJSEngine.purgeAuthDir` (wwebjs.engine.ts:577)
-  - chamado por: `SessionsController.remove` (sessions.controller.ts:356)
+  - chamado por: `SessionsController.remove` (sessions.controller.ts:348)
 - `getQr(sessionId)` · L443
   - chama: `IEngine.getQrBase64` (engine.port.ts:280)
-  - chamado por: `SessionsController.qr` (sessions.controller.ts:364)
+  - chamado por: `SessionsController.qr` (sessions.controller.ts:356)
 - `getPairingCode(sessionId)` · L447
   - chama: `IEngine.getPairingCode` (engine.port.ts:283)
-  - chamado por: `SessionsController.qr` (sessions.controller.ts:364)
+  - chamado por: `SessionsController.qr` (sessions.controller.ts:356)
 - `requestPairingCode(sessionId, phoneNumber)` · L451 · async
   - chama: `IEngine.getStatus` (engine.port.ts:284), `IEngine.requestPairingCode` (engine.port.ts:245), `IEngine.start` (engine.port.ts:234), `getOrCreateEngine` L136, `startWithTimeout` L306, `SessionRepository.findById` (session.repository.ts:20)
-  - chamado por: `SessionsController.pairingCode` (sessions.controller.ts:387)
+  - chamado por: `SessionsController.pairingCode` (sessions.controller.ts:379)
 - `sendText(sessionId, to, text, opts)` · L466 · async
   - chama: `IEngine.getStatus` (engine.port.ts:284), `IEngine.sendText` (engine.port.ts:246)
   - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `MessagesController.sendText` (messages.controller.ts:483)
@@ -304,16 +304,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `MessagesController.sendPoll` (messages.controller.ts:693)
 - `sendPresence(sessionId, to, state)` · L504
   - chama: `IEngine.sendPresence` (engine.port.ts:264), `working` L561
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `SessionsController.presence` (sessions.controller.ts:211)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `SessionsController.presence` (sessions.controller.ts:212)
 - `setProfileStatus(sessionId, status)` · L512
   - chama: `IEngine.setProfileStatus` (engine.port.ts:266), `working` L561
-  - chamado por: `SessionsController.profileStatus` (sessions.controller.ts:227)
+  - chamado por: `SessionsController.profileStatus` (sessions.controller.ts:228)
 - `setProfileName(sessionId, name)` · L515
   - chama: `IEngine.setProfileName` (engine.port.ts:267), `working` L561
-  - chamado por: `SessionsController.profileName` (sessions.controller.ts:246)
+  - chamado por: `SessionsController.profileName` (sessions.controller.ts:247)
 - `setProfilePhoto(sessionId, image, mimetype)` · L518
   - chama: `IEngine.setProfilePhoto` (engine.port.ts:268), `working` L561
-  - chamado por: `SessionsController.profilePhoto` (sessions.controller.ts:266)
+  - chamado por: `SessionsController.profilePhoto` (sessions.controller.ts:267)
 - `markRead(sessionId, chatJid, msgId)` · L526
   - chama: `IEngine.markRead` (engine.port.ts:270), `working` L561
   - chamado por: `MessagesController.markRead` (messages.controller.ts:389)
@@ -334,43 +334,43 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `channelInfo` L687, `checkNumbers` L655, `createChannel` L680, `createGroup` L577, `fetchChatHistory` L534, `followChannel` L690, `groupInfo` L574, `groupInviteCode` L613, `groupMembershipAction` L625, `groupMembershipRequests` L619, `groupRevokeInvite` L616, `leaveGroup` L596, `listChats` L531, `listGroups` L571, `markRead` L526, `profilePicture` L658, `removeContact` L675, `saveContact` L668, `sendLocation` L488, `sendMedia` L480, `sendPoll` L496, `sendPresence` L504, `sendReaction` L550, `setBlock` L661, `setChatFlag` L541, `setGroupDescription` L606, `setGroupPhoto` L645, `setGroupSetting` L637, `setGroupSubject` L599, `setProfileName` L515, `setProfilePhoto` L518, `setProfileStatus` L512, `unfollowChannel` L693, `updateParticipants` L584
 - `listGroups(sessionId)` · L571
   - chama: `IEngine.listGroups` (engine.port.ts:297), `working` L561
-  - chamado por: `GroupsController.list` (groups.controller.ts:52)
+  - chamado por: `GroupsController.list` (groups.controller.ts:53)
 - `groupInfo(sessionId, jid)` · L574
   - chama: `IEngine.groupInfo` (engine.port.ts:298), `working` L561
-  - chamado por: `GroupsController.info` (groups.controller.ts:65), `GroupsController.leads` (groups.controller.ts:75)
+  - chamado por: `GroupsController.info` (groups.controller.ts:66), `GroupsController.leads` (groups.controller.ts:76)
 - `createGroup(sessionId, subject, participants)` · L577
   - chama: `IEngine.createGroup` (engine.port.ts:299), `working` L561
-  - chamado por: `GroupsController.create` (groups.controller.ts:57)
+  - chamado por: `GroupsController.create` (groups.controller.ts:58)
 - `updateParticipants(sessionId, jid, action, participants)` · L584
   - chama: `IEngine.updateParticipants` (engine.port.ts:300), `working` L561
-  - chamado por: `GroupsController.participants` (groups.controller.ts:99)
+  - chamado por: `GroupsController.participants` (groups.controller.ts:100)
 - `leaveGroup(sessionId, jid)` · L596
   - chama: `IEngine.leaveGroup` (engine.port.ts:305), `working` L561
-  - chamado por: `GroupsController.leave` (groups.controller.ts:112)
+  - chamado por: `GroupsController.leave` (groups.controller.ts:113)
 - `setGroupSubject(sessionId, jid, subject)` · L599
   - chama: `IEngine.setGroupSubject` (engine.port.ts:306), `working` L561
-  - chamado por: `GroupsController.subject` (groups.controller.ts:121)
+  - chamado por: `GroupsController.subject` (groups.controller.ts:122)
 - `setGroupDescription(sessionId, jid, description)` · L606
   - chama: `IEngine.setGroupDescription` (engine.port.ts:307), `working` L561
-  - chamado por: `GroupsController.description` (groups.controller.ts:132)
+  - chamado por: `GroupsController.description` (groups.controller.ts:133)
 - `groupInviteCode(sessionId, jid)` · L613
   - chama: `IEngine.groupInviteCode` (engine.port.ts:308), `working` L561
-  - chamado por: `GroupsController.invite` (groups.controller.ts:145)
+  - chamado por: `GroupsController.invite` (groups.controller.ts:146)
 - `groupRevokeInvite(sessionId, jid)` · L616
   - chama: `IEngine.groupRevokeInvite` (engine.port.ts:309), `working` L561
-  - chamado por: `GroupsController.revoke` (groups.controller.ts:156)
+  - chamado por: `GroupsController.revoke` (groups.controller.ts:157)
 - `groupMembershipRequests(sessionId, jid)` · L619
   - chama: `IEngine.groupMembershipRequests` (engine.port.ts:312), `working` L561
-  - chamado por: `GroupsController.membershipRequests` (groups.controller.ts:168)
+  - chamado por: `GroupsController.membershipRequests` (groups.controller.ts:169)
 - `groupMembershipAction(sessionId, jid, action, participants)` · L625
   - chama: `IEngine.groupMembershipAction` (engine.port.ts:313), `working` L561
-  - chamado por: `GroupsController.membership` (groups.controller.ts:177)
+  - chamado por: `GroupsController.membership` (groups.controller.ts:178)
 - `setGroupSetting(sessionId, jid, setting, enabled)` · L637
   - chama: `IEngine.setGroupSetting` (engine.port.ts:319), `working` L561
-  - chamado por: `GroupsController.settings` (groups.controller.ts:191)
+  - chamado por: `GroupsController.settings` (groups.controller.ts:192)
 - `setGroupPhoto(sessionId, jid, image, mimetype)` · L645
   - chama: `IEngine.setGroupPhoto` (engine.port.ts:325), `working` L561
-  - chamado por: `GroupsController.photo` (groups.controller.ts:212)
+  - chamado por: `GroupsController.photo` (groups.controller.ts:213)
 - `checkNumbers(sessionId, numbers)` · L655
   - chama: `IEngine.checkNumbers` (engine.port.ts:328), `working` L561
   - chamado por: `ContactsController.check` (contacts.controller.ts:89)
@@ -438,22 +438,22 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `SessionRepository` L18
   - `SessionRepository.create(input)` · L19
     - implementado por: `PrismaSessionRepository.create` (prisma-session.repository.ts:45)
-    - chamado por: `SessionsController.create` (sessions.controller.ts:95)
+    - chamado por: `SessionsController.create` (sessions.controller.ts:96)
   - `SessionRepository.findById(id)` · L20
     - implementado por: `PrismaSessionRepository.findById` (prisma-session.repository.ts:59)
-    - chamado por: `SessionManager.requestPairingCode` (session-manager.service.ts:451), `SessionManager.start` (session-manager.service.ts:295), `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:95), `SessionsController.ensure` (sessions.controller.ts:416)
+    - chamado por: `SessionManager.requestPairingCode` (session-manager.service.ts:451), `SessionManager.start` (session-manager.service.ts:295), `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:96), `SessionsController.ensure` (sessions.controller.ts:408)
   - `SessionRepository.findByName(name)` · L21
     - implementado por: `PrismaSessionRepository.findByName` (prisma-session.repository.ts:64)
-    - chamado por: `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:95)
+    - chamado por: `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:96)
   - `SessionRepository.list()` · L22
     - implementado por: `PrismaSessionRepository.list` (prisma-session.repository.ts:69)
-    - chamado por: `SessionsController.create` (sessions.controller.ts:95), `SessionsController.list` (sessions.controller.ts:152)
+    - chamado por: `SessionsController.create` (sessions.controller.ts:96), `SessionsController.list` (sessions.controller.ts:153)
   - `SessionRepository.updateStatus(id, status, patch)` · L25
     - implementado por: `PrismaSessionRepository.updateStatus` (prisma-session.repository.ts:76)
     - chamado por: `SessionManager.logout` (session-manager.service.ts:378), `SessionManager.persistStatus` (session-manager.service.ts:245), `SessionManager.startWithTimeout` (session-manager.service.ts:306)
   - `SessionRepository.delete(id)` · L30
     - implementado por: `PrismaSessionRepository.delete` (prisma-session.repository.ts:101)
-    - chamado por: `SessionManager.remove` (session-manager.service.ts:428), `SessionsController.create` (sessions.controller.ts:95)
+    - chamado por: `SessionManager.remove` (session-manager.service.ts:428), `SessionsController.create` (sessions.controller.ts:96)
   - `SessionRepository.findAutostart()` · L31
     - implementado por: `PrismaSessionRepository.findAutostart` (prisma-session.repository.ts:105)
     - chamado por: `SessionManager.onApplicationBootstrap` (session-manager.service.ts:69)
@@ -1238,69 +1238,69 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/sessions/interface/sessions.controller.ts`
 
-422 linhas · caminho: `apps/gateway/src/modules/sessions/interface/sessions.controller.ts`
-- importa (interno): `shared-kernel/ulid.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/license.service.ts`, `modules/proxies/application/proxy.service.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.decorator.ts`, `modules/iam/interface/roles.guard.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/interface/dto.ts`
+414 linhas · caminho: `apps/gateway/src/modules/sessions/interface/sessions.controller.ts`
+- importa (interno): `shared-kernel/safe-fetch.ts`, `shared-kernel/ulid.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/license.service.ts`, `modules/proxies/application/proxy.service.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.decorator.ts`, `modules/iam/interface/roles.guard.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/interface/dto.ts`
 - importado por: `modules/sessions/sessions.module.ts`
 
-**class `SessionsController`** L83 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @Controller('sessions')
+**class `SessionsController`** L84 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @Controller('sessions')
 - injeta (construtor): `repo: @Inject(SESSION_REPOSITORY) SessionRepository` · `manager: SessionManager` · `license: LicenseService` · `guardrail: GuardrailService` · `sessionConfig: SessionConfigService` · `proxies: ProxyService`
-- `constructor(repo, manager, license, guardrail, sessionConfig, proxies)` · L86
-- `create(body)` · L95 · async · @Post · @MinRole('ADMIN')
-  - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:232), `ProxyService.ensureAvailable` (proxy.service.ts:218), `SessionManager.start` (session-manager.service.ts:295), `SessionRepository.create` (session.repository.ts:19), `SessionRepository.delete` (session.repository.ts:30), `SessionRepository.findById` (session.repository.ts:20), `SessionRepository.findByName` (session.repository.ts:21), `SessionRepository.list` (session.repository.ts:22), `toDto` L44, `newId` (ulid.ts:4)
-- `list(state)` · L152 · async · @Get
-  - chama: `GuardrailService.statesFor` (guardrail.service.ts:495), `SessionRepository.list` (session.repository.ts:22), `toDto` L44
-- `get(id)` · L172 · async · @Get(':id')
-  - chama: `ensure` L416, `toDto` L44
-- `health(id)` · L178 · async · @Get(':id/health')
+- `constructor(repo, manager, license, guardrail, sessionConfig, proxies)` · L87
+- `create(body)` · L96 · async · @Post · @MinRole('ADMIN')
+  - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:232), `ProxyService.ensureAvailable` (proxy.service.ts:218), `SessionManager.start` (session-manager.service.ts:295), `SessionRepository.create` (session.repository.ts:19), `SessionRepository.delete` (session.repository.ts:30), `SessionRepository.findById` (session.repository.ts:20), `SessionRepository.findByName` (session.repository.ts:21), `SessionRepository.list` (session.repository.ts:22), `toDto` L45, `newId` (ulid.ts:4)
+- `list(state)` · L153 · async · @Get
+  - chama: `GuardrailService.statesFor` (guardrail.service.ts:495), `SessionRepository.list` (session.repository.ts:22), `toDto` L45
+- `get(id)` · L173 · async · @Get(':id')
+  - chama: `ensure` L408, `toDto` L45
+- `health(id)` · L179 · async · @Get(':id/health')
   - chama: `GuardrailService.health` (guardrail.service.ts:473), `SessionConfigService.capFor` (session-config.service.ts:49), `SessionConfigService.get` (session-config.service.ts:28)
-- `getConfig(id)` · L187 · async · @Get(':id/config')
-  - chama: `GuardrailService.getState` (guardrail.service.ts:203), `SessionConfigService.capFor` (session-config.service.ts:49), `SessionConfigService.get` (session-config.service.ts:28), `configDto` L61
-- `patchConfig(id, body)` · L194 · async · @Patch(':id/config')
-  - chama: `GuardrailService.getState` (guardrail.service.ts:203), `SessionConfigService.capFor` (session-config.service.ts:49), `SessionConfigService.update` (session-config.service.ts:36), `configDto` L61
-- `presence(id, body)` · L211 · async · @Post(':id/presence')
+- `getConfig(id)` · L188 · async · @Get(':id/config')
+  - chama: `GuardrailService.getState` (guardrail.service.ts:203), `SessionConfigService.capFor` (session-config.service.ts:49), `SessionConfigService.get` (session-config.service.ts:28), `configDto` L62
+- `patchConfig(id, body)` · L195 · async · @Patch(':id/config')
+  - chama: `GuardrailService.getState` (guardrail.service.ts:203), `SessionConfigService.capFor` (session-config.service.ts:49), `SessionConfigService.update` (session-config.service.ts:36), `configDto` L62
+- `presence(id, body)` · L212 · async · @Post(':id/presence')
   - chama: `SessionManager.sendPresence` (session-manager.service.ts:504)
-- `profileStatus(id, body)` · L227 · async · @Post(':id/profile/status')
+- `profileStatus(id, body)` · L228 · async · @Post(':id/profile/status')
   - chama: `SessionManager.setProfileStatus` (session-manager.service.ts:512)
-- `profileName(id, body)` · L246 · async · @Post(':id/profile/name')
+- `profileName(id, body)` · L247 · async · @Post(':id/profile/name')
   - chama: `SessionManager.setProfileName` (session-manager.service.ts:515)
-- `profilePhoto(id, body)` · L266 · async · @Post(':id/profile/photo')
-  - chama: `SessionManager.setProfilePhoto` (session-manager.service.ts:518)
-- `quarantine(id)` · L303 · @Post(':id/quarantine')
-  - chama: `override` L323
-- `warmup(id)` · L308 · @Post(':id/warmup')
-  - chama: `override` L323
-- `activate(id)` · L313 · @Post(':id/activate')
-  - chama: `override` L323
-- `pause(id)` · L318 · @Post(':id/pause')
-  - chama: `override` L323
-- `override(id, action)` · L323 · private · async
+- `profilePhoto(id, body)` · L267 · async · @Post(':id/profile/photo')
+  - chama: `SessionManager.setProfilePhoto` (session-manager.service.ts:518), `fetchImageByUrl` (safe-fetch.ts:204)
+- `quarantine(id)` · L295 · @Post(':id/quarantine')
+  - chama: `override` L315
+- `warmup(id)` · L300 · @Post(':id/warmup')
+  - chama: `override` L315
+- `activate(id)` · L305 · @Post(':id/activate')
+  - chama: `override` L315
+- `pause(id)` · L310 · @Post(':id/pause')
+  - chama: `override` L315
+- `override(id, action)` · L315 · private · async
   - chama: `GuardrailService.setManualState` (guardrail.service.ts:457)
-  - chamado por: `activate` L313, `pause` L318, `quarantine` L303, `warmup` L308
-- `start(id)` · L328 · async · @Post(':id/start')
-  - chama: `SessionManager.start` (session-manager.service.ts:295), `ensure` L416
-- `stop(id)` · L335 · async · @Post(':id/stop')
-  - chama: `SessionManager.stop` (session-manager.service.ts:368), `ensure` L416
-- `restart(id)` · L342 · async · @Post(':id/restart')
-  - chama: `SessionManager.restart` (session-manager.service.ts:372), `ensure` L416
-- `logout(id)` · L349 · async · @Post(':id/logout')
-  - chama: `SessionManager.logout` (session-manager.service.ts:378), `ensure` L416
-- `remove(id)` · L356 · async · @Delete(':id') · @MinRole('ADMIN')
-  - chama: `MinRole` (roles.decorator.ts:8), `SessionManager.remove` (session-manager.service.ts:428), `ensure` L416
-- `qr(id)` · L364 · async · @Get(':id/qr')
-  - chama: `SessionManager.getPairingCode` (session-manager.service.ts:447), `SessionManager.getQr` (session-manager.service.ts:443), `ensure` L416
-- `newQr(id)` · L380 · async · @Post(':id/new-qr')
-  - chama: `SessionManager.newQr` (session-manager.service.ts:407), `ensure` L416
-- `pairingCode(id, body)` · L387 · async · @Post(':id/pairing-code')
-  - chama: `SessionManager.requestPairingCode` (session-manager.service.ts:451), `ensure` L416
-- `ensure(id)` · L416 · private · async
+  - chamado por: `activate` L305, `pause` L310, `quarantine` L295, `warmup` L300
+- `start(id)` · L320 · async · @Post(':id/start')
+  - chama: `SessionManager.start` (session-manager.service.ts:295), `ensure` L408
+- `stop(id)` · L327 · async · @Post(':id/stop')
+  - chama: `SessionManager.stop` (session-manager.service.ts:368), `ensure` L408
+- `restart(id)` · L334 · async · @Post(':id/restart')
+  - chama: `SessionManager.restart` (session-manager.service.ts:372), `ensure` L408
+- `logout(id)` · L341 · async · @Post(':id/logout')
+  - chama: `SessionManager.logout` (session-manager.service.ts:378), `ensure` L408
+- `remove(id)` · L348 · async · @Delete(':id') · @MinRole('ADMIN')
+  - chama: `MinRole` (roles.decorator.ts:8), `SessionManager.remove` (session-manager.service.ts:428), `ensure` L408
+- `qr(id)` · L356 · async · @Get(':id/qr')
+  - chama: `SessionManager.getPairingCode` (session-manager.service.ts:447), `SessionManager.getQr` (session-manager.service.ts:443), `ensure` L408
+- `newQr(id)` · L372 · async · @Post(':id/new-qr')
+  - chama: `SessionManager.newQr` (session-manager.service.ts:407), `ensure` L408
+- `pairingCode(id, body)` · L379 · async · @Post(':id/pairing-code')
+  - chama: `SessionManager.requestPairingCode` (session-manager.service.ts:451), `ensure` L408
+- `ensure(id)` · L408 · private · async
   - chama: `SessionRepository.findById` (session.repository.ts:20)
-  - chamado por: `get` L172, `logout` L349, `newQr` L380, `pairingCode` L387, `qr` L364, `remove` L356, `restart` L342, `start` L328, `stop` L335
+  - chamado por: `get` L173, `logout` L341, `newQr` L372, `pairingCode` L379, `qr` L356, `remove` L348, `restart` L334, `start` L320, `stop` L327
 
 **Funções e constantes de topo**
-- `toDto(s)` · L44
-  - chamado por: `create` L95, `get` L172, `list` L152
-- `configDto(c)` · L61
-  - chamado por: `getConfig` L187, `patchConfig` L194
+- `toDto(s)` · L45
+  - chamado por: `create` L96, `get` L173, `list` L153
+- `configDto(c)` · L62
+  - chamado por: `getConfig` L188, `patchConfig` L195
 
 ## `modules/sessions/sessions.module.ts`
 

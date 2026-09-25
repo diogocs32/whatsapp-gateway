@@ -35,8 +35,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/iam/interface/api-key-auth.guard.ts` | 67 |
 | `modules/iam/interface/api-keys.controller.ts` | 56 |
 | `modules/iam/interface/audit.controller.ts` | 31 |
-| `modules/iam/interface/audit.interceptor.ts` | 79 |
-| `modules/iam/interface/auth.controller.ts` | 148 |
+| `modules/iam/interface/audit.interceptor.spec.ts` | 158 |
+| `modules/iam/interface/audit.interceptor.ts` | 93 |
+| `modules/iam/interface/auth.controller.ts` | 152 |
 | `modules/iam/interface/auth.guard.ts` | 84 |
 | `modules/iam/interface/branding.controller.ts` | 53 |
 | `modules/iam/interface/csrf.spec.ts` | 160 |
@@ -75,14 +76,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 23 linhas · caminho: `apps/gateway/src/modules/iam/application/audit.service.ts`
 - importa (interno): `modules/iam/domain/audit.repository.ts`
-- importado por: `modules/iam/iam.module.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/audit.interceptor.ts`
+- importado por: `modules/iam/iam.module.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/audit.interceptor.spec.ts`, `modules/iam/interface/audit.interceptor.ts`
 
 **class `AuditService`** L9 · @Injectable
 - injeta (construtor): `repo: @Inject(AUDIT_REPOSITORY) AuditRepository`
 - `constructor(repo)` · L11
 - `log(entry)` · L15 · async
   - chama: `AuditRepository.create` (audit.repository.ts:15)
-  - chamado por: `AuditInterceptor.record` (audit.interceptor.ts:53)
+  - chamado por: `AuditInterceptor.record` (audit.interceptor.ts:66)
 - `list(limit, offset)` · L19
   - chama: `AuditRepository.list` (audit.repository.ts:16)
   - chamado por: `AuditController.list` (audit.controller.ts:15)
@@ -99,13 +100,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `constructor(users, refreshTokens, tokens, config)` · L49
 - `login(username, password, ctx)` · L57 · async
   - chama: `issue` L123, `UserRepository.findByUsername` (user.repository.ts:19), `UserRepository.updatePassword` (user.repository.ts:25), `hashPassword` (crypto.ts:59), `passwordNeedsRehash` (crypto.ts:125), `verifyPassword` (crypto.ts:111), `verifyPasswordDummy` (crypto.ts:142), `newId` (ulid.ts:4)
-  - chamado por: `AuthController.signIn` (auth.controller.ts:47)
+  - chamado por: `AuthController.signIn` (auth.controller.ts:50)
 - `refresh(rawRefresh, ctx)` · L85 · async
   - chama: `toUserDto` L151, `TokenService.hashRefresh` (token.service.ts:33), `TokenService.newRefresh` (token.service.ts:28), `TokenService.signAccess` (token.service.ts:21), `RefreshTokenRepository.rotate` (refresh-token.repository.ts:40), `UserRepository.findById` (user.repository.ts:20), `newId` (ulid.ts:4)
-  - chamado por: `AuthController.refresh` (auth.controller.ts:71)
+  - chamado por: `AuthController.refresh` (auth.controller.ts:75)
 - `logout(rawRefresh)` · L116 · async
   - chama: `TokenService.hashRefresh` (token.service.ts:33), `RefreshTokenRepository.revokeFamilyByToken` (refresh-token.repository.ts:42)
-  - chamado por: `AuthController.logout` (auth.controller.ts:92)
+  - chamado por: `AuthController.logout` (auth.controller.ts:96)
 - `issue(user, sessionId, ctx)` · L123 · private · async
   - chama: `toUserDto` L151, `TokenService.newRefresh` (token.service.ts:28), `TokenService.signAccess` (token.service.ts:21), `RefreshTokenRepository.create` (refresh-token.repository.ts:39), `newId` (ulid.ts:4)
   - chamado por: `login` L57
@@ -148,7 +149,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `onModuleInit()` · L30 · async
   - chama: `reload` L40
 - `effective()` · L35
-  - chamado por: `UserService.create` (user.service.ts:50), `UserService.seats` (user.service.ts:43), `LicenseController.status` (license.controller.ts:40), `SessionsController.create` (sessions.controller.ts:95)
+  - chamado por: `UserService.create` (user.service.ts:50), `UserService.seats` (user.service.ts:43), `LicenseController.status` (license.controller.ts:40), `SessionsController.create` (sessions.controller.ts:96)
 - `reload()` · L40 · async
   - chama: `resolve` L71, `LicenseRepository.get` (license.repository.ts:3)
   - chamado por: `onModuleInit` L30, `remove` L66
@@ -245,7 +246,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `modules/iam/domain/audit.repository.ts`
 
 20 linhas · caminho: `apps/gateway/src/modules/iam/domain/audit.repository.ts`
-- importado por: `modules/iam/application/audit.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`
+- importado por: `modules/iam/application/audit.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/iam/interface/audit.interceptor.spec.ts`
 
 **Funções e constantes de topo**
 - `AUDIT_REPOSITORY` = `Symbol('AUDIT_REPOSITORY')` · L19
@@ -655,62 +656,74 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `list(limit, offset)` · L15 · async · @Get
   - chama: `AuditService.list` (audit.service.ts:19), `clampInt` (query-int.ts:4)
 
+## `modules/iam/interface/audit.interceptor.spec.ts`
+
+158 linhas · caminho: `apps/gateway/src/modules/iam/interface/audit.interceptor.spec.ts`
+- importa (interno): `bootstrap/fastify-adapter.ts`, `modules/iam/application/audit.service.ts`, `modules/iam/domain/audit.repository.ts`, `modules/iam/interface/audit.interceptor.ts`
+
+- describe “AuditInterceptor pela rota resolvida (P-053)” · L64
+  - it “mutação em /api/* é auditada em qualquer grafia do alvo — o path gravado é o alvo cru” · L94
+  - it “envio de mensagem (alto volume) continua fora — decidido pelo padrão da rota” · L118
+  - it “sessão cujo NOME contém "messages" deixa de escapar da trilha; GET nunca é auditado” · L129
+  - it “path gravado tem teto de 512 caracteres (host da forma absoluta é do cliente)” · L137
+  - it “forma absoluta com ? ou # antes do caminho: 400 na borda, a mutação não roda” · L147
+
 ## `modules/iam/interface/audit.interceptor.ts`
 
-79 linhas · caminho: `apps/gateway/src/modules/iam/interface/audit.interceptor.ts`
+93 linhas · caminho: `apps/gateway/src/modules/iam/interface/audit.interceptor.ts`
 - importa (interno): `shared-kernel/process-errors.ts`, `modules/iam/application/audit.service.ts`, `modules/iam/interface/auth.guard.ts`
-- importado por: `modules/iam/iam.module.ts`
+- importado por: `modules/iam/iam.module.ts`, `modules/iam/interface/audit.interceptor.spec.ts`
 
-**class `AuditInterceptor`** L27 · @Injectable · `implements NestInterceptor`
+**class `AuditInterceptor`** L38 · @Injectable · `implements NestInterceptor`
 - injeta (construtor): `audit: AuditService`
-- `logger` · L29 · private · campo
-- `constructor(audit)` · L31
-- `intercept(context, next)` · L33
-  - chama: `record` L53, `shouldAudit` L47
-- `shouldAudit(req)` · L47 · private
-  - chamado por: `intercept` L33
-- `record(req, statusCode)` · L53 · private
+- `logger` · L40 · private · campo
+- `constructor(audit)` · L42
+- `intercept(context, next)` · L44
+  - chama: `record` L66, `shouldAudit` L58
+- `shouldAudit(req)` · L58 · private
+  - chamado por: `intercept` L44
+- `record(req, statusCode)` · L66 · private
   - chama: `AuditService.log` (audit.service.ts:15), `recordProcessError` (process-errors.ts:9)
-  - chamado por: `intercept` L33
+  - chamado por: `intercept` L44
 
 **Funções e constantes de topo**
 - `MUTATIONS` = `new Set(['POST', 'PUT', 'PATCH', 'DELETE'])` · L13
 
 **Tipos**
-- interface `AuditReq` L15 · 6 propriedade(s)
+- interface `AuditReq` L18 · 7 propriedade(s)
 
 ## `modules/iam/interface/auth.controller.ts`
 
-148 linhas · caminho: `apps/gateway/src/modules/iam/interface/auth.controller.ts`
-- importa (interno): `bootstrap/config.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/interface/auth.guard.ts`, `modules/iam/interface/csrf.ts`
-- importado por: `modules/iam/iam.module.ts`
+152 linhas · caminho: `apps/gateway/src/modules/iam/interface/auth.controller.ts`
+- importa (interno): `bootstrap/config.ts`, `bootstrap/rate-limit.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/interface/auth.guard.ts`, `modules/iam/interface/csrf.ts`
+- importado por: `bootstrap/rate-limit.spec.ts`, `modules/iam/iam.module.ts`
 
-**class `AuthController`** L40 · @Controller('auth')
+**class `AuthController`** L42 · @Controller('auth')
 - injeta (construtor): `auth: AuthSessionService` · `config: ConfigService<Env, true>`
-- `constructor(auth, config)` · L42
-- `signIn(body, req, reply)` · L47 · async · @Post('login')
-  - chama: `AuthSessionService.login` (auth-session.service.ts:57), `ctx` L114, `setAuthCookies` L125
-- `refresh(req, reply)` · L71 · async · @Post('refresh')
-  - chama: `AuthSessionService.refresh` (auth-session.service.ts:85), `allowedOrigins` L121, `clearAuthCookies` L143, `ctx` L114, `setAuthCookies` L125, `assertCsrfSafe` (csrf.ts:69)
-- `logout(req, reply)` · L92 · async · @Post('logout')
-  - chama: `AuthSessionService.logout` (auth-session.service.ts:116), `allowedOrigins` L121, `clearAuthCookies` L143, `assertCsrfSafe` (csrf.ts:69)
-- `me(req)` · L103 · @UseGuards(JwtAuthGuard) · @Get('me')
-- `ctx(req)` · L114 · private
-  - chamado por: `refresh` L71, `signIn` L47
-- `allowedOrigins()` · L121 · private
+- `constructor(auth, config)` · L44
+- `signIn(body, req, reply)` · L50 · async · @Post('login') · @RouteConfig({ rateLimit: LOGIN_RATE_LIMIT })
+  - chama: `AuthSessionService.login` (auth-session.service.ts:57), `ctx` L118, `setAuthCookies` L129
+- `refresh(req, reply)` · L75 · async · @Post('refresh')
+  - chama: `AuthSessionService.refresh` (auth-session.service.ts:85), `allowedOrigins` L125, `clearAuthCookies` L147, `ctx` L118, `setAuthCookies` L129, `assertCsrfSafe` (csrf.ts:69)
+- `logout(req, reply)` · L96 · async · @Post('logout')
+  - chama: `AuthSessionService.logout` (auth-session.service.ts:116), `allowedOrigins` L125, `clearAuthCookies` L147, `assertCsrfSafe` (csrf.ts:69)
+- `me(req)` · L107 · @UseGuards(JwtAuthGuard) · @Get('me')
+- `ctx(req)` · L118 · private
+  - chamado por: `refresh` L75, `signIn` L50
+- `allowedOrigins()` · L125 · private
   - chama: `parseAllowedOrigins` (csrf.ts:27)
-  - chamado por: `logout` L92, `refresh` L71
-- `setAuthCookies(reply, session)` · L125 · private
-  - chamado por: `refresh` L71, `signIn` L47
+  - chamado por: `logout` L96, `refresh` L75
+- `setAuthCookies(reply, session)` · L129 · private
+  - chamado por: `refresh` L75, `signIn` L50
   - env: `NODE_ENV`
-- `clearAuthCookies(reply)` · L143 · private
-  - chamado por: `logout` L92, `refresh` L71
+- `clearAuthCookies(reply)` · L147 · private
+  - chamado por: `logout` L96, `refresh` L75
 
 **Funções e constantes de topo**
-- `loginSchema` = `z.object({ username: z.string().min(1).max(64), password: z.string().…` · L23
+- `loginSchema` = `z.object({ username: z.string().min(1).max(64), password: z.string().…` · L25
 
 **Tipos**
-- type `CookieReq` L36
+- type `CookieReq` L38
 
 ## `modules/iam/interface/auth.guard.ts`
 
@@ -784,7 +797,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `csrfVerdict` L44, `parseAllowedOrigins` L27
 - `parseAllowedOrigins(corsOrigin)` · L27
   - chama: `normalizeOrigin` L23
-  - chamado por: `AuthController.allowedOrigins` (auth.controller.ts:121), `assertCookieAuthCsrfSafe` (auth.guard.ts:46)
+  - chamado por: `AuthController.allowedOrigins` (auth.controller.ts:125), `assertCookieAuthCsrfSafe` (auth.guard.ts:46)
 - `first(v)` · L40
   - chamado por: `csrfVerdict` L44
 - `csrfVerdict(input, allowedOrigins)` · L44
@@ -792,7 +805,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `assertCsrfSafe` L69
 - `assertCsrfSafe(req, allowedOrigins)` · L69
   - chama: `csrfVerdict` L44
-  - chamado por: `AuthController.logout` (auth.controller.ts:92), `AuthController.refresh` (auth.controller.ts:71), `assertCookieAuthCsrfSafe` (auth.guard.ts:46)
+  - chamado por: `AuthController.logout` (auth.controller.ts:96), `AuthController.refresh` (auth.controller.ts:75), `assertCookieAuthCsrfSafe` (auth.guard.ts:46)
 
 **Tipos**
 - type `CsrfVerdict` L21
@@ -829,7 +842,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `MIN_ROLE_KEY` = `'minRole'` · L4
 - `MinRole(role)` · L8
-  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:95), `SessionsController.remove` (sessions.controller.ts:356)
+  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:96), `SessionsController.remove` (sessions.controller.ts:348)
 
 ## `modules/iam/interface/roles.guard.ts`
 

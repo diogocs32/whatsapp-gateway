@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
 import { Logger, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -10,6 +9,7 @@ import { AppModule } from './app.module';
 import { bridgeConsoleToLogger } from './bootstrap/console-bridge';
 import { buildFastifyAdapter } from './bootstrap/fastify-adapter';
 import { LoggingExceptionFilter } from './bootstrap/logging-exception.filter';
+import { rateLimitMaxFromEnv, registerRateLimit } from './bootstrap/rate-limit';
 import type { Env } from './bootstrap/config';
 import { recordProcessError } from './shared-kernel/process-errors';
 
@@ -62,17 +62,10 @@ async function bootstrap(): Promise<void> {
   // JSON — CSP só atrapalharia consumidores; os headers do dashboard ficam no nginx dele.
   await app.register(helmet, { contentSecurityPolicy: false });
 
-  // Rate limit global por IP (item 14): protege o login de brute-force e a API pública de abuso.
-  // O login tem teto próprio bem mais baixo; /health fica de fora (healthcheck do Docker/Traefik
-  // bate com frequência). RATE_LIMIT_MAX=0 desliga; default é folgado para o polling do dashboard.
-  const rateMax = Number(process.env.RATE_LIMIT_MAX ?? 600);
-  if (Number.isFinite(rateMax) && rateMax > 0) {
-    await app.register(rateLimit, {
-      timeWindow: '1 minute',
-      max: (req) => (req.url.startsWith('/api/auth/login') ? 10 : rateMax),
-      allowList: (req) => req.url === '/health',
-    });
-  }
+  // Rate limit global por IP (item 14) + teto próprio do login preso à rota (P-053, D-025) — ver
+  // bootstrap/rate-limit.ts. Registrado aqui, ANTES do listen (que registra as rotas).
+  const rateMax = rateLimitMaxFromEnv();
+  if (rateMax > 0) await registerRateLimit(app, rateMax);
 
   // /api para tudo, exceto /health (usado pelo healthcheck do Docker/Swarm — blueprint §19.6).
   app.setGlobalPrefix('api', {

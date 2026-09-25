@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 206 arquivos · 1199 símbolos (métodos/funções/assinaturas/constantes) · 1156 chamadas resolvidas · 332 testes (it/test)
+- 213 arquivos · 1210 símbolos (métodos/funções/assinaturas/constantes) · 1165 chamadas resolvidas · 354 testes (it/test)
 
 ## Áreas
 
@@ -13,23 +13,23 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | --- | --- | --- | --- |
 | packages/contracts | 1 | 568 | [contracts.md](contracts.md) |
 | Dashboard (React) | 23 | 6406 | [dashboard.md](dashboard.md) |
-| Gateway — bootstrap (config, logs, adapter) | 10 | 1175 | [gateway-bootstrap.md](gateway-bootstrap.md) |
+| Gateway — bootstrap (config, logs, adapter) | 15 | 1684 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 5 | 855 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 22 | 4297 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 23 | 4423 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
-| módulo `groups` | 2 | 274 | [gateway-groups.md](gateway-groups.md) |
+| módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 5 | 1125 | [gateway-guardrail.md](gateway-guardrail.md) |
 | módulo `health` | 3 | 127 | [gateway-health.md](gateway-health.md) |
-| módulo `iam` | 39 | 2281 | [gateway-iam.md](gateway-iam.md) |
+| módulo `iam` | 40 | 2457 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 668 | [gateway-infra.md](gateway-infra.md) |
 | módulo `messaging` | 14 | 2190 | [gateway-messaging.md](gateway-messaging.md) |
 | módulo `observability` | 7 | 577 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 12 | 1277 | [gateway-proxies.md](gateway-proxies.md) |
-| Gateway — raiz (main.ts, app.module.ts) | 2 | 189 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 20 | 7022 | [gateway-sessions.md](gateway-sessions.md) |
-| Gateway — shared-kernel | 16 | 1025 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
+| Gateway — raiz (main.ts, app.module.ts) | 2 | 153 | [gateway-raiz.md](gateway-raiz.md) |
+| módulo `sessions` | 20 | 7014 | [gateway-sessions.md](gateway-sessions.md) |
+| Gateway — shared-kernel | 16 | 1239 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
 ## Rotas HTTP (gateway)
@@ -40,10 +40,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/api-keys` | `ApiKeysController.create` (api-keys.controller.ts:26) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | DELETE | `/api/api-keys/:id` | `ApiKeysController.revoke` (api-keys.controller.ts:50) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | GET | `/api/audit` | `AuditController.list` (audit.controller.ts:15) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/auth/login` | `AuthController.signIn` (auth.controller.ts:47) |  |
-| POST | `/api/auth/logout` | `AuthController.logout` (auth.controller.ts:92) |  |
-| GET | `/api/auth/me` | `AuthController.me` (auth.controller.ts:103) | `@UseGuards(JwtAuthGuard)` |
-| POST | `/api/auth/refresh` | `AuthController.refresh` (auth.controller.ts:71) |  |
+| POST | `/api/auth/login` | `AuthController.signIn` (auth.controller.ts:50) | `@RouteConfig({ rateLimit: LOGIN_RATE_LIMIT })` |
+| POST | `/api/auth/logout` | `AuthController.logout` (auth.controller.ts:96) |  |
+| GET | `/api/auth/me` | `AuthController.me` (auth.controller.ts:107) | `@UseGuards(JwtAuthGuard)` |
+| POST | `/api/auth/refresh` | `AuthController.refresh` (auth.controller.ts:75) |  |
 | GET | `/api/branding` | `BrandingController.get` (branding.controller.ts:29) |  |
 | PUT | `/api/branding` | `BrandingController.update` (branding.controller.ts:35) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | GET | `/api/campaigns` | `CampaignsController.list` (campaigns.controller.ts:100) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -81,39 +81,39 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/proxies/test-all` | `ProxiesController.testAll` (proxies.controller.ts:107) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | GET | `/api/proxies/webshare/status` | `ProxiesController.webshareStatus` (proxies.controller.ts:71) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | POST | `/api/proxies/webshare/sync` | `ProxiesController.syncWebshare` (proxies.controller.ts:112) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/sessions` | `SessionsController.list` (sessions.controller.ts:152) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions` | `SessionsController.create` (sessions.controller.ts:95) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| DELETE | `/api/sessions/:id` | `SessionsController.remove` (sessions.controller.ts:356) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/sessions/:id` | `SessionsController.get` (sessions.controller.ts:172) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/activate` | `SessionsController.activate` (sessions.controller.ts:313) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions` | `SessionsController.list` (sessions.controller.ts:153) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions` | `SessionsController.create` (sessions.controller.ts:96) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| DELETE | `/api/sessions/:id` | `SessionsController.remove` (sessions.controller.ts:348) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| GET | `/api/sessions/:id` | `SessionsController.get` (sessions.controller.ts:173) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/activate` | `SessionsController.activate` (sessions.controller.ts:305) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/channels` | `ChannelsController.create` (channels.controller.ts:29) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/channels/:jid` | `ChannelsController.info` (channels.controller.ts:42) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/channels/:jid/follow` | `ChannelsController.follow` (channels.controller.ts:47) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/channels/:jid/unfollow` | `ChannelsController.unfollow` (channels.controller.ts:56) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/config` | `SessionsController.getConfig` (sessions.controller.ts:187) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| PATCH | `/api/sessions/:id/config` | `SessionsController.patchConfig` (sessions.controller.ts:194) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/config` | `SessionsController.getConfig` (sessions.controller.ts:188) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| PATCH | `/api/sessions/:id/config` | `SessionsController.patchConfig` (sessions.controller.ts:195) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/contacts/:jid/profile-picture` | `ContactsController.profilePicture` (contacts.controller.ts:106) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/contacts/block` | `ContactsController.block` (contacts.controller.ts:121) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/contacts/check` | `ContactsController.check` (contacts.controller.ts:89) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/contacts/directory` | `ContactsController.listDirectory` (contacts.controller.ts:58) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/contacts/remove` | `ContactsController.remove` (contacts.controller.ts:164) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/contacts/save` | `ContactsController.save` (contacts.controller.ts:140) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/groups` | `GroupsController.list` (groups.controller.ts:52) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups` | `GroupsController.create` (groups.controller.ts:57) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/groups/:groupId` | `GroupsController.info` (groups.controller.ts:65) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/description` | `GroupsController.description` (groups.controller.ts:132) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/groups/:groupId/invite` | `GroupsController.invite` (groups.controller.ts:145) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/invite/revoke` | `GroupsController.revoke` (groups.controller.ts:156) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/groups/:groupId/leads` | `GroupsController.leads` (groups.controller.ts:75) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/leave` | `GroupsController.leave` (groups.controller.ts:112) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/groups/:groupId/membership-requests` | `GroupsController.membershipRequests` (groups.controller.ts:168) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/membership-requests` | `GroupsController.membership` (groups.controller.ts:177) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/participants` | `GroupsController.participants` (groups.controller.ts:99) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/photo` | `GroupsController.photo` (groups.controller.ts:212) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/settings` | `GroupsController.settings` (groups.controller.ts:191) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/groups/:groupId/subject` | `GroupsController.subject` (groups.controller.ts:121) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/health` | `SessionsController.health` (sessions.controller.ts:178) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/logout` | `SessionsController.logout` (sessions.controller.ts:349) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/groups` | `GroupsController.list` (groups.controller.ts:53) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups` | `GroupsController.create` (groups.controller.ts:58) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/groups/:groupId` | `GroupsController.info` (groups.controller.ts:66) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/description` | `GroupsController.description` (groups.controller.ts:133) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/groups/:groupId/invite` | `GroupsController.invite` (groups.controller.ts:146) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/invite/revoke` | `GroupsController.revoke` (groups.controller.ts:157) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/groups/:groupId/leads` | `GroupsController.leads` (groups.controller.ts:76) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/leave` | `GroupsController.leave` (groups.controller.ts:113) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/groups/:groupId/membership-requests` | `GroupsController.membershipRequests` (groups.controller.ts:169) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/membership-requests` | `GroupsController.membership` (groups.controller.ts:178) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/participants` | `GroupsController.participants` (groups.controller.ts:100) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/photo` | `GroupsController.photo` (groups.controller.ts:213) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/settings` | `GroupsController.settings` (groups.controller.ts:192) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/groups/:groupId/subject` | `GroupsController.subject` (groups.controller.ts:122) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/health` | `SessionsController.health` (sessions.controller.ts:179) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/logout` | `SessionsController.logout` (sessions.controller.ts:341) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/messages` | `MessagesController.list` (messages.controller.ts:225) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/:chatId/flag` | `MessagesController.chatFlag` (messages.controller.ts:319) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/messages/:msgId/media` | `MessagesController.downloadMedia` (messages.controller.ts:351) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -127,21 +127,21 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | GET | `/api/sessions/:id/messages/search` | `MessagesController.search` (messages.controller.ts:254) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/sync` | `MessagesController.sync` (messages.controller.ts:290) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/text` | `MessagesController.sendText` (messages.controller.ts:483) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/new-qr` | `SessionsController.newQr` (sessions.controller.ts:380) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/pairing-code` | `SessionsController.pairingCode` (sessions.controller.ts:387) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/pause` | `SessionsController.pause` (sessions.controller.ts:318) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/presence` | `SessionsController.presence` (sessions.controller.ts:211) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/profile/name` | `SessionsController.profileName` (sessions.controller.ts:246) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/profile/photo` | `SessionsController.profilePhoto` (sessions.controller.ts:266) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/profile/status` | `SessionsController.profileStatus` (sessions.controller.ts:227) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/new-qr` | `SessionsController.newQr` (sessions.controller.ts:372) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/pairing-code` | `SessionsController.pairingCode` (sessions.controller.ts:379) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/pause` | `SessionsController.pause` (sessions.controller.ts:310) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/presence` | `SessionsController.presence` (sessions.controller.ts:212) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/profile/name` | `SessionsController.profileName` (sessions.controller.ts:247) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/profile/photo` | `SessionsController.profilePhoto` (sessions.controller.ts:267) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/profile/status` | `SessionsController.profileStatus` (sessions.controller.ts:228) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/proxy` | `ProxiesController.getAssignment` (proxies.controller.ts:145) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | PUT | `/api/sessions/:id/proxy` | `ProxiesController.setAssignment` (proxies.controller.ts:160) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/sessions/:id/qr` | `SessionsController.qr` (sessions.controller.ts:364) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/quarantine` | `SessionsController.quarantine` (sessions.controller.ts:303) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/restart` | `SessionsController.restart` (sessions.controller.ts:342) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/start` | `SessionsController.start` (sessions.controller.ts:328) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/stop` | `SessionsController.stop` (sessions.controller.ts:335) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/warmup` | `SessionsController.warmup` (sessions.controller.ts:308) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/qr` | `SessionsController.qr` (sessions.controller.ts:356) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/quarantine` | `SessionsController.quarantine` (sessions.controller.ts:295) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/restart` | `SessionsController.restart` (sessions.controller.ts:334) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/start` | `SessionsController.start` (sessions.controller.ts:320) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/stop` | `SessionsController.stop` (sessions.controller.ts:327) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/warmup` | `SessionsController.warmup` (sessions.controller.ts:300) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/users` | `UsersController.list` (users.controller.ts:79) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | POST | `/api/users` | `UsersController.create` (users.controller.ts:92) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | DELETE | `/api/users/:id` | `UsersController.remove` (users.controller.ts:108) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
@@ -256,7 +256,6 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `PORT` | `base` (config.ts) |
 | `PROXY_RETEST_INTERVAL_MIN` | `ProxyService.onApplicationBootstrap` (proxy.service.ts) |
 | `PROXY_TEST_ECHO_URL` | `base` (config.ts) |
-| `RATE_LIMIT_MAX` | `bootstrap` (main.ts) |
 | `REDIS_DB` | `base` (config.ts) |
 | `REDIS_HOST` | `base` (config.ts) |
 | `REDIS_PASSWORD` | `base` (config.ts) |

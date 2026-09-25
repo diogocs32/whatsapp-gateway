@@ -10,12 +10,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `bootstrap/console-bridge.spec.ts` | 81 |
 | `bootstrap/console-bridge.ts` | 71 |
 | `bootstrap/fastify-adapter.absolute-form.spec.ts` | 90 |
-| `bootstrap/fastify-adapter.ts` | 39 |
+| `bootstrap/fastify-adapter.ts` | 45 |
+| `bootstrap/http-logger.spec.ts` | 180 |
+| `bootstrap/http-logger.ts` | 45 |
 | `bootstrap/log-redaction.pino-http.spec.ts` | 91 |
 | `bootstrap/log-redaction.spec.ts` | 183 |
 | `bootstrap/log-redaction.ts` | 169 |
 | `bootstrap/logging-exception.filter.spec.ts` | 117 |
 | `bootstrap/logging-exception.filter.ts` | 154 |
+| `bootstrap/rate-limit.spec.ts` | 189 |
+| `bootstrap/rate-limit.ts` | 35 |
+| `bootstrap/route-url.ts` | 54 |
 
 ## `bootstrap/config.ts`
 
@@ -77,12 +82,35 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `bootstrap/fastify-adapter.ts`
 
-39 linhas · caminho: `apps/gateway/src/bootstrap/fastify-adapter.ts`
-- importado por: `bootstrap/fastify-adapter.absolute-form.spec.ts`, `main.ts`, `gateway/test/setup-app.ts`
+45 linhas · caminho: `apps/gateway/src/bootstrap/fastify-adapter.ts`
+- importa (interno): `bootstrap/route-url.ts`
+- importado por: `bootstrap/fastify-adapter.absolute-form.spec.ts`, `bootstrap/http-logger.spec.ts`, `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/audit.interceptor.spec.ts`, `gateway/test/setup-app.ts`
 
 **Funções e constantes de topo**
-- `buildFastifyAdapter(maxFileBytes)` · L10
+- `buildFastifyAdapter(maxFileBytes)` · L11
+  - chama: `rejectAmbiguousAbsoluteForm` (route-url.ts:39), `stampRouteUrl` (route-url.ts:20)
   - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:82)
+
+## `bootstrap/http-logger.spec.ts`
+
+180 linhas · caminho: `apps/gateway/src/bootstrap/http-logger.spec.ts`
+- importa (interno): `bootstrap/fastify-adapter.ts`, `bootstrap/http-logger.ts`
+
+- describe “request-log: sondagens pela rota resolvida (P-053)” · L115
+  - it “/health e /metrics não geram linha em nenhuma grafia (2xx, 4xx, HEAD, %-encoding, forma absoluta)” · L143
+  - it “503 do /health continua visível (único rastro de unhealthy no log)” · L163
+  - it “demais rotas seguem a regra: mutação em info, GET 2xx silencioso” · L170
+
+## `bootstrap/http-logger.ts`
+
+45 linhas · caminho: `apps/gateway/src/bootstrap/http-logger.ts`
+- importa (interno): `bootstrap/log-redaction.ts`, `bootstrap/route-url.ts`
+- importado por: `app.module.ts`, `bootstrap/http-logger.spec.ts`
+
+**Funções e constantes de topo**
+- `PROBE_ROUTES` = `new Set(['/health', '/metrics'])` · L6
+- `httpLoggerOptions(env)` · L17
+  - chama: `logSerializers` (log-redaction.ts:155), `routeUrlOf` (route-url.ts:27)
 
 ## `bootstrap/log-redaction.pino-http.spec.ts`
 
@@ -118,14 +146,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `bootstrap/log-redaction.ts`
 
 169 linhas · caminho: `apps/gateway/src/bootstrap/log-redaction.ts`
-- importado por: `app.module.ts`, `bootstrap/log-redaction.pino-http.spec.ts`, `bootstrap/log-redaction.spec.ts`, `bootstrap/logging-exception.filter.ts`
+- importado por: `bootstrap/http-logger.ts`, `bootstrap/log-redaction.pino-http.spec.ts`, `bootstrap/log-redaction.spec.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/route-url.ts`
 
 **Funções e constantes de topo**
 - `SENSITIVE_HEADERS` = `new Set([ 'authorization', 'proxy-authorization', 'cookie', 'set-cook…` · L13
 - `SENSITIVE_QUERY_KEYS` = `/^(token|access_token|refresh_token|api_key|apikey|x-api-key|secret|p…` · L22
 - `REDACTED` = `'[Redacted]'` · L25
 - `maskUrlSecrets(url)` · L29
-  - chamado por: `httpLogSerializers` L103, `LoggingExceptionFilter.record` (logging-exception.filter.ts:126)
+  - chamado por: `httpLogSerializers` L103, `LoggingExceptionFilter.record` (logging-exception.filter.ts:126), `rejectAmbiguousAbsoluteForm` (route-url.ts:39)
 - `redactHeaders(headers)` · L56
   - chamado por: `httpLogSerializers` L103
 - `redactQuery(query)` · L67
@@ -139,6 +167,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `logSerializers` L155
 - `logSerializers()` · L155
   - chama: `errorAliasSerializers` L141, `httpLogSerializers` L103
+  - chamado por: `httpLoggerOptions` (http-logger.ts:17)
 - `LOG_REDACT_PATHS` = `[ 'req.headers.authorization', 'req.headers["proxy-authorization"]', …` · L161
 
 **Tipos**
@@ -186,3 +215,47 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `ExceptionSummary` L13 · 4 propriedade(s)
 - interface `ErrorLike` L21 · 5 propriedade(s)
 - interface `RequestLike` L97 · 7 propriedade(s)
+
+## `bootstrap/rate-limit.spec.ts`
+
+189 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.spec.ts`
+- importa (interno): `modules/iam/interface/auth.controller.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/rate-limit.ts`
+
+- describe “rate-limit pela rota resolvida (P-053)” · L72
+  - it “o 11º login em 1 min é 429 mesmo alternando %-encoding e forma absoluta” · L99
+  - it “o login tem contador próprio: tráfego do mesmo IP não o esgota (D-025)” · L125
+  - it “/health fica fora do rate-limit em qualquer grafia; 404 não passa pelo limitador” · L142
+  - it “forma absoluta com ? ou # antes do caminho → 400 antes de qualquer rota (nem conta no limitador)” · L165
+- describe “rateLimitMaxFromEnv” · L180
+  - it “default 600; 0/negativo/inválido desligam” · L181
+
+## `bootstrap/rate-limit.ts`
+
+35 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.ts`
+- importado por: `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/auth.controller.ts`
+
+**Funções e constantes de topo**
+- `rateLimitMaxFromEnv(env)` · L6
+  - chamado por: `bootstrap` (main.ts:16)
+- `LOGIN_RATE_LIMIT` = `{ max: 10, timeWindow: '1 minute' } as const` · L19
+- `registerRateLimit(app, max)` · L23 · async
+  - chamado por: `bootstrap` (main.ts:16)
+
+## `bootstrap/route-url.ts`
+
+54 linhas · caminho: `apps/gateway/src/bootstrap/route-url.ts`
+- importa (interno): `bootstrap/log-redaction.ts`
+- importado por: `bootstrap/fastify-adapter.ts`, `bootstrap/http-logger.ts`
+
+**Funções e constantes de topo**
+- `ROUTE_URL` = `Symbol('conexozenvo.routeUrl')` · L12
+- `stampRouteUrl(fastify)` · L20
+  - chamado por: `buildFastifyAdapter` (fastify-adapter.ts:11)
+- `routeUrlOf(req)` · L27
+  - chamado por: `httpLoggerOptions` (http-logger.ts:17)
+- `rejectAmbiguousAbsoluteForm(fastify)` · L39
+  - chama: `maskUrlSecrets` (log-redaction.ts:29)
+  - chamado por: `buildFastifyAdapter` (fastify-adapter.ts:11)
+
+**Tipos**
+- type `Stamped` L14

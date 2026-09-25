@@ -134,6 +134,9 @@ describe('Webhooks (e2e)', () => {
     for (const url of [
       'http://127.0.0.1:5678/hook',
       'http://169.254.169.254/latest/meta-data',
+      // P-065: a mesma coisa escrita como IPv6 v4-mapeado (o URL normaliza para hexa).
+      'http://[::ffff:127.0.0.1]:5678/hook',
+      'http://[::ffff:169.254.169.254]/latest/meta-data',
       'http://10.0.0.5/hook',
       'http://localhost:5678/hook',
       'ftp://public.example/hook',

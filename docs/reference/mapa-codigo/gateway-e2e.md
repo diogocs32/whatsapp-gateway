@@ -6,11 +6,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
+| `gateway/test/audit.e2e-spec.ts` | 98 |
 | `gateway/test/auth.e2e-spec.ts` | 335 |
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
-| `gateway/test/f5.e2e-spec.ts` | 228 |
+| `gateway/test/f5.e2e-spec.ts` | 253 |
 | `gateway/test/f6.e2e-spec.ts` | 99 |
 | `gateway/test/g4.e2e-spec.ts` | 107 |
 | `gateway/test/g5.e2e-spec.ts` | 82 |
@@ -26,8 +27,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 130 |
 | `gateway/test/sessions.e2e-spec.ts` | 111 |
 | `gateway/test/setup-app.ts` | 169 |
-| `gateway/test/webhooks.e2e-spec.ts` | 167 |
+| `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1031 |
+
+## `gateway/test/audit.e2e-spec.ts`
+
+98 linhas · caminho: `apps/gateway/test/audit.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`, `gateway/test/setup-app.ts`
+
+- describe “auditoria pela rota resolvida (e2e)” · L16
+  - it “POST em /%61pi/webhooks grava linha de auditoria com o alvo cru; envio de mensagem não” · L38
 
 ## `gateway/test/auth.e2e-spec.ts`
 
@@ -89,7 +98,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/f5.e2e-spec.ts`
 
-228 linhas · caminho: `apps/gateway/test/f5.e2e-spec.ts`
+253 linhas · caminho: `apps/gateway/test/f5.e2e-spec.ts`
 - importa (interno): `gateway/test/setup-app.ts`
 
 - describe “F5 grupos/contatos/canais (e2e)” · L11
@@ -112,6 +121,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “settings sem announce nem restrict → 400” · L197
   - it “settings announce+restrict → 201 ok” · L207
   - it “group photo com url inválida → 400” · L218
+  - it “foto de grupo/perfil com URL privada (inclusive IPv6 v4-mapeado) → 400 recusada” · L229
 
 ## `gateway/test/f6.e2e-spec.ts`
 
@@ -314,12 +324,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 169 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/auth.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
 - `createTestApp()` · L82 · async
-  - chama: `buildFastifyAdapter` (fastify-adapter.ts:10), `new LoggingExceptionFilter` (logging-exception.filter.ts)
+  - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts)
 - `inject(app, opts)` · L116
   - chamado por: `login` L140
 - `readSetCookie(res, name)` · L128
@@ -336,7 +346,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/webhooks.e2e-spec.ts`
 
-167 linhas · caminho: `apps/gateway/test/webhooks.e2e-spec.ts`
+170 linhas · caminho: `apps/gateway/test/webhooks.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
 
 - describe “Webhooks (e2e)” · L9
