@@ -18,7 +18,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/messaging/infrastructure/prisma-inbox.repository.ts` | 204 |
 | `modules/messaging/infrastructure/prisma-message.repository.ts` | 283 |
 | `modules/messaging/interface/inbox.controller.ts` | 199 |
-| `modules/messaging/interface/messages.controller.ts` | 720 |
+| `modules/messaging/interface/messages.controller.ts` | 729 |
 | `modules/messaging/messaging.module.ts` | 28 |
 
 ## `modules/messaging/application/inbox-sync.service.ts`
@@ -77,7 +77,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `decideOnExistingIntent(row, fingerprint, now, pendingTtlMs)` · L29
   - chamado por: `SendIntentService.reserve` (send-intent.service.ts:26)
 - `sendFingerprint(parts)` · L53
-  - chamado por: `MessagesController.sendMedia` (messages.controller.ts:509), `MessagesController.sendWithIntent` (messages.controller.ts:447)
+  - chamado por: `MessagesController.sendMedia` (messages.controller.ts:512), `MessagesController.sendWithIntent` (messages.controller.ts:447)
 
 **Tipos**
 - interface `ExistingIntent` L11 · 5 propriedade(s)
@@ -310,7 +310,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/messaging/interface/messages.controller.ts`
 
-720 linhas · caminho: `apps/gateway/src/modules/messaging/interface/messages.controller.ts`
+729 linhas · caminho: `apps/gateway/src/modules/messaging/interface/messages.controller.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/storage/media-storage.service.ts`, `shared-kernel/query-int.ts`, `shared-kernel/safe-fetch.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.guard.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/application/send-intent.decision.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/domain/message.repository.ts`
 - importado por: `modules/messaging/messaging.module.ts`
 
@@ -342,16 +342,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `sendWithIntent` L447
 - `sendWithIntent(id, input, send)` · L447 · private · async
   - chama: `sendFingerprint` (send-intent.decision.ts:53), `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `SendIntentService.reserve` (send-intent.service.ts:26), `assertColdAllowed` L206, `deduped` L432
-  - chamado por: `sendLocation` L645, `sendMedia` L509, `sendMediaUrl` L573, `sendPoll` L684, `sendText` L483
+  - chamado por: `sendLocation` L654, `sendMedia` L512, `sendMediaUrl` L582, `sendPoll` L693, `sendText` L483
 - `sendText(id, body)` · L483 · async · @Post('text')
   - chama: `sendWithIntent` L447, `SessionManager.sendText` (session-manager.service.ts:466)
-- `sendMedia(id, req)` · L509 · async · @Post('media')
+- `sendMedia(id, req)` · L512 · async · @Post('media')
   - chama: `sendFingerprint` (send-intent.decision.ts:53), `inferType` L119, `sendWithIntent` L447, `SessionManager.sendMedia` (session-manager.service.ts:480)
-- `sendMediaUrl(id, body)` · L573 · async · @Post('media-url')
-  - chama: `inferType` L119, `sendWithIntent` L447, `SessionManager.sendMedia` (session-manager.service.ts:480), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:186)
-- `sendLocation(id, body)` · L645 · async · @Post('location')
+- `sendMediaUrl(id, body)` · L582 · async · @Post('media-url')
+  - chama: `inferType` L119, `sendWithIntent` L447, `SessionManager.sendMedia` (session-manager.service.ts:480), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
+- `sendLocation(id, body)` · L654 · async · @Post('location')
   - chama: `sendWithIntent` L447, `SessionManager.sendLocation` (session-manager.service.ts:488)
-- `sendPoll(id, body)` · L684 · async · @Post('poll')
+- `sendPoll(id, body)` · L693 · async · @Post('poll')
   - chama: `sendWithIntent` L447, `SessionManager.sendPoll` (session-manager.service.ts:496)
 
 **Funções e constantes de topo**
@@ -366,7 +366,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `sendLocationSchema` = `z.object({ to: z.string().min(5).max(40), latitude: z.number().min(-9…` · L98
 - `sendPollSchema` = `z.object({ to: z.string().min(5).max(40), name: z.string().min(1).max…` · L109
 - `inferType(mimetype)` · L119
-  - chamado por: `sendMedia` L509, `sendMediaUrl` L573
+  - chamado por: `sendMedia` L512, `sendMediaUrl` L582
 - `candidateJids(chatId)` · L130
   - chamado por: `list` L225, `search` L254
 - `toConversationDto(c)` · L151

@@ -1,6 +1,13 @@
 # CI (item 15 da auditoria 07/2026): lint + typecheck + e2e (contra a MESMA infra do dev, via
-# docker compose) + builds. O deploy continua no Dokploy (webhook); quando houver registry, o
-# passo de build de imagem entra aqui e o Dokploy passa a só puxar.
+# docker compose) + builds. O deploy continua no Dokploy (webhook, build no servidor).
+#
+# P-055 (25/09/2026) — guardas de build, pré-requisito do stop-first (B-004): o job `imagens`
+# constrói as MESMAS imagens que o Dokploy constrói (apps/dashboard/Dockerfile e
+# apps/gateway/Dockerfile, contexto = raiz), com as guardas do Dockerfile do gateway (patch do wwebjs
+# aplicado, dist/main.js, todo pacote do dist carregando no node_modules FINAL, Prisma CLI + config)
+# e sobe o container do gateway contra Postgres/Redis/MinIO até o /health responder ok com banco,
+# Redis e storage. Imagem que quebraria no boot (ex.: `Cannot find module 'zod'` de 16/08) quebra
+# aqui, não em produção.
 #
 # Auditoria 09/2026 (UP-04/UP-10, ABE-23): permissões mínimas do token, actions pinadas por SHA
 # (tag móvel `@v4` podia mudar por baixo), typecheck do dashboard e dos contracts (o Vite só
@@ -34,6 +41,10 @@ jobs:
 
       - name: Instalar dependências
         run: npm ci
+
+      # O postinstall roda `patch-package --error-on-fail`; a guarda confere o resultado (P-055).
+      - name: Guarda — patch do whatsapp-web.js aplicado
+        run: sh scripts/guardas-build.sh patches
 
       - name: Env de teste
         run: cp apps/gateway/env.example apps/gateway/.env
@@ -81,5 +92,90 @@ jobs:
       - name: Build (gateway)
         run: npm run gateway:build
 
+      - name: Guarda — entrypoint dist/main.js gerado
+        run: sh scripts/guardas-build.sh dist
+
       - name: Build (dashboard)
         run: npm run dashboard:build
+
+  imagens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Os dois apps do Dokploy são construídos com estes Dockerfiles (contexto = raiz). Quebra de
+      # build aqui = PR vermelho, em vez de deploy travado no Dokploy (ex.: 25/09, o dashboard
+      # quebraria com o `--error-on-fail` se a pasta patches/ continuasse no build dele).
+      - name: Build da imagem do dashboard (apps/dashboard/Dockerfile — o mesmo do Dokploy)
+        run: docker build -f apps/dashboard/Dockerfile -t dashboard:ci .
+
+      # As guardas do gateway rodam DENTRO do build: se falharem, o `docker build` sai com erro.
+      - name: Build da imagem do gateway (apps/gateway/Dockerfile — o mesmo do Dokploy)
+        run: docker build -f apps/gateway/Dockerfile -t gateway:ci .
+
+      - name: Infra (Postgres + Redis + MinIO)
+        run: docker compose up -d --wait
+
+      - name: Bucket de mídia (MinIO)
+        run: |
+          docker run --rm --network host --entrypoint sh pgsty/mc:RELEASE.2026-09-16T00-00-00Z -c \
+            "mc alias set local http://localhost:9000 minio minio12345 && mc mb -p local/wa-media"
+
+      # Boot real da imagem: entrypoint (chown + gosu) → prisma migrate deploy → Nest → /health ok
+      # com banco, Redis e storage (o /health responde 200 mesmo com storage=false, por isso o jq
+      # confere o corpo). Segredos gerados na hora (descartáveis, só existem neste runner).
+      - name: Smoke do container (migrate deploy + boot + /health)
+        run: |
+          docker run -d --name gw --network host \
+            -e DATABASE_URL='postgresql://gateway:gateway@localhost:5436/gateway?schema=public' \
+            -e REDIS_URL='redis://localhost:6382' \
+            -e JWT_SECRET="$(openssl rand -hex 32)" \
+            -e DASHBOARD_USERNAME=admin -e DASHBOARD_PASSWORD="$(openssl rand -hex 12)" \
+            -e CORS_ORIGIN=http://localhost:5173 -e PORT=3000 \
+            -e S3_ENDPOINT=http://localhost:9000 -e S3_REGION=us-east-1 -e S3_BUCKET=wa-media \
+            -e S3_ACCESS_KEY=minio -e S3_SECRET_KEY=minio12345 -e S3_FORCE_PATH_STYLE=true \
+            gateway:ci
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 10 http://127.0.0.1:3000/health |
+              jq -e '.status == "ok" and .checks.database and .checks.redis and .checks.storage'; then
+              echo "health ok (banco, Redis e storage) em ~$((i * 2)) s"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::o container não respondeu /health ok (banco, Redis e storage) em 120 s"
+          docker logs gw 2>&1 | tail -100
+          exit 1
+
+      # P-053: o main.ts REAL da imagem limita o login pela rota resolvida — 10 tentativas alternando
+      # origin-form, %-encoding e forma absoluta contam no MESMO balde e a 11ª é 429 (antes, as
+      # variantes caíam no teto global de 600/min). Corpo inválido → 401 sem custo de scrypt.
+      - name: Smoke do rate-limit do login (rota resolvida — P-053)
+        run: |
+          base=http://127.0.0.1:3000
+          # `|| true`: com `bash -e` uma falha de transporte do curl (conexão recusada/fechada, timeout)
+          # abortaria o passo sem ::error::; o -w já imprime 000 e cai nos ifs abaixo.
+          tentar() {
+            curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST \
+              -H 'content-type: application/json' -d '{}' "$@" || true
+          }
+          for i in $(seq 1 10); do
+            case $((i % 4)) in
+              0) code=$(tentar "$base/api/auth/login") ;;
+              1) code=$(tentar "$base/api/auth/%6Cogin") ;;
+              2) code=$(tentar "$base/%61pi/auth/login") ;;
+              3) code=$(tentar --request-target "$base/api/auth/login" "$base/") ;;
+            esac
+            if [ "$code" != 401 ]; then
+              echo "::error::tentativa $i de login deu $code (esperado 401)"
+              docker logs gw 2>&1 | tail -50
+              exit 1
+            fi
+          done
+          code=$(tentar --request-target "$base/api/auth/%6Cogin" "$base/")
+          if [ "$code" != 429 ]; then
+            echo "::error::11ª tentativa de login deu $code (esperado 429 — teto do login contornado?)"
+            docker logs gw 2>&1 | tail -50
+            exit 1
+          fi
+          echo "login: 10 × 401 e a 11ª = 429 (origin-form, %-encoding e forma absoluta no mesmo balde)"

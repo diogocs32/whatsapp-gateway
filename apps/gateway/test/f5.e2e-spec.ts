@@ -224,4 +224,29 @@ describe('F5 grupos/contatos/canais (e2e)', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  // P-070: as fotos por URL (grupo e perfil) usavam fetch cru — loopback/metadata passavam.
+  it('foto de grupo/perfil com URL privada (inclusive IPv6 v4-mapeado) → 400 recusada', async () => {
+    for (const url of [
+      'http://127.0.0.1:1/foto.jpg',
+      'http://[::ffff:127.0.0.1]:1/foto.jpg',
+      'http://169.254.169.254/latest/meta-data',
+    ]) {
+      for (const rota of [
+        '/api/sessions/s1/groups/123-456@g.us/photo',
+        '/api/sessions/s1/profile/photo',
+      ]) {
+        const res = await inject(app, {
+          method: 'POST',
+          url: rota,
+          headers: jsonAuth(),
+          payload: { url },
+        });
+        expect(res.statusCode, `${rota} ${url}`).toBe(400);
+        expect(res.json().message, `${rota} ${url}`).toMatch(
+          /URL da imagem recusada/,
+        );
+      }
+    }
+  });
 });

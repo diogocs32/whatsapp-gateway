@@ -9,9 +9,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { RouteConfig } from '@nestjs/platform-fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Env } from '../../../bootstrap/config';
+import { LOGIN_RATE_LIMIT } from '../../../bootstrap/rate-limit';
 import {
   AuthSessionService,
   type IssuedSession,
@@ -44,7 +46,9 @@ export class AuthController {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
+  // Teto próprio contra força bruta, preso à rota (P-053, D-025 — ver bootstrap/rate-limit.ts).
   @Post('login')
+  @RouteConfig({ rateLimit: LOGIN_RATE_LIMIT })
   async signIn(
     @Body() body: unknown,
     @Req() req: FastifyRequest,

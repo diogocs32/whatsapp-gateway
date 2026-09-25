@@ -88,10 +88,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `ProxiesController.listAvailable` (proxies.controller.ts:66)
 - `ensureAvailable(proxyId)` · L218 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.usedProxyIds` (proxy.repository.ts:60)
-  - chamado por: `assignExclusive` L232, `SessionsController.create` (sessions.controller.ts:95)
+  - chamado por: `assignExclusive` L232, `SessionsController.create` (sessions.controller.ts:96)
 - `assignExclusive(sessionId, proxyId)` · L232 · async
   - chama: `ensureAvailable` L218, `setAssignment` L246
-  - chamado por: `SessionsController.create` (sessions.controller.ts:95)
+  - chamado por: `SessionsController.create` (sessions.controller.ts:96)
 - `setAssignment(sessionId, data)` · L246 · async
   - chama: `ProxyRepository.setAssignment` (proxy.repository.ts:56), `ProxyRepository.setCurrent` (proxy.repository.ts:57)
   - chamado por: `assignExclusive` L232, `ProxiesController.setAssignment` (proxies.controller.ts:160)

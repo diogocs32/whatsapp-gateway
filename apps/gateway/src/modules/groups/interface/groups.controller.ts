@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
+import { fetchImageByUrl } from '../../../shared-kernel/safe-fetch';
 import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
@@ -216,20 +217,13 @@ export class GroupsController {
     @Body() body: unknown,
   ) {
     const d = parse(photoSchema, body);
+    // P-070: política de egress + teto em fluxo (era fetch cru).
     let buffer: Buffer;
     let mimetype: string;
     try {
-      const res = await fetch(d.url, { signal: AbortSignal.timeout(20000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      mimetype = res.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
-      buffer = Buffer.from(await res.arrayBuffer());
+      ({ buffer, mimetype } = await fetchImageByUrl(d.url));
     } catch (e) {
-      throw new BadRequestException(
-        `não consegui baixar a imagem: ${(e as Error).message}`,
-      );
-    }
-    if (buffer.length > 10 * 1024 * 1024) {
-      throw new BadRequestException('imagem acima de 10 MB');
+      throw new BadRequestException((e as Error).message);
     }
     await this.run(() =>
       this.manager.setGroupPhoto(id, groupId, buffer, mimetype),

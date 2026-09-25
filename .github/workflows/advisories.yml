@@ -1,0 +1,65 @@
+# P-054 (25/09/2026) — advisory publicado SÓ no repositório do mantenedor (ex.: GHSA-9c5c do
+# nestjs/nest, GHSA-8cmm do fastify/proxy-addr) não entra no `npm audit`, que consulta só a base
+# global. Este workflow lista `GET /repos/{owner}/{repo}/security-advisories` dos repos de
+# scripts/checar-advisories.config.json e cruza com o package-lock.json, com o undici embutido no
+# Node fixado em apps/gateway/Dockerfile (o `fetch` do gateway — fora do lockfile) e com a infra
+# (traefik, Dokploy, redis, MinIO).
+# Sem `npm ci`: o script não tem dependências (só Node: fetch + fs). Manual:
+# docs/how-to/checar-advisories.md.
+#
+# Saída do script: 1 = advisory afetando/indeterminado sem aceite válido, ou infra high/critical
+# nova não reconhecida → o e-mail de falha do cron vai para quem criou o workflow ou alterou o cron
+# por último, e só se essa pessoa ligou as notificações de Actions. 2 = a consulta falhou
+# (API/rede/config) — nunca verde por silêncio. `schedule` e `workflow_dispatch` só valem com este
+# arquivo na branch padrão; até o merge, o `pull_request` abaixo é a prova.
+name: Advisories
+
+on:
+  schedule:
+    # diário 10:23 UTC (07:23 BRT) — fora da virada da hora, quando o GitHub atrasa os agendados
+    - cron: '23 10 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - package-lock.json
+      - apps/gateway/package.json
+      - apps/gateway/Dockerfile # o FROM define o Node/undici avaliado
+      - 'scripts/checar-advisories.*'
+      - .github/workflows/advisories.yml
+
+# Advisory publicado de repositório público é recurso público: nenhum escopo extra (a lista de
+# permissões do GITHUB_TOKEN nem tem "repository advisories"). contents:read = checkout.
+permissions:
+  contents: read
+
+concurrency:
+  group: advisories-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      # O Node do runner só EXECUTA o script: o undici avaliado é o do Node fixado no FROM de
+      # apps/gateway/Dockerfile. check-latest (sem ele o setup-node usa um 26.x em cache no runner)
+      # só importa se o Dockerfile voltar a uma tag móvel — aí o script cai no Node do runner.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 26
+          check-latest: true
+
+      - name: Autoteste do comparador de faixas (offline)
+        run: node scripts/checar-advisories.mjs --autoteste
+
+      # Em PR é informativo (relatório no resumo do job; só falha de consulta quebra). No cron e no
+      # disparo manual, pendência sem aceite quebra o job.
+      - name: Advisories de repositório × lockfile × Node × infra
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODO: ${{ github.event_name == 'pull_request' && '--informativo' || '' }}
+        run: node scripts/checar-advisories.mjs $MODO

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { validateEnv } from './bootstrap/config';
-import { logSerializers, LOG_REDACT_PATHS } from './bootstrap/log-redaction';
+import { httpLoggerOptions } from './bootstrap/http-logger';
 import { SharedKernelModule } from './shared-kernel/shared-kernel.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
@@ -26,38 +26,9 @@ import { GuardrailModule } from './modules/guardrail/guardrail.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     // Logs estruturados da app inteira (item 18 da auditoria 07/2026): JSON em produção
-    // (grep/Loki-ready — a engine Baileys já logava JSON via pino; isto unifica), pretty em dev,
-    // silencioso nos e2e. Request-log só para mutações e erros — GET 2xx é silencioso (o polling
-    // do dashboard inundaria o console); /health e /metrics nunca logam. Nível via LOG_LEVEL.
-    LoggerModule.forRoot({
-      pinoHttp: {
-        level:
-          process.env.LOG_LEVEL ??
-          (process.env.NODE_ENV === 'test'
-            ? 'silent'
-            : process.env.NODE_ENV === 'production'
-              ? 'info'
-              : 'debug'),
-        // Segredos fora do log (ABE-08): cookie da sessão, set-cookie do login, ?token= do
-        // SSE/metrics, Authorization/X-Api-Key. Serializers redigem cópias (URL inclusa); a
-        // lista `redact` é a 2ª camada para caminhos fixos.
-        redact: LOG_REDACT_PATHS,
-        serializers: logSerializers(),
-        transport:
-          process.env.NODE_ENV === 'development'
-            ? { target: 'pino-pretty', options: { singleLine: true } }
-            : undefined,
-        autoLogging: {
-          ignore: (req) =>
-            req.url === '/health' || (req.url ?? '').startsWith('/metrics'),
-        },
-        customLogLevel: (req, res, err) => {
-          if (err || res.statusCode >= 500) return 'error';
-          if (res.statusCode >= 400) return 'warn';
-          return req.method === 'GET' ? 'silent' : 'info';
-        },
-      },
-    }),
+    // (grep/Loki-ready — a engine Baileys já logava JSON via pino; isto unifica). Regras do
+    // request-log (níveis, /health e /metrics, redação) em bootstrap/http-logger.ts.
+    LoggerModule.forRoot({ pinoHttp: httpLoggerOptions() }),
     SharedKernelModule,
     PrismaModule,
     RedisModule,

@@ -13,6 +13,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { fetchImageByUrl } from '../../../shared-kernel/safe-fetch';
 import { newId } from '../../../shared-kernel/ulid';
 import {
   GuardrailService,
@@ -274,22 +275,13 @@ export class SessionsController {
         parsed.error.issues[0]?.message ?? 'Dados inválidos',
       );
     }
+    // P-070: política de egress + teto em fluxo (era fetch cru).
     let buffer: Buffer;
     let mimetype: string;
     try {
-      const res = await fetch(parsed.data.url, {
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      mimetype = res.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
-      buffer = Buffer.from(await res.arrayBuffer());
+      ({ buffer, mimetype } = await fetchImageByUrl(parsed.data.url));
     } catch (e) {
-      throw new BadRequestException(
-        `não consegui baixar a imagem: ${(e as Error).message}`,
-      );
-    }
-    if (buffer.length > 10 * 1024 * 1024) {
-      throw new BadRequestException('imagem acima de 10 MB');
+      throw new BadRequestException((e as Error).message);
     }
     try {
       await this.manager.setProfilePhoto(id, buffer, mimetype);

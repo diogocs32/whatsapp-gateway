@@ -107,7 +107,8 @@ Rollback Config:
   → os dois com `"Order":"stop-first"`. StopGracePeriod e demais passos: B-004.
 - **Custo:** o stop-first perde a rede do start-first (em 16/08 o container antigo segurou a API
   quando o novo caiu com `Cannot find module 'zod'`). Imagem quebrada passa a ser outage → as
-  guardas de build da **P-055** vêm antes ou junto do B-004.
+  guardas de build da **P-055** vêm antes ou junto do B-004 (entregues em 25/09 na etapa E2 —
+  sobem no deploy A). Rollback manual: [how-to/rollback-gateway.md](how-to/rollback-gateway.md).
 
 > Recomendação REVISADA em 14/08/2026 (P-015). **Nota 25/09/2026 (D-020):** o "deixar VAZIO =
 > stop-first" desta revisão estava errado para o Dokploy (ver acima); o texto abaixo segue válido

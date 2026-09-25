@@ -12,18 +12,29 @@ import type { JwtPayload } from './auth.guard';
 
 const MUTATIONS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// Teto da coluna `path`: a forma absoluta traz host escolhido pelo cliente (até ~16 KB por linha).
+const MAX_PATH = 512;
+
 interface AuditReq {
   method: string;
   url: string;
+  // FastifyRequest: padrão da rota casada, ex. '/api/sessions/:id/proxy' (getter — ler 1 vez).
+  routeOptions?: { url?: string };
   ip?: string;
   user?: JwtPayload;
   apiKey?: { id: string; name: string };
   body?: { username?: string };
 }
 
-// Audita automaticamente as mutações em /api/* (exceto envio de mensagens — alto volume).
-// Registra ator (JWT / API key / tentativa de login), método, rota, status e IP.
+// Audita automaticamente as mutações em /api/* (exceto as rotas de /messages — envio e afins,
+// alto volume; catálogo explícito de ações = P-036).
+// Registra ator (JWT / API key / tentativa de login), método, path, status e IP.
 // Fire-and-forget: falha de auditoria NUNCA derruba a request.
+//
+// P-053: QUEM é auditado decide pela rota RESOLVIDA (`routeOptions.url`), não por `req.url` — o
+// alvo cru aceita forma absoluta (`POST http://host/api/...`) e %-encoding (`/%61pi/...`), que
+// casam a mesma rota e escapavam da trilha. A coluna `path` continua com o alvo como veio (sem
+// query, com teto): a tentativa de evasão fica visível no painel.
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
@@ -46,11 +57,14 @@ export class AuditInterceptor implements NestInterceptor {
 
   private shouldAudit(req: AuditReq): boolean {
     if (!MUTATIONS.has(req.method)) return false;
-    const path = req.url.split('?')[0];
-    return path.startsWith('/api/') && !path.includes('/messages');
+    const route = req.routeOptions?.url;
+    // Sem rota (404) o interceptor nem roda; se um dia chegar aqui, audita (falha fechada).
+    if (route === undefined) return true;
+    return route.startsWith('/api/') && !route.includes('/messages');
   }
 
   private record(req: AuditReq, statusCode: number): void {
+    const path = req.url.split('?')[0].slice(0, MAX_PATH);
     const actor = req.user
       ? `${req.user.username} (${req.user.role})`
       : req.apiKey
@@ -62,7 +76,7 @@ export class AuditInterceptor implements NestInterceptor {
       .log({
         actor,
         method: req.method,
-        path: req.url.split('?')[0],
+        path,
         statusCode,
         ip: req.ip ?? null,
       })
@@ -71,7 +85,7 @@ export class AuditInterceptor implements NestInterceptor {
         // contador exposto em /metrics (gateway_process_errors_total{kind="audit_write"}).
         recordProcessError('audit_write');
         this.logger.warn(
-          `falha ao gravar audit (${req.method} ${req.url.split('?')[0]}): ${(e as Error)?.message ?? e}`,
+          `falha ao gravar audit (${req.method} ${path}): ${(e as Error)?.message ?? e}`,
         );
       });
   }

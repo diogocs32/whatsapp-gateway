@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
-import { describeException } from './logging-exception.filter';
+import {
+  clientErrorAsHttpException,
+  describeException,
+} from './logging-exception.filter';
 
 describe('describeException', () => {
   it('HttpException com corpo objeto: status, mensagem e código', () => {
@@ -69,5 +72,45 @@ describe('describeException', () => {
     expect(describeException('x').status).toBe(500);
     expect(describeException(null).status).toBe(500);
     expect(describeException({ statusCode: 700 }).status).toBe(500);
+  });
+});
+
+describe('clientErrorAsHttpException', () => {
+  it('4xx estilo http-errors vira HttpException com o mesmo corpo do BaseExceptionFilter', () => {
+    // FST_FILES_LIMIT do @fastify/multipart (P-054): o corpo tem de continuar {statusCode, message}.
+    const err = Object.assign(new Error('reach files limit'), {
+      statusCode: 413,
+      code: 'FST_FILES_LIMIT',
+    });
+    const http = clientErrorAsHttpException(err);
+    expect(http).toBeInstanceOf(HttpException);
+    expect(http?.getStatus()).toBe(413);
+    expect(http?.getResponse()).toEqual({
+      statusCode: 413,
+      message: 'reach files limit',
+    });
+  });
+
+  it('não converte 5xx, HttpException, erro sem statusCode nem mensagem vazia', () => {
+    expect(
+      clientErrorAsHttpException({ statusCode: 503, message: 'fora' }),
+    ).toBeNull();
+    expect(clientErrorAsHttpException(new BadRequestException('x'))).toBeNull();
+    expect(clientErrorAsHttpException(new Error('boom'))).toBeNull();
+    // `status` sem `statusCode` hoje responde 500 no Nest (isHttpError só olha statusCode)
+    expect(
+      clientErrorAsHttpException({ status: 400, message: 'x' }),
+    ).toBeNull();
+    expect(
+      clientErrorAsHttpException({ statusCode: 400, message: '' }),
+    ).toBeNull();
+    expect(clientErrorAsHttpException(null)).toBeNull();
+    // NaN passaria em `< 400 || >= 500`; o Nest trata NaN como falsy e responde 500
+    expect(
+      clientErrorAsHttpException({ statusCode: NaN, message: 'x' }),
+    ).toBeNull();
+    expect(
+      clientErrorAsHttpException({ statusCode: 413.5, message: 'x' }),
+    ).toBeNull();
   });
 });

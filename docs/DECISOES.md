@@ -422,3 +422,129 @@
   ou fila interna — a E8 escolhe com base no código e documenta.
 - **Alternativas:** marcar como `banida` (rejeitado pelo dono); só registrar e alertar (rejeitado
   pelo dono).
+
+## D-023 — 2026-09-25 — Advisories de repositório: checagem diária com aceite datado; patch transitivo de segurança entra na onda (P-054)
+
+- **Decisão (etapa E3, dentro do pedido do dono de "checagem periódica de advisories de
+  repositório"):** um workflow diário (`.github/workflows/advisories.yml`, `scripts/checar-advisories.mjs`)
+  lista os advisories publicados nos repositórios das dependências (o `npm audit` só vê o banco global
+  do GitHub) e **falha** quando há advisory que afeta — ou pode afetar — uma versão do lockfile sem
+  **aceite** em `scripts/checar-advisories.config.json` (GHSA + pacote + motivo técnico + `revisarAte`).
+  Aceite vencido volta a falhar. O undici embutido no Node (usado pelo `fetch`/safe-fetch, fora do
+  lockfile) é avaliado na versão do Node **fixado** no `FROM` do Dockerfile do gateway — por isso o
+  Dockerfile passa a fixar a versão exata (`node:26.10.0-bookworm-slim`). Troca assumida: com o pin o Node
+  de produção não sobe mais sozinho com o cache do build — a checagem também lê as releases da linha
+  em `nodejs.org/dist/index.json` e trata release de segurança (`security: true`) mais nova que a
+  fixada como pendência (sem aceite: a correção é subir o `FROM`); estágio final sem versão exata =
+  exit 2. Infra com versão de produção desconhecida (Traefik, Dokploy, Redis,
+  MinIO) fica **reconhecida no instante da leitura** (`reconhecidoEm` 25/09 16:21Z — B-006/B-007) e
+  só advisory high/critical publicado ou atualizado depois falha; quando a B-007 trouxer as versões, preencher `producao` e avaliar pelas faixas. Em
+  `pull_request` o job é informativo (só erro de consulta quebra).
+- **Patches transitivos:** advisory de repositório com correção dentro da faixa já declarada (sem
+  major) entra na mesma onda, com o diff do lockfile conferido pacote a pacote — na E3: proxy-addr
+  5.1.1, busboy 3.2.2 e fast-uri 4.2.1 (minor; só ajv/fast-json-stringify o usam, sem schema de rota no
+  gateway) / 3.1.8.
+- **Motivo:** GHSA-9c5c (Nest, high) ficou 8 dias invisível; em 25/09 eram 12 advisories de
+  repositório no lockfile, 10 invisíveis ao `npm audit`, um deles critical (proxy-addr).
+- **Quem decide aceite:** o dono. Os 7 aceites iniciais (fastify 5.11.3, preso pelo Nest 11 — P-062/E18)
+  foram propostos na E3 com a avaliação de exposição de cada um e vencem em 30/11/2026.
+- **Alternativas:** só `npm audit` (cego ao caso real de 15/09); checagem semanal (atrasa até 7 dias
+  um critical; o custo diário é ~1 min de Actions); falhar em PR (bloquearia trabalho por advisory
+  alheio à mudança).
+
+## D-024 — 2026-09-25 — Upload multipart: corpo lido até o fim antes do envio; 2+ arquivos = 413 (P-054)
+
+- **Decisão (etapa E3, critério do dono "upload com 2 arquivos → 4xx"):** `POST …/messages/media`
+  consome o multipart inteiro (um único iterador `req.files()`) antes de chamar a engine. 2+ arquivos
+  → 413 `{"statusCode":413,"message":"reach files limit"}` e nada é enviado; campos de texto valem em
+  qualquer ordem; campo com nome de `Object.prototype` → 400.
+- **Motivo:** com `req.file()` a `@fastify/multipart` 10.1.2 responde 201 enviando o 1º arquivo e
+  descartando o 2º em silêncio (a 10.1.1 em produção dava 500 e travava a conexão keep-alive seguinte).
+  Enviar metade do que o cliente mandou sem avisar é pior que recusar.
+- **Contrato:** sai de 500 (produção hoje) para 413 — não quebra cliente que manda 1 arquivo com
+  campos de texto simples (parte declarada `application/json` com JSON inválido passa a dar 406 e
+  nome reservado 400, antes ignorados); o node
+  n8n 0.4.1 usa `media-url`, não esta rota; o dashboard manda 1 arquivo com os campos antes.
+  Documentado na `INTEGRACAO.md`.
+- **Alternativa:** só o bump (201 com descarte calado) — rejeitada: não atende o critério e esconde
+  erro do integrador.
+
+## D-025 — 2026-09-25 — Borda HTTP decide pela rota resolvida; teto do login em contador próprio (P-053)
+
+- **Decisão (etapa E4):** rate-limit, request-log e auditoria deixam de decidir por `req.url` cru
+  e passam a usar a **rota resolvida pelo router** (`request.routeOptions.url`, fastify 5.11.3):
+  - **login:** `@RouteConfig({ rateLimit: { max: 10, timeWindow: '1 minute' } })` no
+    `AuthController.signIn` — o `@fastify/rate-limit` 11.2.0 prende o limitador à rota e usa um
+    **store filho próprio** (`index.js:173-179`, `LocalStore.js:79-81`). O login **não divide mais o
+    contador com o resto do tráfego do IP**: o polling do painel não bloqueia o login e as
+    tentativas de login não gastam os 600/min da API. Força bruta segue limitada a 10/min por IP.
+  - **global:** 600/min por IP (`RATE_LIMIT_MAX`), `/health` isento pela rota
+    (`allowList: req.routeOptions.url === '/health'`); registro único em `bootstrap/rate-limit.ts`,
+    sempre antes das rotas (registrado depois não dá erro e não limita nada — provado).
+  - **request-log:** rota carimbada no request cru por um hook `onRequest` no `buildFastifyAdapter`
+    (antes do middleware do pino-http); `/health` e `/metrics` silenciosos exceto 5xx/erro (o 503
+    do `/health` segue visível). O `autoLogging.ignore` antigo era código morto (o middleware vê
+    `req.url` `'/'`).
+  - **auditoria:** QUEM é auditado decide pela rota (`startsWith('/api/')` e sem `/messages`); a
+    coluna `path` continua o alvo **cru** (sem query, teto de 512) — a tentativa de evasão fica
+    visível no painel e as linhas normais não mudam.
+- **Motivo:** forma absoluta (`POST http://host/api/auth/login`) e %-encoding (`/api/auth/%6Cogin`,
+  `/%61pi/…`) casam a MESMA rota no router e escapavam das decisões por string — 10 de 13 variantes
+  medidas furavam o teto do login (caíam nos 600/min) e mutações em `/%61pi/…` saíam da trilha. Com
+  a rota resolvida nenhuma variante fura (PoC com socket cru; specs `rate-limit.spec.ts`,
+  `audit.interceptor.spec.ts`, `http-logger.spec.ts`, `test/audit.e2e-spec.ts`; smoke do CI contra a
+  imagem).
+- **Complemento (revisão adversarial, P-071):** alvo em forma absoluta com `?` ou `#` antes do
+  caminho (`POST http://h?x=/api/...`) passa a receber **400 na borda** (`rejectAmbiguousAbsoluteForm`,
+  antes de qualquer rota): o router do fastify casava a rota da query enquanto o middie/Nest
+  resolviam `/` — a mutação rodava sem linha de log e a auditoria gravava só o host. Nenhum
+  cliente legítimo manda isso a um servidor de origem.
+- **Efeitos colaterais aceitos:** sessão cujo **nome** começa com `messages` passa a ter as
+  mutações auditadas (antes escapava por bug); `/health?x`, `HEAD /health` e a forma absoluta do
+  `/health` também ficam fora do rate-limit.
+- **Contrato:** nenhum campo muda; o 429 já existia (corpo `{statusCode, message}` igual). O node
+  n8n 0.4.1 usa `X-Api-Key` e não chama o login.
+- **Alternativa:** manter o contador compartilhado e só trocar a string (`max: req =>
+req.routeOptions.url === '/api/auth/login' ? 10 : 600`) — rejeitada: carrega o prefixo `/api` fixo
+  e mantém o login bloqueável pelo próprio tráfego do IP (20 GETs → login 429, medido).
+- **Fora do escopo (registrado):** `trustProxy: true` aceita o `X-Forwarded-For` do cliente se o
+  Traefik não o limpar — conferir no B-007; 404 não passa pelo rate-limit (pré-existente; limitar
+  exigiria reabrir o aceite do GHSA-p68q, D-023).
+
+## D-026 — 2026-09-25 — Egress: `net.BlockList` com as faixas especiais da IANA e IPv6 só no unicast global (P-065, P-070)
+
+- **Decisão (etapa E4):** `isPrivateAddress` passa a usar `net.BlockList` (Node 26): faixas IPv4
+  "não globalmente alcançáveis" do registro da IANA (acrescenta TEST-NET-1/2/3 e `192.88.99.0/24`)
+  e, no IPv6, **tudo fora de `2000::/3`** + `2001::/23`, `2001:db8::/32`, `2002::/16` (6to4) e
+  `3fff::/20`; `::/8` sem `::ffff:0:0/96` (cobre `::`, `::1`, IPv4-compatível, IPv4-traduzido e
+  NAT64). O IPv4-mapeado em qualquer grafia segue as regras IPv4 (doc do Node 26, `net.md`
+  "blockList.check": "IPv6 notation for IPv4 addresses works"). As duas rotas de foto por URL
+  (grupo e perfil) passam a usar o `safeFetch` (P-070).
+- **Motivo:** o URL do WHATWG normaliza `http://[::ffff:127.0.0.1]/` para o host `::ffff:7f00:1`,
+  que a regex antiga tratava como público — reproduzido no macOS e no Linux do Docker (o servidor
+  local recebia a requisição). As rotas de foto usavam `fetch` cru, sem política nenhuma.
+- **Armadilha (não repetir):** regra IPv6 que contenha `::ffff:0:0/96` (ex.: `::/8`, `::/80`) faz a
+  BlockList bloquear **todo** IPv4 — o egress inteiro pararia (webhook vai direto para a
+  dead-letter). O texto original da P-065 sugeria essa faixa; corrigido. O spec tem guarda.
+- **Risco aceito:** um host com AAAA em `2002::/16` (6to4 unicast, raríssimo) ou DNS64 no
+  resolvedor do container passa a ser recusado por inteiro (a entrega recusa se QUALQUER endereço
+  resolvido for privado). `64:ff9b::/96` já era bloqueado antes. Host interno legítimo →
+  `EGRESS_ALLOW_HOSTS`.
+- **Limite que continua:** rebinding de DNS entre a validação e a conexão (documentado no
+  `safe-fetch.ts`).
+
+## D-027 — 2026-09-25 — Deploy manual no Dokploy (auto-deploy desligado nos dois apps, "por enquanto")
+
+- **Decisão (do dono, informada no chat da E4 em 25/09, antes do merge da Onda 1):** primeiro o
+  toggle **Auto Deploy do app `gateway`** foi desligado; em seguida o dono informou "desativei tudo
+  que era automático por enquanto" — o **dashboard** também. Merge/push na `main` **não publica
+  nada**; cada app entra em produção quando o dono clica **Deploy** no Dokploy. Os workflows do
+  GitHub (CI e `advisories.yml`) seguem ativos (`gh workflow list`, 25/09). Os Watch Paths ficam
+  sem efeito enquanto o auto-deploy estiver desligado.
+- **Efeito prático:** o dono escolhe a janela de cada deploy (o do gateway pesa mais) (sem campanha rodando,
+  ninguém pareando) — importante enquanto o start-first abre as contas duas vezes (D-020, até o
+  B-004). Merge de código sem o Deploy deixa a `main` à frente da produção: registrar no
+  ESTADO ("Divergência dev × produção") até o Deploy; o `/health` com uptime antigo denuncia.
+- **Ajustados:** `CLAUDE.md` (stack/deploy), roteiro (decisão 1), `how-to/deploy-a-onda1.md` (passo
+  0 = Deploy manual), `how-to/rollback-gateway.md` (opção B), `how-to/dokploy-watch-paths.md`.
+- **Não verificado pelo chat:** o estado do toggle no painel (ação e leitura do dono — R0).

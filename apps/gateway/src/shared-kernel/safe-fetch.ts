@@ -1,5 +1,5 @@
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
+import { BlockList, isIP } from 'node:net';
 
 // Política de EGRESS (auditoria 09/2026, ABE-06/ABE-07 — P-031): URLs controladas pelo
 // integrador (webhook, mediaUrl de campanha, /messages/media-url) não podem virar SSRF nem
@@ -42,49 +42,63 @@ export class EgressBlockedError extends Error {
   }
 }
 
-function ipv4ToInt(ip: string): number {
-  return ip
-    .split('.')
-    .reduce((acc, part) => ((acc << 8) + Number(part)) >>> 0, 0);
-}
-
-function inCidr4(ip: string, base: string, bits: number): boolean {
-  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
-  return (ipv4ToInt(ip) & mask) === (ipv4ToInt(base) & mask);
-}
-
-const PRIVATE_V4: Array<[string, number]> = [
-  ['0.0.0.0', 8], // "this" network
-  ['10.0.0.0', 8],
-  ['100.64.0.0', 10], // CGNAT
-  ['127.0.0.0', 8],
+// Faixas bloqueadas (P-065): registros de endereços especiais da IANA (IPv4 e IPv6 — "Globally
+// Reachable" False/N/A) + tudo o que EMBUTE um IPv4. Avaliadas com `net.BlockList` do Node, que
+// casa o IPv4-mapeado em QUALQUER grafia (`::ffff:7f00:1`, `::ffff:127.0.0.1`) com as regras
+// IPv4 (doc do Node 26, net.md "blockList.check": "IPv6 notation for IPv4 addresses works"). A
+// regex antiga só via a forma pontuada — o URL do WHATWG normaliza `[::ffff:127.0.0.1]` para
+// `[::ffff:7f00:1]`, que passava como público.
+const BLOCKED_V4: ReadonlyArray<readonly [string, number]> = [
+  ['0.0.0.0', 8], // "this network"
+  ['10.0.0.0', 8], // RFC 1918
+  ['100.64.0.0', 10], // CGNAT (RFC 6598)
+  ['127.0.0.0', 8], // loopback
   ['169.254.0.0', 16], // link-local + metadata (169.254.169.254)
-  ['172.16.0.0', 12],
-  ['192.0.0.0', 24],
-  ['192.168.0.0', 16],
-  ['198.18.0.0', 15], // benchmarking
+  ['172.16.0.0', 12], // RFC 1918
+  ['192.0.0.0', 24], // IETF protocol assignments
+  ['192.0.2.0', 24], // TEST-NET-1 (RFC 5737)
+  ['192.88.99.0', 24], // anycast 6to4, deprecado (RFC 7526)
+  ['192.168.0.0', 16], // RFC 1918
+  ['198.18.0.0', 15], // benchmarking (RFC 2544)
+  ['198.51.100.0', 24], // TEST-NET-2
+  ['203.0.113.0', 24], // TEST-NET-3
   ['224.0.0.0', 4], // multicast
-  ['240.0.0.0', 4], // reserved + broadcast
+  ['240.0.0.0', 4], // reservado + broadcast
 ];
+
+// IPv6: só 2000::/3 é unicast global (IANA ipv6-address-space); fora dele, tudo bloqueado.
+// ⚠️ NUNCA adicionar regra IPv6 que contenha ::ffff:0:0/96 (ex.: `::/8`, `::/80`, `::ffff:0:0/96`):
+// a BlockList a aplica a TODO IPv4 e o egress inteiro para (8.8.8.8 bloqueado) — o spec tem guarda.
+const BLOCKED_V6: ReadonlyArray<readonly [string, number]> = [
+  ['100::', 8], // 0100::/8 (inclui 100::/64 discard, RFC 6666)
+  ['200::', 7],
+  ['400::', 6],
+  ['800::', 5],
+  ['1000::', 4], // restante de 0000::/3 (reservado IETF)
+  ['2001::', 23], // IETF protocol assignments (Teredo 2001::/32 embute IPv4, benchmarking 2001:2::/48)
+  ['2001:db8::', 32], // documentação (RFC 3849)
+  ['2002::', 16], // 6to4 (RFC 3056 — embute IPv4)
+  ['3fff::', 20], // documentação (RFC 9637)
+  ['4000::', 2], // 4000::/3 e 6000::/3 (reservados; inclui 5f00::/16 SRv6)
+  ['8000::', 1], // 8000::–ffff:: (fc00::/7 ULA, fe80::/10 link-local, fec0::/10, ff00::/8 multicast)
+];
+
+const BLOCKED = new BlockList();
+for (const [net, prefix] of BLOCKED_V4) BLOCKED.addSubnet(net, prefix, 'ipv4');
+for (const [net, prefix] of BLOCKED_V6) BLOCKED.addSubnet(net, prefix, 'ipv6');
+// 0000::/8 SEM o ::ffff:0:0/96 (que já segue as regras IPv4 acima): cobre ::, ::1, ::/96
+// IPv4-compatível (deprecado, RFC 4291 §2.5.5.1), ::ffff:0:0:0/96 IPv4-traduzido (RFC 2765) e o
+// NAT64 64:ff9b::/96 + 64:ff9b:1::/48 (RFC 6052/8215 — embutem IPv4).
+BLOCKED.addRange('::', '::fffe:ffff:ffff', 'ipv6');
+BLOCKED.addRange('::1:0:0:0', 'ff:ffff:ffff:ffff:ffff:ffff:ffff:ffff', 'ipv6');
 
 // true para endereços que NÃO são roteáveis publicamente (v4 e v6, inclusive v4-mapeado).
 export function isPrivateAddress(ip: string): boolean {
   const kind = isIP(ip);
-  if (kind === 4) return PRIVATE_V4.some(([b, bits]) => inCidr4(ip, b, bits));
-  if (kind !== 6) return true; // não é IP válido → trata como bloqueado
-  const lower = ip.toLowerCase();
-  // v4 mapeado (::ffff:a.b.c.d) ou v4 compatível
-  const mapped = lower.match(/^(?:0*:)*ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateAddress(mapped[1]);
-  if (lower === '::' || lower === '::1') return true;
-  const first = lower.split(':')[0];
-  const firstNum = parseInt(first || '0', 16);
-  if ((firstNum & 0xfe00) === 0xfc00) return true; // fc00::/7 ULA
-  if ((firstNum & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
-  if ((firstNum & 0xff00) === 0xff00) return true; // ff00::/8 multicast
-  if (lower.startsWith('2001:db8:')) return true; // documentação
-  if (lower.startsWith('64:ff9b:')) return true; // NAT64 (pode mapear v4 privado)
-  return false;
+  if (kind === 0) return true; // não é IP válido → bloqueado (check() devolveria false)
+  if (ip.includes('%')) return true; // zone id (fe80::1%eth0) = escopo de enlace
+  // A família vem do isIP: check() com a família trocada devolve false calado.
+  return BLOCKED.check(ip, kind === 4 ? 'ipv4' : 'ipv6');
 }
 
 export function parseEgressUrl(raw: string): URL {
@@ -179,6 +193,41 @@ export class BodyTooLargeError extends Error {
     super(`corpo excede o teto de ${maxBytes} bytes`);
     this.name = 'BodyTooLargeError';
   }
+}
+
+// Imagem por URL do integrador (foto de grupo e foto de perfil — P-070): mesma política de egress e
+// mesmo teto em fluxo do media-url. Antes as duas rotas usavam fetch cru — sem política nenhuma
+// (http://127.0.0.1/ e metadata passavam) e com o corpo inteiro na memória antes de medir.
+// Lança Error com a mensagem pronta para o 400 do controller.
+export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+
+export async function fetchImageByUrl(
+  raw: string,
+  policy: EgressPolicy = egressPolicyFromEnv(),
+): Promise<{ buffer: Buffer; mimetype: string }> {
+  let res: SafeFetchResult;
+  try {
+    res = await safeFetch(raw, {
+      policy,
+      maxBytes: PHOTO_MAX_BYTES,
+      timeoutMs: 20_000,
+    });
+  } catch (e) {
+    if (e instanceof EgressBlockedError) {
+      throw new Error(`URL da imagem recusada: ${e.message}`);
+    }
+    if (e instanceof BodyTooLargeError) {
+      throw new Error('imagem acima de 10 MB');
+    }
+    throw new Error(`não consegui baixar a imagem: ${(e as Error).message}`);
+  }
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`não consegui baixar a imagem: HTTP ${res.status}`);
+  }
+  return {
+    buffer: res.body,
+    mimetype: res.headers.get('content-type')?.split(';')[0] || 'image/jpeg',
+  };
 }
 
 // fetch com política de egress, redirects validados e corpo lido em FLUXO com teto de bytes

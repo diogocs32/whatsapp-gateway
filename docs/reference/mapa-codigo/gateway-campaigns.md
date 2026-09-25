@@ -99,7 +99,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `sleep(ms)` · L34
   - chamado por: `process` L138
 - `fetchMedia(url, fallbackMime, maxBytes)` · L41 · async
-  - chama: `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:186)
+  - chama: `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
   - chamado por: `process` L138
 
 **Tipos**

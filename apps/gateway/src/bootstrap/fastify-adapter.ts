@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { rejectAmbiguousAbsoluteForm, stampRouteUrl } from './route-url';
 
 const DEFAULT_MAX_FILE_BYTES = 100 * 1024 * 1024; // 100 MB (cobre documentos grandes do WhatsApp)
 
@@ -12,6 +13,11 @@ export function buildFastifyAdapter(
 ): FastifyAdapter {
   const adapter = new FastifyAdapter({ trustProxy: true });
   const fastify = adapter.getInstance();
+
+  // Alvo ambíguo recusado (P-071) e rota resolvida carimbada no request cru ANTES do middleware do
+  // log (P-053) — ver route-url.ts.
+  rejectAmbiguousAbsoluteForm(fastify);
+  stampRouteUrl(fastify);
 
   // Upload de mídia (multipart/form-data) — usado por POST /sessions/:id/messages/media.
   void fastify.register(multipart, {

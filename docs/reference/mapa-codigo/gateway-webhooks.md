@@ -135,7 +135,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `WebhookDispatcher.handle` (webhook-dispatcher.service.ts:46), `redeliverDeadLetters` L219, `WebhooksController.test` (webhooks.controller.ts:133)
   - enfileira: `this.queue.add('deliver')` L140 · jobId = `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)`
 - `deliver(data)` · L151 · private · async
-  - chama: `safeCustomHeaders` L54, `assertEgressAllowed` (safe-fetch.ts:119), `egressPolicyFromEnv` (safe-fetch.ts:23), `parseEgressUrl` (safe-fetch.ts:90)
+  - chama: `safeCustomHeaders` L54, `assertEgressAllowed` (safe-fetch.ts:133), `egressPolicyFromEnv` (safe-fetch.ts:23), `parseEgressUrl` (safe-fetch.ts:104)
   - chamado por: `onModuleInit` L77
 - `toDeadLetter(data, error, attempts)` · L191 · private · async
   - chama: `newId` (ulid.ts:4)
@@ -180,7 +180,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `list()` · L55 · async · @Get
   - chama: `WebhookRepository.list` (webhook.repository.ts:16)
 - `create(body)` · L60 · async · @Post
-  - chama: `WebhookDispatcher.refresh` (webhook-dispatcher.service.ts:42), `WebhookRepository.create` (webhook.repository.ts:15), `toDto` L32, `assertEgressAllowed` (safe-fetch.ts:119), `egressPolicyFromEnv` (safe-fetch.ts:23), `parseEgressUrl` (safe-fetch.ts:90), `newId` (ulid.ts:4)
+  - chama: `WebhookDispatcher.refresh` (webhook-dispatcher.service.ts:42), `WebhookRepository.create` (webhook.repository.ts:15), `toDto` L32, `assertEgressAllowed` (safe-fetch.ts:133), `egressPolicyFromEnv` (safe-fetch.ts:23), `parseEgressUrl` (safe-fetch.ts:104), `newId` (ulid.ts:4)
 - `deadLetters()` · L98 · async · @Get('dead-letters')
   - chama: `WebhookQueue.listDeadLetters` (webhook-queue.ts:209)
 - `redeliver()` · L104 · async · @Post('dead-letters/redeliver')

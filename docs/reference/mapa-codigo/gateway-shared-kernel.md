@@ -18,8 +18,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `shared-kernel/query-int.spec.ts` | 19 |
 | `shared-kernel/query-int.ts` | 14 |
 | `shared-kernel/result.ts` | 8 |
-| `shared-kernel/safe-fetch.spec.ts` | 227 |
-| `shared-kernel/safe-fetch.ts` | 254 |
+| `shared-kernel/safe-fetch.spec.ts` | 392 |
+| `shared-kernel/safe-fetch.ts` | 303 |
 | `shared-kernel/shared-kernel.module.ts` | 12 |
 | `shared-kernel/ulid.ts` | 5 |
 
@@ -173,7 +173,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `totals` = `new Map<string, number>()` · L7
 - `recordProcessError(kind)` · L9
-  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:396), `AuditInterceptor.record` (audit.interceptor.ts:53)
+  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:396), `AuditInterceptor.record` (audit.interceptor.ts:66)
 - `processErrorTotals()` · L13
   - chamado por: `MetricsService.refresh` (metrics.service.ts:104)
 
@@ -208,68 +208,75 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `shared-kernel/safe-fetch.spec.ts`
 
-227 linhas · caminho: `apps/gateway/src/shared-kernel/safe-fetch.spec.ts`
+392 linhas · caminho: `apps/gateway/src/shared-kernel/safe-fetch.spec.ts`
 - importa (interno): `shared-kernel/safe-fetch.ts`
 
-- describe “isPrivateAddress” · L16
-  - it “reconhece faixas privadas/reservadas v4” · L17
-  - it “reconhece v6 loopback/ULA/link-local e v4 mapeado” · L37
-  - it “string que não é IP conta como bloqueada” · L54
-- describe “parseEgressUrl / assertEgressAllowed” · L59
-  - it “rejeita esquemas fora de http/https e credenciais na URL” · L60
-  - it “bloqueia IP literal privado, localhost e metadata; libera com allowlist” · L74
-  - it “IP público literal passa sem DNS” · L98
-  - it “host que não resolve: bloqueado por default, aceito com dnsFailure=allow (cadastro)” · L104
-  - it “egressPolicyFromEnv lê EGRESS_ALLOW_PRIVATE e EGRESS_ALLOW_HOSTS” · L114
-- describe “safeFetch — corpo em fluxo com teto e redirects validados” · L128
-  - it “baixa um corpo pequeno (e segue redirect same-host validado)” · L182
-  - it “corpo chunked acima do teto é abortado sem bufferizar tudo” · L192
-  - it “content-length declarado acima do teto é recusado antes de ler” · L198
-  - it “redirect para destino privado é bloqueado (política estrita) e loop de redirect é cortado” · L204
-  - it “política estrita bloqueia o próprio servidor local (loopback)” · L221
+- describe “isPrivateAddress” · L17
+  - it “reconhece faixas privadas/reservadas v4” · L18
+  - it “reconhece v6 loopback/ULA/link-local e v4 mapeado” · L38
+  - it “string que não é IP conta como bloqueada” · L55
+  - it “IPv4-mapeado em hexa e em qualquer grafia segue as faixas IPv4” · L64
+  - it “bloqueia v6 que embute IPv4 ou está fora do unicast global (2000::/3)” · L83
+  - it “faixas IPv4 de documentação/6to4 bloqueadas; limites vizinhos seguem públicos” · L118
+  - it “guarda: IPv4 público segue liberado (nenhuma regra v6 engole o IPv4 inteiro)” · L141
+- describe “parseEgressUrl / assertEgressAllowed” · L154
+  - it “rejeita esquemas fora de http/https e credenciais na URL” · L155
+  - it “bloqueia IP literal privado, localhost e metadata; libera com allowlist” · L169
+  - it “IP público literal passa sem DNS” · L193
+  - it “P-065: IPv6 que embute loopback/metadata/privado é recusado depois da normalização do URL” · L205
+  - it “host que não resolve: bloqueado por default, aceito com dnsFailure=allow (cadastro)” · L222
+  - it “egressPolicyFromEnv lê EGRESS_ALLOW_PRIVATE e EGRESS_ALLOW_HOSTS” · L232
+- describe “safeFetch — corpo em fluxo com teto e redirects validados” · L246
+  - it “baixa um corpo pequeno (e segue redirect same-host validado)” · L313
+  - it “corpo chunked acima do teto é abortado sem bufferizar tudo” · L323
+  - it “content-length declarado acima do teto é recusado antes de ler” · L329
+  - it “redirect para destino privado é bloqueado (política estrita) e loop de redirect é cortado” · L335
+  - it “política estrita bloqueia o próprio servidor local (loopback)” · L352
+  - it “loopback escrito como IPv6 v4-mapeado é recusado sem tocar o servidor” · L360
+  - it “fetchImageByUrl: baixa com a política, recusa destino privado e repassa HTTP de erro” · L375
 
 ## `shared-kernel/safe-fetch.ts`
 
-254 linhas · caminho: `apps/gateway/src/shared-kernel/safe-fetch.ts`
-- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `shared-kernel/safe-fetch.spec.ts`
+303 linhas · caminho: `apps/gateway/src/shared-kernel/safe-fetch.ts`
+- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/groups/interface/groups.controller.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `shared-kernel/safe-fetch.spec.ts`
 
 **class `EgressBlockedError`** L38 · `extends Error`
 - injeta (construtor): `message: string (param)`
 - `constructor(message)` · L39
-  - chamado por: `assertEgressAllowed` L119, `parseEgressUrl` L90, `safeFetch` L186
+  - chamado por: `assertEgressAllowed` L133, `parseEgressUrl` L104, `safeFetch` L235
 
-**class `BodyTooLargeError`** L177 · `extends Error`
+**class `BodyTooLargeError`** L191 · `extends Error`
 - injeta (construtor): `maxBytes: number (param)`
-- `constructor(maxBytes)` · L178
-  - chamado por: `safeFetch` L186
+- `constructor(maxBytes)` · L192
+  - chamado por: `safeFetch` L235
 
 **Funções e constantes de topo**
 - `egressPolicyFromEnv(env)` · L23
-  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:573), `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60)
-- `ipv4ToInt(ip)` · L45
-  - chamado por: `inCidr4` L51
-- `inCidr4(ip, base, bits)` · L51
-  - chama: `ipv4ToInt` L45
-  - chamado por: `isPrivateAddress` L71
-- `PRIVATE_V4` = `[ ['0.0.0.0', 8], // "this" network ['10.0.0.0', 8], ['100.64.0.0', 1…` · L56
-- `isPrivateAddress(ip)` · L71
-  - chama: `inCidr4` L51
-  - chamado por: `assertEgressAllowed` L119
-- `parseEgressUrl(raw)` · L90
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:582), `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `fetchImageByUrl` L204
+- `BLOCKED_V4` = `[ ['0.0.0.0', 8], // "this network" ['10.0.0.0', 8], // RFC 1918 ['10…` · L51
+- `BLOCKED_V6` = `[ ['100::', 8], // 0100::/8 (inclui 100::/64 discard, RFC 6666) ['200…` · L72
+- `BLOCKED` = `new BlockList()` · L86
+- `isPrivateAddress(ip)` · L96
+  - chamado por: `assertEgressAllowed` L133
+- `parseEgressUrl(raw)` · L104
   - chama: `constructor` L39
-  - chamado por: `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `safeFetch` L186
-- `assertEgressAllowed(url, policy, opts)` · L119 · async
-  - chama: `constructor` L39, `isPrivateAddress` L71
-  - chamado por: `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `safeFetch` L186
-- `safeFetch(raw, opts)` · L186 · async
-  - chama: `assertEgressAllowed` L119, `constructor` L178, `constructor` L39, `parseEgressUrl` L90
-  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:573)
+  - chamado por: `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `safeFetch` L235
+- `assertEgressAllowed(url, policy, opts)` · L133 · async
+  - chama: `constructor` L39, `isPrivateAddress` L96
+  - chamado por: `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `safeFetch` L235
+- `PHOTO_MAX_BYTES` = `10 * 1024 * 1024` · L202
+- `fetchImageByUrl(raw, policy)` · L204 · async
+  - chama: `egressPolicyFromEnv` L23, `safeFetch` L235
+  - chamado por: `GroupsController.photo` (groups.controller.ts:213), `SessionsController.profilePhoto` (sessions.controller.ts:267)
+- `safeFetch(raw, opts)` · L235 · async
+  - chama: `assertEgressAllowed` L133, `constructor` L192, `constructor` L39, `parseEgressUrl` L104
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:582), `fetchImageByUrl` L204
 
 **Tipos**
 - interface `EgressPolicy` L18 · 2 propriedade(s)
-- interface `EgressCheckOptions` L111 · 1 propriedade(s)
-- interface `SafeFetchOptions` L160 · 7 propriedade(s)
-- interface `SafeFetchResult` L170 · 4 propriedade(s)
+- interface `EgressCheckOptions` L125 · 1 propriedade(s)
+- interface `SafeFetchOptions` L174 · 7 propriedade(s)
+- interface `SafeFetchResult` L184 · 4 propriedade(s)
 
 ## `shared-kernel/shared-kernel.module.ts`
 
@@ -286,8 +293,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `shared-kernel/ulid.ts`
 
 5 linhas · caminho: `apps/gateway/src/shared-kernel/ulid.ts`
-- importado por: `infra/directory/contact-directory.service.ts`, `infra/redis/event-fanout.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/infrastructure/prisma-inbox.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/session-event.logger.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`
+- importado por: `infra/directory/contact-directory.service.ts`, `infra/redis/event-fanout.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/infrastructure/prisma-inbox.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/session-event.logger.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `gateway/test/audit.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `newId()` · L4
-  - chamado por: `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.upsertChunk` (contact-directory.service.ts:115), `EventFanout.instanceId` (event-fanout.ts:27), `CampaignRepository.create` (campaign.repository.ts:37), `GuardrailService.apply` (guardrail.service.ts:316), `GuardrailService.emit` (guardrail.service.ts:177), `GuardrailService.getState` (guardrail.service.ts:203), `GuardrailService.recordHardSignal` (guardrail.service.ts:427), `ApiKeyService.create` (api-key.service.ts:25), `AuthSessionService.issue` (auth-session.service.ts:123), `AuthSessionService.login` (auth-session.service.ts:57), `AuthSessionService.refresh` (auth-session.service.ts:85), `UserService.create` (user.service.ts:50), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26), `PrismaAuditRepository.create` (prisma-audit.repository.ts:14), `SendIntentService.reserve` (send-intent.service.ts:26), `PrismaInboxRepository.markIgnored` (prisma-inbox.repository.ts:171), `PrismaMessageRepository.save` (prisma-message.repository.ts:16), `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:56), `ReplyRateService.computeFor` (reply-rate.service.ts:93), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `PrismaProxyRepository.create` (prisma-proxy.repository.ts:85), `SessionConfigService.get` (session-config.service.ts:28), `SessionConfigService.update` (session-config.service.ts:36), `SessionManager.handleEngineEvent` (session-manager.service.ts:190), `SessionsController.create` (sessions.controller.ts:95), `WebhookQueue.toDeadLetter` (webhook-queue.ts:191), `WebhooksController.create` (webhooks.controller.ts:60), `WebhooksController.test` (webhooks.controller.ts:133)
+  - chamado por: `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.upsertChunk` (contact-directory.service.ts:115), `EventFanout.instanceId` (event-fanout.ts:27), `CampaignRepository.create` (campaign.repository.ts:37), `GuardrailService.apply` (guardrail.service.ts:316), `GuardrailService.emit` (guardrail.service.ts:177), `GuardrailService.getState` (guardrail.service.ts:203), `GuardrailService.recordHardSignal` (guardrail.service.ts:427), `ApiKeyService.create` (api-key.service.ts:25), `AuthSessionService.issue` (auth-session.service.ts:123), `AuthSessionService.login` (auth-session.service.ts:57), `AuthSessionService.refresh` (auth-session.service.ts:85), `UserService.create` (user.service.ts:50), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26), `PrismaAuditRepository.create` (prisma-audit.repository.ts:14), `SendIntentService.reserve` (send-intent.service.ts:26), `PrismaInboxRepository.markIgnored` (prisma-inbox.repository.ts:171), `PrismaMessageRepository.save` (prisma-message.repository.ts:16), `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:56), `ReplyRateService.computeFor` (reply-rate.service.ts:93), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `PrismaProxyRepository.create` (prisma-proxy.repository.ts:85), `SessionConfigService.get` (session-config.service.ts:28), `SessionConfigService.update` (session-config.service.ts:36), `SessionManager.handleEngineEvent` (session-manager.service.ts:190), `SessionsController.create` (sessions.controller.ts:96), `WebhookQueue.toDeadLetter` (webhook-queue.ts:191), `WebhooksController.create` (webhooks.controller.ts:60), `WebhooksController.test` (webhooks.controller.ts:133)

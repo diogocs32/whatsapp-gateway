@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
-# Gateway (NestJS + Fastify) — Node 26, multi-stage.
+# Gateway (NestJS + Fastify) — Node 26.10.0 FIXADO nos 2 estágios (undici embutido 8.10.2; P-054), multi-stage.
 # Inclui Chromium para a engine WWEBJS (whatsapp-web.js). Se for usar SOMENTE a engine
 # Baileys, remova `chromium` e `fonts-liberation` do apt-get (mantenha curl) — imagem bem menor.
 #
 # Dokploy:  Dockerfile Path = apps/gateway/Dockerfile  |  Context = . (raiz do monorepo)
 
 # ============================ Stage 1: build =================================
-FROM node:26-bookworm-slim AS build
+FROM node:26.10.0-bookworm-slim AS build
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 # DATABASE_URL dummy: o prisma.config.ts exige a var, mas `prisma generate` NÃO conecta ao banco.
@@ -28,9 +28,16 @@ COPY packages/contracts/package.json packages/contracts/
 COPY patches ./patches
 RUN npm ci
 
-# Código → gera o Prisma client (src/generated/prisma) → build (dist/main.js)
+# P-055 — guardas de build: com stop-first (B-004) imagem quebrada vira indisponibilidade, então o
+# build FALHA ALTO. O postinstall roda `patch-package --error-on-fail` (fora de CI o patch-package
+# sai 0 mesmo quando o patch falha — node_modules/patch-package/dist/index.js) e aqui conferimos o
+# resultado: patch do whatsapp-web.js aplicado (depois do npm ci, antes do build).
+COPY scripts/guardas-build.sh scripts/verificar-deps-runtime.cjs ./scripts/
+RUN sh scripts/guardas-build.sh patches
+
+# Código → gera o Prisma client (src/generated/prisma) → build (dist/main.js, conferido pela guarda)
 COPY . .
-RUN npm run gateway:generate && npm run gateway:build
+RUN npm run gateway:generate && npm run gateway:build && sh scripts/guardas-build.sh dist
 
 # Item 17 (prune): derruba as devDependencies antes da cópia para o runtime. O que o boot ainda
 # precisa (Prisma CLI + dotenv, usados pelo migrate deploy via prisma.config.ts) virou dependency
@@ -40,7 +47,7 @@ RUN npm run gateway:generate && npm run gateway:build
 RUN npm prune --omit=dev && mkdir -p apps/gateway/node_modules
 
 # ============================ Stage 2: runtime ==============================
-FROM node:26-bookworm-slim AS production
+FROM node:26.10.0-bookworm-slim AS production
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
@@ -73,6 +80,18 @@ COPY --from=build /app/apps/gateway/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/apps/gateway/package.json ./package.json
 COPY apps/gateway/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+
+# P-055 — guardas na imagem FINAL (exatamente o que vai rodar): patch do wwebjs presente, entrypoint
+# dist/main.js existe, todo pacote que o dist usa CARREGA com o node_modules copiado (pega no BUILD o
+# `Cannot find module 'zod'` de 16/08 — hoisting parcial + prune — que antes só aparecia no boot) e o
+# 1º comando do entrypoint (Prisma CLI + prisma.config.ts, fora do dist) funciona. Os scripts somem
+# do filesystem final (seguem numa camada de ~20 KB — sem efeito em runtime).
+COPY scripts/guardas-build.sh scripts/verificar-deps-runtime.cjs /tmp/guardas/
+RUN cd /app && sh /tmp/guardas/guardas-build.sh patches \
+    && sh /tmp/guardas/guardas-build.sh dist \
+    && sh /tmp/guardas/guardas-build.sh deps apps/gateway/dist \
+    && sh /tmp/guardas/guardas-build.sh prisma \
+    && rm -rf /tmp/guardas
 
 EXPOSE 3000
 # Healthcheck do container. No Dokploy, configure também o Swarm Health Check (ver docs/deploy-dokploy.md).
