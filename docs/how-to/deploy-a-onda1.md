@@ -9,14 +9,14 @@ origem: etapa E4 do roteiro — fecha a Onda 1 (P-055, P-054, P-053, P-065, P-07
 
 # 🚀 Deploy A (Onda 1) — o que fazer antes, o que conferir depois, e o stop-first (B-004)
 
-> **Para quem:** o dono (nada disto é executado por chat — R0). **📎 25/09 (D-027):** o auto-deploy
-> do gateway está DESLIGADO — o merge publica só o dashboard; o gateway sobe quando você clica
-> **Deploy** no Dokploy (§2, passo 0).
+> **Para quem:** o dono (nada disto é executado por chat — R0). **📎 25/09 (D-027):** todo auto-deploy
+> do Dokploy está DESLIGADO — o merge não publica nada; dashboard e gateway sobem quando você clica
+> **Deploy** em cada um (§2, passo 0).
 > **O que sobe:** PR #6 (`feature/onda1-guardas-seguranca`) — guardas de build (E2), Nest 11.2.6 +
 > multipart 10.1.2 + bullmq 5.81.5 + Node fixado 26.10.0 + checagem de advisories (E3), rate-limit/
 > log/auditoria pela rota resolvida + egress com `net.BlockList` + fotos por URL com política de
-> egress (E4). **Sem migration nova.** O dashboard redeploya sozinho no merge (tem arquivo nos
-> Watch Paths neste PR); o gateway só com o Deploy manual.
+> egress (E4). **Sem migration nova.** Os DOIS apps mudam neste PR (o Dockerfile do
+> dashboard deixou de copiar `patches/` — E2) e os dois precisam do Deploy manual.
 
 ## 1. Antes do merge (5 min)
 
@@ -37,15 +37,16 @@ origem: etapa E4 do roteiro — fecha a Onda 1 (P-055, P-054, P-053, P-065, P-07
 
 ## 2. Depois do merge — Deploy do gateway e checklist do deploy A
 
-**Passo 0 (auto-deploy do gateway desligado — D-027):** Dokploy → projeto `conexozenvo` → app
-**gateway** → **Deploy** (na janela calma do §1.3). Sem isso a produção continua no código de 15/09 —
-o `/health` segue com o uptime antigo. Confira antes que o último commit da `main` já é o merge do #6.
+**Passo 0 (auto-deploy desligado — D-027):** confira que o último commit da `main` é o merge do #6;
+depois Dokploy → projeto `conexozenvo` → app **dashboard** → **Deploy** (sem risco para as contas) e,
+na janela calma do §1.3, app **gateway** → **Deploy**. Sem isso a produção continua no código de
+15/09 — o `/health` segue com o uptime antigo.
 
 Marque cada item; se algo falhar, ver §4.
 
 | #   | Onde                                                 | O que conferir                                                                                                                                                                                                                                         |
 | --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Dokploy → gateway e dashboard → **Deployments**      | Dashboard: o deploy automático do merge termina `Done`. Gateway: o deploy que VOCÊ disparou termina `Done` (se o build falhar, as guardas da P-055 pararam uma imagem quebrada — **produção não mudou**)                                               |
+| 1   | Dokploy → gateway e dashboard → **Deployments**      | Os dois deploys que VOCÊ disparou terminam `Done` (se o build falhar, as guardas da P-055 pararam uma imagem quebrada — **produção não mudou**)                                                                                                        |
 | 2   | `https://api.conexozenvo.cloud/health`               | 200 com `database`, `redis` e `storage` **true** e `uptime` recomeçando                                                                                                                                                                                |
 | 3   | Dokploy → gateway → **Logs** (boot)                  | `Runtime: Node v26.10.0` (pin da E3 — antes era a tag móvel) · `Nest application successfully started` · nenhum `Cannot find module` · nenhum `ERROR [ExceptionsHandler]` de 4xx                                                                       |
 | 4   | Logs do boot, 2–3 min                                | Reidratação escalonada: as sessões que estavam WORKING voltam a WORKING. Anotar se aparecer `440`/`replaced`/`conflict` (efeito do start-first que o B-004 elimina)                                                                                    |

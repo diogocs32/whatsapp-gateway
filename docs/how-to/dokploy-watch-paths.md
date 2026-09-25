@@ -18,9 +18,9 @@ status: ativo
 > (`docs/core/watch-paths.mdx` do mirror; https://docs.dokploy.com/docs/core/watch-paths),
 > auditada em 13/08/2026.
 
-> **📎 25/09/2026 (D-027):** o **auto-deploy do GATEWAY foi desligado pelo dono** — os Watch Paths do
-> gateway ficam sem efeito enquanto o toggle estiver desligado (o gateway só sobe no Deploy manual).
-> O **dashboard** segue com auto-deploy + Watch Paths como descrito aqui.
+> **📎 25/09/2026 (D-027):** o dono **desligou o auto-deploy dos DOIS apps** ("por enquanto") — os Watch
+> Paths ficam sem efeito enquanto o toggle estiver desligado; cada app só sobe no Deploy manual. Ao
+> religar, refazer o teste dos dois sentidos (§3).
 
 ## Fato-chave (semântica)
 

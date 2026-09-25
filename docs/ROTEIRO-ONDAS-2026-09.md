@@ -17,9 +17,9 @@ método, arquivo:linha) em [MAPA-CODIGO.md](MAPA-CODIGO.md) § "Onde mexer por p
 ## Decisões do dono que valem para todas as etapas (25/09/2026)
 
 1. **Merge = dono.** O chat abre/atualiza o PR da onda com CI verde; o dono faz o merge na main
-   **📎 25/09 (D-027): o auto-deploy do GATEWAY foi desligado** — o merge na main só publica o
-   dashboard (auto-deploy + Watch Paths); o gateway entra em produção quando o dono clica **Deploy**
-   no Dokploy, na janela que escolher. "Deploy X" nas etapas = merge + esse Deploy manual.
+   **📎 25/09 (D-027): todo auto-deploy do Dokploy foi desligado ("por enquanto")** — o merge na
+   main não publica nada; gateway e dashboard entram em produção quando o dono clica **Deploy** no
+   Dokploy, na janela que escolher. "Deploy X" nas etapas = merge + Deploy manual dos apps tocados.
 2. **Um PR por onda, um commit (ou poucos) por etapa.** As etapas da mesma onda trabalham na MESMA
    branch da onda, em sequência (nunca dois chats ao mesmo tempo na mesma branch). O dono mergeia
    no fim da onda → um deploy por onda (menos janelas de risco — até o B-004 cada deploy abre as

@@ -31,8 +31,8 @@ O build agora **falha** em vez de gerar imagem quebrada. Estas situações param
 | Imagem do dashboard que não constrói no Dokploy                   | job `imagens` do CI: `docker build -f apps/dashboard/Dockerfile .`         | local: build ok                                  |
 | Imagem do gateway que não sobe (entrypoint, migrate, Nest)        | job `imagens` do CI: boot real + `/health` com banco, Redis e storage ok   | local: `/health` ok ~2 s após o `docker run`     |
 
-Regra: **não mergear na `main` sem o CI verde no PR**. 📎 25/09 (D-027): o auto-deploy do gateway
-está desligado — o merge só publica o dashboard; o gateway sobe no Deploy manual do Dokploy.
+Regra: **não mergear na `main` sem o CI verde no PR**. 📎 25/09 (D-027): o auto-deploy do Dokploy
+está desligado nos dois apps — o merge não publica nada; cada app sobe no Deploy manual.
 
 ## 1. Diagnóstico rápido (2 min)
 
@@ -69,8 +69,8 @@ Fonte oficial: [docs.dokploy.com — Rollbacks](https://docs.dokploy.com/docs/co
 1. No repositório: `git fetch && git checkout main && git pull`.
 2. `git revert -m 1 <sha-do-merge>` (merge do PR) — ou `git revert <sha>` se foi fast-forward de um
    commit só; para vários commits: `git revert --no-commit <mais-antigo>^..<mais-novo>` e um commit.
-3. `git push origin main` → **Deploy manual** do gateway no Dokploy (o auto-deploy do gateway está
-   desligado desde 25/09 — D-027; o webhook só redeploya o dashboard, se o revert tocar nele).
+3. `git push origin main` → **Deploy manual** do gateway no Dokploy (o auto-deploy está desligado nos dois
+   apps desde 25/09 — D-027; se o revert tocar no dashboard, Deploy manual dele também).
 4. **Tempo:** o build roda no servidor. Medido em 25/09 no CI (runner GitHub Linux amd64, sem cache —
    o mais parecido com o servidor): **96 s** para a imagem do gateway, 17 s a do dashboard, e `/health`
    ok **~6 s** após o start num banco vazio (aplicando todas as migrations) — run `36137525913`. No Mac

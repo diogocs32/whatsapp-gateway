@@ -533,15 +533,17 @@ req.routeOptions.url === '/api/auth/login' ? 10 : 600`) — rejeitada: carrega o
 - **Limite que continua:** rebinding de DNS entre a validação e a conexão (documentado no
   `safe-fetch.ts`).
 
-## D-027 — 2026-09-25 — Deploy do gateway passa a ser manual (auto-deploy desligado no Dokploy)
+## D-027 — 2026-09-25 — Deploy manual no Dokploy (auto-deploy desligado nos dois apps, "por enquanto")
 
-- **Decisão (do dono, informada no chat da E4 em 25/09, antes do merge da Onda 1):** o toggle
-  **Auto Deploy do app `gateway`** no Dokploy foi desligado. Merge/push na `main` **não publica mais
-  o gateway**; ele entra em produção quando o dono clica **Deploy** no Dokploy. O **dashboard** segue
-  com auto-deploy + Watch Paths.
-- **Efeito prático:** o dono escolhe a janela de cada deploy do gateway (sem campanha rodando,
+- **Decisão (do dono, informada no chat da E4 em 25/09, antes do merge da Onda 1):** primeiro o
+  toggle **Auto Deploy do app `gateway`** foi desligado; em seguida o dono informou "desativei tudo
+  que era automático por enquanto" — o **dashboard** também. Merge/push na `main` **não publica
+  nada**; cada app entra em produção quando o dono clica **Deploy** no Dokploy. Os workflows do
+  GitHub (CI e `advisories.yml`) seguem ativos (`gh workflow list`, 25/09). Os Watch Paths ficam
+  sem efeito enquanto o auto-deploy estiver desligado.
+- **Efeito prático:** o dono escolhe a janela de cada deploy (o do gateway pesa mais) (sem campanha rodando,
   ninguém pareando) — importante enquanto o start-first abre as contas duas vezes (D-020, até o
-  B-004). Merge de código do gateway sem o Deploy deixa a `main` à frente da produção: registrar no
+  B-004). Merge de código sem o Deploy deixa a `main` à frente da produção: registrar no
   ESTADO ("Divergência dev × produção") até o Deploy; o `/health` com uptime antigo denuncia.
 - **Ajustados:** `CLAUDE.md` (stack/deploy), roteiro (decisão 1), `how-to/deploy-a-onda1.md` (passo
   0 = Deploy manual), `how-to/rollback-gateway.md` (opção B), `how-to/dokploy-watch-paths.md`.
