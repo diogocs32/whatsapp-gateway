@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
-# Gateway (NestJS + Fastify) — Node 26, multi-stage.
+# Gateway (NestJS + Fastify) — Node 26.10.0 FIXADO nos 2 estágios (undici embutido 8.10.2; P-054), multi-stage.
 # Inclui Chromium para a engine WWEBJS (whatsapp-web.js). Se for usar SOMENTE a engine
 # Baileys, remova `chromium` e `fonts-liberation` do apt-get (mantenha curl) — imagem bem menor.
 #
 # Dokploy:  Dockerfile Path = apps/gateway/Dockerfile  |  Context = . (raiz do monorepo)
 
 # ============================ Stage 1: build =================================
-FROM node:26-bookworm-slim AS build
+FROM node:26.10.0-bookworm-slim AS build
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 # DATABASE_URL dummy: o prisma.config.ts exige a var, mas `prisma generate` NÃO conecta ao banco.
@@ -47,7 +47,7 @@ RUN npm run gateway:generate && npm run gateway:build && sh scripts/guardas-buil
 RUN npm prune --omit=dev && mkdir -p apps/gateway/node_modules
 
 # ============================ Stage 2: runtime ==============================
-FROM node:26-bookworm-slim AS production
+FROM node:26.10.0-bookworm-slim AS production
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 

@@ -504,34 +504,43 @@ export class MessagesController {
     );
   }
 
-  // Envio por upload (multipart/form-data). Envie os campos de texto ANTES do arquivo
-  // (campo "file"); @fastify/multipart só expõe em data.fields o que vem antes do arquivo.
+  // Envio por upload (multipart/form-data): 1 arquivo no campo "file" + campos de texto. O corpo é
+  // lido até o fim ANTES de enviar (P-054): um 2º arquivo faz o @fastify/multipart rejeitar com
+  // FST_FILES_LIMIT (413, limits.files=1 em fastify-adapter.ts) e nada sai para o WhatsApp. Com
+  // o corpo todo lido, data.fields tem também os campos enviados depois do arquivo (README do
+  // @fastify/multipart: ler data.fields depois de consumir o stream).
   @Post('media')
   async sendMedia(
     @Param('id', SessionRefPipe) id: string,
     @Req() req: FastifyRequest,
   ) {
-    const data = await req.file();
-    if (!data) {
+    // O MESMO iterador do começo ao fim: req.file()/req.files() de novo criaria outro parser.
+    const files = req.files();
+    const first = await files.next();
+    if (first.done) {
       throw new BadRequestException('arquivo é obrigatório (campo "file")');
     }
+    const data = first.value;
     const buffer = await data.toBuffer();
+    // Drena o resto do corpo: 2º arquivo → o plugin rejeita aqui com FST_FILES_LIMIT (413).
+    const rest = await files.next();
+    if (!rest.done) {
+      throw new BadRequestException('envie apenas 1 arquivo (campo "file")');
+    }
     const fields = data.fields as unknown as Record<
       string,
       { value?: string } | undefined
     >;
     const to = fields.to?.value;
     if (!to) {
-      throw new BadRequestException(
-        'campo "to" é obrigatório (envie-o antes do arquivo)',
-      );
+      throw new BadRequestException('campo "to" é obrigatório');
     }
     const typeField = fields.type?.value as MediaSendType | undefined;
     const type =
       typeField && (MEDIA_TYPES as readonly string[]).includes(typeField)
         ? typeField
         : inferType(data.mimetype);
-    // multipart: cold e idempotencyKey chegam como campos de texto (envie-os antes do arquivo).
+    // multipart: cold e idempotencyKey chegam como campos de texto.
     const idempotencyKey = fields.idempotencyKey?.value || undefined;
     const cold = fields.cold?.value === 'true';
     const mimetype = data.mimetype || 'application/octet-stream';

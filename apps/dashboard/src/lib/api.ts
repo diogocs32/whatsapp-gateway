@@ -282,7 +282,7 @@ export const api = {
       },
     ) => {
       const fd = new FormData();
-      fd.append('to', to); // campos de texto ANTES do arquivo (exigência do @fastify/multipart)
+      fd.append('to', to); // campos antes do arquivo: desde a P-054 a ordem é livre (o gateway lê o corpo todo)
       if (opts?.idempotencyKey)
         fd.append('idempotencyKey', opts.idempotencyKey);
       if (opts?.type) fd.append('type', opts.type);

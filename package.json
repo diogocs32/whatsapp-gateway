@@ -47,7 +47,7 @@
   "allowScripts": {
     "msgpackr-extract@3.0.4": true,
     "prisma@7.10.0": true,
-    "protobufjs@7.6.4": true,
+    "protobufjs@7.6.6": true,
     "@prisma/engines@7.10.0": true,
     "@whiskeysockets/baileys@7.0.0-rc14": true,
     "@swc/core@1.16.2": true

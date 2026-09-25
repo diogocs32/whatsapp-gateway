@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 205 arquivos · 1198 símbolos (métodos/funções/assinaturas/constantes) · 1155 chamadas resolvidas · 325 testes (it/test)
+- 206 arquivos · 1199 símbolos (métodos/funções/assinaturas/constantes) · 1156 chamadas resolvidas · 332 testes (it/test)
 
 ## Áreas
 
@@ -13,18 +13,18 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | --- | --- | --- | --- |
 | packages/contracts | 1 | 568 | [contracts.md](contracts.md) |
 | Dashboard (React) | 23 | 6406 | [dashboard.md](dashboard.md) |
-| Gateway — bootstrap (config, logs, adapter) | 9 | 1016 | [gateway-bootstrap.md](gateway-bootstrap.md) |
+| Gateway — bootstrap (config, logs, adapter) | 10 | 1175 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 5 | 855 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 22 | 4160 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 22 | 4297 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 274 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 5 | 1125 | [gateway-guardrail.md](gateway-guardrail.md) |
 | módulo `health` | 3 | 127 | [gateway-health.md](gateway-health.md) |
 | módulo `iam` | 39 | 2281 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 668 | [gateway-infra.md](gateway-infra.md) |
-| módulo `messaging` | 14 | 2181 | [gateway-messaging.md](gateway-messaging.md) |
+| módulo `messaging` | 14 | 2190 | [gateway-messaging.md](gateway-messaging.md) |
 | módulo `observability` | 7 | 577 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 12 | 1277 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 189 | [gateway-raiz.md](gateway-raiz.md) |
@@ -120,10 +120,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/sessions/:id/messages/:msgId/reaction` | `MessagesController.reaction` (messages.controller.ts:401) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/:msgId/read` | `MessagesController.markRead` (messages.controller.ts:389) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/messages/conversations` | `MessagesController.conversations` (messages.controller.ts:215) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/location` | `MessagesController.sendLocation` (messages.controller.ts:645) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/media` | `MessagesController.sendMedia` (messages.controller.ts:509) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/media-url` | `MessagesController.sendMediaUrl` (messages.controller.ts:573) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/poll` | `MessagesController.sendPoll` (messages.controller.ts:684) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/location` | `MessagesController.sendLocation` (messages.controller.ts:654) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/media` | `MessagesController.sendMedia` (messages.controller.ts:512) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/media-url` | `MessagesController.sendMediaUrl` (messages.controller.ts:582) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/poll` | `MessagesController.sendPoll` (messages.controller.ts:693) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/messages/search` | `MessagesController.search` (messages.controller.ts:254) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/sync` | `MessagesController.sync` (messages.controller.ts:290) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/text` | `MessagesController.sendText` (messages.controller.ts:483) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |

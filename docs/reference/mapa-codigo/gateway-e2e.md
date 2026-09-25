@@ -19,7 +19,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/g8.e2e-spec.ts` | 115 |
 | `gateway/test/health.e2e-spec.ts` | 24 |
 | `gateway/test/inbox-triage.e2e-spec.ts` | 375 |
-| `gateway/test/media.e2e-spec.ts` | 184 |
+| `gateway/test/media.e2e-spec.ts` | 321 |
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
@@ -212,18 +212,21 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/media.e2e-spec.ts`
 
-184 linhas · caminho: `apps/gateway/test/media.e2e-spec.ts`
+321 linhas · caminho: `apps/gateway/test/media.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `infra/storage/media-storage.service.ts`, `gateway/test/setup-app.ts`
 
-- describe “Mídia (e2e)” · L13
-  - it “POST media sem auth → 401” · L29
-  - it “upload multipart → 201 (SessionManager mockado)” · L37
-  - it “upload multipart sem o campo "to" → 400” · L65
-  - it “media-url sem url → 400” · L88
-  - describe “GET /messages/:msgId/media (GAP 2)” · L99
-    - it “baixa os bytes pelo keyId do WhatsApp (o mesmo do webhook)” · L134
-    - it “baixa os bytes pelo ULID interno (id do GET /messages)” · L149
-    - it “mensagem sem mídia → 404 com motivo claro” · L159
+- describe “Mídia (e2e)” · L17
+  - it “POST media sem auth → 401” · L33
+  - it “upload multipart → 201 (SessionManager mockado)” · L41
+  - it “upload multipart sem o campo "to" → 400” · L69
+  - it “upload multipart com 2 arquivos → 413 e nada é enviado (limits.files=1)” · L96
+  - it “upload multipart com "to" DEPOIS do arquivo, em pedaço atrasado → 201 (corpo lido até o fim)” · L145
+  - it “upload multipart com campo de nome reservado → 400 e nada é enviado” · L188
+  - it “media-url sem url → 400” · L225
+  - describe “GET /messages/:msgId/media (GAP 2)” · L236
+    - it “baixa os bytes pelo keyId do WhatsApp (o mesmo do webhook)” · L271
+    - it “baixa os bytes pelo ULID interno (id do GET /messages)” · L286
+    - it “mensagem sem mídia → 404 com motivo claro” · L296
 
 ## `gateway/test/messaging.e2e-spec.ts`
 

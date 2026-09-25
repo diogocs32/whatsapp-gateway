@@ -295,13 +295,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `MessagesController.sendText` (messages.controller.ts:483)
 - `sendMedia(sessionId, to, input)` · L480 · async
   - chama: `IEngine.sendMedia` (engine.port.ts:251), `working` L561
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `MessagesController.sendMedia` (messages.controller.ts:509), `MessagesController.sendMediaUrl` (messages.controller.ts:573)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `MessagesController.sendMedia` (messages.controller.ts:512), `MessagesController.sendMediaUrl` (messages.controller.ts:582)
 - `sendLocation(sessionId, to, input)` · L488
   - chama: `IEngine.sendLocation` (engine.port.ts:256), `working` L561
-  - chamado por: `MessagesController.sendLocation` (messages.controller.ts:645)
+  - chamado por: `MessagesController.sendLocation` (messages.controller.ts:654)
 - `sendPoll(sessionId, to, input)` · L496
   - chama: `IEngine.sendPoll` (engine.port.ts:260), `working` L561
-  - chamado por: `MessagesController.sendPoll` (messages.controller.ts:684)
+  - chamado por: `MessagesController.sendPoll` (messages.controller.ts:693)
 - `sendPresence(sessionId, to, state)` · L504
   - chama: `IEngine.sendPresence` (engine.port.ts:264), `working` L561
   - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `SessionsController.presence` (sessions.controller.ts:211)

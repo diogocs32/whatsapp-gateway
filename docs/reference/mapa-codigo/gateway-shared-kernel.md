@@ -245,7 +245,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `egressPolicyFromEnv(env)` · L23
-  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:573), `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60)
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:582), `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60)
 - `ipv4ToInt(ip)` · L45
   - chamado por: `inCidr4` L51
 - `inCidr4(ip, base, bits)` · L51
@@ -263,7 +263,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `safeFetch` L186
 - `safeFetch(raw, opts)` · L186 · async
   - chama: `assertEgressAllowed` L119, `constructor` L178, `constructor` L39, `parseEgressUrl` L90
-  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:573)
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:582)
 
 **Tipos**
 - interface `EgressPolicy` L18 · 2 propriedade(s)

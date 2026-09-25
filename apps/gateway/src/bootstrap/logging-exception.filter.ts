@@ -68,6 +68,32 @@ export function describeException(exception: unknown): ExceptionSummary {
   };
 }
 
+// Erro 4xx estilo http-errors (ex.: FST_FILES_LIMIT 413 do @fastify/multipart) → HttpException
+// com o MESMO corpo que o BaseExceptionFilter daria ({statusCode, message}). Só converte o
+// subconjunto seguro do isHttpError dele: statusCode INTEIRO entre 400 e 499 e message não vazia.
+// Sem isso o Nest responde igual, mas loga `ERROR [ExceptionsHandler]` com stack para um erro do
+// cliente (handleUnknownError). 5xx e erros inesperados seguem o caminho original. Função PURA.
+export function clientErrorAsHttpException(
+  exception: unknown,
+): HttpException | null {
+  if (exception instanceof HttpException) return null;
+  const e = (exception ?? {}) as ErrorLike;
+  if (
+    typeof e.statusCode !== 'number' ||
+    !Number.isInteger(e.statusCode) || // NaN/413.5 seguem o caminho original (NaN → 500)
+    e.statusCode < 400 ||
+    e.statusCode >= 500 ||
+    typeof e.message !== 'string' ||
+    e.message.length === 0
+  ) {
+    return null;
+  }
+  return new HttpException(
+    { statusCode: e.statusCode, message: e.message },
+    e.statusCode,
+  );
+}
+
 interface RequestLike {
   id?: unknown;
   method?: string;
@@ -94,7 +120,7 @@ export class LoggingExceptionFilter extends BaseExceptionFilter {
     } catch {
       /* o log nunca pode impedir a resposta */
     }
-    super.catch(exception, host);
+    super.catch(clientErrorAsHttpException(exception) ?? exception, host);
   }
 
   private record(exception: unknown, host: ArgumentsHost): void {

@@ -9,12 +9,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `bootstrap/config.ts` | 180 |
 | `bootstrap/console-bridge.spec.ts` | 81 |
 | `bootstrap/console-bridge.ts` | 71 |
+| `bootstrap/fastify-adapter.absolute-form.spec.ts` | 90 |
 | `bootstrap/fastify-adapter.ts` | 39 |
 | `bootstrap/log-redaction.pino-http.spec.ts` | 91 |
 | `bootstrap/log-redaction.spec.ts` | 183 |
 | `bootstrap/log-redaction.ts` | 169 |
-| `bootstrap/logging-exception.filter.spec.ts` | 74 |
-| `bootstrap/logging-exception.filter.ts` | 128 |
+| `bootstrap/logging-exception.filter.spec.ts` | 117 |
+| `bootstrap/logging-exception.filter.ts` | 154 |
 
 ## `bootstrap/config.ts`
 
@@ -65,10 +66,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Tipos**
 - type `ConsoleMethod` L18
 
+## `bootstrap/fastify-adapter.absolute-form.spec.ts`
+
+90 linhas · caminho: `apps/gateway/src/bootstrap/fastify-adapter.absolute-form.spec.ts`
+- importa (interno): `bootstrap/fastify-adapter.ts`
+
+- describe “GHSA-9c5c-9qcx-q35q — middleware por rota com alvo em forma absoluta” · L61
+  - it “origin-form: o middleware roda” · L79
+  - it “forma absoluta: o middleware também roda (falhava no platform-fastify < 11.2.4)” · L84
+
 ## `bootstrap/fastify-adapter.ts`
 
 39 linhas · caminho: `apps/gateway/src/bootstrap/fastify-adapter.ts`
-- importado por: `main.ts`, `gateway/test/setup-app.ts`
+- importado por: `bootstrap/fastify-adapter.absolute-form.spec.ts`, `main.ts`, `gateway/test/setup-app.ts`
 
 **Funções e constantes de topo**
 - `buildFastifyAdapter(maxFileBytes)` · L10
@@ -115,7 +125,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `SENSITIVE_QUERY_KEYS` = `/^(token|access_token|refresh_token|api_key|apikey|x-api-key|secret|p…` · L22
 - `REDACTED` = `'[Redacted]'` · L25
 - `maskUrlSecrets(url)` · L29
-  - chamado por: `httpLogSerializers` L103, `LoggingExceptionFilter.record` (logging-exception.filter.ts:100)
+  - chamado por: `httpLogSerializers` L103, `LoggingExceptionFilter.record` (logging-exception.filter.ts:126)
 - `redactHeaders(headers)` · L56
   - chamado por: `httpLogSerializers` L103
 - `redactQuery(query)` · L67
@@ -137,37 +147,42 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `bootstrap/logging-exception.filter.spec.ts`
 
-74 linhas · caminho: `apps/gateway/src/bootstrap/logging-exception.filter.spec.ts`
+117 linhas · caminho: `apps/gateway/src/bootstrap/logging-exception.filter.spec.ts`
 - importa (interno): `bootstrap/logging-exception.filter.ts`
 
-- describe “describeException” · L10
-  - it “HttpException com corpo objeto: status, mensagem e código” · L11
-  - it “validação com lista de mensagens vira uma string; `error` do Nest vira code” · L30
-  - it “HttpException com corpo string” · L41
-  - it “erro estilo http-errors (statusCode + message) é tratado como deliberado” · L49
-  - it “erro inesperado (ou lixo) vira 500 não-deliberado” · L63
+- describe “describeException” · L13
+  - it “HttpException com corpo objeto: status, mensagem e código” · L14
+  - it “validação com lista de mensagens vira uma string; `error` do Nest vira code” · L33
+  - it “HttpException com corpo string” · L44
+  - it “erro estilo http-errors (statusCode + message) é tratado como deliberado” · L52
+  - it “erro inesperado (ou lixo) vira 500 não-deliberado” · L66
+- describe “clientErrorAsHttpException” · L78
+  - it “4xx estilo http-errors vira HttpException com o mesmo corpo do BaseExceptionFilter” · L79
+  - it “não converte 5xx, HttpException, erro sem statusCode nem mensagem vazia” · L94
 
 ## `bootstrap/logging-exception.filter.ts`
 
-128 linhas · caminho: `apps/gateway/src/bootstrap/logging-exception.filter.ts`
+154 linhas · caminho: `apps/gateway/src/bootstrap/logging-exception.filter.ts`
 - importa (interno): `bootstrap/log-redaction.ts`
 - importado por: `bootstrap/logging-exception.filter.spec.ts`, `main.ts`, `gateway/test/setup-app.ts`
 
-**class `LoggingExceptionFilter`** L87 · @Catch · `extends BaseExceptionFilter`
-- `logger` · L89 · private · campo
-- `catch(exception, host)` · L91
-  - chama: `record` L100
-- `record(exception, host)` · L100 · private
-  - chama: `maskUrlSecrets` (log-redaction.ts:29), `describeException` L30, `pathOnly` L81
-  - chamado por: `catch` L91
+**class `LoggingExceptionFilter`** L113 · @Catch · `extends BaseExceptionFilter`
+- `logger` · L115 · private · campo
+- `catch(exception, host)` · L117
+  - chama: `clientErrorAsHttpException` L76, `record` L126
+- `record(exception, host)` · L126 · private
+  - chama: `maskUrlSecrets` (log-redaction.ts:29), `describeException` L30, `pathOnly` L107
+  - chamado por: `catch` L117
 
 **Funções e constantes de topo**
 - `describeException(exception)` · L30
-  - chamado por: `record` L100
-- `pathOnly(url)` · L81
-  - chamado por: `record` L100
+  - chamado por: `record` L126
+- `clientErrorAsHttpException(exception)` · L76
+  - chamado por: `catch` L117
+- `pathOnly(url)` · L107
+  - chamado por: `record` L126
 
 **Tipos**
 - interface `ExceptionSummary` L13 · 4 propriedade(s)
 - interface `ErrorLike` L21 · 5 propriedade(s)
-- interface `RequestLike` L71 · 7 propriedade(s)
+- interface `RequestLike` L97 · 7 propriedade(s)
