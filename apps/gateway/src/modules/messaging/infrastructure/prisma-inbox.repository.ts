@@ -137,6 +137,9 @@ export class PrismaInboxRepository implements InboxRepository {
              m."source"                          AS "source",
              m."type"                            AS "type",
              m."text"                            AS "text",
+             m."status"                          AS "status",
+             m."isForwarded"                     AS "isForwarded",
+             m."forwardingScore"                 AS "forwardingScore",
              m."timestamp"                       AS "timestamp"
       FROM "wa_messages" m
       JOIN "wa_sessions" s ON s."id" = m."sessionId"

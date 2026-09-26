@@ -34,13 +34,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `resolveAgent` L142, `resolveProxyConfig` L124
 - `reportFailure(sessionId, reason)` · L101 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.getAssignment` (proxy.repository.ts:55), `ProxyRepository.updateTest` (proxy.repository.ts:48)
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:136)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:138)
 - `resolveProxyConfig(sessionId)` · L124 · async
   - chama: `resolve` L32
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:136)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:138)
 - `resolveAgent(sessionId)` · L142 · async
   - chama: `resolve` L32, `ProxyRepository.getAssignment` (proxy.repository.ts:55), `buildProxyAgent` (proxy-agent.factory.ts:14)
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:136)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:138)
 
 **Funções e constantes de topo**
 - `hashString(s)` · L13

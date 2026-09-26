@@ -56,6 +56,8 @@ export class MessagePersister implements OnModuleInit {
           fileName: p.fileName,
           mediaKey: p.mediaKey,
           fileSize: p.fileSize,
+          isForwarded: p.isForwarded ?? false,
+          forwardingScore: p.forwardingScore ?? null,
           raw: p.raw,
         })
         .catch((err) =>

@@ -15,6 +15,9 @@ export type MessageSource = 'api' | 'phone';
 export interface MessagePayload {
   keyId: string;
   chatJid: string;
+  // Quem mandou. 1:1 = o contato (= chatJid); fromMe = a conta da sessão. GRUPO (E23 · P-074): o
+  // PARTICIPANTE — telefone quando conhecido (@s.whatsapp.net no Baileys, @c.us no WWEBJS), senão
+  // @lid; sem participante na chave, o jid do grupo (como antes da E23).
   senderJid: string | null;
   fromMe: boolean;
   type: string;
@@ -33,9 +36,15 @@ export interface MessagePayload {
   fileSize?: number | null;
   mediaKey?: string | null; // chave do objeto no S3 (persistida)
   mediaUrl?: string | null; // URL pré-assinada (preenchida pelo SessionManager; NÃO persistida)
-  // proto.IMessage codificado via BufferJSON (texto E mídia). Só preenchido em fromMe; persistido em
-  // wa_messages.raw e usado pelo getMessage para reenviar fielmente no retry de descriptografia
-  // (evita "Aguardando mensagem" também em mídia, que { conversation } não cobre).
+  // P-066 (E22): selo "Encaminhada" (inbound e celular). forwardingScore = quantas vezes a mensagem já
+  // foi encaminhada — o WhatsApp mostra "Encaminhada com frequência" a partir de um limiar (ver D-028).
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
+  // proto.IMessage codificado via BufferJSON (texto E mídia) — só no Baileys. Persistido em
+  // wa_messages.raw (a retenção zera em RETENTION_MESSAGE_RAW_DAYS, 7 d). Nas ENVIADAS pela API o
+  // getMessage o usa para reenviar fielmente no retry de descriptografia (evita "Aguardando
+  // mensagem" também em mídia); desde a E24 (P-068) também nas RECEBIDAS e nas do celular — é a
+  // original que o encaminhar reaproveita. Webhook, SSE e fan-out o removem antes de sair.
   raw?: unknown;
 }
 
@@ -204,13 +213,75 @@ export interface HistoryMessage {
   chatJid: string; // já resolvido (@lid→telefone quando possível), p/ fundir com a inbox ao vivo
   senderJid: string | null;
   fromMe: boolean;
-  type: string; // text | image | video | audio | document | sticker
+  type: string; // mesmo domínio do MessagePayload.type (message-content.ts)
   text: string | null;
   timestamp: number; // unix seconds
   mediaType?: string | null;
   mimetype?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
+  isForwarded?: boolean; // P-066 (E22): selo "Encaminhada"
+  forwardingScore?: number | null;
+}
+
+// ---- P-068 (E24): encaminhar mensagem fiel ao WhatsApp Web ----
+
+// Limites anti-ban decididos pelo dono (abertura da E24): até 5 destinos por pedido; só 1 quando a
+// ORIGINAL já é "encaminhada com frequência" — cadeia de 5 ou mais conversas (FAQ oficial
+// faq.whatsapp.com/1053543185312573; o campo não é nomeado lá — inferência registrada na D-028).
+export const MAX_FORWARD_TARGETS = 5;
+export const FREQUENTLY_FORWARDED_MIN = 5;
+
+// A mensagem a encaminhar, como o gateway a guardou (linha de wa_messages da MESMA sessão). O
+// Baileys relê o proto original (`raw`) pelo keyId; o wwebjs busca a Message viva no aparelho.
+// `mediaKey` (S3) é reaproveitado no eco — o encaminhar não sobe a mídia de novo.
+export interface ForwardSource {
+  keyId: string;
+  chatJid: string;
+  fromMe: boolean;
+  type: string;
+  text: string | null;
+  mediaType: string | null;
+  mimetype: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  mediaKey: string | null;
+  forwardingScore: number | null;
+  timestamp?: number; // unix seconds da original (mensagem temporária vencida não se encaminha)
+}
+
+// Resultado de um envio. `confirmed:false` (só wwebjs) = o WhatsApp Web encaminhou mas o eco com
+// o id novo não chegou a tempo (Message.forward não devolve o id) — `keyId` vazio.
+export interface SendResult {
+  keyId: string;
+  jid: string;
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
+  confirmed?: boolean;
+}
+
+// Original carregada e conferida UMA vez; `send` encaminha para UM destino (o laço, a
+// idempotência e o gate cold ficam no messaging — ForwardService). `forwardingScore` = contador
+// AO VIVO da original quando a engine sabe (o do banco pode ser null em linha antiga).
+export interface PreparedForward {
+  forwardingScore: number | null;
+  send(to: string, opts: SendOptions): Promise<SendResult>;
+}
+
+// Original que não dá para encaminhar — o messaging responde 400 com este `code` ANTES de enviar.
+// FORWARD_UNSUPPORTED = tipo/estado que o WhatsApp Web não encaminha (ou que o gateway ainda não
+// encaminha fielmente); FORWARD_SOURCE_UNAVAILABLE = a original não está mais disponível (Baileys:
+// `raw` vencido/ausente e tipo sem remontagem fiel; wwebjs: mensagem fora do aparelho).
+export type ForwardErrorCode =
+  'FORWARD_UNSUPPORTED' | 'FORWARD_SOURCE_UNAVAILABLE';
+export class ForwardSourceError extends Error {
+  constructor(
+    readonly code: ForwardErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ForwardSourceError';
+  }
 }
 
 // G8 — estados de presença. composing/recording/paused são por chat; available/unavailable globais.
@@ -277,6 +348,10 @@ export interface IEngine {
     fromMe: boolean,
     emoji: string,
   ): Promise<void>;
+  // P-068 (E24) — encaminhar: carrega e confere a original (lança ForwardSourceError quando não
+  // dá) e devolve quem envia para UM destino. O eco `message` sai com `source:'api'`,
+  // `isForwarded`/`forwardingScore` do que foi de fato enviado e o `idempotencyKey` recebido.
+  prepareForward(src: ForwardSource): Promise<PreparedForward>;
   getQrBase64(): string | null;
   // Pairing code corrente (renovado pela engine a cada ~3 min) — WA-18: sai só por aqui, nunca
   // pelo log. Opcional: engines sem renovação de código não implementam.

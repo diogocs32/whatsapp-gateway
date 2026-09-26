@@ -12,6 +12,19 @@ import { RedisService } from './redis.service';
 
 const CHANNEL = 'wa:events';
 
+// O lado remoto só alimenta SSE e webhook, que descartam o `raw` (proto da mensagem) antes de sair.
+// Desde a E24 (P-068) o `raw` vem também nas RECEBIDAS do Baileys (miniatura de mídia em base64,
+// chave de mídia do WhatsApp) — não trafega pelo Redis à toa. Estrutural: o infra não conhece o
+// envelope dos módulos (regra de fronteira), só tira `payload.payload.raw` quando existe.
+function withoutRaw(e: DomainEvent): DomainEvent {
+  const env = e.payload as { payload?: unknown } | null;
+  const inner = env?.payload as Record<string, unknown> | null | undefined;
+  if (!inner || typeof inner !== 'object' || !('raw' in inner)) return e;
+  const rest = { ...inner };
+  delete rest.raw;
+  return { ...e, payload: { ...env, payload: rest } };
+}
+
 // Item 20 (auditoria 07/2026) — fan-out de eventos entre réplicas via Redis pub/sub. O EventBus é
 // in-process; com 2+ réplicas, SSE e webhooks só enxergariam os eventos da própria réplica. A
 // ponte: todo 'wa.event' local é publicado no canal Redis carimbado com o id desta instância;
@@ -46,7 +59,10 @@ export class EventFanout implements OnModuleInit, OnModuleDestroy {
 
     this.eventBus.subscribe('wa.event', (e) => {
       void this.redis.client
-        .publish(CHANNEL, JSON.stringify({ i: this.instanceId, e }))
+        .publish(
+          CHANNEL,
+          JSON.stringify({ i: this.instanceId, e: withoutRaw(e) }),
+        )
         .catch((err) =>
           this.logger.warn(`fanout (pub): ${(err as Error).message}`),
         );

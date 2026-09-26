@@ -23,12 +23,23 @@ import {
   pageResolvePnToLid,
   withLidFallback as runLidFallback,
 } from './wwebjs.lid-outbound';
+import {
+  describeWwebjsMessage,
+  mapWwebjsReaction,
+  wwebjsForwardBlock,
+  wwebjsGroupSender,
+  type WwebjsForwardLike,
+  type WwebjsMessageLike,
+} from './wwebjs-content';
+import { ForwardEchoRegistry, type ForwardEcho } from './wwebjs.forward-echo';
+import { formatLocation, formatPoll } from '../message-content';
 import type {
   ChannelInfo,
   ChatFlag,
   ChatSummary,
   ContactCheck,
   AckStatus,
+  ForwardSource,
   GroupInfo,
   GroupParticipantAction,
   GroupParticipantInfo,
@@ -39,13 +50,16 @@ import type {
   MembershipAction,
   MembershipRequest,
   MessageSource,
+  PreparedForward,
   PresenceState,
   SaveContactInput,
   SendLocationInput,
   SendMediaInput,
   SendOptions,
   SendPollInput,
+  SendResult,
 } from '../../application/engine.port';
+import { ForwardSourceError } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 
 // Caminho do Chrome do sistema (no WSL já existe /usr/bin/google-chrome-stable). Configurável por env.
@@ -228,6 +242,19 @@ async function loadBuildCatalog(): Promise<BuildCatalog | null> {
 // segundos. Dimensionados para NÃO abortar sincronização legítima (getChats real volta em <30s).
 const STORE_PROBE_TIMEOUT_MS = 10_000;
 const STORE_OP_TIMEOUT_MS = 45_000;
+// P-068 (E24) — encaminhar: teto do Message.forward (evaluate que, sem teto, pendura até o
+// protocolTimeout de 240 s), espera pelo eco com o id novo (a lib não o devolve) e vida da
+// expectativa (eco tardio ainda sai como `api`, não como celular).
+const FORWARD_OP_TIMEOUT_MS = 30_000;
+const FORWARD_ECHO_WAIT_MS = 10_000;
+const FORWARD_ECHO_TTL_MS = 60_000;
+// Forward que RESOLVEU mas cujo eco não veio na espera: a expectativa vive só mais isto (eco tardio
+// ainda sai `api`), para não engolir por muito tempo uma mensagem do celular no mesmo chat.
+const FORWARD_ECHO_GRACE_MS = 20_000;
+// Id serializado de mensagem do WhatsApp Web (`true_<chat>_<id>` ou `false_<grupo>_<id>_<autor>`);
+// o getMessageById recusa outro formato com "Invalid serialized message id" (Client.js:1816-1818)
+// — e o withStoreReady repetiria esse erro 8× (casa "Evaluation failed").
+const WWEBJS_MSG_ID = /^(true|false)_[^_]+_[^_]+(_[^_]+)?$/;
 
 // P-015 — teto do `client.logout()` no doLogout: numa página travada os evaluates do logout
 // penduram até o protocolTimeout (240s) SEGURANDO o mutex de ciclo de vida — o Parar/shutdown
@@ -315,6 +342,13 @@ export class WWebJSEngine implements IEngine {
   // keyId das mensagens enviadas PELO painel (sendText/sendMedia) — para o handler message_create
   // não duplicá-las (já são emitidas no envio). Sobra capturar as enviadas pelo próprio celular.
   private readonly sentByPanel = new Set<string>();
+  // P-068 (E24): ecos esperados de encaminhamentos em curso (Message.forward não devolve o id).
+  private readonly forwardEchoes = new ForwardEchoRegistry();
+  // Campos (não constantes) para os testes injetarem valores curtos.
+  private forwardEchoWaitMs = FORWARD_ECHO_WAIT_MS;
+  private forwardEchoTtlMs = FORWARD_ECHO_TTL_MS;
+  private forwardEchoGraceMs = FORWARD_ECHO_GRACE_MS;
+  private forwardOpTimeoutMs = FORWARD_OP_TIMEOUT_MS;
   // URL do forwarder LOCAL (proxy-chain) que anonimiza o proxy autenticado deste start.
   // Fechado no stop/logout/queda/falha de init para liberar a porta (ver closeAnonProxy).
   private anonProxyUrl: string | null = null;
@@ -1485,11 +1519,17 @@ export class WWebJSEngine implements IEngine {
       throw new Error('wwebjs: envio de localização não retornou mensagem');
     const keyId = sent.id?._serialized ?? '';
     if (keyId) this.rememberPanel(keyId);
+    // P-077 (E24): o eco leva o mesmo texto da localização RECEBIDA (rótulo + link do mapa).
     this.emitOutbound(
       keyId,
       jid,
       'location',
-      input.name || input.address || null,
+      formatLocation({
+        latitude: input.latitude,
+        longitude: input.longitude,
+        name: input.name,
+        address: input.address,
+      }),
       input,
     );
     return { keyId, jid };
@@ -1513,7 +1553,14 @@ export class WWebJSEngine implements IEngine {
       throw new Error('wwebjs: envio de enquete não retornou mensagem');
     const keyId = sent.id?._serialized ?? '';
     if (keyId) this.rememberPanel(keyId);
-    this.emitOutbound(keyId, jid, 'poll', input.name, input);
+    // P-077 (E24): o eco leva a pergunta + "• opção" por linha, como a enquete RECEBIDA.
+    this.emitOutbound(
+      keyId,
+      jid,
+      'poll',
+      formatPoll(input.name, input.options),
+      input,
+    );
     return { keyId, jid };
   }
 
@@ -1587,6 +1634,199 @@ export class WWebJSEngine implements IEngine {
     await this.withStoreReady(() => this.req().sendReaction(msgId, emoji));
   }
 
+  // P-068 (E24) — encaminhar pelo caminho NATIVO do WhatsApp Web (Message.forward →
+  // WAWebChatForwardMessage.forwardMessages, o mesmo do botão "Encaminhar": selo e contador
+  // calculados pela Meta, mídia reaproveitada). A original tem de estar no aparelho desta sessão
+  // (memória ou IndexedDB — getMessageById, Client.js:1811-1830); a lib não confere nada.
+  async prepareForward(src: ForwardSource): Promise<PreparedForward> {
+    const c = this.req();
+    await this.assertPageResponsive(); // P-016: página travada → erro em ~10s, não silêncio
+    if (!WWEBJS_MSG_ID.test(src.keyId)) {
+      throw new ForwardSourceError(
+        'FORWARD_SOURCE_UNAVAILABLE',
+        'Esta mensagem não está no WhatsApp Web desta sessão (foi gravada por outra engine) — encaminhe pelo celular.',
+      );
+    }
+    // Só a LEITURA vai no withStoreReady (retry de Store ainda sincronizando); o forward, nunca —
+    // um "Cannot read…" depois de a mensagem já ter saído seria reenviado até 8×.
+    const msg = await this.withStoreReady(() => c.getMessageById(src.keyId));
+    if (!msg) {
+      throw new ForwardSourceError(
+        'FORWARD_SOURCE_UNAVAILABLE',
+        'A original não está mais no WhatsApp Web desta sessão (histórico não sincronizado ou sessão pareada de novo) — encaminhe pelo celular.',
+      );
+    }
+    const block = wwebjsForwardBlock(msg as unknown as WwebjsForwardLike);
+    if (block) {
+      throw new ForwardSourceError(
+        'FORWARD_UNSUPPORTED',
+        `Esta mensagem não pode ser encaminhada pelo gateway (${block}).`,
+      );
+    }
+    const d = describeWwebjsMessage(msg as unknown as WwebjsMessageLike);
+    const type = d.kind === 'content' ? d.type : 'other';
+    // O eco precisa trazer o mesmo texto/legenda da original quando ela tem (ver
+    // wwebjs.forward-echo.ts; o forward nativo usa includeCaption:true — Utils.js:126).
+    const text = d.kind === 'content' ? d.text : null;
+    return {
+      forwardingScore:
+        typeof msg.forwardingScore === 'number' ? msg.forwardingScore : null,
+      send: (to, opts) => this.forwardTo(msg, type, text, src, to, opts),
+    };
+  }
+
+  private async forwardTo(
+    msg: Message,
+    type: string,
+    text: string | null,
+    src: ForwardSource,
+    to: string,
+    opts: SendOptions,
+  ): Promise<SendResult> {
+    this.req();
+    await this.assertPageResponsive();
+    const jid = this.toChatId(to);
+    const exp = this.forwardEchoes.expect(
+      {
+        chatIds: new Set([jid]),
+        pnJid: jid,
+        type,
+        text,
+        meta: {
+          isCold: opts.cold ?? false,
+          idempotencyKey: opts.idempotencyKey ?? null,
+        },
+        media: src.mediaType
+          ? {
+              mediaType: src.mediaType,
+              mimetype: src.mimetype,
+              fileName: src.fileName,
+              fileSize: src.fileSize,
+              mediaKey: src.mediaKey,
+            }
+          : null,
+      },
+      this.forwardEchoTtlMs,
+    );
+    // O op devolve o destino (nunca o `undefined` do forward): o withLidFallback trata
+    // null/undefined como "nada foi enviado" e REFARIA o envio pelo PN (encaminhar 2× —
+    // wwebjs.lid-outbound.ts invariantes 3-4). O @lid do reroteio entra na expectativa ANTES do op
+    // (o eco pode chegar antes de o forward resolver, com `to` = @lid).
+    const forwarded = this.withLidFallback(jid, async (dest) => {
+      exp.echo.chatIds.add(dest);
+      await msg.forward(dest);
+      return dest;
+    });
+    let timer: NodeJS.Timeout | undefined;
+    let outcome: 'ok' | 'timeout';
+    try {
+      outcome = await Promise.race([
+        forwarded.then(() => 'ok' as const),
+        new Promise<'timeout'>((r) => {
+          timer = setTimeout(() => r('timeout'), this.forwardOpTimeoutMs);
+        }),
+      ]);
+    } catch (e) {
+      exp.cancel(); // o WhatsApp Web recusou antes de encaminhar: nada saiu
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (outcome === 'timeout') {
+      // Sem teto o evaluate pendura até o protocolTimeout (240 s). O forward pode ainda sair: a
+      // expectativa fica viva (o eco tardio sai `api`, com a chave do destino — um retry acha a
+      // linha pelo idempotencyKey e não reenvia).
+      forwarded.catch(() => undefined);
+      throw new Error(
+        `Encaminhar no WhatsApp Web não respondeu em ${Math.round(this.forwardOpTimeoutMs / 1000)} s — confira no celular antes de tentar de novo.`,
+      );
+    }
+    const keyId = await exp.wait(this.forwardEchoWaitMs);
+    if (!keyId) {
+      exp.echo.expiresAt = Math.min(
+        exp.echo.expiresAt,
+        Date.now() + this.forwardEchoGraceMs,
+      );
+      this.deps.logger.warn(
+        { to: jid, source: src.keyId },
+        'wwebjs: encaminhado sem eco em tempo — resposta sem id (a expectativa vive mais um pouco)',
+      );
+      // Sem eco não se sabe o selo que saiu — nada de `isForwarded:false` enganoso.
+      return { keyId: '', jid, confirmed: false };
+    }
+    return {
+      keyId,
+      jid,
+      confirmed: true,
+      isForwarded: exp.echo.isForwarded,
+      forwardingScore: exp.echo.forwardingScore,
+    };
+  }
+
+  private matchForwardEcho(
+    msg: Message,
+    d: Extract<ReturnType<typeof describeWwebjsMessage>, { kind: 'content' }>,
+    keyId: string,
+  ): ForwardEcho | null {
+    const to = typeof msg.to === 'string' ? msg.to : '';
+    if (!to || !this.forwardEchoes.size) return null;
+    // O getChat do WhatsApp Web pode cair no chat @lid do destino: o eco vem com `to` @lid. O cache
+    // LOCAL (sem rede) liga esse @lid ao telefone que a expectativa conhece.
+    const tos = [to];
+    const pn = to.endsWith('@lid') ? this.lidToPnCache.get(to) : undefined;
+    if (pn) tos.push(pn);
+    return this.forwardEchoes.match(tos, d.type, d.text, keyId, {
+      isForwarded: d.isForwarded,
+      forwardingScore: d.forwardingScore,
+    });
+  }
+
+  // Eco de um encaminhar nosso: `source:'api'` com o cold e a chave POR DESTINO do pedido; a mídia
+  // aponta para o objeto S3 da original (mesmos bytes — sem baixar de novo pelo renderer).
+  private emitForwardEcho(
+    msg: Message,
+    d: Extract<ReturnType<typeof describeWwebjsMessage>, { kind: 'content' }>,
+    keyId: string,
+    echo: ForwardEcho,
+  ): void {
+    this.rememberPanel(keyId);
+    const base = {
+      keyId,
+      chatJid: echo.pnJid,
+      senderJid: this.client?.info?.wid?._serialized ?? null,
+      fromMe: true,
+      source: 'api' as MessageSource,
+      isCold: echo.meta.isCold,
+      idempotencyKey: echo.meta.idempotencyKey,
+      timestamp:
+        typeof msg.timestamp === 'number'
+          ? msg.timestamp
+          : Math.floor(Date.now() / 1000),
+      isForwarded: d.isForwarded,
+      forwardingScore: d.forwardingScore,
+    };
+    if (d.media && !echo.media?.mediaKey && msg.hasMedia) {
+      // A original ficou sem binário (download falhou na chegada / acima do teto): baixa o da CÓPIA
+      // pelo caminho normal — a mídia pode estar disponível agora.
+      void this.handleIncomingMedia(msg, base, d.media.mediaType, d.text);
+      return;
+    }
+    if (d.media) {
+      this.deps.onEvent('message', {
+        ...base,
+        type: d.type,
+        text: d.text,
+        mediaType: d.media.mediaType,
+        mimetype: echo.media?.mimetype ?? null,
+        fileName: echo.media?.fileName ?? null,
+        fileSize: echo.media?.fileSize ?? null,
+        mediaKey: echo.media?.mediaKey ?? null,
+      });
+      return;
+    }
+    this.deps.onEvent('message', { ...base, type: d.type, text: d.text });
+  }
+
   // W5 — normaliza menções para o formato do wwebjs (contact ids `<num>@c.us`). undefined = sem menção.
   private toMentionIds(mentions?: string[]): string[] | undefined {
     if (!mentions?.length) return undefined;
@@ -1600,13 +1840,24 @@ export class WWebJSEngine implements IEngine {
   private async onMessageCreate(msg: Message): Promise<void> {
     try {
       const keyId = msg.id?._serialized ?? '';
+      // P-066 (E22): tipo/texto fiéis (função pura). Sistema, ligação, apagada e reação não são
+      // mensagem no chat — saem ANTES da espera abaixo (um tipo de sistema `fromMe` não pode virar
+      // "digitado no celular" e pausar a IA à toa).
+      const d = describeWwebjsMessage(msg as unknown as WwebjsMessageLike);
+      if (d.kind === 'ignore') return;
       if (msg.fromMe) {
         // Caminho rápido: sendMessage já resolveu → keyId já está em sentByPanel, sem esperar.
         if (this.sentByPanel.has(keyId)) return; // enviada pelo painel: já emitida
+        // P-068 (E24): eco de um ENCAMINHAR nosso (Message.forward não devolve o id) — casa ANTES
+        // da janela abaixo; senão viraria `phone` (handoff falso) sem o isCold/idempotencyKey.
+        const echo = this.matchForwardEcho(msg, d, keyId);
+        if (echo) return this.emitForwardEcho(msg, d, keyId, echo);
         // Janela p/ sendMessage lento (message_create pode chegar ANTES do sendMessage resolver).
         // Só quem cai aqui espera: digitadas no celular (raras) e ecos de envio ainda em trânsito.
         await new Promise((r) => setTimeout(r, 3000));
         if (this.sentByPanel.has(keyId)) return;
+        const late = this.matchForwardEcho(msg, d, keyId);
+        if (late) return this.emitForwardEcho(msg, d, keyId, late);
       }
       const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
       if (!raw || raw === 'status@broadcast') return;
@@ -1614,9 +1865,10 @@ export class WWebJSEngine implements IEngine {
       const base = {
         keyId,
         chatJid,
+        // P-074 (E23): recebida em grupo → o autor (@lid só pelo cache, sem consulta — wwebjs-content).
         senderJid: msg.fromMe
           ? (this.client?.info?.wid?._serialized ?? null)
-          : chatJid,
+          : (wwebjsGroupSender(raw, msg.author, this.lidToPnCache) ?? chatJid),
         fromMe: !!msg.fromMe,
         // G2: as enviadas pelo painel já saíram filtradas (sentByPanel, acima). Um fromMe aqui
         // foi digitado no celular = phone; recebida do contato = sem origem nossa (null).
@@ -1625,18 +1877,42 @@ export class WWebJSEngine implements IEngine {
           typeof msg.timestamp === 'number'
             ? msg.timestamp
             : Math.floor(Date.now() / 1000),
+        isForwarded: d.isForwarded,
+        forwardingScore: d.forwardingScore,
       };
       // Mídia recebida: baixa o binário, sobe ao S3 e emite com a chave (antes virava type:'other'
-      // sem download → GET /:msgId/media respondia 404 para toda mídia WWEBJS).
-      if (msg.hasMedia) {
-        await this.handleIncomingMedia(msg, base);
+      // sem download → GET /:msgId/media respondia 404 para toda mídia WWEBJS). O tipo vem do
+      // `type` da mensagem; sem `directPath` (hasMedia false) não há o que baixar — só metadados.
+      if (d.media) {
+        if (msg.hasMedia) {
+          await this.handleIncomingMedia(msg, base, d.media.mediaType, d.text);
+        } else {
+          this.deps.onEvent('message', {
+            ...base,
+            type: d.type,
+            text: d.text,
+            mediaType: d.media.mediaType,
+            mimetype: null,
+            fileName: null,
+            fileSize: null,
+          });
+        }
         return;
       }
-      this.deps.onEvent('message', {
-        ...base,
-        type: 'text',
-        text: msg.body || null,
-      });
+      // Tipo sem cartão de mídia (produto, modelo de empresa, desconhecido…) mas COM arquivo
+      // (`directPath`): baixa como documento — o binário fica em GET /:msgId/media, como antes da
+      // E22 —, mantendo o `type` fiel do describe.
+      if (msg.hasMedia) {
+        await this.handleIncomingMedia(
+          msg,
+          base,
+          mapInboundMediaType(msg.type),
+          d.text,
+          d.type,
+        );
+        return;
+      }
+      this.deps.onEvent('message', { ...base, type: d.type, text: d.text });
     } catch (e) {
       this.deps.logger.error({ err: e }, 'wwebjs: onMessageCreate falhou');
     }
@@ -1654,10 +1930,18 @@ export class WWebJSEngine implements IEngine {
       fromMe: boolean;
       source: MessageSource | null;
       timestamp: number;
+      isForwarded?: boolean;
+      forwardingScore?: number | null;
+      // E24: eco de encaminhar sem binário na original (cold/chave do destino vão junto).
+      isCold?: boolean;
+      idempotencyKey?: string | null;
     },
+    // E22: tipo e legenda vêm do describeWwebjsMessage; o padrão (pelo msg.type/body) é o de antes.
+    // `type` = o `type` do evento (igual ao mediaType, salvo tipo sem cartão de mídia com arquivo).
+    mediaType: string = mapInboundMediaType(msg.type),
+    caption: string | null = msg.body || null,
+    type: string = mediaType,
   ): Promise<void> {
-    const mediaType = mapInboundMediaType(msg.type);
-    const caption = msg.body || null;
     // P-017 — checa o tamanho DECLARADO antes de baixar (o download roda no renderer; ver
     // WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES). Sem size declarado, segue o fluxo normal.
     const declaredSize =
@@ -1677,7 +1961,7 @@ export class WWebJSEngine implements IEngine {
       );
       this.deps.onEvent('message', {
         ...base,
-        type: mediaType,
+        type,
         text: caption,
         mediaType,
         mimetype: null,
@@ -1703,7 +1987,7 @@ export class WWebJSEngine implements IEngine {
       await this.deps.storeMedia?.(key, buffer, mimetype);
       this.deps.onEvent('message', {
         ...base,
-        type: mediaType,
+        type,
         text: caption,
         mediaType,
         mimetype,
@@ -1724,7 +2008,7 @@ export class WWebJSEngine implements IEngine {
       }
       this.deps.onEvent('message', {
         ...base,
-        type: mediaType,
+        type,
         text: caption,
         mediaType,
         mimetype: null,
@@ -1772,24 +2056,16 @@ export class WWebJSEngine implements IEngine {
 
   // W6 — reação recebida. `msgId` (MessageId) é a mensagem-alvo; `reaction` é o emoji ('' = removida);
   // `id.fromMe` diz se a reação é NOSSA. O chat vem do `msgId.remote` (com merge @lid→telefone).
+  // E22: mapeamento puro e defensivo (mapWwebjsReaction) — com a chave-alvo em `$1` (builds
+  // ≥ 2.3000.104x) ou `remote` como Wid, o handler antigo descartava a reação em silêncio ou lançava.
   private async onReaction(r: Reaction): Promise<void> {
     try {
-      const keyId = r.msgId?._serialized ?? '';
-      if (!keyId) return;
-      const rawChat = r.msgId?.remote ?? '';
-      if (!rawChat || rawChat === 'status@broadcast') return;
-      const chatJid = await this.resolveNumberJid(rawChat);
-      this.deps.onEvent('message.reaction', {
-        keyId,
-        chatJid,
-        senderJid: r.senderId ?? null,
-        emoji: r.reaction ?? '',
-        fromMe: !!r.id?.fromMe,
-        timestamp:
-          typeof r.timestamp === 'number'
-            ? r.timestamp
-            : Math.floor(Date.now() / 1000),
-      });
+      const payload = mapWwebjsReaction(
+        r as unknown as Parameters<typeof mapWwebjsReaction>[0],
+      );
+      if (!payload) return;
+      payload.chatJid = await this.resolveNumberJid(payload.chatJid);
+      this.deps.onEvent('message.reaction', payload);
     } catch (e) {
       this.deps.logger.error({ err: e }, 'wwebjs: onReaction falhou');
     }
@@ -1969,9 +2245,14 @@ export class WWebJSEngine implements IEngine {
         where: { sessionId: this.deps.sessionId, chatJid: lid },
         data: { chatJid: phoneJid },
       });
-      if (r.count > 0) {
+      // E22: as reações da conversa acompanham (paridade com o Baileys).
+      const rx = await this.deps.prisma.messageReaction.updateMany({
+        where: { sessionId: this.deps.sessionId, chatJid: lid },
+        data: { chatJid: phoneJid },
+      });
+      if (r.count > 0 || rx.count > 0) {
         this.deps.logger.info(
-          { lid, phoneJid, count: r.count },
+          { lid, phoneJid, count: r.count, reactions: rx.count },
           'wwebjs: merge LID->telefone (retroativo)',
         );
       }
@@ -2236,28 +2517,32 @@ export class WWebJSEngine implements IEngine {
     if (!keyId) return null;
     const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
     if (!raw || raw === 'status@broadcast') return null;
+    // E22: mesma descrição do ao vivo — sistema/ligação/apagada ficam fora do backfill.
+    const d = describeWwebjsMessage(msg as unknown as WwebjsMessageLike);
+    if (d.kind === 'ignore') return null;
     const chatJid = await this.resolveNumberJid(raw);
-    const isMedia = !!msg.hasMedia;
-    const type = isMedia ? mapInboundMediaType(msg.type) : 'text';
-    // author = participante real numa mensagem de grupo; em 1:1 é ausente.
-    const author = (msg as unknown as { author?: string }).author;
     return {
       keyId,
       chatJid,
+      // P-074 (E23): mesmo remetente do ao vivo — antes ia o author CRU (@lid e aparelho inclusos).
       senderJid: msg.fromMe
         ? (this.client?.info?.wid?._serialized ?? null)
-        : (author ?? chatJid),
+        : (wwebjsGroupSender(raw, msg.author, this.lidToPnCache) ?? chatJid),
       fromMe: !!msg.fromMe,
-      type,
-      text: msg.body || null,
+      type: d.type,
+      text: d.text,
       timestamp:
         typeof msg.timestamp === 'number'
           ? msg.timestamp
           : Math.floor(Date.now() / 1000),
-      mediaType: isMedia ? type : null,
+      mediaType:
+        d.media?.mediaType ??
+        (msg.hasMedia ? mapInboundMediaType(msg.type) : null),
       mimetype: null,
       fileName: null,
       fileSize: null,
+      isForwarded: d.isForwarded,
+      forwardingScore: d.forwardingScore,
     };
   }
 

@@ -27,7 +27,7 @@ Encerramento de sessão (R9): reconciliação documental (diff × mapa de gatilh
 
 - **macOS:** os comandos rodam direto na raiz do repo, sem o prefixo `wsl.exe` (validado em 25/09/2026 com Node v26.0.0 / npm 11.12.1: `npm run test:unit` 133/133 · `npx tsc --noEmit -p apps/gateway/tsconfig.json` · `npm run lint` · `npm run depcruise` — todos verdes). O prefixo `wsl.exe` vale só para a máquina Windows.
 - `npm run dev` — gateway :3000 + dashboard :5173 (`nest start --watch` REINICIA a cada save de .ts)
-- `npm run lint` · `npm run format:check` · `npm run depcruise` (fronteiras — D-018) · `npm run test:unit` (SEM infra) · `npm run test` (unit+e2e, precisa da infra: `npm run infra:up`)
+- `npm run lint` · `npm run format:check` · `npm run depcruise` (fronteiras — D-018) · `npm run test:unit` (SEM infra — unit do gateway + testes do painel) · `npm run test` (unit+e2e do gateway, precisa da infra: `npm run infra:up`, + painel) · filtrar um arquivo: rode por workspace (`npm run test:unit -w apps/gateway -- <arquivo>`, `npm run test -w apps/dashboard -- <arquivo>`) — no script raiz o filtro iria só para o painel
 - `npm run gateway:build` · `npm run dashboard:build`
 - Typecheck sem tocar dist: `npx tsc --noEmit -p apps/gateway/tsconfig.json` (NUNCA `nest build` com o watch rodando — corrompe `dist/`)
 - Migration nova: `npm run prisma:migrate -w apps/gateway -- --name <slug>` · Em prod SEMPRE `migrate deploy`

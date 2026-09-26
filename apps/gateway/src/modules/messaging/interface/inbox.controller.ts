@@ -88,6 +88,10 @@ function toFeedDto(row: InboxFeedRow) {
     source: row.source,
     type: row.type,
     text: row.text,
+    // Aditivos (E22): tiques das enviadas (P-072 — só exibição) e selo "Encaminhada" (P-066).
+    status: row.status,
+    isForwarded: row.isForwarded,
+    forwardingScore: row.forwardingScore,
     timestamp: row.timestamp.toISOString(),
   };
 }

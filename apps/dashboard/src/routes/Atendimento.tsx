@@ -9,8 +9,38 @@ import type {
   MessageDto,
   SessionDto,
 } from '@contracts';
-import { api, BASE } from '../lib/api';
+import { ChatThread } from '../components/chat/ChatThread';
+import { ForwardedTag } from '../components/chat/ForwardedTag';
+import { Ticks } from '../components/chat/Ticks';
+import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import {
+  displayName,
+  isTriageExcludedChat,
+  numberFromJid,
+  sendTarget,
+} from '../lib/jid';
+import {
+  applyAck,
+  applyReaction,
+  feedItemFromEvent,
+  mergeFeed,
+  overlayAcks,
+  rememberFeedItem,
+  rememberAck,
+  rememberReaction,
+  replayReactions,
+  stabilize,
+  upsertFeedItem,
+  type AckMemory,
+  type FeedMemory,
+  type LiveEvent,
+  type ReactionMemory,
+} from '../lib/live-events';
+import { conversationPreview, messagePreview } from '../lib/message-format';
+import { clock, since } from '../lib/time-format';
+import { deviceBlockReason, sendErrorMessage } from '../lib/send-feedback';
+import { useLiveStream } from '../lib/use-live-stream';
 
 // Caixa única de triagem — tudo que chega de TODOS os aparelhos numa tela só, sem escolher sessão.
 // Semáforo por conversa (derivado das mensagens, o gateway é o juiz):
@@ -40,57 +70,6 @@ const FEED_MAX = 200;
 const convKey = (c: { sessionId: string; chatJid: string }) =>
   `${c.sessionId}|${c.chatJid}`;
 
-function numberFromJid(jid: string): string {
-  return jid.split('@')[0] || jid;
-}
-
-// Para enviar, o gateway aceita o número quando o JID é de telefone; lid vai como veio.
-function sendTarget(chatJid: string): string {
-  return chatJid.endsWith('@s.whatsapp.net') || chatJid.endsWith('@c.us')
-    ? numberFromJid(chatJid)
-    : chatJid;
-}
-
-function mediaLabel(type: string): string {
-  switch (type) {
-    case 'image':
-      return '📷 Imagem';
-    case 'video':
-      return '🎥 Vídeo';
-    case 'audio':
-      return '🎵 Áudio';
-    case 'document':
-      return '📄 Documento';
-    case 'sticker':
-      return '🩷 Figurinha';
-    default:
-      return '';
-  }
-}
-
-function displayName(c: { name: string | null; chatJid: string }): string {
-  return c.name?.trim() || numberFromJid(c.chatJid);
-}
-
-function preview(c: InboxConversationDto): string {
-  const body = c.lastText?.trim() || mediaLabel(c.lastType) || '…';
-  return c.lastFromMe ? `Você: ${body}` : body;
-}
-
-// "agora", "há 3 min", "há 2 h" — o operador precisa saber HÁ QUANTO TEMPO está esperando.
-function since(iso: string): string {
-  const diff = Date.now() - Date.parse(iso);
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return 'agora';
-  if (min < 60) return `há ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `há ${h} h`;
-  return `há ${Math.floor(h / 24)} d`;
-}
-
-const hhmm = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
 export function Atendimento() {
   const { signOut } = useAuth();
   const [sessions, setSessions] = useState<SessionDto[]>([]);
@@ -112,13 +91,24 @@ export function Atendimento() {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
+  // Erro do ENVIO: aparece junto da caixa de resposta (no topo da página passava despercebido).
+  const [sendError, setSendError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const endRef = useRef<HTMLDivElement>(null);
-  // O SSE não pode reabrir a cada clique na lista: o handler lê a conversa aberta por ref.
+  // O SSE não pode reabrir a cada clique na lista: o handler lê a conversa aberta e o filtro por ref.
   const selectedRef = useRef<InboxConversationDto | null>(null);
   selectedRef.current = selected;
+  const deviceRef = useRef(deviceFilter);
+  deviceRef.current = deviceFilter;
+  // Tiques e reações vistos ao vivo (E23): reaplicados sobre cada recarga do servidor — um GET que
+  // saiu antes do evento não pode desfazê-lo, e o ACK que chegou antes do INSERT nunca volta no GET.
+  const ackMem = useRef<AckMemory>(new Map());
+  const rxMem = useRef<ReactionMemory>([]);
+  // Itens do "Fluxo ao vivo" vindos do SSE: um GET do fluxo que leu o banco ANTES do INSERT (o
+  // evento sai antes da gravação) não pode apagá-los ao voltar — mergeFeed.
+  const feedMem = useRef<FeedMemory>([]);
+  const timers = useRef<{ list?: number; open?: number }>({});
+  const [stickKey, setStickKey] = useState(0);
   const intentRef = useRef<{ key: string; chat: string; text: string } | null>(
     null,
   );
@@ -142,19 +132,59 @@ export function Atendimento() {
   // A lista SEMPRE vem inteira do gateway (todas as cores) e o filtro de cor é aplicado aqui:
   // assim os contadores não piscam e uma conversa que muda de cor não desaparece da tela sem
   // explicação. Os contadores vêm do gateway (conjunto inteiro).
+  // Resposta de um filtro de aparelho que já não é o da tela (GET em voo na troca, ou o debounce
+  // que dispara depois dela) é descartada — senão lista e contadores voltam ao filtro antigo.
   const loadConversations = useCallback(async () => {
     const body = await api.inbox.conversations({
       limit: 300,
       sessions: sessionsParam,
     });
+    if (deviceRef.current !== deviceFilter) return;
     setConversations(body.conversations);
     setCounts(body.counts);
-  }, [sessionsParam]);
+  }, [sessionsParam, deviceFilter]);
 
   const loadFeed = useCallback(async () => {
+    const requestedAt = Date.now();
     const rows = await api.inbox.feed({ limit: 100, sessions: sessionsParam });
-    setFeed(rows);
-  }, [sessionsParam]);
+    if (deviceRef.current !== deviceFilter) return;
+    setFeed(
+      overlayAcks(
+        mergeFeed(rows, feedMem.current, requestedAt, FEED_MAX),
+        ackMem.current,
+      ),
+    );
+  }, [sessionsParam, deviceFilter]);
+
+  // Trocou o filtro: os itens ao vivo guardados eram do filtro anterior.
+  useEffect(() => {
+    feedMem.current = [];
+  }, [deviceFilter]);
+
+  // Histórico da conversa aberta (a tela é de monitoramento; responder é opcional).
+  const loadOpen = useCallback(async () => {
+    const open = selectedRef.current;
+    if (!open) return;
+    const requestedAt = Date.now();
+    const list = await api.sessions.messages(open.sessionId, open.chatJid);
+    const cur = selectedRef.current;
+    if (
+      !cur ||
+      cur.sessionId !== open.sessionId ||
+      cur.chatJid !== open.chatJid
+    )
+      return; // trocou de conversa enquanto o GET voltava
+    const merged = replayReactions(
+      overlayAcks(list, ackMem.current),
+      rxMem.current,
+      requestedAt,
+    );
+    setMessages((prev) => stabilize(prev, merged));
+  }, []);
+
+  const resync = useCallback(() => {
+    Promise.all([loadConversations(), loadFeed(), loadOpen()]).catch(() => {});
+  }, [loadConversations, loadFeed, loadOpen]);
 
   useEffect(() => {
     let alive = true;
@@ -162,7 +192,7 @@ export function Atendimento() {
     const tick = () => {
       if (inFlight || !alive) return; // uma leitura pendente por recurso
       inFlight = true;
-      Promise.all([loadConversations(), loadFeed()])
+      Promise.all([loadConversations(), loadFeed(), loadOpen()])
         .catch(() => {})
         .finally(() => {
           inFlight = false;
@@ -175,112 +205,78 @@ export function Atendimento() {
       alive = false;
       clearInterval(id);
     };
-  }, [loadConversations, loadFeed]);
+  }, [loadConversations, loadFeed, loadOpen]);
 
-  // Tempo real: o SSE /api/events/stream já entrega os eventos de TODAS as sessões (inclusive de
-  // outra réplica, via fan-out Redis). Mensagem nova → entra no fluxo na hora e a lista é relida
-  // (debounce de 800 ms para rajada de mensagens não virar rajada de requisições).
+  // Rajada de mensagens não vira rajada de requisições (800 ms). A conversa aberta também espera:
+  // o evento sai antes de a linha ser gravada no banco.
+  const debounce = (k: 'list' | 'open', fn: () => Promise<unknown>) => {
+    if (timers.current[k] !== undefined) return;
+    timers.current[k] = window.setTimeout(() => {
+      timers.current[k] = undefined;
+      fn().catch(() => {});
+    }, 800);
+  };
   useEffect(() => {
-    const es = new EventSource(`${BASE}/api/events/stream`, {
-      withCredentials: true,
-    });
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleReload = () => {
-      if (timer) return;
-      timer = setTimeout(() => {
-        timer = null;
-        loadConversations().catch(() => {});
-      }, 800);
-    };
-
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
-    es.onmessage = (ev) => {
-      let env: {
-        event?: string;
-        sessionId?: string;
-        session?: string;
-        payload?: {
-          keyId?: string;
-          chatJid?: string;
-          fromMe?: boolean;
-          source?: string | null;
-          type?: string;
-          text?: string | null;
-          timestamp?: number;
-        };
-      };
-      try {
-        env = JSON.parse(ev.data);
-      } catch {
-        return;
-      }
-      if (env.event !== 'message' || !env.payload?.chatJid) return;
-      const p = env.payload;
-      const chatJid = p.chatJid!;
-      // Grupo/transmissão/canal não entram nesta tela (mesma regra do gateway).
-      if (/@(g\.us|broadcast|newsletter)$/.test(chatJid)) return;
-      if (deviceFilter && env.sessionId !== deviceFilter) return;
-
-      setFeed((prev) =>
-        [
-          {
-            id: `sse-${env.sessionId}-${p.keyId ?? p.timestamp}`,
-            keyId: p.keyId ?? '',
-            sessionId: env.sessionId ?? '',
-            sessionName: env.session ?? '',
-            chatJid,
-            name: null,
-            fromMe: p.fromMe ?? false,
-            source: p.source ?? null,
-            type: p.type ?? 'text',
-            text: p.text ?? null,
-            timestamp: new Date((p.timestamp ?? 0) * 1000).toISOString(),
-          },
-          ...prev.filter((m) => m.keyId !== p.keyId),
-        ].slice(0, FEED_MAX),
-      );
-      scheduleReload();
-      // Conversa aberta na tela → recarrega o histórico dela também.
-      const open = selectedRef.current;
-      if (
-        open &&
-        open.sessionId === env.sessionId &&
-        open.chatJid === chatJid
-      ) {
-        api.sessions
-          .messages(open.sessionId, open.chatJid)
-          .then(setMessages)
-          .catch(() => {});
-      }
-    };
+    const t = timers.current;
     return () => {
-      if (timer) clearTimeout(timer);
-      es.close();
+      window.clearTimeout(t.list);
+      window.clearTimeout(t.open);
     };
-  }, [deviceFilter, loadConversations]);
+  }, []);
 
-  // Histórico da conversa aberta (a tela é de monitoramento; responder é opcional).
-  useEffect(() => {
-    if (!selected) {
-      setMessages([]);
+  // Tempo real: o SSE /api/events/stream entrega os eventos de TODAS as sessões (inclusive de
+  // outra réplica, via fan-out Redis). Casamento SEMPRE por (sessionId, keyId) — nunca por chatJid.
+  const onLiveEvent = (ev: LiveEvent) => {
+    if (ev.kind === 'ack') {
+      rememberAck(ackMem.current, ev);
+      setFeed((prev) => applyAck(prev, ev));
+      setMessages((prev) => applyAck(prev, ev));
       return;
     }
-    let alive = true;
-    api.sessions
-      .messages(selected.sessionId, selected.chatJid)
-      .then((list) => {
-        if (alive) setMessages(list);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [selected?.sessionId, selected?.chatJid]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (ev.kind === 'reaction') {
+      // Reação não mexe no semáforo (D-028): só o balão da conversa aberta.
+      rememberReaction(rxMem.current, ev, Date.now());
+      setMessages((prev) => applyReaction(prev, ev));
+      return;
+    }
+    // Grupo/transmissão/canal não entram nesta tela (mesma regra do gateway).
+    if (isTriageExcludedChat(ev.chatJid)) return;
+    if (deviceRef.current && ev.sessionId !== deviceRef.current) return;
+    const item = overlayAcks([feedItemFromEvent(ev)], ackMem.current)[0];
+    rememberFeedItem(feedMem.current, item, Date.now());
+    setFeed((prev) => upsertFeedItem(prev, item, FEED_MAX));
+    debounce('list', loadConversations);
+    const open = selectedRef.current;
+    if (
+      open &&
+      open.sessionId === ev.sessionId &&
+      open.chatJid === ev.chatJid
+    ) {
+      debounce('open', loadOpen);
+    }
+  };
+  const connected = useLiveStream(onLiveEvent, resync);
+
+  // Stream fora do ar: a conversa aberta passa a ser relida a cada 5 s (sem ela, tique e reação
+  // congelariam em silêncio).
+  useEffect(() => {
+    if (connected || !selected) return;
+    const id = setInterval(() => {
+      loadOpen().catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [connected, selected, loadOpen]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    setMessages([]);
+    setSendError(null);
+    if (selected) loadOpen().catch(() => {});
+  }, [selected?.sessionId, selected?.chatJid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Aparelho da conversa aberta desconectado → não adianta tentar enviar por aqui.
+  const blocked = selected
+    ? deviceBlockReason(sessions.find((s) => s.id === selected.sessionId))
+    : null;
 
   const visible = useMemo(
     () =>
@@ -328,7 +324,7 @@ export function Atendimento() {
     e.preventDefault();
     const body = text.trim();
     if (!body || !selected || sending) return;
-    setError(null);
+    setSendError(null);
     setSending(true);
     const target = sendTarget(selected.chatJid);
     // Retry da MESMA intenção reusa a chave — o gateway dedupa (não manda duas vezes).
@@ -343,15 +339,23 @@ export function Atendimento() {
         idempotencyKey: key,
       });
       intentRef.current = null;
-      setText('');
-      api.sessions
-        .messages(selected.sessionId, selected.chatJid)
-        .then(setMessages)
-        .catch(() => {});
+      // Só limpa se o campo ainda tem o texto enviado (o operador pode ter começado outra mensagem).
+      setText((t) => (t.trim() === body ? '' : t));
+      const open = selectedRef.current;
+      if (
+        open &&
+        open.sessionId === selected.sessionId &&
+        open.chatJid === selected.chatJid
+      )
+        setStickKey((k) => k + 1);
+      loadOpen().catch(() => {});
       await loadConversations();
     } catch (err) {
-      setError(
-        `${(err as Error).message} — o texto foi mantido; tentar de novo reaproveita a mesma intenção (sem duplicar).`,
+      setSendError(
+        sendErrorMessage(
+          err as { status?: number; message?: string },
+          selected.sessionName,
+        ),
       );
     } finally {
       setSending(false);
@@ -379,7 +383,9 @@ export function Atendimento() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
+    // Altura da janela (E23): a conversa aberta e as listas rolam por DENTRO do painel — o ChatThread
+    // só consegue manter o fim à vista (e carregar imagem ao aparecer) se ele for o contêiner que rola.
+    <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
       <header className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
         <div className="flex items-center gap-3">
           <Link to="/" className="text-zinc-400 hover:text-zinc-200">
@@ -438,9 +444,9 @@ export function Atendimento() {
         </p>
       )}
 
-      <div className="grid flex-1 grid-cols-1 gap-4 p-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-4 p-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-1">
         {/* Lista de conversas — a superfície de trabalho */}
-        <section className="flex min-h-[60vh] flex-col overflow-hidden rounded-xl border border-zinc-800">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-800">
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500">
             <span>Conversas (mais recente primeiro)</span>
             <span>{visible.length} exibida(s)</span>
@@ -455,15 +461,19 @@ export function Atendimento() {
               const key = convKey(c);
               const active = selected && convKey(selected) === key;
               return (
+                // A LINHA inteira abre a conversa (o fundo acende nela toda — antes só o nome/prévia
+                // era clicável e o clique na faixa de baixo ou na margem se perdia). O <button> fica
+                // para o teclado: Enter/Espaço disparam click, que sobe até aqui.
                 <div
                   key={key}
-                  className={`px-4 py-3 ${active ? 'bg-zinc-900' : 'hover:bg-zinc-900/50'}`}
+                  onClick={() => {
+                    setSelected(c);
+                    setTab('conversa');
+                  }}
+                  className={`cursor-pointer px-4 py-3 ${active ? 'bg-zinc-900' : 'hover:bg-zinc-900/50'}`}
                 >
                   <button
-                    onClick={() => {
-                      setSelected(c);
-                      setTab('conversa');
-                    }}
+                    type="button"
                     className="flex w-full items-start gap-3 text-left"
                   >
                     <span
@@ -486,11 +496,11 @@ export function Atendimento() {
                         )}
                       </span>
                       <span className="mt-0.5 block truncate text-sm text-zinc-400">
-                        {preview(c)}
+                        {conversationPreview(c)}
                       </span>
                     </span>
                     <span className="shrink-0 text-right text-[11px] text-zinc-500">
-                      {hhmm(c.lastTimestamp)}
+                      {clock(c.lastTimestamp)}
                       <span className="block">{since(c.lastTimestamp)}</span>
                     </span>
                   </button>
@@ -498,7 +508,10 @@ export function Atendimento() {
                     {c.status === 'pending' && (
                       <button
                         disabled={busyKey === key}
-                        onClick={() => setTriage(c, 'ignored')}
+                        onClick={(e) => {
+                          e.stopPropagation(); // marcar a cor não abre a conversa
+                          void setTriage(c, 'ignored');
+                        }}
                         title="Não vou responder esta (fim de conversa) — fica amarela"
                         className="rounded-md border border-amber-500/40 px-2 py-1 text-[11px] text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
                       >
@@ -508,7 +521,10 @@ export function Atendimento() {
                     {c.status === 'ignored' && (
                       <button
                         disabled={busyKey === key}
-                        onClick={() => setTriage(c, 'pending')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void setTriage(c, 'pending');
+                        }}
                         title="Voltar para a fila de resposta"
                         className="rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-300 hover:bg-red-500/10 disabled:opacity-50"
                       >
@@ -531,7 +547,7 @@ export function Atendimento() {
         </section>
 
         {/* Painel direito: conversa aberta OU fluxo cronológico de todos os aparelhos */}
-        <section className="flex min-h-[60vh] flex-col overflow-hidden rounded-xl border border-zinc-800">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-800">
           <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2">
             {(['conversa', 'fluxo'] as const).map((t) => (
               <button
@@ -567,7 +583,7 @@ export function Atendimento() {
                   className="px-4 py-2 text-sm"
                 >
                   <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                    <span>{hhmm(m.timestamp)}</span>
+                    <span>{clock(m.timestamp)}</span>
                     <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-sky-300">
                       {m.sessionName}
                     </span>
@@ -583,67 +599,94 @@ export function Atendimento() {
                     </span>
                   </div>
                   <div className="mt-0.5 text-zinc-200">
-                    {m.text?.trim() || mediaLabel(m.type) || '…'}
+                    <ForwardedTag
+                      isForwarded={m.isForwarded}
+                      forwardingScore={m.forwardingScore}
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <span className="min-w-0 truncate">
+                        {messagePreview(m)}
+                      </span>
+                      <Ticks
+                        fromMe={m.fromMe}
+                        chatJid={m.chatJid}
+                        status={m.status}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <>
-              <div className="flex-1 space-y-2 overflow-y-auto p-4">
-                {!selected && (
-                  <p className="py-10 text-center text-sm text-zinc-500">
-                    Escolha uma conversa à esquerda para ler o histórico (e
-                    responder, se quiser).
-                  </p>
-                )}
-                {selected &&
-                  messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.fromMe ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                          m.fromMe
-                            ? 'bg-emerald-600/90 text-white'
-                            : 'bg-zinc-800 text-zinc-100'
-                        }`}
-                      >
-                        {m.text?.trim() || mediaLabel(m.type) || '…'}
-                        <div className="mt-1 text-right text-[10px] opacity-60">
-                          {hhmm(m.timestamp)}
-                          {m.fromMe && m.source === 'phone' && ' · aparelho'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                {selected && messages.length === 0 && (
-                  <p className="py-10 text-center text-sm text-zinc-500">
-                    Sem histórico guardado desta conversa ainda.
-                  </p>
-                )}
-                <div ref={endRef} />
-              </div>
+              {!selected && (
+                <p className="flex-1 py-10 text-center text-sm text-zinc-500">
+                  Escolha uma conversa à esquerda para ler o histórico (e
+                  responder, se quiser).
+                </p>
+              )}
               {selected && (
-                <form
-                  onSubmit={reply}
-                  className="flex gap-2 border-t border-zinc-800 p-3"
-                >
-                  <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder={`Responder ${displayName(selected)} por ${selected.sessionName} (opcional — o normal é responder no aparelho)`}
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    disabled={!text.trim() || sending}
-                    aria-busy={sending}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-                  >
-                    {sending ? 'Enviando…' : 'Enviar'}
-                  </button>
-                </form>
+                <ChatThread
+                  key={convKey(selected)}
+                  messages={messages}
+                  chatJid={selected.chatJid}
+                  stickKey={stickKey}
+                  empty={
+                    <p className="py-10 text-center text-sm text-zinc-500">
+                      Sem histórico guardado desta conversa ainda.
+                    </p>
+                  }
+                  // E25: ⌄ Encaminhar / atalho ↪ — conversas do MESMO aparelho (contatos e grupos,
+                  // inclusive os que esta caixa não lista); o modo seleção troca a resposta pela barra.
+                  forward={{
+                    sessionId: selected.sessionId,
+                    deviceName: selected.sessionName,
+                    blockedReason: deviceBlockReason(
+                      sessions.find((s) => s.id === selected.sessionId),
+                      'encaminhe',
+                    ),
+                  }}
+                  footer={
+                    <div className="border-t border-zinc-800 p-3">
+                      {(blocked || sendError) && (
+                        <p
+                          role="alert"
+                          className={`mb-2 rounded-md px-3 py-2 text-sm ${
+                            blocked
+                              ? 'bg-zinc-800 text-zinc-300'
+                              : 'bg-amber-500/10 text-amber-300'
+                          }`}
+                        >
+                          {blocked ?? sendError}
+                        </p>
+                      )}
+                      <form onSubmit={reply} className="flex gap-2">
+                        <input
+                          value={text}
+                          disabled={!!blocked}
+                          onChange={(e) => setText(e.target.value)}
+                          placeholder={`Responder ${displayName(selected)} por ${selected.sessionName} (opcional — o normal é responder no aparelho)`}
+                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!text.trim() || sending || !!blocked}
+                          aria-busy={sending}
+                          title={
+                            blocked
+                              ? 'Aparelho desconectado'
+                              : !text.trim()
+                                ? 'Escreva a mensagem para enviar'
+                                : undefined
+                          }
+                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+                        >
+                          {sending ? 'Enviando…' : 'Enviar'}
+                        </button>
+                      </form>
+                    </div>
+                  }
+                />
               )}
             </>
           )}

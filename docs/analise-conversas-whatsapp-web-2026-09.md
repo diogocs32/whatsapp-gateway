@@ -122,8 +122,10 @@ forwardingScore}` e reaproveita a mídia (mesmo url/directPath/chave). Testado o
   precisam de cast).
 - **wwebjs 1.34.7:** `Message.forward(chat)` (`Message.js:493-509`) → `WWebJS.forwardMessage`
   (`src/util/Injected/Utils.js:113-129`), a função nativa do WhatsApp Web. Limites: mensagem
-  carregada no navegador (`client.getMessageById`, `Client.js:1811`); destino precisa ser chat já
-  existente (`Message.js:494`); não devolve o id novo (`index.d.ts:1342`) — o eco chegaria como
+  carregada no navegador (`client.getMessageById`, `Client.js:1811`); ~~destino precisa ser chat já
+  existente (`Message.js:494`)~~ **📎 E24 (26/09): errado — o JSDoc diz isso, mas o `getChat` da
+  lib cai no `findOrCreateLatestChat` e CRIA o chat (`src/util/Injected/Utils.js:878-887`)**; não
+  devolve o id novo (`index.d.ts:1342`) — o eco chegaria como
   mensagem do celular (`wwebjs.engine.ts:1604-1612`) e dispararia handoff G2 à toa → correlacionar.
   `sendMessage(…, {extra:{isForwarded}})` existe (`Client.js:1531`) — não verificado.
 - **Selo "Encaminhada" nas recebidas (ignorado hoje):** Baileys
@@ -135,7 +137,8 @@ forwardingScore}` e reaproveita a mídia (mesmo url/directPath/chave). Testado o
 - **API aditiva proposta:** `POST /api/sessions/:s/messages/:msgId/forward`
   `{to: string[] (1-5, únicos), cold?, idempotencyKey?}`; um destino por vez com intervalo 1-3 s, cada um
   pelo `sendWithIntent` (chave `${idempotencyKey}:${to}`, fingerprint `{kind:'forward', msgId, to}`);
-  anti-ban: máx. 5 destinos (1 se a cópia ficar com contador ≥ 5), destino sem conversa = cold com
+  anti-ban: máx. 5 destinos (1 se a cópia ficar com contador ≥ 5 — **📎 E24: vale a regra do dono,
+  1 se a ORIGINAL já tem contador ≥ 5; D-030**), destino sem conversa = cold com
   trava 423, só a mesma sessão; resposta `{results:[…]}`; `IEngine.forwardMessage`; webhook aditivo
   `isForwarded`/`forwardingScore` (contracts + INTEGRACAO no mesmo commit).
 - **UI fiel:** menu ⌄ no balão → Encaminhar → modo seleção → "Encaminhar mensagem para" (busca,

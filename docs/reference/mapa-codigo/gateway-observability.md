@@ -10,8 +10,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/observability/metrics.service.ts` | 154 |
 | `modules/observability/observability.controller.ts` | 45 |
 | `modules/observability/observability.module.ts` | 22 |
-| `modules/observability/reply-rate.service.ts` | 169 |
-| `modules/observability/retention.service.ts` | 93 |
+| `modules/observability/reply-rate.service.ts` | 205 |
+| `modules/observability/retention.service.ts` | 105 |
 | `modules/observability/session-event.logger.ts` | 53 |
 
 ## `modules/observability/metrics.controller.ts`
@@ -93,7 +93,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/observability/reply-rate.service.ts`
 
-169 linhas · caminho: `apps/gateway/src/modules/observability/reply-rate.service.ts`
+205 linhas · caminho: `apps/gateway/src/modules/observability/reply-rate.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`
 - importado por: `modules/guardrail/guardrail.service.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`
 
@@ -124,9 +124,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/observability/retention.service.ts`
 
-93 linhas · caminho: `apps/gateway/src/modules/observability/retention.service.ts`
+105 linhas · caminho: `apps/gateway/src/modules/observability/retention.service.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`
-- importado por: `modules/observability/observability.module.ts`
+- importado por: `modules/observability/observability.module.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`
 
 **class `RetentionService`** L12 · @Injectable · `implements OnApplicationBootstrap`
 - injeta (construtor): `prisma: PrismaService`
@@ -136,16 +136,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `sweep` L30
   - env: `NODE_ENV`, `RETENTION_SWEEP_HOURS`
 - `sweep()` · L30 · async
-  - chama: `purge` L73, `stripOldRaw` L58
+  - chama: `purge` L85, `stripOldRaw` L70
   - chamado por: `onApplicationBootstrap` L18
-  - banco: `sendIntent.deleteMany`, `waAuditLog.deleteMany`, `waMessage.deleteMany`, `waSessionEvent.deleteMany`
-- `cutoff(envName, defDays)` · L50 · private
-  - chamado por: `purge` L73, `stripOldRaw` L58
-- `stripOldRaw()` · L58 · private · async
-  - chama: `cutoff` L50
+  - banco: `messageReaction.deleteMany`, `sendIntent.deleteMany`, `waAuditLog.deleteMany`, `waMessage.deleteMany`, `waSessionEvent.deleteMany`
+- `cutoff(envName, defDays)` · L62 · private
+  - chamado por: `purge` L85, `stripOldRaw` L70
+- `stripOldRaw()` · L70 · private · async
+  - chama: `cutoff` L62
   - chamado por: `sweep` L30
-- `purge(label, envName, defDays, del)` · L73 · private · async
-  - chama: `cutoff` L50
+- `purge(label, envName, defDays, del)` · L85 · private · async
+  - chama: `cutoff` L62
   - chamado por: `sweep` L30
 
 ## `modules/observability/session-event.logger.ts`

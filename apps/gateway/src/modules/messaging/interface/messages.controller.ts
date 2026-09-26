@@ -19,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Env } from '../../../bootstrap/config';
+import { ContactDirectory } from '../../../infra/directory/contact-directory.service';
 import {
   MediaStorage,
   StorageUnavailableError,
@@ -34,10 +35,15 @@ import { GuardrailService } from '../../guardrail/guardrail.service';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
-import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
+import {
+  MAX_FORWARD_TARGETS,
+  UnsupportedEngineOperationError,
+} from '../../sessions/application/engine.port';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
+import { candidateJids } from '../application/chat-jids';
+import { ForwardService } from '../application/forward.service';
 import { InboxSyncService } from '../application/inbox-sync.service';
 import { sendFingerprint } from '../application/send-intent.decision';
 import { SendIntentService } from '../application/send-intent.service';
@@ -47,6 +53,12 @@ import {
   type MessageRepository,
   type StoredMessage,
 } from '../domain/message.repository';
+import {
+  REACTION_REPOSITORY,
+  type ReactionRepository,
+  type StoredReaction,
+} from '../domain/reaction.repository';
+import { inlineDisposition, safeContentType } from './content-disposition';
 
 // G1: `cold` marca o 1º contato permissionado; `idempotencyKey` dá dedup forte (retry do n8n
 // não duplica). Comuns a texto e mídia.
@@ -94,6 +106,23 @@ const sendMediaUrlSchema = z.object({
 // W5: reação a uma mensagem. emoji vazio ('') REMOVE a reação.
 const reactionSchema = z.object({ emoji: z.string().max(20) });
 
+// P-068 (E24): encaminhar — 1 a 5 destinos (número, jid de contato, grupo ou @lid) da MESMA sessão.
+// `cold` só SOBE o cold (destino sem conversa já é cold); `idempotencyKey` vale para o lote.
+const forwardSchema = z.object({
+  to: z
+    .array(z.string().min(5).max(80), {
+      invalid_type_error: 'to: informe uma lista de destinos',
+      required_error: 'to é obrigatório (lista de 1 a 5 destinos)',
+    })
+    .min(1, 'to: informe ao menos 1 destino')
+    .max(
+      MAX_FORWARD_TARGETS,
+      `to: no máximo ${MAX_FORWARD_TARGETS} destinos por encaminhamento`,
+    ),
+  cold: coldField,
+  idempotencyKey: idempotencyKeyField,
+});
+
 // W5: localização.
 const sendLocationSchema = z.object({
   to: z.string().min(5).max(40),
@@ -123,31 +152,6 @@ function inferType(mimetype: string | undefined): MediaSendType {
   return 'document';
 }
 
-// JIDs candidatos para uma conversa. Cobre (a) as duas formas do 9º dígito BR (§23.11) — o
-// WhatsApp pode armazenar com ou sem o 9 — e (b) os dois sufixos de servidor: `@s.whatsapp.net`
-// (engine Baileys) e `@c.us` (engine whatsapp-web.js / WWEBJS). Sem o `@c.us`, o inbox de uma
-// sessão WWEBJS aparece vazio (as mensagens são persistidas com `<num>@c.us`).
-function candidateJids(chatId: string): string[] {
-  if (chatId.includes('@')) return [chatId];
-  const digits = chatId.replace(/[^0-9]/g, '');
-  const numbers = new Set<string>([digits]);
-  if (digits.startsWith('55') && digits.length >= 12) {
-    const ddd = digits.slice(2, 4);
-    const num = digits.slice(4);
-    if (num.length === 9 && num.startsWith('9')) {
-      numbers.add(`55${ddd}${num.slice(1)}`);
-    } else if (num.length === 8) {
-      numbers.add(`55${ddd}9${num}`);
-    }
-  }
-  const jids = new Set<string>();
-  for (const n of numbers) {
-    jids.add(`${n}@s.whatsapp.net`);
-    jids.add(`${n}@c.us`);
-  }
-  return [...jids];
-}
-
 function toConversationDto(c: ConversationSummary) {
   return {
     chatJid: c.chatJid,
@@ -160,7 +164,43 @@ function toConversationDto(c: ConversationSummary) {
   };
 }
 
-function toDto(m: StoredMessage, mediaUrl: string | null) {
+// P-066 (E22): reação como o WhatsApp mostra no balão — emoji + quem reagiu. Só as vivas (a removida
+// não aparece); em ordem de horário.
+function toReactionDto(r: StoredReaction) {
+  return {
+    emoji: r.emoji,
+    senderJid: r.senderJid,
+    fromMe: r.fromMe,
+    timestamp: r.timestamp.toISOString(),
+  };
+}
+
+// E23 (P-074): remetente de uma mensagem RECEBIDA em grupo, quando a linha o tem — as de grupo
+// gravadas antes da E23 trazem o jid do próprio grupo em senderJid (= chatJid).
+function groupSenderOf(m: StoredMessage): string | null {
+  return !m.fromMe &&
+    m.chatJid.endsWith('@g.us') &&
+    m.senderJid &&
+    m.senderJid !== m.chatJid
+    ? m.senderJid
+    : null;
+}
+
+// Chaves de diretório de um remetente (namesFor casa waId/lid/jid/phone): o jid e, quando é
+// telefone (@s.whatsapp.net no Baileys, @c.us no WWEBJS), os dígitos — acha o contato gravado no
+// outro formato pela coluna phone.
+function senderKeys(jid: string): string[] {
+  return /@(s\.whatsapp\.net|c\.us)$/.test(jid)
+    ? [jid, jid.split('@')[0]]
+    : [jid];
+}
+
+function toDto(
+  m: StoredMessage,
+  mediaUrl: string | null,
+  reactions: StoredReaction[] = [],
+  senderName: string | null = null,
+) {
   return {
     id: m.id,
     // keyId = chave real do WhatsApp (CP-149): é o id que markRead e o download de mídia aceitam;
@@ -169,6 +209,8 @@ function toDto(m: StoredMessage, mediaUrl: string | null) {
     sessionId: m.sessionId,
     chatJid: m.chatJid,
     senderJid: m.senderJid,
+    // E23 (P-074, aditivo): nome de quem mandou a mensagem recebida em GRUPO; null fora disso.
+    senderName,
     fromMe: m.fromMe,
     type: m.type,
     text: m.text,
@@ -181,6 +223,10 @@ function toDto(m: StoredMessage, mediaUrl: string | null) {
     fileName: m.fileName,
     fileSize: m.fileSize,
     mediaUrl,
+    // P-066 (E22, aditivo): selo "Encaminhada" e reações da mensagem (tabela própria).
+    isForwarded: m.isForwarded,
+    forwardingScore: m.forwardingScore,
+    reactions: reactions.map(toReactionDto),
   };
 }
 
@@ -191,12 +237,16 @@ export class MessagesController {
 
   constructor(
     @Inject(MESSAGE_REPOSITORY) private readonly repo: MessageRepository,
+    @Inject(REACTION_REPOSITORY)
+    private readonly reactions: ReactionRepository,
     private readonly manager: SessionManager,
     private readonly mediaStorage: MediaStorage,
     private readonly guardrail: GuardrailService,
     private readonly inboxSync: InboxSyncService,
     private readonly intents: SendIntentService,
     private readonly config: ConfigService<Env, true>,
+    private readonly directory: ContactDirectory,
+    private readonly forwarder: ForwardService,
   ) {}
 
   // G5 hard-gate: só envios COLD passam pelo guard-rail; cold=false (chat aberto) sempre passa.
@@ -231,9 +281,28 @@ export class MessagesController {
     if (!chatId) throw new BadRequestException('chatId é obrigatório');
     const take = clampInt(limit, 50, 1, 200);
     const msgs = await this.repo.listByChat(id, candidateJids(chatId), take);
+    return this.toDtos(id, msgs);
+  }
+
+  // Página do GET /messages e do /search → DTO: reações da página inteira numa consulta só (por
+  // keyId — imune ao chatJid @lid × telefone), nome do remetente de grupo (outra consulta só, em
+  // paralelo) + URL pré-assinada de cada mídia.
+  private async toDtos(sessionId: string, msgs: StoredMessage[]) {
+    const byKey = new Map<string, StoredReaction[]>();
+    const keyIds = [...new Set(msgs.map((m) => m.keyId).filter(Boolean))];
+    const [reactions, names] = await Promise.all([
+      this.reactions.listForMessages(sessionId, keyIds),
+      this.groupSenderNames(sessionId, msgs),
+    ]);
+    for (const r of reactions) {
+      const list = byKey.get(r.targetKeyId);
+      if (list) list.push(r);
+      else byKey.set(r.targetKeyId, [r]);
+    }
     return Promise.all(
-      msgs.map(async (m) =>
-        toDto(
+      msgs.map(async (m) => {
+        const sender = groupSenderOf(m);
+        return toDto(
           m,
           m.mediaKey
             ? await this.mediaStorage.presignedGetUrl(m.mediaKey).catch((e) => {
@@ -243,9 +312,44 @@ export class MessagesController {
                 return null;
               })
             : null,
-        ),
-      ),
+          byKey.get(m.keyId),
+          sender ? (names.get(sender) ?? null) : null,
+        );
+      }),
     );
+  }
+
+  // E23 (P-074): remetente de grupo → nome, numa ÚNICA consulta ao diretório por página (nenhuma
+  // quando a página não tem mensagem de participante). Agenda > pushName, em qualquer das chaves.
+  // Falha do diretório → sem nome, com log: o nome é enfeite, o GET não pode cair por ele.
+  private async groupSenderNames(
+    sessionId: string,
+    msgs: StoredMessage[],
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    const senders = [
+      ...new Set(msgs.map(groupSenderOf).filter((s): s is string => !!s)),
+    ];
+    if (!senders.length) return out;
+    const found = await this.directory
+      .namesFor(sessionId, senders.flatMap(senderKeys))
+      .catch((e) => {
+        this.logger.warn(
+          `senderName indisponível (diretório de contatos): ${(e as Error).message}`,
+        );
+        return new Map<
+          string,
+          { name: string | null; pushName: string | null }
+        >();
+      });
+    for (const s of senders) {
+      const hits = senderKeys(s).flatMap((k) => found.get(k) ?? []);
+      const name =
+        hits.find((h) => h.name)?.name ??
+        hits.find((h) => h.pushName)?.pushName;
+      if (name) out.set(s, name);
+    }
+    return out;
   }
 
   // W7 — busca por termo (`q`) no texto das mensagens da sessão. `chatId` opcional restringe a uma
@@ -265,21 +369,7 @@ export class MessagesController {
     const take = clampInt(limit, 50, 1, 200);
     const chatJids = chatId ? candidateJids(chatId) : [];
     const msgs = await this.repo.searchMessages(id, term, chatJids, take);
-    return Promise.all(
-      msgs.map(async (m) =>
-        toDto(
-          m,
-          m.mediaKey
-            ? await this.mediaStorage.presignedGetUrl(m.mediaKey).catch((e) => {
-                this.logger.warn(
-                  `mediaUrl indisponível para ${m.mediaKey}: ${(e as Error).message}`,
-                );
-                return null;
-              })
-            : null,
-        ),
-      ),
-    );
+    return this.toDtos(id, msgs);
   }
 
   // W7 — backfill do inbox: puxa o histórico da engine e grava no banco, populando GET
@@ -377,11 +467,15 @@ export class MessagesController {
         'Mídia expirada ou removida do armazenamento.',
       );
     }
-    const fileName = msg.fileName?.replace(/["\r\n]/g, '') || null;
     return new StreamableFile(obj.body, {
-      type: msg.mimetype ?? obj.contentType ?? 'application/octet-stream',
+      // E23: mimetype do remetente fora do que cabe num header também derrubava a rota (500).
+      type:
+        safeContentType(msg.mimetype) ??
+        safeContentType(obj.contentType) ??
+        'application/octet-stream',
       length: obj.contentLength ?? undefined,
-      disposition: fileName ? `inline; filename="${fileName}"` : undefined,
+      // E23: nome fora do Latin-1 derrubava a rota (500 ERR_INVALID_CHAR) — ver content-disposition.ts.
+      disposition: inlineDisposition(msg.fileName),
     });
   }
 
@@ -424,6 +518,25 @@ export class MessagesController {
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
+  }
+
+  // P-068 (E24) — encaminha a mensagem `msgId` (id interno do GET /messages ou keyId do webhook) para
+  // 1..5 destinos da MESMA sessão, como o WhatsApp Web: selo "Encaminhada", mídia reaproveitada,
+  // um destino por vez com 1–3 s entre eles. 201 `{results[]}` (uma posição por destino); 400 /
+  // 404 / 409 / 423 antes de enviar — regras em ForwardService e INTEGRACAO §2.
+  @Post(':msgId/forward')
+  async forward(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('msgId') msgId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = forwardSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    return this.forwarder.forward(id, msgId, parsed.data);
   }
 
   // G1: dedup forte. Se já houve um envio com a mesma idempotencyKey nesta sessão, devolve o

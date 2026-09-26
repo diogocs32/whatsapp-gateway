@@ -5,30 +5,30 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 213 arquivos · 1210 símbolos (métodos/funções/assinaturas/constantes) · 1165 chamadas resolvidas · 354 testes (it/test)
+- 270 arquivos · 1481 símbolos (métodos/funções/assinaturas/constantes) · 1468 chamadas resolvidas · 757 testes (it/test)
 
 ## Áreas
 
 | Área | Arquivos | Linhas | Mapa |
 | --- | --- | --- | --- |
-| packages/contracts | 1 | 568 | [contracts.md](contracts.md) |
-| Dashboard (React) | 23 | 6406 | [dashboard.md](dashboard.md) |
+| packages/contracts | 1 | 646 | [contracts.md](contracts.md) |
+| Dashboard (React) | 55 | 13776 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1684 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 5 | 855 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 23 | 4423 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 26 | 6891 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 5 | 1125 | [gateway-guardrail.md](gateway-guardrail.md) |
 | módulo `health` | 3 | 127 | [gateway-health.md](gateway-health.md) |
 | módulo `iam` | 40 | 2457 | [gateway-iam.md](gateway-iam.md) |
-| Gateway — infra (prisma, redis, storage, directory) | 10 | 668 | [gateway-infra.md](gateway-infra.md) |
-| módulo `messaging` | 14 | 2190 | [gateway-messaging.md](gateway-messaging.md) |
-| módulo `observability` | 7 | 577 | [gateway-observability.md](gateway-observability.md) |
+| Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
+| módulo `messaging` | 25 | 4148 | [gateway-messaging.md](gateway-messaging.md) |
+| módulo `observability` | 7 | 625 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 12 | 1277 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 153 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 20 | 7014 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 31 | 12873 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 16 | 1239 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
@@ -60,9 +60,9 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | GET | `/api/guardrail/config` | `GuardrailController.config` (guardrail.controller.ts:32) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | PATCH | `/api/guardrail/config` | `GuardrailController.updateConfig` (guardrail.controller.ts:37) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | GET | `/api/health` | `HealthController.check` (health.controller.ts:10) |  |
-| GET | `/api/inbox/conversations` | `InboxController.conversations` (inbox.controller.ts:107) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/inbox/messages` | `InboxController.messages` (inbox.controller.ts:144) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/inbox/sessions/:id/triage` | `InboxController.triage` (inbox.controller.ts:158) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/inbox/conversations` | `InboxController.conversations` (inbox.controller.ts:111) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/inbox/messages` | `InboxController.messages` (inbox.controller.ts:148) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/inbox/sessions/:id/triage` | `InboxController.triage` (inbox.controller.ts:162) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | DELETE | `/api/license` | `LicenseController.remove` (license.controller.ts:52) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | GET | `/api/license` | `LicenseController.status` (license.controller.ts:40) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | POST | `/api/license` | `LicenseController.install` (license.controller.ts:45) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
@@ -114,19 +114,20 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/sessions/:id/groups/:groupId/subject` | `GroupsController.subject` (groups.controller.ts:122) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/health` | `SessionsController.health` (sessions.controller.ts:179) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/logout` | `SessionsController.logout` (sessions.controller.ts:341) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages` | `MessagesController.list` (messages.controller.ts:225) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/:chatId/flag` | `MessagesController.chatFlag` (messages.controller.ts:319) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages/:msgId/media` | `MessagesController.downloadMedia` (messages.controller.ts:351) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/:msgId/reaction` | `MessagesController.reaction` (messages.controller.ts:401) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/:msgId/read` | `MessagesController.markRead` (messages.controller.ts:389) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages/conversations` | `MessagesController.conversations` (messages.controller.ts:215) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/location` | `MessagesController.sendLocation` (messages.controller.ts:654) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/media` | `MessagesController.sendMedia` (messages.controller.ts:512) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/media-url` | `MessagesController.sendMediaUrl` (messages.controller.ts:582) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/poll` | `MessagesController.sendPoll` (messages.controller.ts:693) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages/search` | `MessagesController.search` (messages.controller.ts:254) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/sync` | `MessagesController.sync` (messages.controller.ts:290) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/text` | `MessagesController.sendText` (messages.controller.ts:483) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages` | `MessagesController.list` (messages.controller.ts:275) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:chatId/flag` | `MessagesController.chatFlag` (messages.controller.ts:409) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:msgId/forward` | `MessagesController.forward` (messages.controller.ts:527) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages/:msgId/media` | `MessagesController.downloadMedia` (messages.controller.ts:441) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:msgId/reaction` | `MessagesController.reaction` (messages.controller.ts:495) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:msgId/read` | `MessagesController.markRead` (messages.controller.ts:483) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages/conversations` | `MessagesController.conversations` (messages.controller.ts:265) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/location` | `MessagesController.sendLocation` (messages.controller.ts:767) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/media` | `MessagesController.sendMedia` (messages.controller.ts:625) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/media-url` | `MessagesController.sendMediaUrl` (messages.controller.ts:695) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/poll` | `MessagesController.sendPoll` (messages.controller.ts:806) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages/search` | `MessagesController.search` (messages.controller.ts:358) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/sync` | `MessagesController.sync` (messages.controller.ts:380) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/text` | `MessagesController.sendText` (messages.controller.ts:596) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/new-qr` | `SessionsController.newQr` (sessions.controller.ts:372) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/pairing-code` | `SessionsController.pairingCode` (sessions.controller.ts:379) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/pause` | `SessionsController.pause` (sessions.controller.ts:310) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -181,8 +182,8 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Evento (`name`) | Publicado por | Assinado por |
 | --- | --- | --- |
-| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:195), `SessionManager.handleEngineEvent` (session-manager.service.ts:238) | `EventFanout.onModuleInit` (event-fanout.ts:47), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
-| `'wa.event.remote'` | `EventFanout.onRemote` (event-fanout.ts:64) | `EventsController.stream` (events.controller.ts:39), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:38) |
+| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:195), `SessionManager.handleEngineEvent` (session-manager.service.ts:240) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
+| `'wa.event.remote'` | `EventFanout.onRemote` (event-fanout.ts:80) | `EventsController.stream` (events.controller.ts:39), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:38) |
 
 ## Banco (Prisma) — quem lê e quem escreve
 
@@ -192,6 +193,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `campaignRecipient` | `CampaignRepository.cancelPending`, `CampaignRepository.markRecipientFailed`, `CampaignRepository.markRecipientSent`, `CampaignRepository.releaseRecipient`, `CampaignRepository.reserveRecipient` | `CampaignRepository.findRecipient`, `CampaignRepository.listPendingRecipients`, `CampaignRepository.listRecipients`, `CampaignRepository.refreshCounts`, `CampaignRepository.reserveRecipient` |
 | `conversationTriage` | `PrismaInboxRepository.clearTriage`, `PrismaInboxRepository.markIgnored` | — |
 | `guardrailConfig` | `GuardrailService.updateConfig` | `GuardrailService.cfg`, `ReplyRateService.nmin` |
+| `messageReaction` | `BaileysEngine.mergeLidMessages`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `PrismaReactionRepository.listForMessages` |
 | `proxy` | `PrismaProxyRepository.create`, `PrismaProxyRepository.delete`, `PrismaProxyRepository.setEnabled`, `PrismaProxyRepository.updateConnection`, `PrismaProxyRepository.updateTest` | `PrismaProxyRepository.findById`, `PrismaProxyRepository.findByWebshareId`, `PrismaProxyRepository.listEnabledAlive`, `PrismaProxyRepository.listInRange`, `PrismaProxyRepository.list`, `PrismaProxyRepository.nextPosition` |
 | `refreshToken` | `PrismaRefreshTokenRepository.create`, `PrismaRefreshTokenRepository.revokeAllForUser`, `PrismaRefreshTokenRepository.revokeFamilyByToken`, `PrismaRefreshTokenRepository.rotate` | `PrismaRefreshTokenRepository.revokeFamilyByToken`, `PrismaRefreshTokenRepository.rotate` |
 | `sendIntent` | `RetentionService.sweep`, `SendIntentService.complete`, `SendIntentService.fail`, `SendIntentService.reserve` | `SendIntentService.reserve` |
@@ -206,7 +208,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `waBranding` | `PrismaBrandingRepository.set` | `PrismaBrandingRepository.get` |
 | `waContact` | `ContactDirectory.record` | `ContactDirectory.lidMap`, `ContactDirectory.list`, `ContactDirectory.namesFor` |
 | `waLicense` | `PrismaLicenseRepository.clear`, `PrismaLicenseRepository.set` | `PrismaLicenseRepository.get` |
-| `waMessage` | `BaileysEngine.mergeLidMessages`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.save`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `BaileysEngine.loadMessageForRetry`, `BaileysEngine.mergeKnownLids`, `MetricsService.counters`, `PrismaInboxRepository.findLastInbound`, `PrismaMessageRepository.findByIdempotencyKey`, `PrismaMessageRepository.findByKeyId`, `PrismaMessageRepository.findByRef`, `PrismaMessageRepository.listByChat`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.searchMessages`, `WWebJSEngine.mergeExistingLids` |
+| `waMessage` | `BaileysEngine.markMessage`, `BaileysEngine.mergeLidMessages`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.save`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `BaileysEngine.loadMessageForRetry`, `BaileysEngine.mergeKnownLids`, `BaileysEngine.prepareForward`, `MetricsService.counters`, `PrismaInboxRepository.findLastInbound`, `PrismaMessageRepository.findByIdempotencyKey`, `PrismaMessageRepository.findByKeyId`, `PrismaMessageRepository.findByRef`, `PrismaMessageRepository.findInboundChat`, `PrismaMessageRepository.listByChat`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.searchMessages`, `WWebJSEngine.mergeExistingLids` |
 | `waSession` | `BaileysEngine.clearCredentials`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.updateStatus`, `SessionManager.logout`, `SessionManager.newQr`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `usePostgresAuthState` |
 | `waSessionEvent` | `RetentionService.sweep`, `SessionEventLogger.onModuleInit` | `MetricsService.timeline` |
 | `webhook` | `PrismaWebhookRepository.create`, `PrismaWebhookRepository.delete`, `PrismaWebhookRepository.setEnabled` | `PrismaWebhookRepository.findById`, `PrismaWebhookRepository.listEnabled`, `PrismaWebhookRepository.list`, `WebhookQueue.redeliverDeadLetters` |
@@ -287,84 +289,85 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Chamada | Componente/função |
 | --- | --- |
-| `request /api/api-keys` | `api` (api.ts:154) |
-| `request /api/api-keys` | `api` (api.ts:154) |
-| `request /api/api-keys/${id}` | `api` (api.ts:154) |
-| `request /api/audit?limit=${limit}&offset=${offset}` | `api` (api.ts:154) |
-| `request /api/auth/login` | `api` (api.ts:154) |
-| `request /api/auth/logout` | `api` (api.ts:154) |
-| `request /api/auth/me` | `api` (api.ts:154) |
-| `request /api/branding` | `api` (api.ts:154) |
-| `request /api/branding` | `api` (api.ts:154) |
-| `request /api/campaigns` | `api` (api.ts:154) |
-| `request /api/campaigns/${id}` | `api` (api.ts:154) |
-| `request /api/campaigns/${id}/cancel` | `api` (api.ts:154) |
-| `request /api/campaigns/${id}/pause` | `api` (api.ts:154) |
-| `request /api/campaigns/${id}/resume` | `api` (api.ts:154) |
-| `request /api/campaigns/${id}/start` | `api` (api.ts:154) |
-| `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}` | `api` (api.ts:154) |
-| `request /api/inbox/conversations${qs ? `?${qs}` : ''}` | `api` (api.ts:154) |
-| `request /api/inbox/messages${qs ? `?${qs}` : ''}` | `api` (api.ts:154) |
-| `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage` | `api` (api.ts:154) |
-| `request /api/license` | `api` (api.ts:154) |
-| `request /api/license` | `api` (api.ts:154) |
-| `request /api/license` | `api` (api.ts:154) |
-| `request /api/observability/summary` | `api` (api.ts:154) |
-| `request /api/observability/timeline/${sessionId}?limit=${limit}` | `api` (api.ts:154) |
-| `request /api/proxies` | `api` (api.ts:154) |
-| `request /api/proxies` | `api` (api.ts:154) |
-| `request /api/proxies/${id}` | `api` (api.ts:154) |
-| `request /api/proxies/${id}/disable` | `api` (api.ts:154) |
-| `request /api/proxies/${id}/enable` | `api` (api.ts:154) |
-| `request /api/proxies/${id}/test` | `api` (api.ts:154) |
-| `request /api/proxies/available` | `api` (api.ts:154) |
-| `request /api/proxies/bulk` | `api` (api.ts:154) |
-| `request /api/proxies/test-all` | `api` (api.ts:154) |
-| `request /api/proxies/webshare/status` | `api` (api.ts:154) |
-| `request /api/proxies/webshare/sync` | `api` (api.ts:154) |
-| `request /api/sessions` | `api` (api.ts:154) |
-| `request /api/sessions` | `api` (api.ts:154) |
-| `request /api/sessions/${id}` | `api` (api.ts:154) |
-| `request /api/sessions/${id}` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/logout` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chatId)}&lim…` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/messages/conversations?limit=${limit}` | `api` (api.ts:154) |
-| `requestForm /api/sessions/${id}/messages/media` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/messages/text` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/new-qr` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/pairing-code` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/qr` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/restart` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/start` | `api` (api.ts:154) |
-| `request /api/sessions/${id}/stop` | `api` (api.ts:154) |
-| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:154) |
-| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/channels` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/follow` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfollow` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/profile-pict…` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/contacts/block` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/contacts/check` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset=${offse…` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/description` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite/revoke` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/participants` | `api` (api.ts:154) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject` | `api` (api.ts:154) |
-| `request /api/users` | `api` (api.ts:154) |
-| `request /api/users` | `api` (api.ts:154) |
-| `request /api/users/${id}` | `api` (api.ts:154) |
-| `request /api/users/${id}` | `api` (api.ts:154) |
-| `request /api/users/${id}/password` | `api` (api.ts:154) |
-| `request /api/webhooks` | `api` (api.ts:154) |
-| `request /api/webhooks` | `api` (api.ts:154) |
-| `request /api/webhooks/${id}` | `api` (api.ts:154) |
-| `request /api/webhooks/${id}/disable` | `api` (api.ts:154) |
-| `request /api/webhooks/${id}/enable` | `api` (api.ts:154) |
-| `request /api/webhooks/${id}/test` | `api` (api.ts:154) |
-| `request /health` | `api` (api.ts:154) |
+| `request /api/api-keys` | `api` (api.ts:176) |
+| `request /api/api-keys` | `api` (api.ts:176) |
+| `request /api/api-keys/${id}` | `api` (api.ts:176) |
+| `request /api/audit?limit=${limit}&offset=${offset}` | `api` (api.ts:176) |
+| `request /api/auth/login` | `api` (api.ts:176) |
+| `request /api/auth/logout` | `api` (api.ts:176) |
+| `request /api/auth/me` | `api` (api.ts:176) |
+| `request /api/branding` | `api` (api.ts:176) |
+| `request /api/branding` | `api` (api.ts:176) |
+| `request /api/campaigns` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/cancel` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/pause` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/resume` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/start` | `api` (api.ts:176) |
+| `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}` | `api` (api.ts:176) |
+| `request /api/inbox/conversations${qs ? `?${qs}` : ''}` | `api` (api.ts:176) |
+| `request /api/inbox/messages${qs ? `?${qs}` : ''}` | `api` (api.ts:176) |
+| `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage` | `api` (api.ts:176) |
+| `request /api/license` | `api` (api.ts:176) |
+| `request /api/license` | `api` (api.ts:176) |
+| `request /api/license` | `api` (api.ts:176) |
+| `request /api/observability/summary` | `api` (api.ts:176) |
+| `request /api/observability/timeline/${sessionId}?limit=${limit}` | `api` (api.ts:176) |
+| `request /api/proxies` | `api` (api.ts:176) |
+| `request /api/proxies` | `api` (api.ts:176) |
+| `request /api/proxies/${id}` | `api` (api.ts:176) |
+| `request /api/proxies/${id}/disable` | `api` (api.ts:176) |
+| `request /api/proxies/${id}/enable` | `api` (api.ts:176) |
+| `request /api/proxies/${id}/test` | `api` (api.ts:176) |
+| `request /api/proxies/available` | `api` (api.ts:176) |
+| `request /api/proxies/bulk` | `api` (api.ts:176) |
+| `request /api/proxies/test-all` | `api` (api.ts:176) |
+| `request /api/proxies/webshare/status` | `api` (api.ts:176) |
+| `request /api/proxies/webshare/sync` | `api` (api.ts:176) |
+| `request /api/sessions` | `api` (api.ts:176) |
+| `request /api/sessions` | `api` (api.ts:176) |
+| `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIComponent…` | `api` (api.ts:176) |
+| `request /api/sessions/${id}` | `api` (api.ts:176) |
+| `request /api/sessions/${id}` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/logout` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chatId)}&lim…` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/messages/conversations?limit=${limit}` | `api` (api.ts:176) |
+| `requestForm /api/sessions/${id}/messages/media` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/messages/text` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/new-qr` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/pairing-code` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/qr` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/restart` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/start` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/stop` | `api` (api.ts:176) |
+| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:176) |
+| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/follow` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfollow` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/profile-pict…` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/block` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/check` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset=${offse…` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/description` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite/revoke` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/participants` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject` | `api` (api.ts:176) |
+| `request /api/users` | `api` (api.ts:176) |
+| `request /api/users` | `api` (api.ts:176) |
+| `request /api/users/${id}` | `api` (api.ts:176) |
+| `request /api/users/${id}` | `api` (api.ts:176) |
+| `request /api/users/${id}/password` | `api` (api.ts:176) |
+| `request /api/webhooks` | `api` (api.ts:176) |
+| `request /api/webhooks` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}/disable` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}/enable` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}/test` | `api` (api.ts:176) |
+| `request /health` | `api` (api.ts:176) |

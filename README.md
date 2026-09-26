@@ -97,19 +97,20 @@ Depois:
 
 ## Scripts úteis (raiz)
 
-| Comando                           | O que faz                                                       |
-| --------------------------------- | --------------------------------------------------------------- |
-| `npm run infra:up` / `infra:down` | sobe/derruba Postgres+Redis+MinIO                               |
-| `npm run dev`                     | backend + frontend juntos                                       |
-| `npm run gateway:dev`             | só o backend (watch)                                            |
-| `npm run dashboard:dev`           | só o frontend                                                   |
-| `npm run gateway:generate`        | regenera o Prisma Client                                        |
-| `npm run gateway:migrate`         | `prisma migrate dev`                                            |
-| `npm run lint` / `lint:fix`       | ESLint (typescript-eslint + react-hooks)                        |
-| `npm run format`                  | Prettier (formata o repo)                                       |
-| `npm run test`                    | testes do gateway (Vitest) — requer `infra:up` (Postgres/Redis) |
-| `bash scripts/status.sh`          | status das sessões (psql)                                       |
-| `bash scripts/diag-aguardando.sh` | diagnóstico read-only de descriptografia/"Aguardando mensagem"  |
+| Comando                           | O que faz                                                                                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run infra:up` / `infra:down` | sobe/derruba Postgres+Redis+MinIO                                                                                                                      |
+| `npm run dev`                     | backend + frontend juntos                                                                                                                              |
+| `npm run gateway:dev`             | só o backend (watch)                                                                                                                                   |
+| `npm run dashboard:dev`           | só o frontend                                                                                                                                          |
+| `npm run gateway:generate`        | regenera o Prisma Client                                                                                                                               |
+| `npm run gateway:migrate`         | `prisma migrate dev`                                                                                                                                   |
+| `npm run lint` / `lint:fix`       | ESLint (typescript-eslint + react-hooks)                                                                                                               |
+| `npm run format`                  | Prettier (formata o repo)                                                                                                                              |
+| `npm run test`                    | testes do gateway (unit+e2e, Vitest — requer `infra:up`) + do painel (sem infra)                                                                       |
+| `npm run test:unit`               | só os testes sem infra (unit do gateway + painel); filtrar por arquivo: `-w apps/gateway -- <arquivo>` / `npm run test -w apps/dashboard -- <arquivo>` |
+| `bash scripts/status.sh`          | status das sessões (psql)                                                                                                                              |
+| `bash scripts/diag-aguardando.sh` | diagnóstico read-only de descriptografia/"Aguardando mensagem"                                                                                         |
 
 ---
 

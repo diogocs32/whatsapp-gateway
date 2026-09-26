@@ -9,6 +9,32 @@ import type {
   StoredMessage,
 } from '../domain/message.repository';
 
+// O PostgreSQL não guarda U+0000 em `text` nem em `jsonb` (doc oficial PG 18: "The jsonb type also
+// rejects \u0000"; o tipo text "cannot store" NUL) — um NUL num texto, nome de arquivo ou no proto
+// derrubava o INSERT inteiro e a mensagem sumia (o persister só loga). No `jsonb` também cai o
+// surrogate UTF-16 SOLTO (texto com UTF-8 malformado decodificado pelo protobufjs vira '\ud800'; o
+// Prisma o manda escapado no JSON e o PG recusa: "Unicode low surrogate must follow a high
+// surrogate" — no `text` o driver já troca por U+FFFD). Desde a E24 o `raw` também vem das
+// RECEBIDAS (muitas strings de terceiros) — limpeza única aqui, na gravação.
+type WellFormed = { toWellFormed(): string }; // ES2024 (Node ≥ 20); o lib do tsconfig é ES2023
+function noNul(v: string | null | undefined): string | null | undefined {
+  if (typeof v !== 'string') return v;
+  const s = v.includes('\u0000') ? v.replaceAll('\u0000', '') : v;
+  return (s as unknown as WellFormed).toWellFormed();
+}
+function noNulDeep(v: unknown): unknown {
+  if (typeof v === 'string') return noNul(v);
+  if (Array.isArray(v)) return v.map(noNulDeep);
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) {
+      out[noNul(k) as string] = noNulDeep(x);
+    }
+    return out;
+  }
+  return v;
+}
+
 @Injectable()
 export class PrismaMessageRepository implements MessageRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -24,19 +50,21 @@ export class PrismaMessageRepository implements MessageRepository {
           senderJid: input.senderJid,
           fromMe: input.fromMe,
           type: input.type,
-          text: input.text,
+          text: noNul(input.text) ?? null,
           isCold: input.isCold ?? false,
           idempotencyKey: input.idempotencyKey ?? null,
           source: input.source ?? null,
           timestamp: input.timestamp,
           mediaType: input.mediaType ?? null,
-          mimetype: input.mimetype ?? null,
-          fileName: input.fileName ?? null,
+          mimetype: noNul(input.mimetype) ?? null,
+          fileName: noNul(input.fileName) ?? null,
           mediaKey: input.mediaKey ?? null,
           fileSize: input.fileSize ?? null,
+          isForwarded: input.isForwarded ?? false,
+          forwardingScore: input.forwardingScore ?? null,
           raw:
             input.raw != null
-              ? (input.raw as Prisma.InputJsonValue)
+              ? (noNulDeep(input.raw) as Prisma.InputJsonValue)
               : undefined,
         },
       });
@@ -77,16 +105,18 @@ export class PrismaMessageRepository implements MessageRepository {
         senderJid: i.senderJid,
         fromMe: i.fromMe,
         type: i.type,
-        text: i.text,
+        text: noNul(i.text) ?? null,
         isCold: i.isCold ?? false,
         idempotencyKey: i.idempotencyKey ?? null,
         source: i.source ?? null,
         timestamp: i.timestamp,
         mediaType: i.mediaType ?? null,
-        mimetype: i.mimetype ?? null,
-        fileName: i.fileName ?? null,
+        mimetype: noNul(i.mimetype) ?? null,
+        fileName: noNul(i.fileName) ?? null,
         mediaKey: i.mediaKey ?? null,
         fileSize: i.fileSize ?? null,
+        isForwarded: i.isForwarded ?? false,
+        forwardingScore: i.forwardingScore ?? null,
       });
     }
     if (!rows.length) return 0;
@@ -106,6 +136,22 @@ export class PrismaMessageRepository implements MessageRepository {
       select: { keyId: true, chatJid: true },
     });
     return row ?? null;
+  }
+
+  // P-068 (E24): chat da conversa EXISTENTE com o destino — a última mensagem RECEBIDA (fromMe=false)
+  // num dos jids candidatos. null = destino sem conversa → o encaminhar trata como cold. Índice
+  // (sessionId, chatJid, timestamp).
+  async findInboundChat(
+    sessionId: string,
+    chatJids: string[],
+  ): Promise<string | null> {
+    if (!chatJids.length) return null;
+    const row = await this.prisma.waMessage.findFirst({
+      where: { sessionId, chatJid: { in: chatJids }, fromMe: false },
+      select: { chatJid: true },
+      orderBy: { timestamp: 'desc' },
+    });
+    return row?.chatJid ?? null;
   }
 
   async findByKeyId(
@@ -175,6 +221,10 @@ export class PrismaMessageRepository implements MessageRepository {
     fileName: string | null;
     mediaKey: string | null;
     fileSize: number | null;
+    isForwarded: boolean;
+    forwardingScore: number | null;
+    revokedAt: Date | null;
+    editedAt: Date | null;
   }): StoredMessage {
     return {
       id: r.id,
@@ -194,6 +244,10 @@ export class PrismaMessageRepository implements MessageRepository {
       fileName: r.fileName,
       mediaKey: r.mediaKey,
       fileSize: r.fileSize,
+      isForwarded: r.isForwarded,
+      forwardingScore: r.forwardingScore,
+      revokedAt: r.revokedAt,
+      editedAt: r.editedAt,
     };
   }
 
@@ -204,6 +258,9 @@ export class PrismaMessageRepository implements MessageRepository {
   ): Promise<StoredMessage[]> {
     const rows = await this.prisma.waMessage.findMany({
       where: { sessionId, chatJid: { in: chatJids } },
+      // O `raw` (proto, até dezenas de KB com miniatura) não vai no DTO — desde a E24 ele existe em
+      // toda recebida do Baileys e o Inbox relê a conversa a cada 2,5 s.
+      omit: { raw: true },
       orderBy: { timestamp: 'desc' },
       take: limit,
     });
@@ -225,6 +282,7 @@ export class PrismaMessageRepository implements MessageRepository {
         text: { contains: query, mode: 'insensitive' },
         ...(chatJids.length ? { chatJid: { in: chatJids } } : {}),
       },
+      omit: { raw: true },
       orderBy: { timestamp: 'desc' },
       take: limit,
     });
@@ -239,6 +297,7 @@ export class PrismaMessageRepository implements MessageRepository {
   ): Promise<StoredMessage | null> {
     const row = await this.prisma.waMessage.findFirst({
       where: { sessionId, OR: [{ id: ref }, { keyId: ref }] },
+      omit: { raw: true },
       orderBy: { timestamp: 'desc' },
     });
     return row ? this.toStored(row) : null;

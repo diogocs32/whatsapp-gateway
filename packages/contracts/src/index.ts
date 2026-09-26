@@ -114,16 +114,38 @@ export interface PairingCodeResponse {
 }
 
 // ---- Mensagens (F2) ----
+// `type` da mensagem: text | image | video | audio | document | sticker | location | contact | poll |
+// event | group_invite | poll_vote (só Baileys: voto do contato, cifrado → text null; conta no
+// reply-rate) | other (mensagem visível sem cartão próprio — `text` traz um resumo legível quando
+// houver, senão null). Fonte única: apps/gateway/src/modules/sessions/infrastructure/
+// message-content.ts. Reação NÃO é mensagem — vem em `reactions` da mensagem-alvo (INTEGRACAO §3.2).
+
+// P-066 (E22): reação a uma mensagem, como o WhatsApp mostra no balão (uma por pessoa).
+export interface MessageReactionDto {
+  emoji: string;
+  senderJid: string | null; // quem reagiu (best-effort; em grupo, o participante)
+  fromMe: boolean; // a reação é nossa (API ou celular)
+  timestamp: string;
+}
+
 export interface MessageDto {
   id: string;
   sessionId: string;
   chatJid: string;
+  // Quem mandou. 1:1 = o contato (= chatJid); fromMe = a conta da sessão. GRUPO (E23 · P-074):
+  // o PARTICIPANTE que escreveu — telefone quando conhecido (@s.whatsapp.net no Baileys, @c.us no
+  // WWEBJS), senão @lid. Linhas de grupo gravadas AO VIVO antes da E23 trazem o jid do GRUPO; as
+  // importadas pelo /sync do WWEBJS já traziam o autor cru (pode ser @lid) — a mesma pessoa pode
+  // aparecer com @lid nas linhas antigas e com telefone nas novas.
   senderJid: string | null;
   fromMe: boolean;
   type: string;
   text: string | null;
   status: string | null;
   timestamp: string;
+  // E23 (P-074, aditivo — só GET /messages e /search, não vai no webhook): nome de quem mandou uma
+  // mensagem RECEBIDA em GRUPO (agenda > pushName), null fora de grupo ou quando desconhecido.
+  senderName?: string | null;
   // Campos que o GET /messages JÁ devolve e o DTO não declarava (drift corrigido em 15/09/2026,
   // aditivo): `keyId` é a chave real do WhatsApp (CP-149 — markRead e download de mídia aceitam);
   // `source` diz se um fromMe saiu pela API ou pelo CELULAR ('phone'); `isCold` é a marca G1.
@@ -136,6 +158,11 @@ export interface MessageDto {
   fileName?: string | null;
   fileSize?: number | null;
   mediaUrl?: string | null; // URL pré-assinada temporária para exibir/baixar
+  // P-066 (E22, aditivo): selo "Encaminhada" (forwardingScore = quantas vezes já foi encaminhada;
+  // o WhatsApp mostra "Encaminhada com frequência" a partir de 5) e reações vivas da mensagem.
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
+  reactions?: MessageReactionDto[];
 }
 
 // Resumo de conversa p/ a lista da inbox (1 por chatJid). Derivado das mensagens,
@@ -144,8 +171,8 @@ export interface ConversationDto {
   chatJid: string;
   name: string | null; // nome do contato (agenda/verificado/pushName) ou null
   imgUrl: string | null;
-  lastText: string | null; // texto da última msg; null em mídia (use lastType p/ rótulo)
-  lastType: string; // text | image | video | audio | document | sticker
+  lastText: string | null; // texto (ou legenda) da última msg; null sem texto — use lastType p/ rótulo
+  lastType: string; // mesmo domínio do MessageDto.type
   lastFromMe: boolean;
   lastTimestamp: string;
 }
@@ -167,7 +194,7 @@ export interface InboxConversationDto {
   name: string | null;
   phone: string | null;
   imgUrl: string | null;
-  lastText: string | null; // null em mídia — use lastType para o rótulo
+  lastText: string | null; // texto ou legenda; null sem texto — use lastType para o rótulo
   lastType: string;
   lastFromMe: boolean;
   lastSource: string | null; // 'phone' = respondi no aparelho · 'api' = pelo gateway/painel
@@ -203,6 +230,12 @@ export interface InboxFeedItemDto {
   type: string;
   text: string | null;
   timestamp: string;
+  // Aditivos (E22): `status` = último ACK (sent|delivered|read; null sem recibo — e sempre null em
+  // GRUPO no Baileys). Em ENTRADA (fromMe:false) pode vir `read` = lida no celular do operador →
+  // tique ✓/✓✓ só em fromMe:true (P-072, só exibição). Selo "Encaminhada" (P-066).
+  status?: string | null;
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
 }
 
 // Triagem manual. `ignored` = amarelo (ancorado em `keyId`, quando informado: se chegou entrada
@@ -230,6 +263,41 @@ export interface SendTextResponse {
   to: string;
 }
 
+// ---- Encaminhar (P-068 · E24, aditivo) — POST /api/sessions/:s/messages/:msgId/forward ----
+// `msgId` = id interno (GET /messages) ou keyId (webhook) de uma mensagem DA MESMA sessão.
+// Até 5 destinos (só 1 se a original já é "encaminhada com frequência", forwardingScore ≥ 5).
+// Destino sem conversa na sessão (nenhuma mensagem recebida dele, no número exato) vira cold à
+// força (trava 423); `cold: true` só aumenta. `idempotencyKey` vale para o LOTE (a mesma chave com outra mensagem ou
+// outro conjunto de destinos → 409); cada destino usa `<idempotencyKey>:<destino>` (vem em
+// `results[i].idempotencyKey` e no webhook do eco).
+export interface ForwardMessageRequest {
+  to: string[]; // números (DDI+DDD+número), jid de contato, grupo (@g.us) ou @lid
+  cold?: boolean;
+  idempotencyKey?: string;
+}
+
+export interface ForwardResultDto {
+  target: string; // o destino como veio em `to[i]`
+  to: string | null; // jid usado no envio (null quando não saiu)
+  ok: boolean;
+  id: string | null; // keyId da cópia (null: não saiu, ou WWEBJS sem eco a tempo)
+  deduped: boolean; // repetição com a mesma idempotencyKey (nada reenviado)
+  cold: boolean; // cold efetivo (pedido ou destino sem conversa)
+  idempotencyKey: string | null; // chave POR DESTINO
+  // Selo que saiu: original de terceiro = score + 1; nossa = sem selo (ou o mesmo contador, se já era
+  // encaminhada — o app não soma). Ausentes em item `deduped` e quando `confirmed:false`.
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
+  confirmed?: boolean; // false = WWEBJS encaminhou mas o id da cópia não chegou a tempo
+  status?: number; // erro do item: 400 | 409 | 423
+  code?: string; // FORWARD_UNSUPPORTED | FORWARD_SOURCE_UNAVAILABLE | FORWARD_LIMIT | SESSION_QUARANTINED
+  error?: string;
+}
+
+export interface ForwardMessageResponse {
+  results: ForwardResultDto[];
+}
+
 // ---- Webhooks (F2b) ----
 export interface WebhookDto {
   id: string;
@@ -252,8 +320,18 @@ export interface CreateWebhookRequest {
   maxAttempts?: number;
 }
 
-// Eventos disponíveis para assinar (use '*' para todos).
-export const WEBHOOK_EVENTS = ['*', 'message', 'session.status'] as const;
+// Eventos disponíveis para assinar (use '*' para todos). E22: `message.ack` e `message.reaction`
+// entram na lista do painel — desde a E22 a reação sai SÓ como `message.reaction` (não mais como
+// `message` tipo `other`). O painel não edita eventos: para incluir, remova e recrie o webhook — NÃO
+// crie um 2º webhook com `message` para a mesma URL (entrega em dobro). Webhook do Trigger n8n 0.4.1:
+// troque o Events do nó para "All Events (*)" (INTEGRACAO §3.2).
+export const WEBHOOK_EVENTS = [
+  '*',
+  'message',
+  'message.ack',
+  'message.reaction',
+  'session.status',
+] as const;
 
 // ---- API keys (F9.1) ----
 export interface ApiKeyDto {

@@ -38,6 +38,13 @@ POST /api/sessions/{sessao}/messages/text
 - Mídia por upload: `POST …/messages/media` em `multipart/form-data` — **1 arquivo** no campo `file` + campos de texto `to` (obrigatório), `type`, `caption`, `fileName`, `ptt`, `cold` e `idempotencyKey` (strings; `"true"` liga `cold`/`ptt`). Teto de 100 MB por arquivo. **Desde 25/09/2026 (P-054):** o gateway lê o corpo inteiro antes de enviar, então os campos valem em qualquer ordem (antes ou depois do arquivo); **2+ arquivos → 413** `{"statusCode":413,"message":"reach files limit"}` e nada é enviado (antes: 500); arquivo acima do teto → 413; campo com nome reservado (ex.: `toString`, `__proto__`) → 400; parte de texto declarada `application/json` com JSON inválido → 406; mais de 1000 partes → 413; sem arquivo ou sem `to` → 400. O node n8n usa `media-url`, não esta rota.
 - **Menções (W5, aditivo):** `text` e `media-url` aceitam `mentions: ["5511888888888", ...]` (números ou JIDs a marcar com @; até 50). Funciona nas duas engines (resolvidas ao formato de cada uma). Ex.: `{ "to": "...", "text": "olá @fulano", "mentions": ["5511888888888"] }`.
 - **Reação (W5, aditivo):** `POST /api/sessions/{sessao}/messages/{msgId}/reaction` com `{ "emoji": "👍" }` — `emoji` vazio (`""`) REMOVE a reação. `msgId` = keyId do WhatsApp (o mesmo que `read` e o download de mídia aceitam). 404 se a mensagem não for conhecida. Funciona nas duas engines.
+- **Encaminhar (E24 · P-068, aditivo — sobe no deploy da Onda 8):** `POST /api/sessions/{sessao}/messages/{msgId}/forward` com `{ "to": ["5511999999999", "5511888888888"], "cold"?: false, "idempotencyKey"?: "fwd-lead-42" }` — encaminha como o WhatsApp Web: a cópia chega com o selo **"Encaminhada"** (a mídia é a mesma da original, sem novo upload) e **sem** a citação/menções da original. `msgId` = id interno (`GET /messages`) ou keyId (webhook) de uma mensagem **desta sessão** (de outra sessão → 404). Funciona nas duas engines.
+  - **Limites (anti-ban, decisão do dono):** 1 a **5** destinos por pedido, sem repetir (o mesmo número com e sem o 9º dígito conta como repetido → 400); se a original já é **"encaminhada com frequência"** (`forwardingScore ≥ 5`), **só 1 destino** (400 `FORWARD_LIMIT`). Um destino por vez, com **1 a 3 s** entre os envios (a resposta leva alguns segundos). Destinos aceitos: número, jid de contato (`@s.whatsapp.net`/`@c.us`), grupo (`@g.us`) e `@lid` — canal (`@newsletter`) e lista/status (`@broadcast`) → 400.
+  - **Cold:** destino **sem conversa** na sessão (nenhuma mensagem RECEBIDA desse contato/grupo, **no número exato** — a variante com/sem o 9º dígito NÃO conta: pode ser outra pessoa, ex. celular 11 9 4123-4567 × fixo 11 4123-4567) vira **cold à força** — passa pela trava do guard-rail e conta como 1º contato no reply-rate. A cópia vai sempre para o número que você mandou. `cold: true` marca todos como cold; `cold: false` **não** tira o cold de quem não tem conversa (diferente do `/text`, onde o cold é só o que o cliente diz). Sessão bloqueada (quarentena/banida/pausa) com **algum** destino cold → **HTTP 423 `SESSION_QUARANTINED` no pedido inteiro, nada é enviado** (nem para quem tem conversa — separe os destinos se quiser mandar só para esses); vale também na repetição de um pedido que já saiu em parte (o 423 traz `results`; os já enviados aparecem `ok: true, deduped: true` e a nova repetição com a mesma chave não os reenvia).
+  - **Resposta 201:** `{ "results": [ { "target", "to", "ok", "id", "deduped", "cold", "idempotencyKey", "isForwarded"?, "forwardingScore"?, "confirmed"?, "status"?, "code"?, "error"? } ] }` — uma posição por destino, na ordem de `to` (`target` = o destino exatamente como veio). `id` = keyId da cópia; `to` = jid usado. Selo que saiu: original de terceiro → `isForwarded: true`, `forwardingScore` da original + 1; original **nossa** → sem selo (`isForwarded: false`) se ela nunca foi encaminhada, ou o MESMO contador se já era encaminhada (o WhatsApp não soma ao encaminhar a própria mensagem). `isForwarded`/`forwardingScore` **não vêm** em item `deduped` (repetição) nem quando `confirmed: false`. WWEBJS: `confirmed: false` + `id: null` = o WhatsApp Web encaminhou, mas o id da cópia não chegou a tempo (ela ainda entra no webhook/`GET /messages` se o eco chegar em seguida) — **não reenvie**. Algum destino ok → 201 (os que falharam trazem `ok: false`, `status`, `error`); nenhum ok → o status comum (409, 400) ou 400 `FORWARD_FAILED`, com `results` no corpo. **Sem `results`:** as recusas que acontecem antes de olhar os destinos — 400 de validação/destino, 400 `FORWARD_UNSUPPORTED` pelo tipo **gravado** e `FORWARD_LIMIT` pelo contador **gravado**, 404 e o 409 da chave do pedido. **Com `results`** (cada item com `status`/`code`/`error`): as recusas descobertas depois de reservar — apagada/editada, tipo vivo/visualização única (`FORWARD_UNSUPPORTED`), original indisponível (`FORWARD_SOURCE_UNAVAILABLE`), contador **vivo** ≥ 5 (`FORWARD_LIMIT`), sessão não conectada (`FORWARD_FAILED`) — e o 423, que traz também `state` (`quarentena` \| `banida` \| `pausa_manual`) e **não** traz `statusCode` (📎 26/09, E25 — conferido no `forward.service.ts`).
+  - **Idempotência:** a `idempotencyKey` vale para o **pedido**: repetir o mesmo pedido (mesma mensagem e mesmos destinos, em qualquer ordem) devolve `deduped: true` sem reenviar e retoma só os destinos que falharam; a mesma chave com **outra** mensagem ou **outro** conjunto de destinos → **409** (nada é enviado). Cada destino usa a chave `<idempotencyKey>:<destino>` (ex.: `fwd-lead-42:5511999999999`) — é ela que vem em `results[i].idempotencyKey` e no `idempotencyKey` do webhook `message` da cópia. Não reutilize essa chave derivada em outra rota (passa de 200 caracteres → 400).
+  - **Recusas antes de enviar (400):** `FORWARD_UNSUPPORTED` — apagada, editada (até a P-069), visualização única, mensagem temporária já expirada, enquete, evento, convite de grupo, localização em tempo real, respostas de botão/lista e mensagens de empresa, voto, `other` e, **no Baileys**, figurinha animada (lottie — no WWEBJS ela passa); `FORWARD_SOURCE_UNAVAILABLE` — a original não está mais disponível: no **Baileys**, o gateway guarda a original completa por `RETENTION_MESSAGE_RAW_DAYS` (7 dias) a partir desta versão — sem ela, **só texto** é encaminhado (mídia, localização e contato antigos, não); no **WWEBJS**, a mensagem precisa estar no WhatsApp Web da sessão. Nesses casos, encaminhe pelo celular. A repetição de um pedido que já saiu segue `deduped` mesmo que a original seja apagada/editada depois. ⚠️ **Sem a original** (recebida antes desta versão, ou há mais de 7 dias no Baileys), o gateway só conhece o `type`/`text` da linha: uma resposta de botão/lista ou mensagem de empresa (gravadas como `text`) sai como texto simples, com o selo e sem os botões; e um TEXTO que o contato apagou/editou **antes desta versão** (sem a marca) também sai.
+  - **Webhook da cópia:** evento `message` com `fromMe: true`, `source: "api"` (não pausa a IA — não é handoff), `isForwarded`/`forwardingScore` da cópia, `isCold` efetivo e a chave derivada. O chat de destino vai para 🟢 na caixa única (§13), como qualquer envio.
 - **Localização (W5, aditivo):** `POST /api/sessions/{sessao}/messages/location` com `{ "to": "...", "latitude": -23.55, "longitude": -46.63, "name": "Escritório", "address": "Av. ..." }` (`name`/`address` opcionais; mesmos `cold`/`idempotencyKey`). Funciona nas duas engines.
 - **Enquete/poll (W5, aditivo):** `POST /api/sessions/{sessao}/messages/poll` com `{ "to": "...", "name": "Qual horário?", "options": ["Manhã","Tarde"], "multi": false }` (2..12 opções; `multi` = múltipla escolha; mesmos `cold`/`idempotencyKey`). Funciona nas duas engines. **Nota:** a CAPTURA de votos via webhook (`vote_update`) ainda não está exposta — os votos aparecem no app; captura automática = incremento futuro.
 
@@ -62,16 +69,19 @@ Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`,
 
 Catálogo:
 
-| Evento                                                       | Quando                   | Payload-chave                                                                                    |
-| ------------------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------ |
-| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`** — base do handoff IA×celular                             |
-| `message.ack`                                                | entrega/leitura          | `{ msg_id, status: sent\|delivered\|read }`                                                      |
-| `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid, emoji ('' = removida), fromMe, timestamp }` — 2 engines |
-| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                           |
-| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                                                     |
-| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                                              |
+| Evento                                                       | Quando                   | Payload-chave                                                                                                                                                                        |
+| ------------------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular |
+| `message.ack`                                                | entrega/leitura          | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read, timestamp }` (casar por `keyId`)                                                                                           |
+| `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                            |
+| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                               |
+| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                                                                                                                                         |
+| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                                                                                                                                  |
 
 > **Handoff (G2):** `source: "phone"` num `fromMe` = o humano respondeu pelo celular → pause a IA.
+> **Reação não é handoff (E22, D-028):** reagir pelo celular não gera mais `message` `source=phone`
+> (no Baileys gerava) — a IA não pausa por causa de um 👍 do dono. `message.reaction` não tem
+> `source`: reação pela API e pelo celular chegam iguais (`fromMe: true`).
 > **C4:** o webhook OUT tem retry + **dead-letter** — se o n8n cair, o evento não some (ver §6).
 > **C5:** NÃO existe evento de "bloqueado/denunciou" (impossível detectar no WhatsApp).
 > **C6 (dedup de status — D-015):** `session.status` só é entregue quando o estado MUDA de fato —
@@ -91,7 +101,20 @@ GET /api/sessions/{sessao}/messages/{msgId}/media
 Header: X-Api-Key: <chave>          (ou Bearer do painel)
 → 200  Content-Type = mimetype original; body = bytes da mídia
 → 404  motivo claro (mensagem sem mídia / binário não armazenado / expirado)
+→ 503  "Armazenamento de mídia indisponível no momento" (S3/MinIO fora — tente de novo)
 ```
+
+- **Nome do arquivo e tipo (E23):** `Content-Disposition: inline; filename="<nome>"` quando o
+  `fileName` cabe no Latin-1 e não tem `%`, `\`, `;` nem `=` (igual a antes). Nome com travessão,
+  aspas curvas, reticências ou emoji — que até a E23 derrubava a rota com **500** — ou com um desses
+  quatro caracteres (que o parser do n8n lia errado: `%` solto lançava "URI malformed", `%41` virava
+  `A`, `a;b` virava `"a`) sai com o par `filename="<nome ASCII: o resto vira _>";
+filename*=UTF-8''<nome percent-encoded>` (RFC 5987; quem entende `filename*` usa ele — MDN; o n8n
+  1.x e 2.x leem). Limitação do n8n (não contornável daqui): nome fora do Latin-1 **com apóstrofo**
+  chega cortado no apóstrofo — o nome exato, em UTF-8, está sempre no `fileName` do `GET /messages`.
+  O `Content-Type` é o `mimetype` da mensagem; se ele não cabe num header (vem do remetente —
+  CR/LF, não-ASCII, tipo composto), vale o tipo do objeto no S3 ou `application/octet-stream`
+  (antes: 500).
 
 - `{msgId}` aceita **os dois** identificadores: o **`keyId` do WhatsApp** (o mesmo que vem no
   `payload` do webhook — ex.: `3AD5B95A7C36FE832C31`) **ou** o **`id` interno (ULID)** do
@@ -101,6 +124,95 @@ Header: X-Api-Key: <chave>          (ou Bearer do painel)
 - **Pré-requisito de infra:** o gateway só armazena o binário se o S3 estiver configurado
   (`S3_ENDPOINT/S3_BUCKET/S3_ACCESS_KEY/S3_SECRET_KEY` — MinIO no Dokploy ou Cloudflare R2).
   Sem S3, a mensagem chega só com metadados e o download responde 404 explicando.
+
+### 3.2 Conteúdo das mensagens — `type`, `text` e reação (E22 · P-066 · D-028)
+
+Desde a etapa E22 (25/09/2026, sobe no deploy da Onda 8) o evento `message` e o `GET /messages`
+trazem o conteúdo como o WhatsApp Web mostra — nas **duas engines**, com o mesmo texto:
+
+| `type`                                       | Quando                                                                        | `text`                                                                                          |
+| -------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `text`                                       | texto, resposta de botão/lista/fluxo, mensagem de empresa (menu/lista/modelo) | o texto (inclusive emojis)                                                                      |
+| `image` `video` `audio` `document` `sticker` | mídia (vídeo redondo = `video`; figurinha animada = `sticker`)                | a legenda (ou null) — bytes via §3.1 (sem `mediaKey` quando o arquivo não veio: `/media` → 404) |
+| `location`                                   | localização (fixa ou em tempo real)                                           | `Nome — Endereço` + linha com `https://maps.google.com/?q=lat,lng`                              |
+| `contact`                                    | cartão de contato (um ou vários)                                              | `Nome — telefone(s)`, um contato por linha                                                      |
+| `poll`                                       | enquete                                                                       | a pergunta + uma opção por linha (`• opção`)                                                    |
+| `event`                                      | evento                                                                        | nome + descrição                                                                                |
+| `group_invite`                               | convite de grupo                                                              | nome do grupo + legenda                                                                         |
+| `poll_vote`                                  | o contato votou numa enquete (Baileys)                                        | null (o voto é cifrado) — continua contando no reply-rate                                       |
+| `other`                                      | tipo sem cartão próprio (produto, pedido, pagamento…) ou ainda desconhecido   | resumo legível quando houver, senão null                                                        |
+
+- **Reação NÃO é mais `message`.** Antes (Baileys) toda reação saía TAMBÉM como `message` `type:
+"other"`, `text: null` (o "…" do painel). Agora ela sai só como **`message.reaction`**, é gravada
+  e aparece em `reactions[]` da mensagem-alvo no `GET /messages` (§12). Webhook que assina só
+  `["message"]` **deixa de receber reação** — veja o item 1 da lista abaixo (não crie um 2º
+  webhook para a mesma URL).
+- **Não viram `message`** (não são mensagem no chat): reação (inclusive cifrada), voto NOSSO,
+  resposta a evento, fixar/manter, pedido de telefone, menção em status, álbum-mãe (cada foto do
+  álbum chega como mensagem própria), editada/apagada (P-069), notificações de sistema e ligação
+  (`call_log`, wwebjs).
+- **Selo "Encaminhada":** `isForwarded` (boolean) e `forwardingScore` (quantas vezes já foi
+  encaminhada; null quando não é). Nos ecos de envio pela API (`source: "api"`) os dois campos NÃO
+  vêm — ausente = não encaminhada —, **exceto no eco do encaminhar** (`/forward`, E24), que traz o selo da cópia: original de terceiro → `forwardingScore` da original + 1; original nossa → sem selo, ou o mesmo contador se ela já era encaminhada. "Encaminhada com frequência" no WhatsApp = cadeia de 5 ou mais
+  conversas (FAQ oficial) → use `forwardingScore >= 5`.
+- **Ecos de localização e enquete enviadas pela API (E24 · P-077 — muda o `text` do webhook):**
+  o evento `message` do eco de `POST …/messages/location` e `POST …/messages/poll` passa a trazer
+  o MESMO texto da recebida (tabela acima): localização = `Nome — Endereço` (o que houver) + linha
+  com o link do mapa — sem nome nem endereço, só o link; enquete = pergunta + `• opção` por linha.
+  Até a E24 vinha só o nome do local (ou o endereço; null sem os dois) e só a pergunta. Fluxo que
+  comparava esse `text` com o que enviou: na enquete, compare a 1ª linha com a pergunta; na
+  localização, use as coordenadas do link (a 1ª linha junta nome e endereço).
+- **`message.reaction.senderJid`** é quem reagiu (em grupo, o participante). Até a E22 o Baileys
+  mandava `""` em conversa 1:1 e, em grupo, o autor da mensagem-alvo. O `chatJid` da reação agora
+  vem no mesmo formato do `chatJid` das mensagens (telefone quando o `@lid` é conhecido).
+- Mensagens antigas (antes do deploy) continuam como estavam: reações antigas seguem gravadas como
+  `other` (não se recuperam) e não aparecem em `reactions[]`.
+- **`senderJid` em GRUPO (E23 · P-074):** numa mensagem RECEBIDA em grupo (`chatJid` termina em
+  `@g.us`), `senderJid` passa a ser o **participante que escreveu** — telefone quando conhecido
+  (`@s.whatsapp.net` no Baileys, `@c.us` no WWEBJS), `@lid` quando o WhatsApp não revela o número.
+  Até a E23 vinha o jid do próprio grupo (= `chatJid`, sem utilidade). Não mudam: conversa 1:1,
+  mensagens nossas (`fromMe`), grupo sem participante na chave e as linhas já gravadas no banco
+  (as de grupo gravadas ao vivo seguem com o jid do grupo; as importadas pelo `/sync` do WWEBJS já
+  traziam o autor cru, às vezes `@lid` — a mesma pessoa pode aparecer com `@lid` nas antigas e com
+  telefone nas novas). No
+  WWEBJS o `@lid` só vira telefone pelo cache da sessão — nenhuma consulta ao WhatsApp é feita para
+  descobrir o número.
+
+**O que conferir nos seus fluxos n8n (mudança de comportamento — tipo `other`):**
+
+1. Fluxo que tratava reação como "lead respondeu" (CRM, cancelar follow-up) **para de disparar com
+   reação** se o webhook assina só `["message"]`. Como voltar a receber:
+   - **Trigger do node 0.4.1:** troque o **Events** do nó para **All Events (`*`)** e salve (o nó
+     recria o webhook dele com `*`); logo depois do Trigger, um **Switch por `{{$json.event}}`**:
+     `message` → a lógica atual; `message.reaction` → ramo próprio; o resto (`message.ack`,
+     `session.*`, `webhook.test`) descartado. Sem o Switch, um `message.ack` de mensagem recebida
+     (`fromMe: false`) chegaria na IA.
+   - **Webhook próprio:** só com um nó **Webhook do n8n separado** (URL própria), cadastrado via
+     `POST /api/webhooks` com `["message.reaction"]`.
+   - ⚠️ **Nunca** cadastre webhook (API ou painel) na URL de um Trigger (`…/webhook/<id>/webhook`): o
+     nó "adota" o webhook pela URL e, no próximo salvar, apaga o original — o fluxo para de receber
+     `message` sem aviso. O painel não edita eventos: para mudar, remova e recrie; **não** crie um 2º
+     webhook com `message` para a mesma URL (cada mensagem chegaria em dobro e a IA responderia 2×).
+2. IF/Switch que descartam `type === "other"` ou `text == null`: viram inofensivos (reação não chega
+   mais por ali). Remova quando quiser.
+3. IA de atendimento: reação **não aciona** mais a IA; localização, contato, enquete, evento e
+   convite passam a chegar **com texto** — a IA vai responder a eles. No Baileys, menus, listas e
+   modelos de robôs de empresa e respostas de botão/lista (antes `other`, texto null) passam a chegar
+   como `text` — filtre por remetente ou `type` se não quiser a IA conversando com robôs.
+4. Handoff: reação, voto e fixar/manter feitos pelo dono no celular **não pausam mais** a IA (só
+   texto/mídia com `source: "phone"`).
+5. Quem lia `message.reaction.senderJid` recebia `""` em 1:1 e o autor do alvo em grupo — agora é
+   quem reagiu.
+6. Sessões WWEBJS: filtros `type === "text"` param de pegar enquete/evento/localização/contato
+   (antes tudo saía `text`); mídia sem arquivo no servidor chega como `image`/`video`… com
+   `mediaType` e sem `mediaKey` (antes vinha `text` com o base64 da miniatura).
+7. Fluxos com `["*"]` deixam de receber a reação em dobro (`message` + `message.reaction`) — remova
+   qualquer dedup feito para isso.
+8. Números de saúde: reação do contato conta como resposta no reply-rate (§4).
+9. **Grupos (E23 · P-074):** para responder num grupo, mande SEMPRE para `payload.chatJid` (o
+   grupo). Um fluxo que usava `senderJid` como destino (`to`) numa mensagem de grupo passaria a
+   mandar **no privado do participante** — contato frio, fora do contexto e com risco para a
+   conta. Detecte grupo por `chatJid.endsWith('@g.us')`, nunca por `senderJid`.
 
 ## 4. Saúde e reply-rate (G4/G7)
 
@@ -112,6 +224,11 @@ GET /api/sessions?state=ativa,aquecimento             # filtra a listagem por es
 ```
 
 `reply_rate` exclui cold-sends com menos de **72h** (imaturos) e só dá veredito com **amostra ≥ 20**.
+Resposta = **mensagem OU reação do contato** em até 72h do cold (E22, D-028 — antes a reação contava
+por ser gravada como mensagem `other`; o voto em enquete continua contando como mensagem `poll_vote`).
+Deixam de contar como resposta desde a E22 (antes eram gravados como `other`): fixar/manter, resposta
+a evento, pedido de telefone (Baileys) e ligação (`call_log`, wwebjs) — raros; menção em status e
+notificações de sistema do wwebjs, que contavam por engano, também saem.
 
 ## 5. Guard-rail: estados, hard-gate e tuning (G5/G7)
 
@@ -271,6 +388,16 @@ GET  /api/sessions/{sessao}/messages/search?q=termo   # busca por termo (opciona
   Mesmo formato do `GET /messages` (traz `keyId` + `mediaUrl`). Funciona nas 2 engines e alcança o
   histórico já importado pelo backfill (busca o que está **persistido** — rode o `/sync` antes para
   incluir conversas anteriores à conexão).
+- **Reações e selo "Encaminhada" (E22, aditivo):** cada item do `GET /messages` e do `/search` traz
+  `reactions: [{ emoji, senderJid, fromMe, timestamp }]` (reações vivas da mensagem, uma por pessoa,
+  em ordem de horário; `[]` quando não há), `isForwarded` e `forwardingScore`. O `type`/`text` segue
+  a tabela da §3.2.
+- **Remetente em grupo (E23, aditivo):** `senderName` — o nome de quem mandou uma mensagem
+  RECEBIDA em grupo: o da agenda, senão o pushName (nome que a pessoa pôs no WhatsApp), procurado no
+  diretório de contatos da sessão pelo `senderJid` (e, quando é telefone, também pelos dígitos).
+  `null` fora de grupo, em mensagem nossa, em linha antiga (gravada com o jid do grupo) ou quando o
+  remetente não é conhecido. Uma consulta por página; se o diretório falhar, a lista vem sem nomes
+  (não cai). Só no `GET /messages` e no `/search` — **não** vai no webhook.
 
 **Backfill (W7 — só engine WWEBJS):** ao conectar uma sessão, a inbox só tem o que chegou DEPOIS.
 Para trazer o histórico anterior, dispare o sync — ele puxa do WhatsApp Web e grava no banco, e aí os
@@ -340,6 +467,18 @@ POST /api/inbox/sessions/{sessao}/triage          # { "chatJid": "...@s.whatsapp
 - **Histórico:** só o que passou pelo gateway (do zero para frente). Para trazer conversa anterior à
   conexão, rode antes o backfill da seção 12 (`POST …/messages/sync`, só WWEBJS).
 - **Tempo real:** não há long-poll aqui — use o SSE `GET /api/events/stream` (evento `message`,
-  todas as sessões) e recarregue a lista; é o que o painel faz.
+  todas as sessões) e recarregue a lista; é o que o painel faz. Tiques ao vivo = evento
+  `message.ack`; reação ao vivo = `message.reaction` — casar pelo `sessionId` do envelope + `keyId`
+  (nunca pelo `chatJid`, que pode trocar de @lid para telefone; e nunca só pelo `keyId`: no Baileys
+  duas sessões do gateway conversando entre si veem o mesmo id).
+- **`GET /api/inbox/messages` (E22, aditivo):** cada item traz também `status` — o ACK da mensagem
+  ENVIADA (`sent` | `delivered` | `read`; null enquanto não chega recibo). ⚠️ Aqui `status` é o ACK;
+  no `GET /conversations` o `status` é a triagem (🔴🟢🟡). Mostre tique só em `fromMe: true` (numa
+  entrada, `read` significa "lida no celular do operador"). Em **grupo** o Baileys não grava ACK
+  (fica null). Também `isForwarded`/`forwardingScore`.
+- **Encaminhar (E24):** a cópia encaminhada é um envio nosso (`fromMe`, `source: "api"`) — o chat
+  de DESTINO vai para 🟢 como em qualquer resposta; o chat de origem não muda.
+- **Reação não mexe no semáforo (E22):** reagir não devolve a conversa para 🔴 nem a põe em 🟢 (antes,
+  no Baileys, a reação contava como a última mensagem).
 - **Responder:** continua no endpoint por sessão (`POST /api/sessions/{sessao}/messages/text`) —
   esta seção só LÊ e marca a triagem.

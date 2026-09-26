@@ -58,10 +58,11 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`            | merge (só CI/dev)                                                                   | ⬜       |
 | E20   | 7    | Métricas e regras de produto que reduzem risco: destinatários novos sem resposta em 30 dias, cota em `/contacts/check`, inventário pessoal × Business, A/B de leads Baileys × wwebjs (P-064 parte código + P-061)                    | `feature/onda7-metricas-produto`    | decisão sobre canal oficial (P-064) fica com o dono                                 | ⬜       |
 | E21   | —    | Backlog anterior: triagem e execução do que ainda vale (P-001 resto, P-018, P-022, P-023, P-013, P-005, P-036, P-044..P-046 …) — pode virar mais de um chat                                                                          | definir no chat                     | —                                                                                   | ⬜       |
-| E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`           | **antes:** decidir reação fora do evento `message` + contando no reply-rate         | ⬜       |
-| E23   | 8    | Conversas fiéis — painel: balões e mídia (imagem/áudio/vídeo por blob, sem link que muda a cada 2,5 s) no Inbox e no Atendimento (P-067) + tiques ✓/✓✓ (P-072)                                                                       | `feature/onda8-conversas`           | —                                                                                   | ⬜       |
-| E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`           | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão) | ⬜       |
-| E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`           | **merge = deploy G**                                                                | ⬜       |
+| E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`           | **antes:** decidir reação fora do evento `message` + contando no reply-rate         | ✅ 25/09 |
+| E23   | 8    | Conversas fiéis — painel: balões e mídia (imagem/áudio/vídeo por blob, sem link que muda a cada 2,5 s) no Inbox e no Atendimento (P-067) + tiques ✓/✓✓ (P-072)                                                                       | `feature/onda8-conversas`           | **antes:** decidir P-074 (decidido: entra)                                          | ✅ 25/09 |
+| E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`           | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão) | ✅ 26/09 |
+| E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`           | **merge = deploy G**                                                                | ✅ 26/09 |
+| E26   | 9    | Sugerir o proxy da sessão apagada ao recriar uma sessão com o mesmo nome — sugere, não bloqueia (P-084, pedido do dono em 26/09)                                                                                                     | `feature/onda9-proxy-sugestao`      | merge = deploy (migration aditiva pequena)                                          | ⬜       |
 
 **Ordem e porquê:** a Onda 1 vem antes de tudo porque o stop-first (B-004) só é seguro depois das
 guardas de build (P-055) e porque o Nest de produção tem advisory high (P-054). A Onda 6 (wwebjs)
@@ -76,6 +77,9 @@ da Onda 1 (regra 2). Diagnóstico com causas provadas em
 [analise-conversas-whatsapp-web-2026-09.md](analise-conversas-whatsapp-web-2026-09.md). "Completo em
 todos os chats" depende também da E7 (P-047, recebidas durante queda/deploy) e da E10 (P-050,
 download de mídia travado). Opcional depois: P-069.
+**Onda 9 — E26 (pedido do dono em 26/09, no chat da E25 — P-084):** sugerir o proxy da sessão apagada
+ao recriar com o mesmo nome. Independente das outras ondas (proxies + sessões + painel, migration
+aditiva pequena), 1 chat; entra depois da E5 por causa do prazo de 13/10 — ou antes, se o dono pedir.
 
 ## Regras de toda etapa (o chat segue sem precisar perguntar)
 
@@ -159,7 +163,7 @@ No fim: atualize o roteiro, o PR #6, e me dê a mensagem da próxima etapa — a
 
 ```text
 Etapa E5 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-059 — wwebjs pronto para uso sob demanda antes de a build fixa sair do catálogo (13/10/2026 07:01 UTC).
-Siga as "Regras de toda etapa". Branch: feature/onda6-wwebjs (a partir da main se a Onda 1 já foi mergeada; senão de feature/onda1-guardas-seguranca).
+Siga as "Regras de toda etapa". Branch: feature/onda6-wwebjs — a partir da main se o PR #7 (Onda 8) já foi mergeado; senão a partir de feature/onda8-conversas (a E24 mexeu no wwebjs.engine.ts: encaminhar nativo, ForwardEchoRegistry, withLidFallback — partir da main antiga geraria conflito). Inclua a P-073 (teste instável do wwebjs no CI).
 Passo 0: conferir upstream (npm view whatsapp-web.js, commits do main após 1780711, issues #201921–#201930, wa-version versions.json) e a build candidata (2.3000.1046934385-alpha, anterior à quebra de mídia de ~17/09).
 Itens da P-059: patch estendido (filtro de campos do mediaOptions/__x_id, fallback WID _serialized||$1, toString no MsgKey, contador de chats pulados no getChats), log da build EFETIVA (getWWebVersion) e do Chromium por sessão, override de build por sessão (canário), LOGOUT/UNPAIRED → STOPPED sem QR automático, TOS_BLOCK → FAILED com código bruto, CONFLICT sem retomar, teto de renovação do pairing code, teto de heal, zerar tentativas no start(), validar versão contra path traversal (#201930). Corrigir o comentário falso de wwebjs.engine.ts (~63-65).
 Leia no MAPA-CODIGO a seção sessions (parte wwebjs) e a linha P-059. Nenhum QR/envio em produção — o canário é passo meu, descreva-o.
@@ -187,6 +191,53 @@ Itens: describeBaileysMessage/describeWwebjsMessage puros com fixtures dos ~20 t
 No fim: atualize o roteiro e me dê a mensagem da E23 e a lista do que eu preciso fazer.
 ```
 
+### E23 — conversas fiéis: painel (P-067 + P-072 parte painel)
+
+```text
+Etapa E23 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-067 — balões e mídia no painel (Inbox e Atendimento) fiéis ao WhatsApp Web + P-072 parte painel (tiques ✓/✓✓, só exibição — o painel NÃO manda recibo de leitura).
+Siga as "Regras de toda etapa". Branch: feature/onda8-conversas (continuar da E22 — mesmo PR da Onda 8, sem merge).
+LEIA ANTES: docs/analise-conversas-whatsapp-web-2026-09.md (§2 S2–S5, §5 C2, §7); docs/INTEGRACAO.md §3.2 (tipos novos: location/contact/poll/event/group_invite/poll_vote/other com resumo), §12 (reactions[], isForwarded, forwardingScore) e §13 (status do feed = ACK); em docs/PENDENCIAS.md a P-067, os 7 achados da E22 na P-072 e a P-074; o Diário da E22 no roteiro; MAPA-CODIGO §4.5 (dashboard).
+Itens: components/chat/MessageBubble.tsx + MediaView.tsx compartilhados por Inbox e Atendimento; lib/message-format.ts (rótulo/ícone por type, prévia da lista sem "…", fallback "Mensagem não suportada — veja no celular", link do mapa clicável); mídia baixada pelo gateway como blob (fetch com cookie + refresh de login → object URL em cache por mensagem, liberado ao desmontar; imagem ao aparecer na tela, áudio/vídeo no clique) — resolve o helmet CORP same-origin, a falta de Range e a URL pré-assinada que muda a cada 2,5 s; "Baixar" quando o navegador não toca Ogg/Opus; selos de reação (reactions[]) e "↪ Encaminhada"/"↪↪ Encaminhada com frequência" (forwardingScore ≥ 5); tiques só em fromMe (null = sem confirmação; grupo sem tique — o Baileys não grava ACK de grupo); Atendimento passa a ouvir message.ack e message.reaction no SSE (casar por keyId, nunca por chatJid).
+Decisão do dono na abertura: P-074 (remetente de mensagem de grupo = jid do grupo nas 2 engines) entra nesta etapa (muda o valor de senderJid no webhook em grupo) ou fica para depois.
+Testes: vitest em ambiente node para lib/*; validação manual no Chrome e no Safari com seed local (mensagens + objetos no MinIO de dev) — nada em produção.
+No fim: atualize o roteiro, o PR da Onda 8, e me dê a mensagem da E24 (ou da E5, se já for 08/10 — prazo da build do wwebjs: 13/10) e a lista do que eu preciso fazer.
+```
+
+### E24 — encaminhar: API e engines (P-068)
+
+```text
+Etapa E24 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-068 parte API/engines — encaminhar mensagem fiel ao WhatsApp Web (Baileys `forward` com a original guardada; wwebjs `Message.forward` com o eco correlacionado).
+Siga as "Regras de toda etapa". Branch: feature/onda8-conversas (continuar da E23 — mesmo PR #7 da Onda 8, sem merge).
+LEIA ANTES: docs/analise-conversas-whatsapp-web-2026-09.md §4 (API proposta, pré-requisitos, riscos) e §7; em docs/PENDENCIAS.md a P-068 e a P-077 (ecos de localização/enquete sem o conteúdo completo — decidir se entra junto, porque mexe no mesmo emitOutbound); docs/INTEGRACAO.md §2 (cold + idempotência), §3.2 (selo Encaminhada, senderJid de grupo desde a E23) e §12; MAPA-CODIGO §3.1 (envio) e §4.1/§4.2; o Diário da E23 no roteiro; D-028 e D-029.
+Decisão do dono na abertura: confirmar os limites — até 5 destinos por vez, só 1 se a original já é "encaminhada com frequência" (forwardingScore ≥ 5), só a MESMA sessão, destino sem conversa = cold com a trava 423, idempotencyKey por destino.
+Passo 0: upstream (npm view @whiskeysockets/baileys dist-tags; whatsapp-web.js) e conferir no código instalado generateForwardMessageContent/`forward` (Baileys rc14) e Message.forward/getMessageById (wwebjs 1.34.7).
+Itens: guardar a original das RECEBIDAS no Baileys (o webhook e o SSE já tiram o `raw`) ou remontar do banco/S3; IEngine.forwardMessage nas 2 engines; SessionManager.forwardMessage pelo sendWithIntent (um destino por vez, intervalo 1–3 s); rota aditiva POST /api/sessions/:s/messages/:msgId/forward {to[], cold?, idempotencyKey?} → {results[]}; eco com isForwarded/forwardingScore; no wwebjs, correlacionar o eco para não virar handoff (source=phone). Contracts + INTEGRACAO no mesmo commit. e2e de efeito (>5 → 400, cold em quarentena → 423, mensagem desconhecida → 404, repetição dedupada, eco sem handoff).
+Nada em produção — nenhum envio real; o teste com chip é passo meu, descreva-o.
+No fim: atualize o roteiro, o PR da Onda 8, e me dê a mensagem da E25 (ou da E5, se já for 08/10 — prazo da build do wwebjs: 13/10) e a lista do que eu preciso fazer.
+```
+
+### E25 — encaminhar: interface (P-068) — fecha a Onda 8
+
+```text
+Etapa E25 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-068 parte interface — encaminhar fiel ao WhatsApp Web no painel (Inbox e Atendimento). ESTA ETAPA FECHA A ONDA 8 (merge = deploy G).
+Siga as "Regras de toda etapa". Branch: feature/onda8-conversas (continuar da E24 — mesmo PR #7 da Onda 8).
+LEIA ANTES: docs/INTEGRACAO.md §2 (item "Encaminhar" — limites, cold à força, 423 no pedido inteiro, idempotencyKey do pedido, results[] com target/ok/id/deduped/cold/confirmed/code/error, recusas FORWARD_UNSUPPORTED/FORWARD_SOURCE_UNAVAILABLE/FORWARD_LIMIT) e §3.2; D-030; MAPA-CODIGO §3.12 (fluxo do encaminhar) e §4.5 (painel); packages/contracts ForwardMessageRequest/ForwardResultDto; o Diário da E24 no roteiro; docs/analise-conversas-whatsapp-web-2026-09.md §4 (UI fiel).
+Itens: menu ⌄ no balão (components/chat/MessageBubble) → "Encaminhar" → modo seleção → diálogo "Encaminhar mensagem para" (busca, conversas da MESMA sessão, até 5; só 1 quando a original tem forwardingScore ≥ 5) → ➤ com progresso e erro por destino a partir de results[]; atalho ↪ nas mídias; esconder a ação nos tipos que o gateway recusa (poll/event/group_invite/poll_vote/other) e tratar com mensagem de operador os 400 com code (apagada/editada/visualização única/original indisponível — "encaminhe pelo celular"), o 423 (sessão em quarentena — nada foi enviado), o 409 e o confirmed:false (WWEBJS — "encaminhado, confirmação pendente", NÃO reenviar); idempotencyKey gerada por clique (reenvio do mesmo diálogo não duplica); o eco chega pelo SSE/polling como mensagem nossa (source api) com o selo. Libs puras em lib/* com vitest; validação no Chrome com seed local e gateway local (fake do encaminhar ou sessão de teste LOCAL) — nada em produção.
+Fechamento da Onda 8: PR #7 com CI verde + checklist do deploy G (migrations 20260925203458_reacoes_encaminhada e 20260926052719_encaminhar_marcas_apagada_editada; fluxos n8n da INTEGRACAO §3.2; conferência no Safari; teste com chip de docs/how-to/teste-chip-encaminhar.md) para eu executar depois do merge.
+Se já for 08/10, pare e faça a E5 antes (prazo da build do wwebjs: 13/10).
+No fim: atualize o roteiro, o PR #7, e me dê a mensagem da E5 e a lista do que eu preciso fazer.
+```
+
+### E26 — sugerir o proxy da sessão apagada (P-084) — onda 9 (produto)
+
+```text
+Etapa E26 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-084 — ao criar uma sessão com o MESMO nome de uma sessão apagada que usava proxy, o painel SUGERE esse proxy (pré-seleciona no dropdown com "usado antes na sessão X"); não bloqueia escolher outro.
+Siga as "Regras de toda etapa". Branch: feature/onda9-proxy-sugestao a partir da main (depois do deploy G, se já tiver saído; senão a partir de feature/onda8-conversas).
+LEIA ANTES: a P-084 em docs/PENDENCIAS.md (levantamento de 26/09 com a abordagem A recomendada e os casos de borda), D-008 em docs/DECISOES.md, docs/INTEGRACAO.md §11, MAPA-CODIGO §4.4 (atribuição de proxy) e a linha P-084 em "Onde mexer".
+Itens (abordagem A): migration ADITIVA com releasedSessionName + releasedAt (+ índice) em session_proxy_assignments; ProxyService.markReleased chamado no SessionsController.remove ANTES do manager.remove (só SINGLE com currentProxyId; falha só loga — nunca bloqueia a exclusão); rota aditiva GET /api/proxies/suggestion?sessionName=X (mais recente, sem diferenciar caixa, preferindo o exato) → {proxy, fromSession, releasedAt, available, reason: IN_USE|DEAD|DISABLED|REMOVED} ou null; ProxySuggestionDto em contracts; Sessions.tsx pré-seleciona só se o dono não mexeu no seletor (ocupado/morto/removido = só aviso). POST /sessions NÃO muda (R0). Registrar D-xxx: as atribuições órfãs viram registro intencional (a retenção não pode limpá-las). e2e: livre, ocupado, DEAD, removido, caixa diferente, duas exclusões seguidas; validação no Chrome local.
+No fim: atualize o roteiro, abra o PR da onda 9 com CI verde, e me dê a mensagem da próxima etapa e a lista do que eu preciso fazer.
+```
+
 ### E7 a E21
 
 As mensagens das etapas seguintes seguem o mesmo molde (Etapa, pendência, "Siga as Regras de toda
@@ -197,25 +248,110 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 
 ## Ações que só o dono pode fazer (e quando)
 
-| Quando                      | Ação                                                                                                                                                                                                                         | Referência         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Agora                       | Mergear o PR da E1 (só docs — não faz deploy)                                                                                                                                                                                | E1                 |
-| Agora (mais urgente)        | Backup do Postgres para S3 **fora da VPS** + restore testado num banco descartável                                                                                                                                           | B-005              |
-| Agora                       | MinIO → imagem `pgsty/minio` pinada, fechar só o console 9001, trocar root se `minioadmin`, access key própria do gateway                                                                                                    | B-006              |
-| Agora                       | Diagnóstico somente leitura (Traefik, Node/Chromium, Redis, Postgres, env, painel do Dokploy, logs desde 17/09, composição da frota, pareamento Baileys novo com chip de teste) — devolver as respostas                      | B-007              |
-| Agora                       | Checklist no celular dos chips deslogados + verificação em duas etapas com e-mail + usar cada celular a cada ≤14 dias                                                                                                        | B-003              |
-| Agora (fecha a Onda 1)      | Mergear o PR #5 e depois o PR #6 (= **deploy A**) e seguir o checklist de [how-to/deploy-a-onda1.md](how-to/deploy-a-onda1.md) §1–§2                                                                                         | E4 · deploy A      |
-| Depois do deploy A (E4)     | Swarm Settings do gateway: Update/Rollback Config `stop-first`, StopGracePeriod 30 s, Health Check do Swarm vazio; conferir com `docker service inspect` — passo a passo em [deploy-a-onda1.md](how-to/deploy-a-onda1.md) §3 | B-004              |
-| Depois do deploy A (E4)     | GitHub → Settings → Notifications → Actions: e-mail "only failures" (é o alarme da checagem diária de advisories); `gh workflow run advisories.yml` uma vez na main; rever os 7 aceites do fastify até 30/11/2026            | P-054 · D-023      |
-| Depois do deploy W (E6)     | `WWEBJS_WEB_VERSION` canário em 1 sessão/chip de teste; depois `WA_REQUIRE_PROXY=true` na env                                                                                                                                | P-059 · B-001      |
-| Depois do deploy B (E12)    | Observar 48 h: 405/403/440 nos logs, mensagens recebidas durante o deploy chegando no webhook                                                                                                                                | Onda 2             |
-| Depois do deploy C (E15)    | Ligar `WA_REQUIRE_PROXY=true` (se ainda não) e Redeploy                                                                                                                                                                      | B-001              |
-| Quando puder (Onda 4)       | Traefik → v3.7.13 (se 3.6.x) · Redis com AOF (Custom Command completo com `--requirepass`, depois do deploy A — bullmq 5.81.5; nota E3 na análise §8) · Postgres pinado na minor                                             | B-007 · análise §8 |
-| Antes da E22 (Onda 8)       | Responder: reação fora do evento `message` do webhook + contando no reply-rate (recomendado) — confira se algum fluxo n8n usa o tipo `other`                                                                                 | P-066              |
-| Quando puder (Onda 8)       | Checagens do diagnóstico §3: SQL só leitura dos tipos em `wa_messages` (7 dias), logs de mídia, `canPlayType` do áudio no seu navegador (Safari × Chrome)                                                                    | P-066/P-067        |
-| Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                              | P-064              |
+| Quando                      | Ação                                                                                                                                                                                                                              | Referência         |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| Agora                       | Mergear o PR da E1 (só docs — não faz deploy)                                                                                                                                                                                     | E1                 |
+| Agora (mais urgente)        | Backup do Postgres para S3 **fora da VPS** + restore testado num banco descartável                                                                                                                                                | B-005              |
+| Agora                       | MinIO → imagem `pgsty/minio` pinada, fechar só o console 9001, trocar root se `minioadmin`, access key própria do gateway                                                                                                         | B-006              |
+| Agora                       | Diagnóstico somente leitura (Traefik, Node/Chromium, Redis, Postgres, env, painel do Dokploy, logs desde 17/09, composição da frota, pareamento Baileys novo com chip de teste) — devolver as respostas                           | B-007              |
+| Agora                       | Checklist no celular dos chips deslogados + verificação em duas etapas com e-mail + usar cada celular a cada ≤14 dias                                                                                                             | B-003              |
+| Agora (fecha a Onda 1)      | Mergear o PR #5 e depois o PR #6 (= **deploy A**) e seguir o checklist de [how-to/deploy-a-onda1.md](how-to/deploy-a-onda1.md) §1–§2                                                                                              | E4 · deploy A      |
+| Depois do deploy A (E4)     | Swarm Settings do gateway: Update/Rollback Config `stop-first`, StopGracePeriod 30 s, Health Check do Swarm vazio; conferir com `docker service inspect` — passo a passo em [deploy-a-onda1.md](how-to/deploy-a-onda1.md) §3      | B-004              |
+| Depois do deploy A (E4)     | GitHub → Settings → Notifications → Actions: e-mail "only failures" (é o alarme da checagem diária de advisories); `gh workflow run advisories.yml` uma vez na main; rever os 7 aceites do fastify até 30/11/2026                 | P-054 · D-023      |
+| Depois do deploy W (E6)     | `WWEBJS_WEB_VERSION` canário em 1 sessão/chip de teste; depois `WA_REQUIRE_PROXY=true` na env                                                                                                                                     | P-059 · B-001      |
+| Depois do deploy B (E12)    | Observar 48 h: 405/403/440 nos logs, mensagens recebidas durante o deploy chegando no webhook                                                                                                                                     | Onda 2             |
+| Depois do deploy C (E15)    | Ligar `WA_REQUIRE_PROXY=true` (se ainda não) e Redeploy                                                                                                                                                                           | B-001              |
+| Quando puder (Onda 4)       | Traefik → v3.7.13 (se 3.6.x) · Redis com AOF (Custom Command completo com `--requirepass`, depois do deploy A — bullmq 5.81.5; nota E3 na análise §8) · Postgres pinado na minor                                                  | B-007 · análise §8 |
+| Antes da E22 (Onda 8)       | Responder: reação fora do evento `message` do webhook + contando no reply-rate (recomendado) — confira se algum fluxo n8n usa o tipo `other`                                                                                      | P-066              |
+| Quando puder (Onda 8)       | Checagens do diagnóstico §3: SQL só leitura dos tipos em `wa_messages` (7 dias), logs de mídia, `canPlayType` do áudio no seu navegador (Safari × Chrome)                                                                         | P-066/P-067        |
+| Antes do deploy G (Onda 8)  | Conferir o painel da E23 no **Safari** (áudio Ogg/Opus tocando, imagem, vídeo com seek, "Baixar", lightbox) — no Chrome já foi validado localmente                                                                                | P-067              |
+| Antes do deploy G (Onda 8)  | Fluxos n8n que usam `senderJid` em GRUPO (como destino ou para detectar grupo) — trocar por `chatJid` (INTEGRACAO §3.2 item 9)                                                                                                    | P-074 · D-029      |
+| Antes do deploy G (Onda 8)  | Teste com chip do encaminhar (local antes da E25, ou no canário depois do deploy G) — [how-to/teste-chip-encaminhar.md](how-to/teste-chip-encaminhar.md); devolver o resultado no chat seguinte                                   | P-083 · D-030      |
+| Quando puder (Onda 8)       | Decidir P-080 (mídia antiga no encaminhar pelo S3 — exige marca de visualização única) e P-081 (cold derivado também no `/text`, WA-02)                                                                                           | P-080 · P-081      |
+| Fecha a Onda 8 (E25)        | Mergear o PR #7 (= **deploy G**, os 2 apps, 2 migrations aditivas) seguindo [how-to/deploy-g-onda8.md](how-to/deploy-g-onda8.md) — de preferência DEPOIS do deploy A; antes: fluxos n8n (INTEGRACAO §3.2), Safari, cópia do banco | E25 · deploy G     |
+| Quando puder (Onda 8)       | Decidir P-085 (regra "encaminhada → só 1 grupo" também na API — 400 novo para o n8n); o painel já aplica                                                                                                                          | P-085 · D-031      |
+| Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                   | P-064              |
 
 ## Diário de execução
+
+- **26/09 — E25 (sessão `e25-encaminhar-painel`, commits `06d4ac1` + `f6d0116`):** P-068 parte interface (decisões do dono na
+  abertura: modo seleção com 1 mensagem; destinos = contatos e grupos) na branch
+  `feature/onda8-conversas` — **fecha a Onda 8** (PR #7, merge do dono = deploy G; D-031). Pedido
+  novo do dono no mesmo chat: sugerir o proxy da sessão apagada (P-084 → **E26**, onda 9). O que as
+  próximas etapas precisam saber: (1) as regras do encaminhar no painel (`lib/forward.ts`) são
+  ESPELHO do gateway e o `forward.spec.ts` confere contra o `forward.decision.ts`/`engine.port.ts`
+  reais — mudar limite, tipo encaminhável ou destino canônico lá quebra o spec do painel; (2)
+  `ApiError` tem `code` e `body` (aditivo) — tela nova que precise do `code` (ex.: 423) já o tem;
+  (3) `<dialog>`: o evento `close` atrasa em aba oculta e o Chrome FECHA À FORÇA num Esc repetido
+  mesmo com `preventDefault` no `cancel` — nunca contar com o diálogo aberto; o `closedby` não existe
+  no Safari estável (clique fora é nosso); (4) Tailwind 4: `hover:`/`group-hover:` só em dispositivo
+  com hover — use `not-pointer-fine:` para tela de toque e `group-has-[:focus-visible]` em vez de
+  `group-focus-within` (clique de mouse não deve deixar controle à vista); (5) validação no Chrome:
+  com a aba oculta o Chrome segura timers e renderização (scripts de teste dão falso resultado) —
+  traga a janela à frente; o seed da E23 foi copiado para o scratchpad da E25 com os comandos novos
+  `mark <keyId> revoked|edited|clear` e `eco <keyId> <destino> [chave]` (o scratchpad é volátil); o
+  simulador do `/forward` por `window.fetch` está no diário da sessão; (6) o gateway local sem
+  aparelho responde `FORWARD_FAILED` "Sessão não iniciada" com `results[]` — dá para validar a fiação
+  real sem chip; (7) achados novos: P-084 (pedido do dono), P-085 (regra de 1 grupo na API + contador
+  do Baileys sem teto); (8) a INTEGRACAO §2 dizia que tipo/limite vinham sem `results` — só no F0;
+  corrigida.
+
+- **26/09 — E24 (sessão `e24-encaminhar-api`):** P-068 parte API/engines + P-077 (decisões do
+  dono na abertura: limites confirmados; P-077 entra) na branch `feature/onda8-conversas` (PR #7 —
+  sem merge; D-030). O que a E25 e as seguintes precisam saber: (1) a rota é
+  `POST …/messages/:msgId/forward` e devolve `results[]` na ordem de `to` — o painel mostra
+  progresso/erro por destino a partir dele; 400 com `code` (`FORWARD_UNSUPPORTED`/
+  `FORWARD_SOURCE_UNAVAILABLE`/`FORWARD_LIMIT`), 404, 409 e 423 vêm ANTES de enviar; (2) destino
+  sem conversa RECEBIDA no número EXATO vira cold à força (o 9º dígito não conta — o "gêmeo" pode
+  ser outra pessoa); com a sessão em quarentena, qualquer destino cold dá 423 no pedido inteiro;
+  (3) o Baileys guarda a original das recebidas em `wa_messages.raw` só por 7 dias — mídia/local/
+  contato mais antigos não encaminham (P-080); texto sim; (4) o wwebjs encaminha pelo caminho nativo
+  e correlaciona o eco — `confirmed:false` = saiu sem o id a tempo (o painel NÃO deve oferecer
+  reenviar); (5) o eco da cópia é uma mensagem nossa (`source:'api'`) com o selo — o painel já
+  desenha pelo `ForwardedTag` da E23; (6) `revokedAt`/`editedAt` existem só no banco (não vão no
+  DTO) — a P-069 pode expô-los; (7) armadilhas: `sendFingerprint` apaga objeto aninhado (fingerprint
+  sempre plano); o `generateForwardMessageContent` da rc14 usa `Object.keys(content)[0]` (passe só o
+  nó); `withLidFallback` trata `undefined` como "não enviou" (op do forward devolve o destino); o
+  e2e zera o intervalo espiando `ForwardService.sleep`; (8) achados abertos: P-080..P-083 (a P-083
+  lista o que só o chip prova — `how-to/teste-chip-encaminhar.md`); (9) testes da etapa: 4 arquivos
+  novos (unit sem infra + e2e), mutantes do nó único e do casamento do eco mortos.
+
+- **25/09 — E23 (sessão `e23-conversas-painel`):** P-067 + P-072 (parte painel) + P-074 (decisão do
+  dono: entra) entregues na branch `feature/onda8-conversas` (PR #7 — sem merge; D-029). O que a E24
+  e as seguintes precisam saber: (1) o painel desenha por `lib/message-format.ts` (`bubbleContent`,
+  `messagePreview`) — tipo novo no gateway = rótulo/cartão lá, e o spec do painel confere ida e volta
+  com o `message-content.ts` do gateway (quebra se o formato mudar); (2) mídia no painel só pelo
+  `GET …/media` como blob, em cache por mensagem (`lib/media-cache.ts`) — nunca `mediaUrl` como
+  `src`; o blob mora na origem do painel (documento/SVG viram octet-stream; nunca abrir `blob:` em
+  aba); (3) tempo real: casar por (sessionId, keyId), memórias fora do updater, recargas por
+  `overlayAcks`/`replayReactions`/`mergeFeed`/`stabilize`; o SSE é recriado por `useLiveStream`;
+  (4) `senderJid` de grupo = participante (Baileys `phoneFirst` — a fórmula antiga da P-074 estava
+  errada no modo PN; wwebjs só cache) e `senderName` no GET; o encaminhar da E24 deve manter o
+  remetente original fora do eco; (5) `GET …/media` com nome fora do Latin-1 dava 500 (P-076,
+  corrigido); (6) achados novos: P-077 (ecos de localização/enquete da API sem link/opções — decidir
+  na E24), P-078 (ACK antes do INSERT se perde no banco), P-079 (SSE sem heartbeat/replay); (7) a
+  linha da P-072 não tinha os achados de ACK da E22 (o commit dizia que sim) — reconciliada; (8)
+  armadilhas de validação: o Chrome da extensão pode estar noutra máquina (`list_connected_browsers`)
+  e, com a aba oculta, o Chrome adia mídia e IntersectionObserver (validar com a janela à frente);
+  (9) o `.env` local não tem S3 — suba o gateway com `S3_*` do MinIO de dev na linha de comando.
+  (10) conferência do dono no painel local (26/09): linha inteira da conversa clicável no Atendimento
+  (só o nome era), erro do Enviar junto da caixa + caixa travada com aparelho desligado
+  (`lib/send-feedback.ts`), e cursor de mãozinha em todo botão (o Tailwind 4 tirou o `pointer` do
+  `<button>` — regra em `index.css`); tela nova com botão herda isso sozinha.
+
+- **25/09 — E22 (sessão `e22-conversas-gateway`):** P-066 + P-072 (parte gateway) entregues na
+  branch `feature/onda8-conversas` (PR da Onda 8 — sem merge; D-028). O que a E23 e as seguintes
+  precisam saber: (1) domínio de `type` e texto de cada cartão em `message-content.ts` (fonte única;
+  INTEGRACAO §3.2) — o painel rotula por `type`; `other` pode trazer resumo; `poll_vote` (Baileys) é
+  voto do contato, texto null; (2) reações: `reactions[]` no `GET /messages`/`/search`, evento
+  `message.reaction` no SSE (o Atendimento hoje só ouve `message` — `Atendimento.tsx:218`); casar por
+  `keyId`; (3) tiques: `status` no feed e no `GET /messages`; **grupo no Baileys fica null**; `read`
+  em mensagem recebida = lida no celular → tique só em `fromMe`; detalhes na P-072; (4) selo:
+  `forwardingScore ≥ 5` = "com frequência" (inferência da FAQ oficial); (5) P-074 (remetente de
+  mensagem de GRUPO = jid do grupo nas 2 engines) é decisão do dono na abertura da E23; (6) a E7
+  (P-047, `append`) deve passar pelo `describeBaileysMessage` e cuidar do eco da nossa reação; (7)
+  P-075 (reupload de mídia nunca dispara) vai junto da E10; (8) armadilha de teste: `proto.Message`
+  tem todos os campos no protótipo (`null`) — `toHaveProperty` sempre passa, compare o valor.
 
 - **25/09 — E4 (sessão `e4-rotas-egress`):** P-053 + P-065 entregues e **Onda 1 fechada** na branch
   `feature/onda1-guardas-seguranca` (PR #6 — merge do dono = deploy A; checklist e B-004 em
