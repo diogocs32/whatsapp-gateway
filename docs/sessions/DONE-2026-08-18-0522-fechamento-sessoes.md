@@ -46,6 +46,13 @@
    mesma conversa: bullmq 6 tem ioredis como peer `>=5` — os dois majors sobem juntos).
 7. **CHANGELOG.md intencionalmente NÃO tocado** — nenhum código mudou nesta varredura.
 
+## Adendo de 26/09/2026
+
+O fechamento de 18/08 usou apenas 6 coletas disponíveis na `main` naquela data. A integração
+posterior da ponta antiga de `feature/m2-guardrail-ativo` recuperou as coletas 7–12 (até 19/07),
+sem novo acesso à produção. A janela formal de 7 dias já havia sido completada em 17/07;
+o registro original acima permanece como retrato da evidência conhecida no fechamento.
+
 ## Reconciliação documental (R9 — o que o diff tornou falso e foi corrigido)
 
 - "4 sessões ativas" → FALSO desde 14/08 (3 delas) — corrigido.

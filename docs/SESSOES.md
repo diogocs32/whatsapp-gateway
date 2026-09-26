@@ -8,14 +8,22 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                  | Início      | Objetivo                                                                                                      | Escopo                                           | Branch                               |
+| ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------ |
+| integracao-branches | 26/09 19:45 | Reconciliar branches antigas M2 e detector local com a `main`, por PR/CI, sem deploy                          | histórico M2, guardrail e docs R9/R3             | feature/integracao-branches-20260926 |
+| lid-envio-wwebjs    | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs                 |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **26/09 · integracao-branches (D-035/P-088, PR a abrir; sem deploy):** a branch local antiga do
+  detector foi adaptada para observação WWEBJS opt-in (`UNDELIVERED_SWEEP_MIN=0` por padrão). Se
+  habilitado, registra WARN; ACK atrasado não chama `recordHardSignal`, não gera evento, não muda
+  `session_guardrail` nem bloqueia. Quem trabalhar em guardrail/ACK preserva essa separação da
+  pausa nativa E8. As coletas M2 de julho foram reconciliadas em 12 coletas históricas; nenhuma
+  coleta atual nem operação no Dokploy foi feita.
 
 - **26/09 · reconciliação dos merges #10/#11 (sem Deploy):** `origin/main` contém E6/P-060
   pelo merge `d577b05` do PR #10 e E7–E10 pelo merge `8291c17` do PR #11. E11/P-051 e

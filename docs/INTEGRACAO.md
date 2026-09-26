@@ -321,11 +321,17 @@ Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
   manual só sai por outro override (`activate`/`warmup`). `401`/loggedOut da engine NÃO vira
   `banida` (é credencial perdida); só `ban`/`restriction` sem prazo viram `banida`. `463` usa a
   pausa temporária acima, independente de `GUARDRAIL_ENFORCE`.
-- **MODO OBSERVAÇÃO (padrão):** `GUARDRAIL_ENFORCE=false` → o gateway **mede e registra mas NÃO bloqueia**
-  nem quarentena automaticamente. **Ligue (`true`) só depois de ter a mediana real da frota.**
+- **MODO OBSERVAÇÃO (padrão em instalação nova):** `GUARDRAIL_ENFORCE=false` → a avaliação
+  automática mede, mas não aplica quarentena. Override manual ainda pode bloquear. **Ligue
+  (`true`) só depois de ter a mediana real da frota.**
 - **Override manual:** `POST /api/sessions/{sessao}/quarantine|warmup|activate|pause`.
 - **Tunar limiares sem redeploy:** `GET`/`PATCH /api/guardrail/config`
   (`{ nmin, throttleMult, quarantineMult, targetReplyRate, cooldownHours }`).
+- **Observador de não-entrega WWEBJS (opt-in no gateway):**
+  `UNDELIVERED_SWEEP_MIN=0` por padrão. Quando habilitado pelo operador, apenas registra no log
+  cold-sends sem confirmação em ≥3 chats (limiares ajustáveis por env). ACK atrasado é indício
+  inconclusivo: o observador não muda `session_guardrail`, não emite `signal.restriction` nem
+  `session.banned` e não altera respostas da API. Nenhuma configuração é exigida do integrador.
 
 ## 6. Dead-letter (C4 — reconciliação)
 

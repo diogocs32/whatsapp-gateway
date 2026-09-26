@@ -1,13 +1,31 @@
 #!/usr/bin/env node
-// Observação do guard-rail (onda M2): coleta, para cada sessão, o estado atual vs o que o
-// enforce FARIA (targetState do GET /api/guardrail/:id) e acumula em JSONL para a janela de
-// observação. READ-ONLY (o evaluate atualiza o snapshot de reply-rate, que é upsert idempotente).
+// Observação do guard-rail: coleta o estado atual vs targetState em JSONL.
+// ATENÇÃO: GET /api/guardrail/:id chama evaluate(); com GUARDRAIL_ENFORCE=true ele pode
+// aplicar transição de estado e emitir evento. É uma ação operacional, não consulta inerte.
 //
-// Uso (1x/dia durante a janela):
+// Uso (em janela aprovada; indicar arquivo novo, nunca o M2 histórico):
 //   GATEWAY_API_KEY=xxx [GATEWAY_URL=https://api.conexozenvo.com] \
-//     node scripts/guardrail-observe.mjs [docs/observacao/guardrail-m2.jsonl]
-import { appendFileSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+//     node scripts/guardrail-observe.mjs docs/observacao/guardrail-AAAA-MM-DD.jsonl
+import { appendFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+
+const outArg = process.argv[2];
+if (!outArg) {
+  console.error(
+    'Informe um novo arquivo JSONL; o histórico M2 está arquivado.',
+  );
+  process.exit(1);
+}
+const out = resolve(outArg);
+const archive = resolve('docs/observacao/guardrail-m2.jsonl');
+if (existsSync(out)) {
+  const archiveStat = statSync(archive);
+  const outStat = statSync(out);
+  if (archiveStat.dev === outStat.dev && archiveStat.ino === outStat.ino) {
+    console.error('O histórico M2 é imutável. Informe outro arquivo JSONL.');
+    process.exit(1);
+  }
+}
 
 const url = process.env.GATEWAY_URL ?? 'https://api.conexozenvo.com';
 const key = process.env.GATEWAY_API_KEY;
@@ -15,7 +33,6 @@ if (!key) {
   console.error('Defina GATEWAY_API_KEY (X-Api-Key do gateway).');
   process.exit(1);
 }
-const out = process.argv[2] ?? 'docs/observacao/guardrail-m2.jsonl';
 const headers = { 'X-Api-Key': key };
 const ts = new Date().toISOString();
 

@@ -24,7 +24,8 @@ API REST (`X-Api-Key`) e painel web, **em produção** em conexozenvo.com + api.
 1. **Não quebrar produção nem o contrato da API** (R0) — regra número 1 de qualquer mudança.
 2. **Anti-ban em camadas (guard-rail G1–G8)**: idempotência de envio (G1), origem api|phone (G2),
    ack (G3), reply-rate por janela com maturação de 72h (G4), máquina de estados de saúde com
-   quarentena e HTTP 423 (G5 — hoje em OBSERVAÇÃO, `GUARDRAIL_ENFORCE=false`), eventos OUT +
+   quarentena e HTTP 423 (G5 — enforce documentado em produção desde 13/08; default do código
+   `GUARDRAIL_ENFORCE=false` para instalação nova, D-017), eventos OUT +
    dead-letter (G6), REST de saúde/override (G7), config por sessão + presence + markRead (G8).
    Espelho no node n8n: N1–N8 (repo separado).
 3. **Multi-engine atrás de um contrato único**: Baileys 7 (principal, leve) e whatsapp-web.js

@@ -49,3 +49,6 @@ auth/
 .wwebjs_cache/
 # saída de coverage do vitest (M3)
 coverage/
+
+# Cofre local de segredos para scripts de observação
+scripts/*.secret.local
