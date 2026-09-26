@@ -762,3 +762,56 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
   código cria o chat); se o `forwardMessages` do WhatsApp Web gera `message_create` e com
   que `to`/tipo; mídia com mais de ~30 dias no CDN; `rawData.isViewOnce`/`isLive` no wwebjs; limite
   real de destinos do servidor; timeout do Traefik/n8n para um pedido de ~10–20 s.
+
+## D-031 — 2026-09-26 — Encaminhar no painel fiel ao WhatsApp Web: 1 mensagem por vez, contatos e grupos, e nenhum caminho que reenvie para quem já recebeu (P-068 parte interface)
+
+- **Decisões do dono (abertura da E25):** o modo seleção marca **só 1 mensagem** por encaminhamento
+  (clicar noutra troca a marcada; o WhatsApp Web deixa várias — diferença consciente: 1 pedido = no
+  máximo 5 envios, o mesmo risco anti-ban da D-030); destinos = **contatos e grupos** da mesma
+  sessão (o diálogo lê `GET …/messages/conversations` da sessão — a caixa única do Atendimento não
+  lista grupos).
+- **Fidelidade (textos e regras lidos na FAQ oficial e no código do web.whatsapp.com em 26/09):**
+  menu ⌄ → "Encaminhar" → modo seleção ("Cancelar encaminhamento", "1 selecionada") → "Encaminhar
+  mensagem para", "Pesquisar nome ou número", "Conversas recentes", ➤ "Enviar", atalho "Encaminhar
+  mídia" (foto, vídeo, documento, localização e contato — **não** em áudio, porque o banco não
+  distingue nota de voz, nem em figurinha nem em "com frequência"), limites com os textos do
+  WhatsApp ("Você só pode compartilhar com até 5 conversas.", "As mensagens encaminhadas com
+  frequência podem ser compartilhadas com apenas 1 conversa por vez."), aviso "Esta mensagem será
+  marcada como encaminhada com frequência." (terceiro com contador 4) e sucesso "Você encaminhou 1
+  item" (+ os destinos). **O painel aplica a regra oficial "mensagem já encaminhada → só 1 grupo"**
+  (FAQ 887468535575482), que a API da E24 não tem — mais restritivo só na interface; levar para a API
+  é decisão do dono (P-085).
+- **Idempotência por clique (`lib/forward.ts` `planAttempt`):** a chave (`painel-fwd-<uuid>`) nasce no
+  clique do ➤; repetir o MESMO conjunto reaproveita a chave (o gateway faz replay do que saiu);
+  conjunto diferente → chave nova. Regras que fecham os caminhos de duplicação (achados da revisão
+  adversarial): (1) destino que saiu, saiu sem confirmação (`confirmed:false`) ou **pode ter saído**
+  (tempo esgotado — "confira no celular", ou destino "em andamento" dentro de `results[]`) fica
+  **travado** e nunca entra noutro pedido — nem repetindo a mesma chave (o gateway retomaria a
+  intenção `failed` de quem estourou o tempo); (2) desfecho **incerto sem `results[]`** (sem resposta,
+  5xx, 409 "em andamento" do pedido) **congela** o pedido — o único próximo passo é repeti-lo igual, e
+  ele só descongela com uma resposta que traga `results[]` (429/401/403 não dizem nada do pedido
+  anterior; se o gateway passar a recusar a mensagem ou limitar a 1, vira recusa e o operador confere
+  no celular); (3) fechar e reabrir o diálogo da mesma mensagem **retoma** o estado — memória **por
+  aba** (`lib/forward-memory.ts`, `sessionStorage`, 24 h, 50 mensagens): sobrevive a troca de
+  conversa/tela, recarga e login expirado; o pedido é gravado como congelado ANTES da resposta e o
+  desfecho é gravado mesmo com a tela já fechada (sucesso não visto fica guardado — o próximo
+  diálogo mostra quem recebeu, travado); (4) um encaminhamento por vez por conversa (↪ com um em
+  voo avisa em vez de ignorar); (5) o 409 de **conflito** de chave pede chave nova no próximo clique.
+- **404 de rota ausente** (painel novo antes do gateway novo, ou rollback só do gateway): texto
+  "Este servidor ainda não tem o encaminhar…", sem travar nem gravar recusa — depois do deploy do
+  gateway o mesmo pedido funciona.
+- **Recusas:** da MENSAGEM (apagada, tipo, original indisponível, 404 "Mensagem não encontrada") → o
+  ➤ trava e o texto manda encaminhar pelo celular; `FORWARD_LIMIT` pelo contador vivo → o diálogo
+  passa a 1 conversa; 423 → "Nada foi enviado", com o estado do guard-rail do corpo e quantos
+  destinos são 1º contato (tirá-los libera o resto); aparelho desconectado → ➤ travado com o motivo.
+  O painel nunca manda `cold` (o gateway deriva).
+- **`<dialog>` modal nativo:** Esc e clique fora fecham (o `closedby` não existe no Safari estável —
+  clique fora é nosso); com o pedido em voo o Esc é barrado, mas o Chrome fecha à força num Esc
+  repetido — o pedido continua e, no fim, o diálogo reabre com o resultado se algo falhou (tudo
+  certo → só o aviso na conversa). Foco: busca ao abrir, ↪ da barra ao entrar na seleção, caixa de
+  resposta ao sair; regiões `role=status` sempre montadas.
+- **`ApiError` ganha `code` e `body`** (aditivo — quem só lia `status`/`message` segue igual): o painel
+  passa a ler o `code` e o `results[]` dos corpos de erro.
+- **Não verificado (chip do dono — `how-to/teste-chip-encaminhar.md` §4):** comportamento no Safari;
+  selo "com frequência" no aparelho quando a cópia sai com contador 5 pelo Baileys (soma sem teto —
+  P-085); o eco do WWEBJS no painel.

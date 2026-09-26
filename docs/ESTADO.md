@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR #6 da Onda 1, sem merge; E3 ✅ 25/09: patches P-054 + checagem diária de advisories de repositório — mesmo PR; E4 ✅ 25/09: borda HTTP pela rota resolvida P-053 + egress `net.BlockList` P-065 + fotos por URL P-070 + alvo ambíguo P-071 — **Onda 1 FECHADA e mergeada em 25/09 (PR #5 `59d6c5e`, PR #6 `4b1f696`) — **deploy A ainda não feito** (checklist + B-004 em [how-to/deploy-a-onda1.md](how-to/deploy-a-onda1.md)); E22 ✅ 25/09: **abre a Onda 8** — conversas fiéis ao WhatsApp Web, parte gateway (P-066 + P-072 gateway, D-028), branch `feature/onda8-conversas`, PR da Onda 8 sem merge; E23 ✅ 25/09: painel fiel ao WhatsApp Web (P-067, P-072 painel) + remetente de grupo (P-074, D-029), mesmo PR #7; E24 ✅ 26/09: encaminhar — API e engines (P-068 parte API + P-077, D-030), mesmo PR #7; **próxima = E25** (encaminhar — interface, fecha a Onda 8 = deploy G; E5 tem prazo: build do wwebjs até 13/10) — [diagnóstico](analise-conversas-whatsapp-web-2026-09.md)). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
+- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR #6 da Onda 1, sem merge; E3 ✅ 25/09: patches P-054 + checagem diária de advisories de repositório — mesmo PR; E4 ✅ 25/09: borda HTTP pela rota resolvida P-053 + egress `net.BlockList` P-065 + fotos por URL P-070 + alvo ambíguo P-071 — **Onda 1 FECHADA e mergeada em 25/09 (PR #5 `59d6c5e`, PR #6 `4b1f696`) — **deploy A ainda não feito** (checklist + B-004 em [how-to/deploy-a-onda1.md](how-to/deploy-a-onda1.md)); E22 ✅ 25/09: **abre a Onda 8** — conversas fiéis ao WhatsApp Web, parte gateway (P-066 + P-072 gateway, D-028), branch `feature/onda8-conversas`, PR da Onda 8 sem merge; E23 ✅ 25/09: painel fiel ao WhatsApp Web (P-067, P-072 painel) + remetente de grupo (P-074, D-029), mesmo PR #7; E24 ✅ 26/09: encaminhar — API e engines (P-068 parte API + P-077, D-030), mesmo PR #7; E25 ✅ 26/09: encaminhar — interface no painel (P-068 parte interface, D-031) — **Onda 8 FECHADA no PR #7 (merge do dono = deploy G — checklist em [how-to/deploy-g-onda8.md](how-to/deploy-g-onda8.md))**; **próxima = E5** (Onda 6 — wwebjs pronto para uso; prazo da build: 13/10); pedido novo do dono (26/09): sugerir o proxy da sessão apagada ao recriar com o mesmo nome (P-084 → etapa E26) — [diagnóstico](analise-conversas-whatsapp-web-2026-09.md)). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,15 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **26/09/2026 (sessão `e25-encaminhar-painel`, código na branch da Onda 8 — sem deploy):** o painel
+> ganha o "Encaminhar" do WhatsApp Web no Inbox e no Atendimento (menu ⌄ → modo seleção de 1
+> mensagem → "Encaminhar mensagem para" com contatos e grupos da sessão → ➤ com resultado por
+> destino; atalho ↪ nas mídias), sem nenhum caminho que reenvie para quem já recebeu (D-031). Só
+> painel — gateway e contrato inalterados (a INTEGRACAO §2 foi corrigida onde divergia do código da
+> E24). **Onda 8 fechada no PR #7** — deploy G = merge + Deploy manual dos 2 apps, 2 migrations
+> aditivas; recomendado fazer o deploy A antes. 180 testes no painel. **Produção segue em
+> `768fb26`** (deploy A e deploy G pendentes).
 
 > **26/09/2026 (sessão `e24-encaminhar-api`, código na branch da Onda 8 — sem deploy):** rota aditiva
 > `POST /api/sessions/:s/messages/:msgId/forward` (até 5 destinos; 1 se "encaminhada com frequência";

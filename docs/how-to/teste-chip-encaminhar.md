@@ -4,10 +4,10 @@ dono: Diogo
 revisado_em: 2026-09-26
 validade: 2026-10-26
 status: ativo
-origem: etapa E24 do roteiro (P-068 encaminhar — API e engines; P-077) — D-030
+origem: etapas E24 (P-068 encaminhar — API e engines; P-077 — D-030) e E25 (interface no painel — D-031)
 ---
 
-# 📱 Teste com chip do ENCAMINHAR (E24) — o que só o aparelho prova
+# 📱 Teste com chip do ENCAMINHAR (E24 + E25) — o que só o aparelho prova
 
 > **Para quem:** o dono (nada disto é executado por chat — R0). O código da E24 foi provado com a
 > biblioteca real e socket/navegador falsos; **o que o WhatsApp faz do outro lado** (selo no aparelho
@@ -70,8 +70,26 @@ Webhook: a cópia chega como evento `message` com `fromMe:true`, **`source:"api"
 | 4   | destino SEM conversa                                                        | 201 e a conversa é criada no WhatsApp Web (a lib cria o chat)                                                                                                                                                                                                           |
 | 5   | mensagem anterior a um novo pareamento                                      | 400 `FORWARD_SOURCE_UNAVAILABLE`                                                                                                                                                                                                                                        |
 
-## 4. Devolver (colar no chat da próxima etapa)
+## 4. Pelo painel (E25) — Inbox e Atendimento
 
-"Teste chip E24 em DD/MM (local|.cloud, Baileys|WWEBJS): casos X/Y ok; selo visto em B: sim/não;
+Mesmo chip de teste, mesmos destinos A/B (e o 3º número sem conversa). Tudo pelo painel logado.
+
+| #   | O quê                                                                                                            | Esperado no painel                                                                                                                  | Confira no aparelho                                     |
+| --- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 1   | Inbox → conversa com A → passe o mouse numa mensagem de texto → **⌄** → **Encaminhar**                           | entra no modo seleção (quadrados à esquerda, "1 selecionada", a caixa de resposta some); ↪ na barra abre "Encaminhar mensagem para" | —                                                       |
+| 2   | no diálogo, pesquise B pelo nome e pelo número; marque B; ➤ **Enviar**                                           | "Encaminhando…" e depois o diálogo fecha com **"Você encaminhou 1 item para B."**; a cópia aparece na conversa de B com o selo      | B recebe com "↪ Encaminhada", sem citação               |
+| 3   | foto recebida de A → botão redondo **↪** ao lado dela (atalho "Encaminhar mídia") → B                            | abre o diálogo direto (sem modo seleção); mesmo resultado do 2                                                                      | foto abre em B                                          |
+| 4   | mensagem já "Encaminhada" → marque 2 grupos                                                                      | o 2º grupo é recusado: "Você pode enviar mensagens encaminhadas para apenas uma conversa em grupo por vez." (regra do WhatsApp)     | —                                                       |
+| 5   | mensagem "Encaminhada com frequência" (se tiver)                                                                 | só 1 conversa: a 2ª marcação é recusada com o texto do WhatsApp                                                                     | B vê "↪↪ Encaminhada com frequência"                    |
+| 6   | com a sessão em quarentena (INTEGRACAO §5), marque B e o 3º número (sem conversa) → ➤                            | faixa "Nada foi enviado… 1 destino é 1º contato…"; desmarque o 3º e ➤ de novo → vai só para B                                       | B recebe 1 vez só                                       |
+| 7   | tente encaminhar uma enquete                                                                                     | o ⌄ nem aparece (tipo que o gateway recusa)                                                                                         | —                                                       |
+| 8   | apague para todos (no celular de A) uma mensagem recebida e tente encaminhar pelo painel                         | faixa "…(apagada). Se precisar, encaminhe pelo celular."; o ➤ trava                                                                 | nada chega                                              |
+| 9   | Atendimento → mesma conversa → ⌄ → Encaminhar → o diálogo lista também os GRUPOS da sessão                       | igual ao Inbox; o destino passa a 🟢 na lista                                                                                       | —                                                       |
+| 10  | **WWEBJS** (se usar): encaminhe um texto                                                                         | se aparecer "Encaminhada, confirmação pendente — não reenvie", confira no celular e **não** repita                                  | chegou 1 vez?                                           |
+| 11  | P-085: encaminhe de A para B uma mensagem que chegou com contador 4 ("Encaminhada", 4 encaminhamentos na cadeia) | o diálogo avisa "Esta mensagem será marcada como encaminhada com frequência."                                                       | B vê "com frequência"? (Baileys soma sem teto — anotar) |
+
+## 5. Devolver (colar no chat da próxima etapa)
+
+"Teste chip E24/E25 em DD/MM (local|.cloud, Baileys|WWEBJS): casos X/Y ok; selo visto em B: sim/não;
 'encaminhada com frequência' em B a partir de score N; WWEBJS com id: sim/não (confirmed:false em
-quantos); falhas: …". Isso fecha os itens "Não verificado" da D-030.
+quantos); painel §4: casos …; falhas: …". Isso fecha os itens "Não verificado" da D-030 e da D-031.
