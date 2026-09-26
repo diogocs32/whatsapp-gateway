@@ -70,15 +70,31 @@ Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`,
 
 Catálogo:
 
-| Evento                                                       | Quando                 | Payload-chave                                                                                                                                                                                   |
-| ------------------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `message`                                                    | inbound/eco            | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular            |
-| `message.ack`                                                | entrega/leitura/erro   | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read\|error, timestamp }` (casar por `sessionId` + `keyId`; `error` não mostra tique)                                                       |
-| `message.reaction` (W6, aditivo)                             | o contato/você reagiu  | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                                       |
-| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail   | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                                          |
-| `signal.463` / `signal.restriction`                          | sinal duro             | `{ signal }`                                                                                                                                                                                    |
-| `session.restricted` (E8, aditivo)                           | pausa nativa Baileys   | `{ signal: "463"\|"reachoutTimeLock"\|"message-capping", pausedUntil, timeEnforcementEnds, source, enforcementType }` — datas ISO UTC; `timeEnforcementEnds` só quando confirmado pelo WhatsApp |
-| `send.blocked`                                               | hard-gate barrou envio | `{ state, motivo, restriction_until? }` (`restriction_until` só na pausa nativa)                                                                                                                |
+| Evento                                                       | Quando                 | Payload-chave                                                                                                                                                                                                 |
+| ------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message`                                                    | inbound/eco            | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular                          |
+| `message.ack`                                                | entrega/leitura/erro   | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read\|error, timestamp }` (casar por `sessionId` + `keyId`; `error` não mostra tique)                                                                     |
+| `message.reaction` (W6, aditivo)                             | o contato/você reagiu  | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                                                     |
+| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail   | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                                                        |
+| `signal.463` / `signal.restriction`                          | sinal duro             | `{ signal }`                                                                                                                                                                                                  |
+| `session.restricted` (E8, aditivo)                           | pausa nativa Baileys   | `{ signal: "463"\|"reachoutTimeLock"\|"message-capping", pausedUntil, timeEnforcementEnds, source, enforcementType }` — datas ISO UTC; `timeEnforcementEnds` só quando confirmado pela resposta direta do RPC |
+| `send.blocked`                                               | hard-gate barrou envio | `{ state, motivo, restriction_until? }` (`restriction_until` só na pausa nativa)                                                                                                                              |
+
+> **Origem do prazo (E8):** `source: "temporary"` indica pausa provisória. A notificação
+> `reachoutTimeLock` da Baileys rc14 chega por `connection.update` com um `Date` que pode ter vindo
+> do servidor **ou ter sido criado pela própria biblioteca como agora + 60 s**; o evento não informa
+> qual dos dois ocorreu. O gateway preserva um prazo válido dessa notificação, inclusive se passar
+> de 60 s, mas publica `timeEnforcementEnds: null` até receber a **resposta direta** de
+> `fetchAccountReachoutTimelock()`. Só essa resposta usa `source: "timeEnforcementEnds"`.
+> O limite de 3 s encerra a espera, sem cancelar o RPC: uma resposta tardia ainda pode confirmar
+> o prazo se a consulta e o socket continuarem atuais. `source: "cycle_end_timestamp"` identifica
+> o prazo do capping, não o timelock confirmado; um ciclo mais curto não encurta uma pausa
+> `temporary` já persistida.
+>
+> Uma sessão pode gerar primeiro um `session.restricted` provisório e depois outro com prazo
+> confirmado. O `connection.update` emitido pela própria consulta também pode produzir um alerta
+> provisório adicional. Trate mudança de `source` ou `pausedUntil` como atualização da mesma
+> restrição e agrupe reentregas por `sessionId`, `source` e `pausedUntil`.
 
 > **Handoff (G2):** `source: "phone"` num `fromMe` = o humano respondeu pelo celular → pause a IA.
 > **Reação não é handoff (E22, D-028):** reagir pelo celular não gera mais `message` `source=phone`
@@ -260,11 +276,16 @@ Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
   com o mesmo **423 `SESSION_QUARANTINED`** e `state: "quarentena"` no erro. O `state` persistido de
   G5 não vira `banida` nem quarentena de 48 h por `463`. O prazo efetivo é
   o campo `restriction_until` de `GET /sessions/:id/health`; ao vencer, o próximo envio passa automaticamente,
-  sem `/activate`, restart ou `/resume` da campanha. O `timeEnforcementEnds` confirmado prevalece
-  sobre o `cycle_end_timestamp` do capping. Se o WhatsApp não fornecer prazo ou a consulta de 3 s
-  falhar, a pausa provisória dura 60 s e o alerta traz `source: "temporary"` com
-  `timeEnforcementEnds: null`; não há como afirmar o fim remoto nesse caso. O node n8n 0.4.1 já
-  trata 423; inscreva o webhook em `session.restricted` ou `*` para receber o alerta.
+  sem `/activate`, restart ou `/resume` da campanha. O `timeEnforcementEnds` confirmado na resposta
+  direta de `fetchAccountReachoutTimelock()` prevalece sobre o `cycle_end_timestamp` do capping.
+  A espera da consulta tem teto de 3 s e intervalo mínimo de 30 s; o teto não cancela o RPC, cuja
+  resposta tardia ainda pode confirmar o prazo se o socket e a consulta continuarem atuais.
+  Enquanto ela falhar ou não responder, o prazo válido da notificação `reachoutTimeLock` continua
+  provisório (`source: "temporary"`), mesmo acima de 60 s. Um `cycle_end_timestamp` mais curto não
+  reduz esse prazo; sem qualquer prazo válido, o fallback é de 60 s. O alerta provisório traz
+  `timeEnforcementEnds: null`, e seu vencimento local não confirma o fim remoto da restrição.
+  O node n8n 0.4.1 já trata 423; inscreva o webhook em `session.restricted` ou `*` para receber o
+  alerta.
 - **Campanhas (09/2026, ABE-02):** `POST /api/campaigns` aceita `firstContact` (default `true`).
   Campanha de 1º contato passa pelo MESMO hard-gate (sessão em quarentena/pausa manual → a
   campanha é **pausada**, não falha por destinatário), envia com `cold: true` (conta no reply-rate)

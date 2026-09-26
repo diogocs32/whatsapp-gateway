@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                     | Início      | Objetivo                                                                                                      | Escopo                                           | Branch                |
+| ---------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------- |
+| e8-baileys-fonte-prazo | 26/09 14:21 | Corrigir procedência do prazo de restrição na rc14 e revalidar E8/P-048                                       | Baileys, guardrail, testes e docs da E8          | feature/onda2-baileys |
+| lid-envio-wwebjs       | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs  |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
@@ -22,7 +23,10 @@
   localização, enquete, reação e cada destino do encaminhar recebem 423 até o prazo. Campanhas
   re-agendam sem `PAUSED`. Baileys rc14 liga ERROR 463, `reachoutTimeLock` e capping CAPPED,
   emite `session.restricted` (contrato aditivo) e grava ACK ERROR como `error`; 479 só é contado.
-  A E9 deve preservar esse callback ao mudar `onConnectionUpdate`. Migration
+  A revisão de 26/09 confirmou que a notificação rc14 pode fabricar `Date` como agora + 60 s:
+  `connection.update` entra como `source=temporary`, e só a resposta direta do RPC confirma
+  `timeEnforcementEnds`. A E9 deve preservar esse callback e essa distinção ao mudar
+  `onConnectionUpdate`. Migration
   `20260926164000_restricao_temporaria` aplicada só no banco local; merge/deploy/canário após E12.
 
 - **26/09 · e7-baileys-offline (E7/P-047, PR #11 — sem deploy):** `onMessagesUpsert` do Baileys agora

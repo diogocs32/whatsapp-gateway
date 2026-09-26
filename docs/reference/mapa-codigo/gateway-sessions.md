@@ -16,10 +16,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/domain/wwebjs-version.ts` | 10 |
 | `modules/sessions/infrastructure/baileys/baileys-content.spec.ts` | 448 |
 | `modules/sessions/infrastructure/baileys/baileys-content.ts` | 548 |
-| `modules/sessions/infrastructure/baileys/baileys.engine.ts` | 2100 |
+| `modules/sessions/infrastructure/baileys/baileys.engine.ts` | 2130 |
 | `modules/sessions/infrastructure/baileys/baileys.forward.spec.ts` | 1354 |
 | `modules/sessions/infrastructure/baileys/baileys.inbound.spec.ts` | 812 |
-| `modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts` | 138 |
+| `modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts` | 228 |
 | `modules/sessions/infrastructure/baileys/baileys.shutdown.spec.ts` | 92 |
 | `modules/sessions/infrastructure/baileys/browser-fingerprint.ts` | 44 |
 | `modules/sessions/infrastructure/baileys/postgres-auth-state.ts` | 85 |
@@ -59,12 +59,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **class `ForwardSourceError`** L295 · `extends Error`
 - injeta (construtor): `code: ForwardErrorCode` · `message: string (param)`
 - `constructor(code, message)` · L296
-  - chamado por: `BaileysEngine.prepareForward` (baileys.engine.ts:1476), `WWebJSEngine.prepareForward` (wwebjs.engine.ts:1863)
+  - chamado por: `BaileysEngine.prepareForward` (baileys.engine.ts:1506), `WWebJSEngine.prepareForward` (wwebjs.engine.ts:1863)
 
 **class `UnsupportedEngineOperationError`** L312 · `extends Error`
 - injeta (construtor): `message: string (param)`
 - `constructor(message)` · L313
-  - chamado por: `BaileysEngine.fetchChatHistory` (baileys.engine.ts:1684), `BaileysEngine.listChats` (baileys.engine.ts:1679), `BaileysEngine.setChatFlag` (baileys.engine.ts:1695)
+  - chamado por: `BaileysEngine.fetchChatHistory` (baileys.engine.ts:1714), `BaileysEngine.listChats` (baileys.engine.ts:1709), `BaileysEngine.setChatFlag` (baileys.engine.ts:1725)
 
 **Funções e constantes de topo**
 - `MAX_FORWARD_TARGETS` = `5` · L250
@@ -113,49 +113,49 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - implementado por: `BaileysEngine.start` (baileys.engine.ts:523), `WWebJSEngine.start` (wwebjs.engine.ts:703)
     - chamado por: `SessionManager.requestPairingCode` (session-manager.service.ts:475), `SessionManager.start` (session-manager.service.ts:319)
   - `IEngine.stop()` · L324
-    - implementado por: `BaileysEngine.stop` (baileys.engine.ts:1995), `WWebJSEngine.stop` (wwebjs.engine.ts:1500)
+    - implementado por: `BaileysEngine.stop` (baileys.engine.ts:2025), `WWebJSEngine.stop` (wwebjs.engine.ts:1500)
     - chamado por: `SessionManager.discardOrphan` (session-manager.service.ts:293), `SessionManager.newQr` (session-manager.service.ts:431), `SessionManager.onModuleDestroy` (session-manager.service.ts:100), `SessionManager.remove` (session-manager.service.ts:452), `SessionManager.stop` (session-manager.service.ts:392)
   - `IEngine.shutdown()` · L332
-    - implementado por: `BaileysEngine.shutdown` (baileys.engine.ts:2042), `WWebJSEngine.shutdown` (wwebjs.engine.ts:1528)
+    - implementado por: `BaileysEngine.shutdown` (baileys.engine.ts:2072), `WWebJSEngine.shutdown` (wwebjs.engine.ts:1528)
     - chamado por: `SessionManager.onModuleDestroy` (session-manager.service.ts:100)
   - `IEngine.logout()` · L333
-    - implementado por: `BaileysEngine.logout` (baileys.engine.ts:2056), `WWebJSEngine.logout` (wwebjs.engine.ts:1553)
+    - implementado por: `BaileysEngine.logout` (baileys.engine.ts:2086), `WWebJSEngine.logout` (wwebjs.engine.ts:1553)
     - chamado por: `SessionManager.logout` (session-manager.service.ts:402)
   - `IEngine.requestPairingCode(phoneNumber)` · L334
-    - implementado por: `BaileysEngine.requestPairingCode` (baileys.engine.ts:1987), `WWebJSEngine.requestPairingCode` (wwebjs.engine.ts:1590)
+    - implementado por: `BaileysEngine.requestPairingCode` (baileys.engine.ts:2017), `WWebJSEngine.requestPairingCode` (wwebjs.engine.ts:1590)
     - chamado por: `SessionManager.requestPairingCode` (session-manager.service.ts:475)
   - `IEngine.sendText(to, text, opts)` · L335
-    - implementado por: `BaileysEngine.sendText` (baileys.engine.ts:1247), `WWebJSEngine.sendText` (wwebjs.engine.ts:1603)
+    - implementado por: `BaileysEngine.sendText` (baileys.engine.ts:1277), `WWebJSEngine.sendText` (wwebjs.engine.ts:1603)
     - chamado por: `SessionManager.sendText` (session-manager.service.ts:490)
   - `IEngine.sendMedia(to, input)` · L340
-    - implementado por: `BaileysEngine.sendMedia` (baileys.engine.ts:1280), `WWebJSEngine.sendMedia` (wwebjs.engine.ts:1633)
+    - implementado por: `BaileysEngine.sendMedia` (baileys.engine.ts:1310), `WWebJSEngine.sendMedia` (wwebjs.engine.ts:1633)
     - chamado por: `SessionManager.sendMedia` (session-manager.service.ts:500)
   - `IEngine.sendLocation(to, input)` · L345
-    - implementado por: `BaileysEngine.sendLocation` (baileys.engine.ts:1335), `WWebJSEngine.sendLocation` (wwebjs.engine.ts:1726)
+    - implementado por: `BaileysEngine.sendLocation` (baileys.engine.ts:1365), `WWebJSEngine.sendLocation` (wwebjs.engine.ts:1726)
     - chamado por: `SessionManager.sendLocation` (session-manager.service.ts:508)
   - `IEngine.sendPoll(to, input)` · L349
-    - implementado por: `BaileysEngine.sendPoll` (baileys.engine.ts:1364), `WWebJSEngine.sendPoll` (wwebjs.engine.ts:1760)
+    - implementado por: `BaileysEngine.sendPoll` (baileys.engine.ts:1394), `WWebJSEngine.sendPoll` (wwebjs.engine.ts:1760)
     - chamado por: `SessionManager.sendPoll` (session-manager.service.ts:516)
   - `IEngine.sendPresence(to, state)` · L353
-    - implementado por: `BaileysEngine.sendPresence` (baileys.engine.ts:1426), `WWebJSEngine.sendPresence` (wwebjs.engine.ts:1823)
+    - implementado por: `BaileysEngine.sendPresence` (baileys.engine.ts:1456), `WWebJSEngine.sendPresence` (wwebjs.engine.ts:1823)
     - chamado por: `SessionManager.sendPresence` (session-manager.service.ts:524)
   - `IEngine.setProfileStatus(status)` · L355
-    - implementado por: `BaileysEngine.setProfileStatus` (baileys.engine.ts:1436), `WWebJSEngine.setProfileStatus` (wwebjs.engine.ts:1812)
+    - implementado por: `BaileysEngine.setProfileStatus` (baileys.engine.ts:1466), `WWebJSEngine.setProfileStatus` (wwebjs.engine.ts:1812)
     - chamado por: `SessionManager.setProfileStatus` (session-manager.service.ts:532)
   - `IEngine.setProfileName(name)` · L356
-    - implementado por: `BaileysEngine.setProfileName` (baileys.engine.ts:1439), `WWebJSEngine.setProfileName` (wwebjs.engine.ts:1815)
+    - implementado por: `BaileysEngine.setProfileName` (baileys.engine.ts:1469), `WWebJSEngine.setProfileName` (wwebjs.engine.ts:1815)
     - chamado por: `SessionManager.setProfileName` (session-manager.service.ts:535)
   - `IEngine.setProfilePhoto(image, mimetype)` · L357
-    - implementado por: `BaileysEngine.setProfilePhoto` (baileys.engine.ts:1442), `WWebJSEngine.setProfilePhoto` (wwebjs.engine.ts:1818)
+    - implementado por: `BaileysEngine.setProfilePhoto` (baileys.engine.ts:1472), `WWebJSEngine.setProfilePhoto` (wwebjs.engine.ts:1818)
     - chamado por: `SessionManager.setProfilePhoto` (session-manager.service.ts:538)
   - `IEngine.markRead(chatJid, msgId)` · L359
-    - implementado por: `BaileysEngine.markRead` (baileys.engine.ts:1450), `WWebJSEngine.markRead` (wwebjs.engine.ts:1841)
+    - implementado por: `BaileysEngine.markRead` (baileys.engine.ts:1480), `WWebJSEngine.markRead` (wwebjs.engine.ts:1841)
     - chamado por: `SessionManager.markRead` (session-manager.service.ts:546)
   - `IEngine.sendReaction(chatJid, msgId, fromMe, emoji)` · L363
-    - implementado por: `BaileysEngine.sendReaction` (baileys.engine.ts:1458), `WWebJSEngine.sendReaction` (wwebjs.engine.ts:1850)
+    - implementado por: `BaileysEngine.sendReaction` (baileys.engine.ts:1488), `WWebJSEngine.sendReaction` (wwebjs.engine.ts:1850)
     - chamado por: `SessionManager.sendReaction` (session-manager.service.ts:570)
   - `IEngine.prepareForward(src)` · L372
-    - implementado por: `BaileysEngine.prepareForward` (baileys.engine.ts:1476), `WWebJSEngine.prepareForward` (wwebjs.engine.ts:1863)
+    - implementado por: `BaileysEngine.prepareForward` (baileys.engine.ts:1506), `WWebJSEngine.prepareForward` (wwebjs.engine.ts:1863)
     - chamado por: `SessionManager.prepareForward` (session-manager.service.ts:588)
   - `IEngine.getQrBase64()` · L373
     - implementado por: `BaileysEngine.getQrBase64` (baileys.engine.ts:500), `WWebJSEngine.getQrBase64` (wwebjs.engine.ts:431)
@@ -167,79 +167,79 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - implementado por: `BaileysEngine.getStatus` (baileys.engine.ts:496), `WWebJSEngine.getStatus` (wwebjs.engine.ts:428)
     - chamado por: `SessionManager.requestPairingCode` (session-manager.service.ts:475), `SessionManager.working` (session-manager.service.ts:618)
   - `IEngine.listChats(limit)` · L382
-    - implementado por: `BaileysEngine.listChats` (baileys.engine.ts:1679), `WWebJSEngine.listChats` (wwebjs.engine.ts:2769)
+    - implementado por: `BaileysEngine.listChats` (baileys.engine.ts:1709), `WWebJSEngine.listChats` (wwebjs.engine.ts:2769)
     - chamado por: `SessionManager.listChats` (session-manager.service.ts:551)
   - `IEngine.fetchChatHistory(chatJid, limit)` · L383
-    - implementado por: `BaileysEngine.fetchChatHistory` (baileys.engine.ts:1684), `WWebJSEngine.fetchChatHistory` (wwebjs.engine.ts:2789)
+    - implementado por: `BaileysEngine.fetchChatHistory` (baileys.engine.ts:1714), `WWebJSEngine.fetchChatHistory` (wwebjs.engine.ts:2789)
     - chamado por: `SessionManager.fetchChatHistory` (session-manager.service.ts:554)
   - `IEngine.setChatFlag(chatJid, flag, enabled)` · L387
-    - implementado por: `BaileysEngine.setChatFlag` (baileys.engine.ts:1695), `WWebJSEngine.setChatFlag` (wwebjs.engine.ts:2844)
+    - implementado por: `BaileysEngine.setChatFlag` (baileys.engine.ts:1725), `WWebJSEngine.setChatFlag` (wwebjs.engine.ts:2844)
     - chamado por: `SessionManager.setChatFlag` (session-manager.service.ts:561)
   - `IEngine.listGroups()` · L390
-    - implementado por: `BaileysEngine.listGroups` (baileys.engine.ts:1814), `WWebJSEngine.listGroups` (wwebjs.engine.ts:2872)
+    - implementado por: `BaileysEngine.listGroups` (baileys.engine.ts:1844), `WWebJSEngine.listGroups` (wwebjs.engine.ts:2872)
     - chamado por: `SessionManager.listGroups` (session-manager.service.ts:628)
   - `IEngine.groupInfo(jid)` · L391
-    - implementado por: `BaileysEngine.groupInfo` (baileys.engine.ts:1822), `WWebJSEngine.groupInfo` (wwebjs.engine.ts:2900)
+    - implementado por: `BaileysEngine.groupInfo` (baileys.engine.ts:1852), `WWebJSEngine.groupInfo` (wwebjs.engine.ts:2900)
     - chamado por: `SessionManager.groupInfo` (session-manager.service.ts:631)
   - `IEngine.createGroup(subject, participants)` · L392
-    - implementado por: `BaileysEngine.createGroup` (baileys.engine.ts:1830), `WWebJSEngine.createGroup` (wwebjs.engine.ts:3034)
+    - implementado por: `BaileysEngine.createGroup` (baileys.engine.ts:1860), `WWebJSEngine.createGroup` (wwebjs.engine.ts:3034)
     - chamado por: `SessionManager.createGroup` (session-manager.service.ts:634)
   - `IEngine.updateParticipants(jid, action, participants)` · L393
-    - implementado por: `BaileysEngine.updateParticipants` (baileys.engine.ts:1838), `WWebJSEngine.updateParticipants` (wwebjs.engine.ts:3049)
+    - implementado por: `BaileysEngine.updateParticipants` (baileys.engine.ts:1868), `WWebJSEngine.updateParticipants` (wwebjs.engine.ts:3049)
     - chamado por: `SessionManager.updateParticipants` (session-manager.service.ts:641)
   - `IEngine.leaveGroup(jid)` · L398
-    - implementado por: `BaileysEngine.leaveGroup` (baileys.engine.ts:1846), `WWebJSEngine.leaveGroup` (wwebjs.engine.ts:3062)
+    - implementado por: `BaileysEngine.leaveGroup` (baileys.engine.ts:1876), `WWebJSEngine.leaveGroup` (wwebjs.engine.ts:3062)
     - chamado por: `SessionManager.leaveGroup` (session-manager.service.ts:653)
   - `IEngine.setGroupSubject(jid, subject)` · L399
-    - implementado por: `BaileysEngine.setGroupSubject` (baileys.engine.ts:1849), `WWebJSEngine.setGroupSubject` (wwebjs.engine.ts:3066)
+    - implementado por: `BaileysEngine.setGroupSubject` (baileys.engine.ts:1879), `WWebJSEngine.setGroupSubject` (wwebjs.engine.ts:3066)
     - chamado por: `SessionManager.setGroupSubject` (session-manager.service.ts:656)
   - `IEngine.setGroupDescription(jid, description)` · L400
-    - implementado por: `BaileysEngine.setGroupDescription` (baileys.engine.ts:1852), `WWebJSEngine.setGroupDescription` (wwebjs.engine.ts:3070)
+    - implementado por: `BaileysEngine.setGroupDescription` (baileys.engine.ts:1882), `WWebJSEngine.setGroupDescription` (wwebjs.engine.ts:3070)
     - chamado por: `SessionManager.setGroupDescription` (session-manager.service.ts:663)
   - `IEngine.groupInviteCode(jid)` · L401
-    - implementado por: `BaileysEngine.groupInviteCode` (baileys.engine.ts:1855), `WWebJSEngine.groupInviteCode` (wwebjs.engine.ts:3074)
+    - implementado por: `BaileysEngine.groupInviteCode` (baileys.engine.ts:1885), `WWebJSEngine.groupInviteCode` (wwebjs.engine.ts:3074)
     - chamado por: `SessionManager.groupInviteCode` (session-manager.service.ts:670)
   - `IEngine.groupRevokeInvite(jid)` · L402
-    - implementado por: `BaileysEngine.groupRevokeInvite` (baileys.engine.ts:1858), `WWebJSEngine.groupRevokeInvite` (wwebjs.engine.ts:3078)
+    - implementado por: `BaileysEngine.groupRevokeInvite` (baileys.engine.ts:1888), `WWebJSEngine.groupRevokeInvite` (wwebjs.engine.ts:3078)
     - chamado por: `SessionManager.groupRevokeInvite` (session-manager.service.ts:673)
   - `IEngine.groupMembershipRequests(jid)` · L405
-    - implementado por: `BaileysEngine.groupMembershipRequests` (baileys.engine.ts:1864), `WWebJSEngine.groupMembershipRequests` (wwebjs.engine.ts:3086)
+    - implementado por: `BaileysEngine.groupMembershipRequests` (baileys.engine.ts:1894), `WWebJSEngine.groupMembershipRequests` (wwebjs.engine.ts:3086)
     - chamado por: `SessionManager.groupMembershipRequests` (session-manager.service.ts:676)
   - `IEngine.groupMembershipAction(jid, action, participants)` · L406
-    - implementado por: `BaileysEngine.groupMembershipAction` (baileys.engine.ts:1876), `WWebJSEngine.groupMembershipAction` (wwebjs.engine.ts:3104)
+    - implementado por: `BaileysEngine.groupMembershipAction` (baileys.engine.ts:1906), `WWebJSEngine.groupMembershipAction` (wwebjs.engine.ts:3104)
     - chamado por: `SessionManager.groupMembershipAction` (session-manager.service.ts:682)
   - `IEngine.setGroupSetting(jid, setting, enabled)` · L412
-    - implementado por: `BaileysEngine.setGroupSetting` (baileys.engine.ts:1898), `WWebJSEngine.setGroupSetting` (wwebjs.engine.ts:3119)
+    - implementado por: `BaileysEngine.setGroupSetting` (baileys.engine.ts:1928), `WWebJSEngine.setGroupSetting` (wwebjs.engine.ts:3119)
     - chamado por: `SessionManager.setGroupSetting` (session-manager.service.ts:694)
   - `IEngine.setGroupPhoto(jid, image, mimetype)` · L418
-    - implementado por: `BaileysEngine.setGroupPhoto` (baileys.engine.ts:1915), `WWebJSEngine.setGroupPhoto` (wwebjs.engine.ts:3130)
+    - implementado por: `BaileysEngine.setGroupPhoto` (baileys.engine.ts:1945), `WWebJSEngine.setGroupPhoto` (wwebjs.engine.ts:3130)
     - chamado por: `SessionManager.setGroupPhoto` (session-manager.service.ts:702)
   - `IEngine.checkNumbers(numbers)` · L421
-    - implementado por: `BaileysEngine.checkNumbers` (baileys.engine.ts:1924), `WWebJSEngine.checkNumbers` (wwebjs.engine.ts:3141)
+    - implementado por: `BaileysEngine.checkNumbers` (baileys.engine.ts:1954), `WWebJSEngine.checkNumbers` (wwebjs.engine.ts:3141)
     - chamado por: `SessionManager.checkNumbers` (session-manager.service.ts:712)
   - `IEngine.profilePicture(jid)` · L422
-    - implementado por: `BaileysEngine.profilePicture` (baileys.engine.ts:1939), `WWebJSEngine.profilePicture` (wwebjs.engine.ts:3152)
+    - implementado por: `BaileysEngine.profilePicture` (baileys.engine.ts:1969), `WWebJSEngine.profilePicture` (wwebjs.engine.ts:3152)
     - chamado por: `SessionManager.profilePicture` (session-manager.service.ts:715)
   - `IEngine.setBlock(jid, action)` · L423
-    - implementado por: `BaileysEngine.setBlock` (baileys.engine.ts:1948), `WWebJSEngine.setBlock` (wwebjs.engine.ts:3163)
+    - implementado por: `BaileysEngine.setBlock` (baileys.engine.ts:1978), `WWebJSEngine.setBlock` (wwebjs.engine.ts:3163)
     - chamado por: `SessionManager.setBlock` (session-manager.service.ts:718)
   - `IEngine.saveContact(jid, input)` · L425
-    - implementado por: `BaileysEngine.saveContact` (baileys.engine.ts:1951), `WWebJSEngine.saveContact` (wwebjs.engine.ts:3171)
+    - implementado por: `BaileysEngine.saveContact` (baileys.engine.ts:1981), `WWebJSEngine.saveContact` (wwebjs.engine.ts:3171)
     - chamado por: `SessionManager.saveContact` (session-manager.service.ts:725)
   - `IEngine.removeContact(jid)` · L427
-    - implementado por: `BaileysEngine.removeContact` (baileys.engine.ts:1964), `WWebJSEngine.removeContact` (wwebjs.engine.ts:3182)
+    - implementado por: `BaileysEngine.removeContact` (baileys.engine.ts:1994), `WWebJSEngine.removeContact` (wwebjs.engine.ts:3182)
     - chamado por: `SessionManager.removeContact` (session-manager.service.ts:732)
   - `IEngine.createChannel(name, description)` · L430
-    - implementado por: `BaileysEngine.createChannel` (baileys.engine.ts:1969), `WWebJSEngine.createChannel` (wwebjs.engine.ts:3187)
+    - implementado por: `BaileysEngine.createChannel` (baileys.engine.ts:1999), `WWebJSEngine.createChannel` (wwebjs.engine.ts:3187)
     - chamado por: `SessionManager.createChannel` (session-manager.service.ts:737)
   - `IEngine.channelInfo(jid)` · L431
-    - implementado por: `BaileysEngine.channelInfo` (baileys.engine.ts:1976), `WWebJSEngine.channelInfo` (wwebjs.engine.ts:3205)
+    - implementado por: `BaileysEngine.channelInfo` (baileys.engine.ts:2006), `WWebJSEngine.channelInfo` (wwebjs.engine.ts:3205)
     - chamado por: `SessionManager.channelInfo` (session-manager.service.ts:744)
   - `IEngine.followChannel(jid)` · L432
-    - implementado por: `BaileysEngine.followChannel` (baileys.engine.ts:1980), `WWebJSEngine.followChannel` (wwebjs.engine.ts:3218)
+    - implementado por: `BaileysEngine.followChannel` (baileys.engine.ts:2010), `WWebJSEngine.followChannel` (wwebjs.engine.ts:3218)
     - chamado por: `SessionManager.followChannel` (session-manager.service.ts:747)
   - `IEngine.unfollowChannel(jid)` · L433
-    - implementado por: `BaileysEngine.unfollowChannel` (baileys.engine.ts:1983), `WWebJSEngine.unfollowChannel` (wwebjs.engine.ts:3222)
+    - implementado por: `BaileysEngine.unfollowChannel` (baileys.engine.ts:2013), `WWebJSEngine.unfollowChannel` (wwebjs.engine.ts:3222)
     - chamado por: `SessionManager.unfollowChannel` (session-manager.service.ts:750)
 
 ## `modules/sessions/application/session-config.service.ts`
@@ -564,7 +564,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `describeBaileysMessage` L192, `forwardableContent` L523
 - `describeBaileysMessage(message, fromMe)` · L192
   - chama: `join` L95, `mediaInfoOf` L106, `str` L91, `textOrOther` L403, `toNum` L81, `unwrapBaileys` L164, `content` (message-content.ts:37), `formatContacts` (message-content.ts:108), `formatEvent` (message-content.ts:135), `formatLocation` (message-content.ts:83), `formatPoll` (message-content.ts:124), `forwarding` (message-content.ts:55), `ignore` (message-content.ts:33)
-  - chamado por: `BaileysEngine.forwardTo` (baileys.engine.ts:1546), `BaileysEngine.onMessagesUpsert` (baileys.engine.ts:899)
+  - chamado por: `BaileysEngine.forwardTo` (baileys.engine.ts:1576), `BaileysEngine.onMessagesUpsert` (baileys.engine.ts:903)
 - `textOrOther(text, fwd)` · L403
   - chama: `content` (message-content.ts:37)
   - chamado por: `describeBaileysMessage` L192
@@ -580,7 +580,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `forwardableContent` L523
 - `forwardableContent(message)` · L523
   - chama: `findAtWrapperLevels` L439, `isViewOnce` L467, `toNum` L81, `unsupportedLabel` L476, `unwrapBaileys` L164
-  - chamado por: `BaileysEngine.prepareForward` (baileys.engine.ts:1476)
+  - chamado por: `BaileysEngine.prepareForward` (baileys.engine.ts:1506)
 
 **Tipos**
 - type `BaileysDescribed` L27
@@ -588,7 +588,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/sessions/infrastructure/baileys/baileys.engine.ts`
 
-2100 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.engine.ts`
+2130 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.engine.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `infra/directory/contact-directory.service.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/domain/session-status.ts`, `modules/sessions/infrastructure/baileys/postgres-auth-state.ts`, `modules/sessions/infrastructure/baileys/browser-fingerprint.ts`, `modules/sessions/infrastructure/message-content.ts`, `modules/sessions/infrastructure/baileys/baileys-content.ts`, `modules/sessions/infrastructure/baileys/upsert-decision.ts`, `shared-kernel/process-errors.ts`
 - importado por: `modules/sessions/infrastructure/baileys/baileys.forward.spec.ts`, `modules/sessions/infrastructure/baileys/baileys.inbound.spec.ts`, `modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts`, `modules/sessions/infrastructure/baileys/baileys.shutdown.spec.ts`, `modules/sessions/infrastructure/engine.factory.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.forward.spec.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.inbound.spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-reaction.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/wwebjs-engine.e2e-spec.ts`
 
@@ -613,22 +613,22 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `constructor(deps)` · L480
   - chamado por: `EngineFactory.create` (engine.factory.ts:11)
 - `cacheGroupMeta(md)` · L482 · private
-  - chamado por: `connect` L533, `groupInfo` L1822, `listGroups` L1814
+  - chamado por: `connect` L533, `groupInfo` L1852, `listGroups` L1844
 - `clearReconnectTimer()` · L491 · private
-  - chamado por: `doLogout` L2061, `doStop` L2002, `onConnectionUpdate` L765, `shutdown` L2042, `start` L523
+  - chamado por: `doLogout` L2091, `doStop` L2032, `onConnectionUpdate` L765, `shutdown` L2072, `start` L523
 - `getStatus()` · L496
   - implementa: `IEngine.getStatus` (engine.port.ts:377)
 - `getQrBase64()` · L500
   - implementa: `IEngine.getQrBase64` (engine.port.ts:373)
 - `setStatus(status, extra)` · L504 · private
-  - chamado por: `connect` L533, `doLogout` L2061, `doStop` L2002, `onConnectionUpdate` L765, `requestPairingCode` L1987
+  - chamado por: `connect` L533, `doLogout` L2091, `doStop` L2032, `onConnectionUpdate` L765, `requestPairingCode` L2017
 - `serialize(fn)` · L514 · private
-  - chamado por: `logout` L2056, `onConnectionUpdate` L765, `start` L523, `stop` L1995
+  - chamado por: `logout` L2086, `onConnectionUpdate` L765, `start` L523, `stop` L2025
 - `start()` · L523
   - implementa: `IEngine.start` (engine.port.ts:323)
   - chama: `clearReconnectTimer` L491, `connect` L533, `serialize` L514
 - `connect()` · L533 · private · async
-  - chama: `cacheGroupMeta` L482, `detachSocketListeners` L2019, `loadMessageForRetry` L1618, `onConnectionUpdate` L765, `onContacts` L1771, `onMessageCapping` L1075, `onMessagesUpdate` L1013, `onMessagesUpsert` L899, `onReactions` L660, `safe` L1653, `setStatus` L504, `latestBaileysVersion` L136, `browserFingerprint` (browser-fingerprint.ts:41), `usePostgresAuthState` (postgres-auth-state.ts:20)
+  - chama: `cacheGroupMeta` L482, `detachSocketListeners` L2049, `loadMessageForRetry` L1648, `onConnectionUpdate` L765, `onContacts` L1801, `onMessageCapping` L1079, `onMessagesUpdate` L1017, `onMessagesUpsert` L903, `onReactions` L660, `safe` L1683, `setStatus` L504, `latestBaileysVersion` L136, `browserFingerprint` (browser-fingerprint.ts:41), `usePostgresAuthState` (postgres-auth-state.ts:20)
   - chamado por: `onConnectionUpdate` L765, `start` L523
 - `onReactions(reactions)` · L660 · private
   - chama: `learnPair` L696, `resolveChatJid` L689, `mapBaileysReaction` L205
@@ -639,245 +639,245 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `learnLid` L703
   - chamado por: `onReactions` L660
 - `learnLid(lid, pn)` · L703 · private
-  - chama: `mergeLidMessages` L1728
-  - chamado por: `groupSenderOf` L723, `learnPair` L696, `onMessagesUpsert` L899
+  - chama: `mergeLidMessages` L1758
+  - chamado por: `groupSenderOf` L723, `learnPair` L696, `onMessagesUpsert` L903
 - `groupSenderOf(m)` · L723 · private
   - chama: `learnLid` L703, `rememberGroupPushName` L757, `resolveChatJid` L689, `phoneFirst` L232
-  - chamado por: `onMessagesUpsert` L899
+  - chamado por: `onMessagesUpsert` L903
 - `rememberGroupPushName(pn, pushName)` · L757 · private
   - chamado por: `groupSenderOf` L723
 - `onConnectionUpdate(update)` · L765 · private · async
-  - chama: `clearCredentials` L2084, `clearReconnectTimer` L491, `connect` L533, `detachSocketListeners` L2019, `serialize` L514, `setStatus` L504, `warmLidCache` L1714, `recordProcessError` (process-errors.ts:9)
+  - chama: `clearCredentials` L2114, `clearReconnectTimer` L491, `connect` L533, `detachSocketListeners` L2049, `fetchReachoutTimelock` L1105, `serialize` L514, `setStatus` L504, `warmLidCache` L1744, `recordProcessError` (process-errors.ts:9)
   - chamado por: `connect` L533
-- `onMessagesUpsert(upsert)` · L899 · private · async
-  - chama: `describeBaileysMessage` (baileys-content.ts:192), `groupSenderOf` L723, `handleIncomingMedia` L1171, `learnLid` L703, `encodeProto` L184, `shouldAcceptUpsert` (upsert-decision.ts:8)
+- `onMessagesUpsert(upsert)` · L903 · private · async
+  - chama: `describeBaileysMessage` (baileys-content.ts:192), `groupSenderOf` L723, `handleIncomingMedia` L1201, `learnLid` L703, `encodeProto` L184, `shouldAcceptUpsert` (upsert-decision.ts:8)
   - chamado por: `connect` L533
   - banco: `waMessage.findFirst`
-- `onMessagesUpdate(updates)` · L1013 · private · async
-  - chama: `fetchReachoutTimelock` L1101, `markMessage` L1152, `mapAckStatus` L251, `recordProcessError` (process-errors.ts:9)
+- `onMessagesUpdate(updates)` · L1017 · private · async
+  - chama: `fetchReachoutTimelock` L1105, `markMessage` L1182, `mapAckStatus` L251, `recordProcessError` (process-errors.ts:9)
   - chamado por: `connect` L533
-- `onMessageCapping(info)` · L1075 · private · async
-  - chama: `fetchReachoutTimelock` L1101, `cappingCycleEnd` L434, `recordProcessError` (process-errors.ts:9)
+- `onMessageCapping(info)` · L1079 · private · async
+  - chama: `fetchReachoutTimelock` L1105, `cappingCycleEnd` L434, `recordProcessError` (process-errors.ts:9)
   - chamado por: `connect` L533
-- `fetchReachoutTimelock()` · L1101 · private
+- `fetchReachoutTimelock()` · L1105 · private
   - chama: `recordProcessError` (process-errors.ts:9)
-  - chamado por: `onMessageCapping` L1075, `onMessagesUpdate` L1013
-- `markMessage(keyId, fromMe, field)` · L1152 · private
-  - chamado por: `onMessagesUpdate` L1013
+  - chamado por: `onConnectionUpdate` L765, `onMessageCapping` L1079, `onMessagesUpdate` L1017
+- `markMessage(keyId, fromMe, field)` · L1182 · private
+  - chamado por: `onMessagesUpdate` L1017
   - banco: `waMessage.updateMany`
-- `handleIncomingMedia(m, base, media, original)` · L1171 · private · async
+- `handleIncomingMedia(m, base, media, original)` · L1201 · private · async
   - chama: `encodeProto` L184, `extOf` L237
-  - chamado por: `onMessagesUpsert` L899
-- `sendText(to, text, opts)` · L1247 · async
+  - chamado por: `onMessagesUpsert` L903
+- `sendText(to, text, opts)` · L1277 · async
   - implementa: `IEngine.sendText` (engine.port.ts:335)
-  - chama: `cacheSent` L1604, `resolveJid` L1421, `encodeProto` L184
-- `sendMedia(to, input)` · L1280 · async
+  - chama: `cacheSent` L1634, `resolveJid` L1451, `encodeProto` L184
+- `sendMedia(to, input)` · L1310 · async
   - implementa: `IEngine.sendMedia` (engine.port.ts:340)
-  - chama: `cacheSent` L1604, `resolveJid` L1421, `buildMediaContent` L271, `encodeProto` L184, `extOf` L237
-- `sendLocation(to, input)` · L1335 · async
+  - chama: `cacheSent` L1634, `resolveJid` L1451, `buildMediaContent` L271, `encodeProto` L184, `extOf` L237
+- `sendLocation(to, input)` · L1365 · async
   - implementa: `IEngine.sendLocation` (engine.port.ts:345)
-  - chama: `emitOutbound` L1389, `resolveJid` L1421, `formatLocation` (message-content.ts:83)
-- `sendPoll(to, input)` · L1364 · async
+  - chama: `emitOutbound` L1419, `resolveJid` L1451, `formatLocation` (message-content.ts:83)
+- `sendPoll(to, input)` · L1394 · async
   - implementa: `IEngine.sendPoll` (engine.port.ts:349)
-  - chama: `emitOutbound` L1389, `resolveJid` L1421, `formatPoll` (message-content.ts:124)
-- `emitOutbound(sent, jid, type, text, opts)` · L1389 · private
-  - chama: `cacheSent` L1604, `encodeProto` L184
-  - chamado por: `sendLocation` L1335, `sendPoll` L1364
-- `resolveJid(to)` · L1421 · private · async
-  - chama: `toJid` L2095
-  - chamado por: `forwardTo` L1546, `resolveParticipants` L1705, `sendLocation` L1335, `sendMedia` L1280, `sendPoll` L1364, `sendText` L1247
-- `sendPresence(to, state)` · L1426 · async
+  - chama: `emitOutbound` L1419, `resolveJid` L1451, `formatPoll` (message-content.ts:124)
+- `emitOutbound(sent, jid, type, text, opts)` · L1419 · private
+  - chama: `cacheSent` L1634, `encodeProto` L184
+  - chamado por: `sendLocation` L1365, `sendPoll` L1394
+- `resolveJid(to)` · L1451 · private · async
+  - chama: `toJid` L2125
+  - chamado por: `forwardTo` L1576, `resolveParticipants` L1735, `sendLocation` L1365, `sendMedia` L1310, `sendPoll` L1394, `sendText` L1277
+- `sendPresence(to, state)` · L1456 · async
   - implementa: `IEngine.sendPresence` (engine.port.ts:353)
-  - chama: `sk` L1672, `toJid` L2095
-- `setProfileStatus(status)` · L1436 · async
+  - chama: `sk` L1702, `toJid` L2125
+- `setProfileStatus(status)` · L1466 · async
   - implementa: `IEngine.setProfileStatus` (engine.port.ts:355)
-  - chama: `sk` L1672
-- `setProfileName(name)` · L1439 · async
+  - chama: `sk` L1702
+- `setProfileName(name)` · L1469 · async
   - implementa: `IEngine.setProfileName` (engine.port.ts:356)
-  - chama: `sk` L1672
-- `setProfilePhoto(image, _mimetype)` · L1442 · async
+  - chama: `sk` L1702
+- `setProfilePhoto(image, _mimetype)` · L1472 · async
   - implementa: `IEngine.setProfilePhoto` (engine.port.ts:357)
-  - chama: `sk` L1672
-- `markRead(chatJid, msgId)` · L1450 · async
+  - chama: `sk` L1702
+- `markRead(chatJid, msgId)` · L1480 · async
   - implementa: `IEngine.markRead` (engine.port.ts:359)
-  - chama: `sk` L1672, `toJid` L2095
-- `sendReaction(chatJid, msgId, fromMe, emoji)` · L1458 · async
+  - chama: `sk` L1702, `toJid` L2125
+- `sendReaction(chatJid, msgId, fromMe, emoji)` · L1488 · async
   - implementa: `IEngine.sendReaction` (engine.port.ts:363)
-  - chama: `toJid` L2095
-- `prepareForward(src)` · L1476 · async
+  - chama: `toJid` L2125
+- `prepareForward(src)` · L1506 · async
   - implementa: `IEngine.prepareForward` (engine.port.ts:372)
-  - chama: `ForwardSourceError.constructor` (engine.port.ts:296), `forwardableContent` (baileys-content.ts:523), `forwardTo` L1546, `decodeProto` L187
+  - chama: `ForwardSourceError.constructor` (engine.port.ts:296), `forwardableContent` (baileys-content.ts:523), `forwardTo` L1576, `decodeProto` L187
   - banco: `waMessage.findMany`
-- `forwardTo(message, src, to, opts)` · L1546 · private · async
-  - chama: `describeBaileysMessage` (baileys-content.ts:192), `cacheSent` L1604, `resolveJid` L1421, `encodeProto` L184, `toJid` L2095
-  - chamado por: `prepareForward` L1476
-- `cacheSent(keyId, message)` · L1604 · private
-  - chamado por: `emitOutbound` L1389, `forwardTo` L1546, `loadMessageForRetry` L1618, `sendMedia` L1280, `sendText` L1247
-- `loadMessageForRetry(key)` · L1618 · private · async
-  - chama: `cacheSent` L1604, `decodeProto` L187
+- `forwardTo(message, src, to, opts)` · L1576 · private · async
+  - chama: `describeBaileysMessage` (baileys-content.ts:192), `cacheSent` L1634, `resolveJid` L1451, `encodeProto` L184, `toJid` L2125
+  - chamado por: `prepareForward` L1506
+- `cacheSent(keyId, message)` · L1634 · private
+  - chamado por: `emitOutbound` L1419, `forwardTo` L1576, `loadMessageForRetry` L1648, `sendMedia` L1310, `sendText` L1277
+- `loadMessageForRetry(key)` · L1648 · private · async
+  - chama: `cacheSent` L1634, `decodeProto` L187
   - chamado por: `connect` L533
   - banco: `waMessage.findFirst`
-- `safe(fn, ctx)` · L1653 · private
+- `safe(fn, ctx)` · L1683 · private
   - chamado por: `connect` L533
-- `sk()` · L1672 · private
-  - chamado por: `channelInfo` L1976, `checkNumbers` L1924, `createChannel` L1969, `createGroup` L1830, `followChannel` L1980, `groupInfo` L1822, `groupInviteCode` L1855, `groupMembershipAction` L1876, `groupMembershipRequests` L1864, `groupRevokeInvite` L1858, `leaveGroup` L1846, `listGroups` L1814, `markRead` L1450, `profilePicture` L1939, `removeContact` L1964, `saveContact` L1951, `sendPresence` L1426, `setBlock` L1948, `setGroupDescription` L1852, `setGroupPhoto` L1915, `setGroupSetting` L1898, `setGroupSubject` L1849, `setProfileName` L1439, `setProfilePhoto` L1442, `setProfileStatus` L1436, `unfollowChannel` L1983, `updateParticipants` L1838
-- `listChats(_limit)` · L1679 · async
+- `sk()` · L1702 · private
+  - chamado por: `channelInfo` L2006, `checkNumbers` L1954, `createChannel` L1999, `createGroup` L1860, `followChannel` L2010, `groupInfo` L1852, `groupInviteCode` L1885, `groupMembershipAction` L1906, `groupMembershipRequests` L1894, `groupRevokeInvite` L1888, `leaveGroup` L1876, `listGroups` L1844, `markRead` L1480, `profilePicture` L1969, `removeContact` L1994, `saveContact` L1981, `sendPresence` L1456, `setBlock` L1978, `setGroupDescription` L1882, `setGroupPhoto` L1945, `setGroupSetting` L1928, `setGroupSubject` L1879, `setProfileName` L1469, `setProfilePhoto` L1472, `setProfileStatus` L1466, `unfollowChannel` L2013, `updateParticipants` L1868
+- `listChats(_limit)` · L1709 · async
   - implementa: `IEngine.listChats` (engine.port.ts:382)
   - chama: `UnsupportedEngineOperationError.constructor` (engine.port.ts:313)
-- `fetchChatHistory(_chatJid, _limit)` · L1684 · async
+- `fetchChatHistory(_chatJid, _limit)` · L1714 · async
   - implementa: `IEngine.fetchChatHistory` (engine.port.ts:383)
   - chama: `UnsupportedEngineOperationError.constructor` (engine.port.ts:313)
-- `setChatFlag(_chatJid, _flag, _enabled)` · L1695 · async
+- `setChatFlag(_chatJid, _flag, _enabled)` · L1725 · async
   - implementa: `IEngine.setChatFlag` (engine.port.ts:387)
   - chama: `UnsupportedEngineOperationError.constructor` (engine.port.ts:313)
-- `resolveParticipants(items)` · L1705 · private · async
-  - chama: `resolveJid` L1421
-  - chamado por: `createGroup` L1830, `groupMembershipAction` L1876, `updateParticipants` L1838
-- `warmLidCache()` · L1714 · private · async
-  - chama: `mergeKnownLids` L1751
+- `resolveParticipants(items)` · L1735 · private · async
+  - chama: `resolveJid` L1451
+  - chamado por: `createGroup` L1860, `groupMembershipAction` L1906, `updateParticipants` L1868
+- `warmLidCache()` · L1744 · private · async
+  - chama: `mergeKnownLids` L1781
   - chamado por: `onConnectionUpdate` L765
-- `mergeLidMessages(lid, phoneJid)` · L1728 · private · async
-  - chamado por: `learnLid` L703, `mergeKnownLids` L1751
+- `mergeLidMessages(lid, phoneJid)` · L1758 · private · async
+  - chamado por: `learnLid` L703, `mergeKnownLids` L1781
   - banco: `messageReaction.updateMany`, `waMessage.updateMany`
-- `mergeKnownLids()` · L1751 · private · async
-  - chama: `mergeLidMessages` L1728
-  - chamado por: `warmLidCache` L1714
+- `mergeKnownLids()` · L1781 · private · async
+  - chama: `mergeLidMessages` L1758
+  - chamado por: `warmLidCache` L1744
   - banco: `waMessage.findMany`
-- `onContacts(list)` · L1771 · private
+- `onContacts(list)` · L1801 · private
   - chama: `contactToRecord` L159
   - chamado por: `connect` L533
-- `recordGroupParticipants(md)` · L1778 · private
-  - chamado por: `groupInfo` L1822, `listGroups` L1814
-- `resolveParticipantNames(groups)` · L1792 · private · async
+- `recordGroupParticipants(md)` · L1808 · private
+  - chamado por: `groupInfo` L1852, `listGroups` L1844
+- `resolveParticipantNames(groups)` · L1822 · private · async
   - chama: `resolveParticipantPhone` L311
-  - chamado por: `groupInfo` L1822, `listGroups` L1814
-- `listGroups()` · L1814 · async
+  - chamado por: `groupInfo` L1852, `listGroups` L1844
+- `listGroups()` · L1844 · async
   - implementa: `IEngine.listGroups` (engine.port.ts:390)
-  - chama: `cacheGroupMeta` L482, `recordGroupParticipants` L1778, `resolveParticipantNames` L1792, `sk` L1672, `toGroupInfo` L359
-- `groupInfo(jid)` · L1822 · async
+  - chama: `cacheGroupMeta` L482, `recordGroupParticipants` L1808, `resolveParticipantNames` L1822, `sk` L1702, `toGroupInfo` L359
+- `groupInfo(jid)` · L1852 · async
   - implementa: `IEngine.groupInfo` (engine.port.ts:391)
-  - chama: `cacheGroupMeta` L482, `recordGroupParticipants` L1778, `resolveParticipantNames` L1792, `sk` L1672, `toGroupInfo` L359, `toGroupJid` L403
-- `createGroup(subject, participants)` · L1830 · async
+  - chama: `cacheGroupMeta` L482, `recordGroupParticipants` L1808, `resolveParticipantNames` L1822, `sk` L1702, `toGroupInfo` L359, `toGroupJid` L403
+- `createGroup(subject, participants)` · L1860 · async
   - implementa: `IEngine.createGroup` (engine.port.ts:392)
-  - chama: `resolveParticipants` L1705, `sk` L1672, `toGroupInfo` L359
-- `updateParticipants(jid, action, participants)` · L1838 · async
+  - chama: `resolveParticipants` L1735, `sk` L1702, `toGroupInfo` L359
+- `updateParticipants(jid, action, participants)` · L1868 · async
   - implementa: `IEngine.updateParticipants` (engine.port.ts:393)
-  - chama: `resolveParticipants` L1705, `sk` L1672, `toGroupJid` L403
-- `leaveGroup(jid)` · L1846 · async
+  - chama: `resolveParticipants` L1735, `sk` L1702, `toGroupJid` L403
+- `leaveGroup(jid)` · L1876 · async
   - implementa: `IEngine.leaveGroup` (engine.port.ts:398)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `setGroupSubject(jid, subject)` · L1849 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `setGroupSubject(jid, subject)` · L1879 · async
   - implementa: `IEngine.setGroupSubject` (engine.port.ts:399)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `setGroupDescription(jid, description)` · L1852 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `setGroupDescription(jid, description)` · L1882 · async
   - implementa: `IEngine.setGroupDescription` (engine.port.ts:400)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `groupInviteCode(jid)` · L1855 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `groupInviteCode(jid)` · L1885 · async
   - implementa: `IEngine.groupInviteCode` (engine.port.ts:401)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `groupRevokeInvite(jid)` · L1858 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `groupRevokeInvite(jid)` · L1888 · async
   - implementa: `IEngine.groupRevokeInvite` (engine.port.ts:402)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `groupMembershipRequests(jid)` · L1864 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `groupMembershipRequests(jid)` · L1894 · async
   - implementa: `IEngine.groupMembershipRequests` (engine.port.ts:405)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `groupMembershipAction(jid, action, participants)` · L1876 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `groupMembershipAction(jid, action, participants)` · L1906 · async
   - implementa: `IEngine.groupMembershipAction` (engine.port.ts:406)
-  - chama: `resolveParticipants` L1705, `sk` L1672, `toGroupJid` L403
-- `setGroupSetting(jid, setting, enabled)` · L1898 · async
+  - chama: `resolveParticipants` L1735, `sk` L1702, `toGroupJid` L403
+- `setGroupSetting(jid, setting, enabled)` · L1928 · async
   - implementa: `IEngine.setGroupSetting` (engine.port.ts:412)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `setGroupPhoto(jid, image, _mimetype)` · L1915 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `setGroupPhoto(jid, image, _mimetype)` · L1945 · async
   - implementa: `IEngine.setGroupPhoto` (engine.port.ts:418)
-  - chama: `sk` L1672, `toGroupJid` L403
-- `checkNumbers(numbers)` · L1924 · async
+  - chama: `sk` L1702, `toGroupJid` L403
+- `checkNumbers(numbers)` · L1954 · async
   - implementa: `IEngine.checkNumbers` (engine.port.ts:421)
-  - chama: `sk` L1672
-- `profilePicture(jid)` · L1939 · async
+  - chama: `sk` L1702
+- `profilePicture(jid)` · L1969 · async
   - implementa: `IEngine.profilePicture` (engine.port.ts:422)
-  - chama: `sk` L1672, `toContactJid` L406
-- `setBlock(jid, action)` · L1948 · async
+  - chama: `sk` L1702, `toContactJid` L406
+- `setBlock(jid, action)` · L1978 · async
   - implementa: `IEngine.setBlock` (engine.port.ts:423)
-  - chama: `sk` L1672, `toContactJid` L406
-- `saveContact(jid, input)` · L1951 · async
+  - chama: `sk` L1702, `toContactJid` L406
+- `saveContact(jid, input)` · L1981 · async
   - implementa: `IEngine.saveContact` (engine.port.ts:425)
-  - chama: `sk` L1672, `toContactJid` L406
-- `removeContact(jid)` · L1964 · async
+  - chama: `sk` L1702, `toContactJid` L406
+- `removeContact(jid)` · L1994 · async
   - implementa: `IEngine.removeContact` (engine.port.ts:427)
-  - chama: `sk` L1672, `toContactJid` L406
-- `createChannel(name, description)` · L1969 · async
+  - chama: `sk` L1702, `toContactJid` L406
+- `createChannel(name, description)` · L1999 · async
   - implementa: `IEngine.createChannel` (engine.port.ts:430)
-  - chama: `sk` L1672, `toChannelInfo` L392
-- `channelInfo(jid)` · L1976 · async
+  - chama: `sk` L1702, `toChannelInfo` L392
+- `channelInfo(jid)` · L2006 · async
   - implementa: `IEngine.channelInfo` (engine.port.ts:431)
-  - chama: `sk` L1672, `toChannelInfo` L392
-- `followChannel(jid)` · L1980 · async
+  - chama: `sk` L1702, `toChannelInfo` L392
+- `followChannel(jid)` · L2010 · async
   - implementa: `IEngine.followChannel` (engine.port.ts:432)
-  - chama: `sk` L1672
-- `unfollowChannel(jid)` · L1983 · async
+  - chama: `sk` L1702
+- `unfollowChannel(jid)` · L2013 · async
   - implementa: `IEngine.unfollowChannel` (engine.port.ts:433)
-  - chama: `sk` L1672
-- `requestPairingCode(phoneNumber)` · L1987 · async
+  - chama: `sk` L1702
+- `requestPairingCode(phoneNumber)` · L2017 · async
   - implementa: `IEngine.requestPairingCode` (engine.port.ts:334)
   - chama: `setStatus` L504
-- `stop()` · L1995
+- `stop()` · L2025
   - implementa: `IEngine.stop` (engine.port.ts:324)
-  - chama: `doStop` L2002, `serialize` L514
-- `doStop()` · L2002 · private · async
-  - chama: `clearReconnectTimer` L491, `detachSocketListeners` L2019, `setStatus` L504
-  - chamado por: `stop` L1995
-- `detachSocketListeners()` · L2019 · private
-  - chamado por: `connect` L533, `doLogout` L2061, `doStop` L2002, `onConnectionUpdate` L765, `shutdown` L2042
-- `shutdown()` · L2042 · async
+  - chama: `doStop` L2032, `serialize` L514
+- `doStop()` · L2032 · private · async
+  - chama: `clearReconnectTimer` L491, `detachSocketListeners` L2049, `setStatus` L504
+  - chamado por: `stop` L2025
+- `detachSocketListeners()` · L2049 · private
+  - chamado por: `connect` L533, `doLogout` L2091, `doStop` L2032, `onConnectionUpdate` L765, `shutdown` L2072
+- `shutdown()` · L2072 · async
   - implementa: `IEngine.shutdown` (engine.port.ts:332)
-  - chama: `clearReconnectTimer` L491, `detachSocketListeners` L2019
-- `logout()` · L2056
+  - chama: `clearReconnectTimer` L491, `detachSocketListeners` L2049
+- `logout()` · L2086
   - implementa: `IEngine.logout` (engine.port.ts:333)
-  - chama: `doLogout` L2061, `serialize` L514
-- `doLogout()` · L2061 · private · async
-  - chama: `clearCredentials` L2084, `clearReconnectTimer` L491, `detachSocketListeners` L2019, `setStatus` L504
-  - chamado por: `logout` L2056
-- `clearCredentials()` · L2084 · private · async
-  - chamado por: `doLogout` L2061, `onConnectionUpdate` L765
+  - chama: `doLogout` L2091, `serialize` L514
+- `doLogout()` · L2091 · private · async
+  - chama: `clearCredentials` L2114, `clearReconnectTimer` L491, `detachSocketListeners` L2049, `setStatus` L504
+  - chamado por: `logout` L2086
+- `clearCredentials()` · L2114 · private · async
+  - chamado por: `doLogout` L2091, `onConnectionUpdate` L765
   - banco: `waAuthKey.deleteMany`, `waSession.updateMany`
 
 **Funções e constantes de topo**
 - `latestBaileysVersion(logger)` · L136 · async
   - chamado por: `connect` L533
 - `contactToRecord(c, source)` · L159
-  - chamado por: `onContacts` L1771
+  - chamado por: `onContacts` L1801
 - `encodeProto(msg)` · L184
-  - chamado por: `emitOutbound` L1389, `forwardTo` L1546, `handleIncomingMedia` L1171, `onMessagesUpsert` L899, `sendMedia` L1280, `sendText` L1247
+  - chamado por: `emitOutbound` L1419, `forwardTo` L1576, `handleIncomingMedia` L1201, `onMessagesUpsert` L903, `sendMedia` L1310, `sendText` L1277
 - `decodeProto(value)` · L187
-  - chamado por: `loadMessageForRetry` L1618, `prepareForward` L1476
+  - chamado por: `loadMessageForRetry` L1648, `prepareForward` L1506
 - `mapBaileysReaction(key, reaction, ourJid)` · L205
   - chama: `toNum` (baileys-content.ts:81), `phoneFirst` L232
   - chamado por: `onReactions` L660
 - `phoneFirst(a, b)` · L232
   - chamado por: `groupSenderOf` L723, `mapBaileysReaction` L205
 - `extOf(mimetype, fileName)` · L237
-  - chamado por: `handleIncomingMedia` L1171, `sendMedia` L1280
+  - chamado por: `handleIncomingMedia` L1201, `sendMedia` L1310
 - `mapAckStatus(status)` · L251
-  - chamado por: `onMessagesUpdate` L1013
+  - chamado por: `onMessagesUpdate` L1017
 - `buildMediaContent(input)` · L271
-  - chamado por: `sendMedia` L1280
+  - chamado por: `sendMedia` L1310
 - `resolveParticipantPhone(p, lidToPn)` · L311
-  - chamado por: `resolveParticipantNames` L1792, `toGroupInfo` L359
+  - chamado por: `resolveParticipantNames` L1822, `toGroupInfo` L359
 - `dirNameFor(p, phone, names)` · L345
   - chamado por: `toGroupInfo` L359
 - `toGroupInfo(md, lidToPn, names)` · L359
   - chama: `dirNameFor` L345, `resolveParticipantPhone` L311
-  - chamado por: `createGroup` L1830, `groupInfo` L1822, `listGroups` L1814
+  - chamado por: `createGroup` L1860, `groupInfo` L1852, `listGroups` L1844
 - `toChannelInfo(md)` · L392
-  - chamado por: `channelInfo` L1976, `createChannel` L1969
+  - chamado por: `channelInfo` L2006, `createChannel` L1999
 - `toGroupJid(jid)` · L403
-  - chamado por: `groupInfo` L1822, `groupInviteCode` L1855, `groupMembershipAction` L1876, `groupMembershipRequests` L1864, `groupRevokeInvite` L1858, `leaveGroup` L1846, `setGroupDescription` L1852, `setGroupPhoto` L1915, `setGroupSetting` L1898, `setGroupSubject` L1849, `updateParticipants` L1838
+  - chamado por: `groupInfo` L1852, `groupInviteCode` L1885, `groupMembershipAction` L1906, `groupMembershipRequests` L1894, `groupRevokeInvite` L1888, `leaveGroup` L1876, `setGroupDescription` L1882, `setGroupPhoto` L1945, `setGroupSetting` L1928, `setGroupSubject` L1879, `updateParticipants` L1868
 - `toContactJid(jid)` · L406
-  - chamado por: `profilePicture` L1939, `removeContact` L1964, `saveContact` L1951, `setBlock` L1948
+  - chamado por: `profilePicture` L1969, `removeContact` L1994, `saveContact` L1981, `setBlock` L1978
 - `cappingCycleEnd(value)` · L434
-  - chamado por: `onMessageCapping` L1075
-- `toJid(to)` · L2095
-  - chamado por: `forwardTo` L1546, `markRead` L1450, `resolveJid` L1421, `sendPresence` L1426, `sendReaction` L1458
+  - chamado por: `onMessageCapping` L1079
+- `toJid(to)` · L2125
+  - chamado por: `forwardTo` L1576, `markRead` L1480, `resolveJid` L1451, `sendPresence` L1456, `sendReaction` L1488
 
 **Tipos**
 - interface `BaileysEngineDeps` L76 · 13 propriedade(s)
@@ -983,13 +983,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts`
 
-138 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts`
+228 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts`
 - importa (interno): `shared-kernel/process-errors.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`
 
 - describe “Baileys rc14 — sinais nativos de restrição (E8)” · L73
   - it “ERROR 463 pausa antes da consulta e usa o timeEnforcementEnds retornado” · L74
   - it “connection.update ativo e capping CAPPED são sinais; warning não pausa” · L96
-  - it “consulta pendurada vence em 3 s; 479 só é contado e ACK normal preservado” · L123
+  - it “notificação provisória é substituída pelo prazo confirmado no RPC” · L129
+  - it “RPC ativo sem prazo remoto não confirma a data fabricada pela notificação” · L159
+  - it “consulta pendurada vence em 3 s; 479 só é contado e ACK normal preservado” · L176
+  - it “RPC que responde depois do timeout ainda confirma o prazo sem segurar o ACK” · L191
 
 ## `modules/sessions/infrastructure/baileys/baileys.shutdown.spec.ts`
 
@@ -1049,7 +1052,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `OFFLINE_UPSERT_MAX_AGE_SECONDS` = `48 * 60 * 60` · L5
 - `shouldAcceptUpsert(message, type, nowSeconds)` · L8
-  - chamado por: `BaileysEngine.onMessagesUpsert` (baileys.engine.ts:899)
+  - chamado por: `BaileysEngine.onMessagesUpsert` (baileys.engine.ts:903)
 
 ## `modules/sessions/infrastructure/engine.factory.ts`
 
@@ -1096,13 +1099,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `formatLocation` L83
 - `formatLocation(loc)` · L83
   - chama: `clean` L71, `coord` L76
-  - chamado por: `describeBaileysMessage` (baileys-content.ts:192), `BaileysEngine.sendLocation` (baileys.engine.ts:1335), `describeWwebjsMessage` (wwebjs-content.ts:78), `WWebJSEngine.sendLocation` (wwebjs.engine.ts:1726)
+  - chamado por: `describeBaileysMessage` (baileys-content.ts:192), `BaileysEngine.sendLocation` (baileys.engine.ts:1365), `describeWwebjsMessage` (wwebjs-content.ts:78), `WWebJSEngine.sendLocation` (wwebjs.engine.ts:1726)
 - `formatContacts(cards)` · L108
   - chama: `clean` L71
   - chamado por: `describeBaileysMessage` (baileys-content.ts:192), `describeWwebjsMessage` (wwebjs-content.ts:78)
 - `formatPoll(name, options)` · L124
   - chama: `clean` L71
-  - chamado por: `describeBaileysMessage` (baileys-content.ts:192), `BaileysEngine.sendPoll` (baileys.engine.ts:1364), `describeWwebjsMessage` (wwebjs-content.ts:78), `WWebJSEngine.sendPoll` (wwebjs.engine.ts:1760)
+  - chamado por: `describeBaileysMessage` (baileys-content.ts:192), `BaileysEngine.sendPoll` (baileys.engine.ts:1394), `describeWwebjsMessage` (wwebjs-content.ts:78), `WWebJSEngine.sendPoll` (wwebjs.engine.ts:1760)
 - `formatEvent(name, description)` · L135
   - chama: `clean` L71
   - chamado por: `describeBaileysMessage` (baileys-content.ts:192), `describeWwebjsMessage` (wwebjs-content.ts:78)
@@ -1813,11 +1816,11 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `create(body)` · L98 · async · @Post · @MinRole('ADMIN')
   - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:232), `ProxyService.ensureAvailable` (proxy.service.ts:218), `SessionManager.start` (session-manager.service.ts:319), `SessionRepository.create` (session.repository.ts:19), `SessionRepository.delete` (session.repository.ts:30), `SessionRepository.findById` (session.repository.ts:20), `SessionRepository.findByName` (session.repository.ts:21), `SessionRepository.list` (session.repository.ts:22), `toDto` L45, `newId` (ulid.ts:4)
 - `list(state)` · L155 · async · @Get
-  - chama: `GuardrailService.statesFor` (guardrail.service.ts:605), `SessionRepository.list` (session.repository.ts:22), `toDto` L45
+  - chama: `GuardrailService.statesFor` (guardrail.service.ts:617), `SessionRepository.list` (session.repository.ts:22), `toDto` L45
 - `get(id)` · L175 · async · @Get(':id')
   - chama: `ensure` L410, `toDto` L45
 - `health(id)` · L181 · async · @Get(':id/health')
-  - chama: `GuardrailService.health` (guardrail.service.ts:579), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20)
+  - chama: `GuardrailService.health` (guardrail.service.ts:591), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20)
 - `getConfig(id)` · L190 · async · @Get(':id/config')
   - chama: `GuardrailService.getState` (guardrail.service.ts:216), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20), `configDto` L62
 - `patchConfig(id, body)` · L197 · async · @Patch(':id/config')
@@ -1839,7 +1842,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `pause(id)` · L312 · @Post(':id/pause')
   - chama: `override` L317
 - `override(id, action)` · L317 · private · async
-  - chama: `GuardrailService.setManualState` (guardrail.service.ts:563)
+  - chama: `GuardrailService.setManualState` (guardrail.service.ts:575)
   - chamado por: `activate` L307, `pause` L312, `quarantine` L297, `warmup` L302
 - `start(id)` · L322 · async · @Post(':id/start')
   - chama: `SessionManager.start` (session-manager.service.ts:319), `ensure` L410

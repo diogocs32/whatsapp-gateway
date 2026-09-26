@@ -247,7 +247,7 @@ function extOf(mimetype: string | null, fileName: string | null): string {
 }
 
 // G3: mapeia o enum de status do WhatsApp (proto.WebMessageInfo.Status) para o ACK público.
-// PENDING/ERROR não viram evento; PLAYED (áudio ouvido) conta como leitura.
+// PENDING não vira evento; ERROR vira `error` sem tique. PLAYED conta como leitura.
 function mapAckStatus(
   status: proto.WebMessageInfo.Status | null | undefined,
 ): AckStatus | null {
@@ -767,22 +767,26 @@ export class BaileysEngine implements IEngine {
   ): Promise<void> {
     const { connection, lastDisconnect, qr } = update;
 
-    // rc14: notificação MEX e fetchAccountReachoutTimelock chegam aqui. `isActive:false`
-    // não apaga a pausa: o prazo gravado expira por relógio e evita liberação prematura por
-    // resposta de consulta concorrente a um capping ainda ativo.
+    // rc14: notificação MEX e fetchAccountReachoutTimelock chegam aqui com o MESMO shape.
+    // A notificação fabrica now+60s quando o servidor omite o prazo; só a resposta direta
+    // do RPC permite confirmar `timeEnforcementEnds`. `isActive:false` não apaga a pausa:
+    // o prazo gravado expira por relógio e evita liberação prematura por capping concorrente.
     const lock = update.reachoutTimeLock;
     if (lock?.isActive) {
       try {
         await this.deps.onRestrictionSignal?.({
           signal: 'reachoutTimeLock',
           until: lock.timeEnforcementEnds,
-          source: 'timeEnforcementEnds',
+          source: 'temporary',
           enforcementType: lock.enforcementType,
         });
       } catch (err) {
         recordProcessError('baileys_restriction_record');
         this.deps.logger.error({ err }, 'falha ao gravar restrição nativa');
       }
+      // A consulta tem single-flight, intervalo mínimo de 30 s e teto de 3 s. Não atrasa
+      // status/QR/open da conexão; a própria função captura falha e conserva a pausa.
+      void this.fetchReachoutTimelock();
     }
 
     if (qr) {
@@ -1108,12 +1112,45 @@ export class BaileysEngine implements IEngine {
     }
     const sock = this.sock;
     if (!sock) return Promise.resolve();
-    this.lastTimelockFetchAt = Date.now();
+    const startedAt = Date.now();
+    this.lastTimelockFetchAt = startedAt;
     this.timelockFetch = (async () => {
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let deadlinePassed = false;
+      // `Promise.race` limita quem aguarda a consulta, mas não cancela o RPC. A rc14 pode
+      // responder depois de 3 s; nesse caso ainda promovemos o prazo confirmado, desde
+      // que o socket e a consulta continuem atuais.
+      const confirmed = Promise.resolve()
+        .then(() => sock.fetchAccountReachoutTimelock())
+        .then(async (state) => {
+          if (
+            this.sock === sock &&
+            this.lastTimelockFetchAt === startedAt &&
+            state.isActive
+          ) {
+            await this.deps.onRestrictionSignal?.({
+              signal: 'reachoutTimeLock',
+              until: state.timeEnforcementEnds,
+              source: state.timeEnforcementEnds
+                ? 'timeEnforcementEnds'
+                : 'temporary',
+              enforcementType: state.enforcementType,
+            });
+          }
+        })
+        .catch((err: unknown) => {
+          if (deadlinePassed) {
+            recordProcessError('baileys_timelock_fetch');
+            this.deps.logger.warn(
+              { err, sessionId: this.deps.sessionId },
+              'consulta tardia do timelock falhou',
+            );
+          }
+          throw err;
+        });
       try {
-        const state = await Promise.race([
-          sock.fetchAccountReachoutTimelock(),
+        await Promise.race([
+          confirmed,
           new Promise<never>((_, reject) => {
             timer = setTimeout(
               () => reject(new Error('consulta do timelock excedeu 3 s')),
@@ -1122,15 +1159,8 @@ export class BaileysEngine implements IEngine {
             timer.unref?.();
           }),
         ]);
-        if (this.sock === sock && state.isActive) {
-          await this.deps.onRestrictionSignal?.({
-            signal: 'reachoutTimeLock',
-            until: state.timeEnforcementEnds,
-            source: 'timeEnforcementEnds',
-            enforcementType: state.enforcementType,
-          });
-        }
       } catch (err) {
+        deadlinePassed = true;
         recordProcessError('baileys_timelock_fetch');
         this.deps.logger.warn(
           { err, sessionId: this.deps.sessionId },

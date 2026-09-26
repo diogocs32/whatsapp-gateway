@@ -46,10 +46,18 @@
    de teste da E7. Se um sinal nativo ocorrer espontaneamente, registrar o evento, a fonte
    (`timeEnforcementEnds`, `cycle_end_timestamp` ou `temporary`), o prazo e o ACK; confirmar que
    o estado G5 não vira `banida`. Enquanto o prazo estiver vigente, 423 é o resultado esperado
-   para envios de mensagem da sessão; ao vencer, o próximo envio volta sem `/activate`.
-3. Se o prazo não vier do WhatsApp ou o RPC falhar, o gateway trava por 60 s e alerta com
-   `source=temporary`. Uma retomada depois disso **não prova** que a restrição remota terminou;
-   anotar e investigar o estado no aparelho antes de autorizar mais tráfego. A campanha reconsulta
+   para envios de mensagem da sessão; ao vencer, o próximo envio volta sem `/activate`. O
+   `timeEnforcementEnds` no alerta só é confirmado quando `source=timeEnforcementEnds`, recebido
+   pela resposta direta do RPC; o `Date` da notificação `connection.update` é sempre provisório.
+   Podem chegar alerta provisório, eco provisório do RPC e depois atualização confirmada; agrupar
+   reentregas por sessão, fonte e prazo, preservando a atualização de `source`/`pausedUntil`.
+3. Se a espera de 3 s pelo RPC expirar, o gateway mantém o prazo válido da notificação como
+   `source=temporary`, mesmo se superar 60 s. A rc14 fabrica agora + 60 s quando a notificação
+   não informa horário; se nenhum sinal trouxer prazo válido, o gateway usa fallback de 60 s. A
+   chamada não é cancelada: resposta tardia ainda confirma se o socket e a consulta forem atuais.
+   Capping com `cycle_end_timestamp` menor não reduz o prazo provisório já persistido.
+   Uma retomada após esse prazo provisório **não prova** que a restrição remota terminou; anotar
+   e investigar o estado no aparelho antes de autorizar mais tráfego. A campanha reconsulta
    o prazo até vencer e não deve ficar `PAUSED` por esse sinal.
 4. Em rollback de imagem depois de a migration ter sido aplicada, **não reverter a migration**.
    As colunas são aditivas; a imagem antiga não lê a trava E8. Interromper envios da sessão canário

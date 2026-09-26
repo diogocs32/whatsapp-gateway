@@ -102,6 +102,12 @@ describe('Baileys rc14 — sinais nativos de restrição (E8)', () => {
       timeEnforcementEnds: end,
       enforcementType: 'WEB_COMPANION_ONLY',
     });
+    // A notificação da rc14 fabrica now+60 s quando o servidor omite o prazo.
+    // Mesmo com Date, só o RPC pode confirmar timeEnforcementEnds.
+    expect(h.signals[0]).toMatchObject({
+      signal: 'reachoutTimeLock',
+      source: 'temporary',
+    });
     await h.capping({
       capping_status: NewChatMessageCappingStatusType.FIRST_WARNING,
     });
@@ -120,6 +126,53 @@ describe('Baileys rc14 — sinais nativos de restrição (E8)', () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
+  it('notificação provisória é substituída pelo prazo confirmado no RPC', async () => {
+    const notificationEnd = new Date(Date.now() + 60_000);
+    const confirmedEnd = new Date(Date.now() + 10 * 60_000);
+    const fetch = vi.fn(async () => ({
+      isActive: true,
+      timeEnforcementEnds: confirmedEnd,
+    }));
+    const h = harness(fetch);
+    await h.connection({
+      isActive: true,
+      timeEnforcementEnds: notificationEnd,
+    });
+    expect(h.signals[0]).toMatchObject({
+      signal: 'reachoutTimeLock',
+      source: 'temporary',
+    });
+    await vi.waitFor(() => {
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(h.signals).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            signal: 'reachoutTimeLock',
+            until: confirmedEnd,
+            source: 'timeEnforcementEnds',
+          }),
+        ]),
+      );
+    });
+  });
+
+  it('RPC ativo sem prazo remoto não confirma a data fabricada pela notificação', async () => {
+    const h = harness(async () => ({ isActive: true }));
+    await h.connection({
+      isActive: true,
+      timeEnforcementEnds: new Date(Date.now() + 60_000),
+    });
+    await vi.waitFor(() => expect(h.signals).toHaveLength(2));
+    expect(h.signals.some((s) => s.source === 'timeEnforcementEnds')).toBe(
+      false,
+    );
+    expect(h.signals.filter((s) => s.signal === 'reachoutTimeLock')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'temporary' }),
+      ]),
+    );
+  });
+
   it('consulta pendurada vence em 3 s; 479 só é contado e ACK normal preservado', async () => {
     vi.useFakeTimers();
     const h = harness(() => new Promise(() => undefined));
@@ -133,5 +186,42 @@ describe('Baileys rc14 — sinais nativos de restrição (E8)', () => {
     expect(processErrorTotals().baileys_ack_479).toBe(before + 1);
     await h.update('', proto.WebMessageInfo.Status.SERVER_ACK);
     expect(h.events).toEqual(['message.ack', 'message.ack', 'message.ack']);
+  });
+
+  it('RPC que responde depois do timeout ainda confirma o prazo sem segurar o ACK', async () => {
+    vi.useFakeTimers();
+    let resolveFetch!: (state: {
+      isActive: boolean;
+      timeEnforcementEnds: Date;
+    }) => void;
+    const fetch = vi.fn(
+      () =>
+        new Promise<{
+          isActive: boolean;
+          timeEnforcementEnds: Date;
+        }>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    const h = harness(fetch);
+    const pending = h.update('463');
+    await vi.advanceTimersByTimeAsync(3_001);
+    await pending;
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(h.signals).toEqual([{ signal: '463' }]);
+    expect(h.events).toEqual(['message.ack']);
+
+    const confirmedEnd = new Date(Date.now() + 10 * 60_000);
+    resolveFetch({ isActive: true, timeEnforcementEnds: confirmedEnd });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.signals).toEqual([
+      { signal: '463' },
+      {
+        signal: 'reachoutTimeLock',
+        until: confirmedEnd,
+        source: 'timeEnforcementEnds',
+        enforcementType: undefined,
+      },
+    ]);
   });
 });

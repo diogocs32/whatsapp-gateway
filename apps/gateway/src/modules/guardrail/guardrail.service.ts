@@ -458,7 +458,7 @@ export class GuardrailService {
     signal: '463' | 'reachoutTimeLock' | 'message-capping',
     options: {
       until?: Date;
-      source?: 'timeEnforcementEnds' | 'cycle_end_timestamp';
+      source?: 'timeEnforcementEnds' | 'cycle_end_timestamp' | 'temporary';
       enforcementType?: string;
     } = {},
   ): Promise<Date> {
@@ -471,6 +471,8 @@ export class GuardrailService {
     const until = hasValidEnd
       ? supplied
       : new Date(now.getTime() + RESTRICTION_PROVISIONAL_MS);
+    // `connection.update` da rc14 pode trazer um Date fabricado pela própria lib (+60 s).
+    // Preserve-o como prazo provisório; só a resposta direta do RPC é confirmada.
     const source = hasValidEnd
       ? (options.source ?? 'timeEnforcementEnds')
       : 'temporary';
@@ -485,13 +487,23 @@ export class GuardrailService {
           ]
         : source === 'cycle_end_timestamp'
           ? [
-              { restrictionSource: 'temporary' },
+              {
+                restrictionSource: 'temporary',
+                restrictionUntil: { lt: until },
+              },
               {
                 restrictionSource: 'cycle_end_timestamp',
                 restrictionUntil: { lt: until },
               },
             ]
-          : [];
+          : hasValidEnd
+            ? [
+                {
+                  restrictionSource: 'temporary',
+                  restrictionUntil: { lt: until },
+                },
+              ]
+            : [];
     const changed = await this.prisma.sessionGuardrail.updateMany({
       where: {
         sessionId,

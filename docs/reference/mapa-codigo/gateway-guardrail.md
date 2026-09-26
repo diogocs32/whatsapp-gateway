@@ -8,8 +8,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `modules/guardrail/guardrail.controller.ts` | 56 |
 | `modules/guardrail/guardrail.module.ts` | 16 |
-| `modules/guardrail/guardrail.service.spec.ts` | 653 |
-| `modules/guardrail/guardrail.service.ts` | 615 |
+| `modules/guardrail/guardrail.service.spec.ts` | 776 |
+| `modules/guardrail/guardrail.service.ts` | 627 |
 | `modules/guardrail/session-quarantined.exception.ts` | 19 |
 
 ## `modules/guardrail/guardrail.controller.ts`
@@ -47,7 +47,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/guardrail/guardrail.service.spec.ts`
 
-653 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.service.spec.ts`
+776 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.service.spec.ts`
 - importa (interno): `modules/guardrail/guardrail.service.ts`, `modules/guardrail/guardrail.service.ts`
 
 - describe “GuardrailService.evaluate — tabela de decisão G5” · L235
@@ -81,15 +81,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “sem enforce nenhum sinal muda o estado” · L534
 - describe “GuardrailService — pausa nativa temporária (P-048)” · L544
   - it “bloqueia também chat aberto sem banir e libera pelo relógio” · L545
-  - it “463 começa com pausa curta e prazo confirmado a substitui; repetição não amplia” · L579
-  - it “timeEnforcementEnds prevalece sobre cycle_end_timestamp do capping” · L597
-- describe “GuardrailService.apply — CAS (WA-07)” · L620
-  - it “cria a linha quando não existe e aplica com evento mais novo” · L621
-  - it “duas transições concorrentes: a que perde a corrida relê e não grava por cima de evento mais novo” · L629
+  - it “data da notificação é provisória; o RPC substitui pelo prazo confirmado menor” · L587
+  - it “RPC ativo sem prazo remoto conserva pausa provisória e não anuncia prazo confirmado” · L630
+  - it “capping só substitui prazo provisório quando amplia a pausa” · L658
+  - it “463 começa com pausa curta e prazo confirmado a substitui; repetição não amplia” · L695
+  - it “timeEnforcementEnds prevalece sobre cycle_end_timestamp do capping” · L713
+- describe “GuardrailService.apply — CAS (WA-07)” · L743
+  - it “cria a linha quando não existe e aplica com evento mais novo” · L744
+  - it “duas transições concorrentes: a que perde a corrida relê e não grava por cima de evento mais novo” · L752
 
 ## `modules/guardrail/guardrail.service.ts`
 
-615 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.service.ts`
+627 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/process-errors.ts`, `shared-kernel/ulid.ts`, `modules/sessions/application/engine.port.ts`, `modules/observability/reply-rate.service.ts`
 - importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/guardrail/guardrail.module.ts`, `modules/guardrail/guardrail.service.spec.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`
 
@@ -111,12 +114,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - banco: `guardrailConfig.upsert`
 - `emit(sessionId, event, payload)` · L190 · private · async
   - chama: `EventBus.publish` (event-bus.ts:21), `newId` (ulid.ts:4)
-  - chamado por: `apply` L329, `canSendCold` L419, `canSendMessage` L438, `recordHardSignal` L537, `recordReachoutRestriction` L456
+  - chamado por: `apply` L329, `canSendCold` L419, `canSendMessage` L438, `recordHardSignal` L549, `recordReachoutRestriction` L456
   - banco: `waSession.findUnique`
   - publica evento: `'wa.event'`
 - `getState(sessionId)` · L216 · async
   - chama: `newId` (ulid.ts:4)
-  - chamado por: `canSendCold` L419, `evaluate` L249, `health` L579, `SessionsController.getConfig` (sessions.controller.ts:190), `SessionsController.patchConfig` (sessions.controller.ts:197)
+  - chamado por: `canSendCold` L419, `evaluate` L249, `health` L591, `SessionsController.getConfig` (sessions.controller.ts:190), `SessionsController.patchConfig` (sessions.controller.ts:197)
   - banco: `sessionGuardrail.upsert`
 - `fleetMedianReplyRate()` · L230 · async
   - chama: `cfg` L157
@@ -127,11 +130,11 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `GuardrailController.evaluate` (guardrail.controller.ts:51)
 - `apply(sessionId, state, reason, eventTs, ctx, attempt)` · L329 · async
   - chama: `cfg` L157, `emit` L190, `emitFailed` L409, `newId` (ulid.ts:4)
-  - chamado por: `evaluate` L249, `recordHardSignal` L537, `setManualState` L563
+  - chamado por: `evaluate` L249, `recordHardSignal` L549, `setManualState` L575
   - banco: `sessionGuardrail.create`, `sessionGuardrail.findUnique`, `sessionGuardrail.updateMany`
 - `emitFailed(event, sessionId, e)` · L409 · private
   - chama: `recordProcessError` (process-errors.ts:9)
-  - chamado por: `apply` L329, `canSendCold` L419, `canSendMessage` L438, `recordHardSignal` L537, `recordReachoutRestriction` L456
+  - chamado por: `apply` L329, `canSendCold` L419, `canSendMessage` L438, `recordHardSignal` L549, `recordReachoutRestriction` L456
 - `canSendCold(sessionId)` · L419 · async
   - chama: `canSendMessage` L438, `emit` L190, `emitFailed` L409, `getState` L216
   - chamado por: `CampaignQueue.process` (campaign-queue.ts:142), `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.assertColdAllowed` (messages.controller.ts:257)
@@ -140,21 +143,21 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignQueue.process` (campaign-queue.ts:142), `canSendCold` L419, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:609)
   - banco: `sessionGuardrail.findUnique`
 - `recordReachoutRestriction(sessionId, signal, options)` · L456 · async
-  - chama: `emit` L190, `emitFailed` L409, `recordHardSignal` L537
+  - chama: `emit` L190, `emitFailed` L409, `recordHardSignal` L549
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:141)
   - banco: `sessionGuardrail.updateMany`
-- `recordHardSignal(sessionId, signal)` · L537 · async
+- `recordHardSignal(sessionId, signal)` · L549 · async
   - chama: `apply` L329, `emit` L190, `emitFailed` L409, `newId` (ulid.ts:4)
   - chamado por: `recordReachoutRestriction` L456
   - banco: `sessionGuardrail.upsert`
-- `setManualState(ref, action)` · L563 · async
+- `setManualState(ref, action)` · L575 · async
   - chama: `apply` L329
   - chamado por: `SessionsController.override` (sessions.controller.ts:317)
   - banco: `waSession.findFirst`
-- `health(ref)` · L579 · async
+- `health(ref)` · L591 · async
   - chama: `getState` L216, `ReplyRateService.compute` (reply-rate.service.ts:80)
   - chamado por: `SessionsController.health` (sessions.controller.ts:181)
-- `statesFor(sessionIds)` · L605 · async
+- `statesFor(sessionIds)` · L617 · async
   - chamado por: `SessionsController.list` (sessions.controller.ts:155)
   - banco: `sessionGuardrail.findMany`
 

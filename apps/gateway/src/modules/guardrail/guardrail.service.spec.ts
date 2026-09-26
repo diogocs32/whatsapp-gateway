@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GuardrailService } from './guardrail.service';
 import type { GuardrailState } from './guardrail.service';
 
@@ -570,10 +570,126 @@ describe('GuardrailService — pausa nativa temporária (P-048)', () => {
       source: 'timeEnforcementEnds',
     });
 
-    // A linha continua, mas o prazo vencido deixa o envio passar sem /activate nem restart.
-    prisma.rows.get('S1')!.restrictionUntil = new Date(Date.now() - 1);
-    expect((await service.canSendMessage('S1')).allowed).toBe(true);
+    // O prazo persistido fica intacto: só o relógio libera, sem /activate nem restart.
+    const afterDeadline = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(until.getTime() + 1);
+    try {
+      expect((await service.canSendMessage('S1')).allowed).toBe(true);
+      expect((await service.canSendCold('S1')).allowed).toBe(true);
+    } finally {
+      afterDeadline.mockRestore();
+    }
+    expect(prisma.rows.get('S1')?.restrictionUntil).toEqual(until);
     expect(prisma.rows.get('S1')?.state).toBe('ativa');
+  });
+
+  it('data da notificação é provisória; o RPC substitui pelo prazo confirmado menor', async () => {
+    const prisma = new PrismaFake();
+    const bus = new EventBusFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma, bus, enforce: false });
+    const notificationEnd = new Date(Date.now() + 60_000);
+    const confirmedEnd = new Date(Date.now() + 30_000);
+
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until: notificationEnd,
+      source: 'temporary',
+    });
+    expect(prisma.rows.get('S1')).toMatchObject({
+      restrictionUntil: notificationEnd,
+      restrictionSource: 'temporary',
+      state: 'ativa',
+    });
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until: confirmedEnd,
+      source: 'timeEnforcementEnds',
+    });
+    expect(prisma.rows.get('S1')).toMatchObject({
+      restrictionUntil: confirmedEnd,
+      restrictionSource: 'timeEnforcementEnds',
+      state: 'ativa',
+    });
+    const alerts = bus.published.filter(
+      (e) => (e.payload as { event?: string }).event === 'session.restricted',
+    );
+    expect(
+      alerts.map(
+        (e) => (e.payload as { payload: { source: string } }).payload.source,
+      ),
+    ).toEqual(['temporary', 'timeEnforcementEnds']);
+    expect(
+      (
+        alerts[0]?.payload as {
+          payload: { timeEnforcementEnds: string | null };
+        }
+      ).payload.timeEnforcementEnds,
+    ).toBeNull();
+  });
+
+  it('RPC ativo sem prazo remoto conserva pausa provisória e não anuncia prazo confirmado', async () => {
+    const prisma = new PrismaFake();
+    const bus = new EventBusFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma, bus });
+    const notificationEnd = new Date(Date.now() + 60_000);
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until: notificationEnd,
+      source: 'temporary',
+    });
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      source: 'timeEnforcementEnds',
+    });
+    expect(prisma.rows.get('S1')?.restrictionSource).toBe('temporary');
+    expect(prisma.rows.get('S1')?.restrictionUntil).toEqual(notificationEnd);
+    const alerts = bus.published.filter(
+      (e) => (e.payload as { event?: string }).event === 'session.restricted',
+    );
+    expect(alerts).toHaveLength(1);
+    expect(
+      (
+        alerts[0]?.payload as {
+          payload: { timeEnforcementEnds: string | null };
+        }
+      ).payload.timeEnforcementEnds,
+    ).toBeNull();
+  });
+
+  it('capping só substitui prazo provisório quando amplia a pausa', async () => {
+    const prisma = new PrismaFake();
+    const bus = new EventBusFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma, bus });
+    const temporary = new Date(Date.now() + 60 * 60_000);
+    const shorterCycle = new Date(Date.now() + 10 * 60_000);
+    const longerCycle = new Date(Date.now() + 2 * 60 * 60_000);
+
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until: temporary,
+      source: 'temporary',
+    });
+    await service.recordReachoutRestriction('S1', 'message-capping', {
+      until: shorterCycle,
+      source: 'cycle_end_timestamp',
+    });
+    expect(prisma.rows.get('S1')).toMatchObject({
+      restrictionUntil: temporary,
+      restrictionSource: 'temporary',
+    });
+    expect(
+      bus.published.filter(
+        (e) => (e.payload as { event?: string }).event === 'session.restricted',
+      ),
+    ).toHaveLength(1);
+
+    await service.recordReachoutRestriction('S1', 'message-capping', {
+      until: longerCycle,
+      source: 'cycle_end_timestamp',
+    });
+    expect(prisma.rows.get('S1')).toMatchObject({
+      restrictionUntil: longerCycle,
+      restrictionSource: 'cycle_end_timestamp',
+    });
   });
 
   it('463 começa com pausa curta e prazo confirmado a substitui; repetição não amplia', async () => {
@@ -600,10 +716,17 @@ describe('GuardrailService — pausa nativa temporária (P-048)', () => {
     const { service } = makeService({ prisma });
     const cycle = new Date(Date.now() + 60 * 60_000);
     const timelock = new Date(Date.now() + 5 * 60_000);
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until: new Date(Date.now() + 60_000),
+      source: 'temporary',
+    });
     await service.recordReachoutRestriction('S1', 'message-capping', {
       until: cycle,
       source: 'cycle_end_timestamp',
     });
+    expect(prisma.rows.get('S1')?.restrictionSource).toBe(
+      'cycle_end_timestamp',
+    );
     await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
       until: timelock,
       source: 'timeEnforcementEnds',

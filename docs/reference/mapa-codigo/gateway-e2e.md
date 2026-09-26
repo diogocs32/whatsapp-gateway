@@ -10,7 +10,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/auth.e2e-spec.ts` | 335 |
 | `gateway/test/baileys-offline.e2e-spec.ts` | 250 |
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
-| `gateway/test/baileys-restriction.e2e-spec.ts` | 263 |
+| `gateway/test/baileys-restriction.e2e-spec.ts` | 271 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
 | `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1540 |
@@ -88,7 +88,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/baileys-restriction.e2e-spec.ts`
 
-263 linhas · caminho: `apps/gateway/test/baileys-restriction.e2e-spec.ts`
+271 linhas · caminho: `apps/gateway/test/baileys-restriction.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
 
 - describe “E8 — restrição Baileys pausa, alerta e retoma sem envio real” · L23

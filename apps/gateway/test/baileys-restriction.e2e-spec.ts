@@ -247,16 +247,24 @@ describe('E8 — restrição Baileys pausa, alerta e retoma sem envio real', () 
     expect(sendMedia).not.toHaveBeenCalled();
     expect(sendForward).not.toHaveBeenCalled();
 
-    // Simula o prazo vencido NO banco: a liberação depende da consulta, não de timer local.
-    await prisma.sessionGuardrail.update({
-      where: { sessionId },
-      data: { restrictionUntil: new Date(Date.now() - 1) },
-    });
-    const resumed = await postText('depois');
-    expect(resumed.statusCode).toBe(201);
-    expect(sendText).toHaveBeenCalledTimes(2);
-    const health = await guardrail.health(sessionId);
-    expect(health.state).toBe('ativa');
-    expect(health.restriction_until).toBeNull();
+    // O prazo fica gravado como recebido; avançar só o relógio prova a retomada automática.
+    const afterDeadline = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(end.getTime() + 1);
+    try {
+      const resumed = await postText('depois');
+      expect(resumed.statusCode).toBe(201);
+      expect(sendText).toHaveBeenCalledTimes(2);
+      const health = await guardrail.health(sessionId);
+      expect(health.state).toBe('ativa');
+      expect(health.restriction_until).toBeNull();
+      const persisted = await prisma.sessionGuardrail.findUnique({
+        where: { sessionId },
+        select: { restrictionUntil: true },
+      });
+      expect(persisted?.restrictionUntil).toEqual(end);
+    } finally {
+      afterDeadline.mockRestore();
+    }
   });
 });

@@ -349,8 +349,9 @@ export interface CreateWebhookRequest {
 }
 
 // E8/P-048: alerta aditivo `session.restricted`. `pausedUntil` é sempre o prazo efetivo do
-// gateway; `timeEnforcementEnds` só vem quando o RPC/notificação do WhatsApp confirmou esse
-// campo. O estado G5 da sessão não vira `banida` por este evento.
+// gateway; `timeEnforcementEnds` só vem quando o RPC confirmou esse campo.
+// A notificação da rc14 pode fabricar +60 s, então seu prazo é `temporary` até o RPC.
+// O estado G5 da sessão não vira `banida` por este evento.
 export interface SessionRestrictedPayload {
   signal: '463' | 'reachoutTimeLock' | 'message-capping';
   pausedUntil: string;

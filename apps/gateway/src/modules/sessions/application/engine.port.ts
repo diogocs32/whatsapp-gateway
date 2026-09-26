@@ -103,7 +103,7 @@ export type GuardrailEventName =
 export interface ReachoutRestrictionSignal {
   signal: '463' | 'reachoutTimeLock' | 'message-capping';
   until?: Date;
-  source?: 'timeEnforcementEnds' | 'cycle_end_timestamp';
+  source?: 'timeEnforcementEnds' | 'cycle_end_timestamp' | 'temporary';
   enforcementType?: string;
 }
 

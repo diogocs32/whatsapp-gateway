@@ -28,7 +28,12 @@
 > ACK ERROR persiste `error`; o estado G5 não vira `banida`. Migration aditiva aplicada apenas no
 > banco local de testes. Unit/e2e com socket falso, sem conta ou mensagem real; a produção segue
 > no último SHA **documentado** `768fb26`. Merge/deploy B e canário após E12 pendentes; sem prazo
-> remoto, a trava provisória de 60 s não demonstra o fim da restrição no WhatsApp.
+> confirmado pela resposta direta do RPC, a pausa é provisória: a notificação rc14 conserva seu
+> `Date` (que pode ser fabricado como agora + 60 s ou superar 60 s) com `source=temporary`;
+> capping mais curto não encurta essa pausa. Sem prazo válido, o fallback é 60 s. O limite de 3 s
+> encerra só a espera do RPC: resposta tardia ainda confirma se socket/consulta forem atuais;
+> o alerta provisório pode ser seguido de outro confirmado. O vencimento local não demonstra o fim
+> remoto da restrição.
 
 > **26/09/2026 (sessão `e7-baileys-offline`, E7/P-047 no PR #11 — sem merge/deploy):** `append`
 > Baileys de terceiros até 48 h passa ao mesmo fluxo de banco/webhook/Inbox/reply-rate do `notify`;

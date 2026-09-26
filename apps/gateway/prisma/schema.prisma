@@ -182,7 +182,8 @@ model SessionConfig {
 
 // G5 (guard-rail) — estado por sessão da máquina de saúde. Em modo OBSERVAÇÃO
 // (GUARDRAIL_ENFORCE=false) o estado é calculado/registrado mas NÃO bloqueia envios; o hard-gate
-// HTTP 423 só atua com enforce=true. `eventTs` dá idempotência das transições (C10).
+// HTTP 423 do G5 só atua com enforce=true; a restrição nativa P-048 atua sempre.
+// `eventTs` dá idempotência das transições (C10).
 model SessionGuardrail {
   id                String         @id
   sessionId         String         @unique

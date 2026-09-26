@@ -423,8 +423,15 @@
 - **Registro da E8 (26/09/2026, sem deploy):** a trava temporária foi colocada no
   `SessionManager` para cobrir também mensagens em chat aberto, mídia, reação e encaminhamento;
   campanhas re-agendam sem exigir `/resume`. O estado G5 não vira `banida` e o 423 preserva o
-  contrato. Sem prazo informado pelo WhatsApp, a pausa é provisória de 60 s, identificada no
-  alerta como `temporary`.
+  contrato. A notificação `connection.update.reachoutTimeLock` da rc14 pode fabricar um `Date`
+  de agora + 60 s quando o servidor omite o prazo e não revela essa origem. Por isso, mesmo um
+  `Date` válido da notificação é pausa provisória (`source: temporary`), preservada inclusive se
+  superar 60 s; só a resposta direta de `fetchAccountReachoutTimelock()` confirma
+  `timeEnforcementEnds`. Sem qualquer prazo válido, o fallback é 60 s. O RPC tem intervalo mínimo
+  de 30 s; seu teto de 3 s limita a espera, não cancela a chamada. Resposta tardia confirma o prazo
+  se socket e consulta ainda forem atuais. Um `cycle_end_timestamp` de capping mais curto não
+  reduz a pausa provisória persistida. Pode haver alerta provisório seguido de atualização
+  confirmada, inclusive com um alerta provisório extra pelo `connection.update` do próprio RPC.
 - **Alternativas:** marcar como `banida` (rejeitado pelo dono); só registrar e alertar (rejeitado
   pelo dono).
 
