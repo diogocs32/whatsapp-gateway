@@ -163,6 +163,18 @@
   `e23-seed-*`, `wa_sessions` = 0), 7 objetos de PoC `media/poc-e23-midia/*` removidos do MinIO de
   dev, abas do Chrome fechadas.
 
+- 01:20–02:10 (26/09) — **conferência do dono no painel local** (seed de volta, gateway/painel de
+  dev): (1) "clicar nas conversas às vezes não pega" no Atendimento — registrador de ponteiro na aba
+  mostrou dezenas de cliques caindo na `DIV` da linha, fora do `<button>`: só nome/prévia era
+  clicável, e a faixa do "🟡 não preciso responder" e as margens não (o fundo acende na linha toda;
+  pré-existente desde 15/09; no Inbox a linha inteira já era o botão — 63 cliques, 0 perdidos) →
+  linha inteira abre a conversa, botões de triagem com `stopPropagation`; (2) "Enviar: nada
+  acontece" — o POST saía (400 "Sessão não iniciada" nas sessões de teste) mas o erro ia para o topo
+  da página, e sem texto o botão desabilitado parecia ativo → erro junto da caixa em linguagem de
+  operador (`lib/send-feedback.ts`), caixa travada com aviso quando o aparelho está desligado, botão
+  desabilitado cinza com dica. Validado no Chrome (clique na faixa de baixo abre; Helena/STOPPED
+  travada; erro ao lado do campo). Painel 122/122.
+
 ## Provas (26/09, local — macOS, Node 26.0.0)
 
 - `npm run lint` · `npm run format:check` · `npm run depcruise` (230 módulos, 0 violação) · `tsc`

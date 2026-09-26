@@ -13,6 +13,7 @@ import { useAuth } from '../lib/auth';
 import { displayName, isGroupJid, sendTarget } from '../lib/jid';
 import { stabilize } from '../lib/live-events';
 import { conversationPreview } from '../lib/message-format';
+import { sendErrorMessage } from '../lib/send-feedback';
 import { listTime } from '../lib/time-format';
 
 export function Inbox() {
@@ -149,6 +150,9 @@ export function Inbox() {
     setChat(target);
   }
 
+  const deviceName = () =>
+    sessions.find((s) => s.id === sessionId)?.name ?? sessionId;
+
   function reloadAfterSend(sid: string, jid: string) {
     const same = () =>
       openRef.current.sessionId === sid && openRef.current.chat === jid;
@@ -179,9 +183,7 @@ export function Inbox() {
       // Falha ao reler o histórico NÃO é falha do envio (UP-02).
       reloadAfterSend(sessionId, chat);
     } catch (e) {
-      setError(
-        `${(e as Error).message} — o texto foi mantido; tentar de novo reaproveita a mesma intenção (sem duplicar).`,
-      );
+      setError(sendErrorMessage(e as { status?: number }, deviceName()));
     } finally {
       setSending(false);
     }
@@ -208,7 +210,7 @@ export function Inbox() {
       if (fileRef.current) fileRef.current.value = '';
       reloadAfterSend(sessionId, chat);
     } catch (e) {
-      setError((e as Error).message);
+      setError(sendErrorMessage(e as { status?: number }, deviceName()));
     } finally {
       setSending(false);
     }
@@ -364,9 +366,13 @@ export function Inbox() {
                 className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
               />
               <button
+                type="submit"
                 disabled={!text.trim() || sending}
                 aria-busy={sending}
-                className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                title={
+                  !text.trim() ? 'Escreva a mensagem para enviar' : undefined
+                }
+                className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
               >
                 {sending ? 'Enviando…' : 'Enviar'}
               </button>

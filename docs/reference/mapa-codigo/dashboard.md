@@ -29,12 +29,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/media.ts` | 32 |
 | `dashboard/lib/message-format.spec.ts` | 440 |
 | `dashboard/lib/message-format.ts` | 426 |
+| `dashboard/lib/send-feedback.spec.ts` | 54 |
+| `dashboard/lib/send-feedback.ts` | 48 |
 | `dashboard/lib/time-format.spec.ts` | 25 |
 | `dashboard/lib/time-format.ts` | 40 |
 | `dashboard/lib/use-live-stream.ts` | 73 |
 | `dashboard/main.tsx` | 23 |
 | `dashboard/routes/ApiKeys.tsx` | 247 |
-| `dashboard/routes/Atendimento.tsx` | 646 |
+| `dashboard/routes/Atendimento.tsx` | 688 |
 | `dashboard/routes/Audit.tsx` | 113 |
 | `dashboard/routes/Branding.tsx` | 130 |
 | `dashboard/routes/Campaigns.tsx` | 408 |
@@ -42,7 +44,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/routes/Dashboard.tsx` | 261 |
 | `dashboard/routes/Groups.tsx` | 412 |
 | `dashboard/routes/Health.tsx` | 251 |
-| `dashboard/routes/Inbox.tsx` | 403 |
+| `dashboard/routes/Inbox.tsx` | 409 |
 | `dashboard/routes/License.tsx` | 157 |
 | `dashboard/routes/Login.tsx` | 81 |
 | `dashboard/routes/Monitor.tsx` | 137 |
@@ -277,7 +279,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `AuthProvider({ children })` · L21
   - chama: `setUnauthorizedHandler` (api.ts:72), `MediaCache.clear` (media-cache.ts:51)
 - `useAuth()` · L61
-  - chamado por: `Protected` (App.tsx:48), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:72), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:18), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:226), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
+  - chamado por: `Protected` (App.tsx:48), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:226), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
 
 **Tipos**
 - interface `AuthState` L12 · 4 propriedade(s)
@@ -350,20 +352,20 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `stripDevice(jid)` · L6
   - chamado por: `ChatThread` (ChatThread.tsx:21), `groupSenderLabel` L54
 - `numberFromJid(jid)` · L11
-  - chamado por: `who` (Reactions.tsx:8), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `who` (Reactions.tsx:8), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `Atendimento` (Atendimento.tsx:73)
 - `isPhoneJid(jid)` · L16
   - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54, `sendTarget` L22
 - `isGroupJid(jid)` · L18
-  - chamado por: `ChatThread` (ChatThread.tsx:21), `groupSenderLabel` L54, `Inbox` (Inbox.tsx:18)
+  - chamado por: `ChatThread` (ChatThread.tsx:21), `groupSenderLabel` L54, `Inbox` (Inbox.tsx:19)
 - `isLidJid(jid)` · L19
 - `sendTarget(chatJid)` · L22
   - chama: `isPhoneJid` L16, `numberFromJid` L11
-  - chamado por: `Atendimento` (Atendimento.tsx:72), `Inbox` (Inbox.tsx:18)
+  - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
 - `displayName(c)` · L27
   - chama: `numberFromJid` L11
-  - chamado por: `Atendimento` (Atendimento.tsx:72), `Avatar` (Inbox.tsx:386), `Inbox` (Inbox.tsx:18)
+  - chamado por: `Atendimento` (Atendimento.tsx:73), `Avatar` (Inbox.tsx:392), `Inbox` (Inbox.tsx:19)
 - `isTriageExcludedChat(jid)` · L36
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `formatPhone(digits)` · L42
   - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54
 - `groupSenderLabel(m)` · L54
@@ -418,15 +420,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `useLiveStream` (use-live-stream.ts:11)
 - `applyAck(list, ev)` · L141
   - chama: `ackRank` L20
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `memKey(sessionId, keyId)` · L163
   - chamado por: `overlayAcks` L181, `rememberAck` L165
 - `rememberAck(mem, ev, max)` · L165
   - chama: `ackRank` L20, `memKey` L163
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `overlayAcks(list, mem)` · L181
   - chama: `ackRank` L20, `memKey` L163
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `NO_TICK_CHAT` = `/@(g\.us|broadcast|newsletter)$/` · L198
 - `tickFor(m)` · L200
   - chamado por: `Ticks` (Ticks.tsx:6)
@@ -437,29 +439,29 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `applyReaction` L252
 - `applyReaction(list, ev)` · L252
   - chama: `reactionSenderKey` L237, `tsMs` L247
-  - chamado por: `replayReactions` L320, `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `replayReactions` L320, `Atendimento` (Atendimento.tsx:73)
 - `REACTION_REPLAY_MARGIN_MS` = `2000` · L308
 - `rememberReaction(mem, ev, receivedAt, max)` · L310
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `replayReactions(list, mem, requestedAt)` · L320
   - chama: `applyReaction` L252
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `reactionChips(reactions)` · L336
   - chamado por: `Reactions` (Reactions.tsx:15)
 - `feedItemFromEvent(ev)` · L364
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `upsertFeedItem(feed, item, max)` · L383
   - chama: `ackRank` L20
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `rememberFeedItem(mem, item, receivedAt, max)` · L406
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `mergeFeed(rows, mem, requestedAt, max)` · L418
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `sameIgnoringMediaUrl(a, b)` · L446
   - chamado por: `stabilize` L457
 - `stabilize(prev, next)` · L457
   - chama: `sameIgnoringMediaUrl` L446
-  - chamado por: `Atendimento` (Atendimento.tsx:72), `Inbox` (Inbox.tsx:18)
+  - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
 
 **Tipos**
 - type `AckStatus` L11
@@ -617,10 +619,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `messagePreview` L101
 - `messagePreview(m)` · L101
   - chama: `firstLine` L92, `isLegacyThumbnail` L70, `isMediaKind` L19, `isRawVcard` L76, `labelText` L61, `parseContactsText` L197, `parseLocationText` L164, `vcardToLine` L81
-  - chamado por: `conversationPreview` L141, `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `conversationPreview` L141, `Atendimento` (Atendimento.tsx:73)
 - `conversationPreview(c)` · L141
   - chama: `messagePreview` L101
-  - chamado por: `Atendimento` (Atendimento.tsx:72), `Inbox` (Inbox.tsx:18)
+  - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
 - `NUM` = `String.raw`-?\d+(?:\.\d+)?(?:e[+-]?\d+)?`` · L154
 - `MAP_URL_RE` = `new RegExp( String.raw`^https://maps\.google\.com/\?q=(${NUM}),(${NUM…` · L155
 - `parseLocationText(text)` · L164
@@ -661,6 +663,30 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `ContactCard` L190 · 2 propriedade(s)
 - type `BubbleContent` L249
 
+## `dashboard/lib/send-feedback.spec.ts`
+
+54 linhas · caminho: `apps/dashboard/src/lib/send-feedback.spec.ts`
+- importa (interno): `dashboard/lib/send-feedback.ts`
+
+- describe “deviceBlockReason” · L4
+  - it “trava a resposta quando o aparelho não consegue enviar” · L5
+  - it “WORKING, DEGRADED e aparelho desconhecido não travam” · L18
+- describe “sendErrorMessage” · L26
+  - it “"Sessão não iniciada" vira aparelho desconectado” · L27
+  - it “quarentena (423), rate-limit (429), rede e genérico” · L37
+
+## `dashboard/lib/send-feedback.ts`
+
+48 linhas · caminho: `apps/dashboard/src/lib/send-feedback.ts`
+- importa (interno): `contracts/index.ts`
+- importado por: `dashboard/lib/send-feedback.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
+
+**Funções e constantes de topo**
+- `deviceBlockReason(device)` · L16
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
+- `sendErrorMessage(err, deviceName)` · L28
+  - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
+
 ## `dashboard/lib/time-format.spec.ts`
 
 25 linhas · caminho: `apps/dashboard/src/lib/time-format.spec.ts`
@@ -678,14 +704,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `clock(iso)` · L5
-  - chamado por: `MessageBubble` (MessageBubble.tsx:19), `listTime` L24, `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:19), `listTime` L24, `Atendimento` (Atendimento.tsx:73)
 - `fullDateTime(iso)` · L13
   - chamado por: `MessageBubble` (MessageBubble.tsx:19)
 - `listTime(iso, now)` · L24
   - chama: `clock` L5
-  - chamado por: `Inbox` (Inbox.tsx:18)
+  - chamado por: `Inbox` (Inbox.tsx:19)
 - `since(iso, now)` · L32
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 
 ## `dashboard/lib/use-live-stream.ts`
 
@@ -696,7 +722,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `useLiveStream(onEvent, onResync)` · L11
   - chama: `parseLiveEvent` (live-events.ts:69)
-  - chamado por: `Atendimento` (Atendimento.tsx:72)
+  - chamado por: `Atendimento` (Atendimento.tsx:73)
 
 ## `dashboard/main.tsx`
 
@@ -719,17 +745,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/routes/Atendimento.tsx`
 
-646 linhas · caminho: `apps/dashboard/src/routes/Atendimento.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/Ticks.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/time-format.ts`, `dashboard/lib/use-live-stream.ts`
+688 linhas · caminho: `apps/dashboard/src/routes/Atendimento.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/Ticks.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/time-format.ts`, `dashboard/lib/send-feedback.ts`, `dashboard/lib/use-live-stream.ts`
 
 **Funções e constantes de topo**
-- `convKey(c)` · L69
-  - chamado por: `Atendimento` L72
-- `Atendimento()` · L72
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:141), `applyReaction` (live-events.ts:252), `feedItemFromEvent` (live-events.ts:364), `mergeFeed` (live-events.ts:418), `overlayAcks` (live-events.ts:181), `rememberAck` (live-events.ts:165), `rememberFeedItem` (live-events.ts:406), `rememberReaction` (live-events.ts:310), `replayReactions` (live-events.ts:320), `stabilize` (live-events.ts:457), `upsertFeedItem` (live-events.ts:383), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L69
+- `convKey(c)` · L70
+  - chamado por: `Atendimento` L73
+- `Atendimento()` · L73
+  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:141), `applyReaction` (live-events.ts:252), `feedItemFromEvent` (live-events.ts:364), `mergeFeed` (live-events.ts:418), `overlayAcks` (live-events.ts:181), `rememberAck` (live-events.ts:165), `rememberFeedItem` (live-events.ts:406), `rememberReaction` (live-events.ts:310), `replayReactions` (live-events.ts:320), `stabilize` (live-events.ts:457), `upsertFeedItem` (live-events.ts:383), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:28), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L70
 
 **Tipos**
-- type `StatusFilter` L52
+- type `StatusFilter` L53
 
 ## `dashboard/routes/Audit.tsx`
 
@@ -807,13 +833,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/routes/Inbox.tsx`
 
-403 linhas · caminho: `apps/dashboard/src/routes/Inbox.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/components/chat/ChatThread.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/time-format.ts`
+409 linhas · caminho: `apps/dashboard/src/routes/Inbox.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/components/chat/ChatThread.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/send-feedback.ts`, `dashboard/lib/time-format.ts`
 
 **Funções e constantes de topo**
-- `Inbox()` · L18
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:457), `conversationPreview` (message-format.ts:141), `listTime` (time-format.ts:24)
-- `Avatar({ conv })` · L386
+- `Inbox()` · L19
+  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:457), `conversationPreview` (message-format.ts:141), `sendErrorMessage` (send-feedback.ts:28), `listTime` (time-format.ts:24)
+- `Avatar({ conv })` · L392
   - chama: `displayName` (jid.ts:27)
 
 ## `dashboard/routes/License.tsx`

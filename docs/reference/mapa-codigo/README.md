@@ -5,14 +5,14 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 251 arquivos · 1356 símbolos (métodos/funções/assinaturas/constantes) · 1324 chamadas resolvidas · 532 testes (it/test)
+- 253 arquivos · 1358 símbolos (métodos/funções/assinaturas/constantes) · 1327 chamadas resolvidas · 536 testes (it/test)
 
 ## Áreas
 
 | Área | Arquivos | Linhas | Mapa |
 | --- | --- | --- | --- |
 | packages/contracts | 1 | 611 | [contracts.md](contracts.md) |
-| Dashboard (React) | 44 | 10133 | [dashboard.md](dashboard.md) |
+| Dashboard (React) | 46 | 10283 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1684 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 5 | 855 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |

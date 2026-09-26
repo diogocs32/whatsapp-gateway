@@ -39,6 +39,7 @@ import {
 } from '../lib/live-events';
 import { conversationPreview, messagePreview } from '../lib/message-format';
 import { clock, since } from '../lib/time-format';
+import { deviceBlockReason, sendErrorMessage } from '../lib/send-feedback';
 import { useLiveStream } from '../lib/use-live-stream';
 
 // Caixa única de triagem — tudo que chega de TODOS os aparelhos numa tela só, sem escolher sessão.
@@ -90,6 +91,8 @@ export function Atendimento() {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Erro do ENVIO: aparece junto da caixa de resposta (no topo da página passava despercebido).
+  const [sendError, setSendError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   // O SSE não pode reabrir a cada clique na lista: o handler lê a conversa aberta e o filtro por ref.
@@ -266,8 +269,14 @@ export function Atendimento() {
 
   useEffect(() => {
     setMessages([]);
+    setSendError(null);
     if (selected) loadOpen().catch(() => {});
   }, [selected?.sessionId, selected?.chatJid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Aparelho da conversa aberta desconectado → não adianta tentar enviar por aqui.
+  const blocked = selected
+    ? deviceBlockReason(sessions.find((s) => s.id === selected.sessionId))
+    : null;
 
   const visible = useMemo(
     () =>
@@ -315,7 +324,7 @@ export function Atendimento() {
     e.preventDefault();
     const body = text.trim();
     if (!body || !selected || sending) return;
-    setError(null);
+    setSendError(null);
     setSending(true);
     const target = sendTarget(selected.chatJid);
     // Retry da MESMA intenção reusa a chave — o gateway dedupa (não manda duas vezes).
@@ -342,8 +351,11 @@ export function Atendimento() {
       loadOpen().catch(() => {});
       await loadConversations();
     } catch (err) {
-      setError(
-        `${(err as Error).message} — o texto foi mantido; tentar de novo reaproveita a mesma intenção (sem duplicar).`,
+      setSendError(
+        sendErrorMessage(
+          err as { status?: number; message?: string },
+          selected.sessionName,
+        ),
       );
     } finally {
       setSending(false);
@@ -449,15 +461,19 @@ export function Atendimento() {
               const key = convKey(c);
               const active = selected && convKey(selected) === key;
               return (
+                // A LINHA inteira abre a conversa (o fundo acende nela toda — antes só o nome/prévia
+                // era clicável e o clique na faixa de baixo ou na margem se perdia). O <button> fica
+                // para o teclado: Enter/Espaço disparam click, que sobe até aqui.
                 <div
                   key={key}
-                  className={`px-4 py-3 ${active ? 'bg-zinc-900' : 'hover:bg-zinc-900/50'}`}
+                  onClick={() => {
+                    setSelected(c);
+                    setTab('conversa');
+                  }}
+                  className={`cursor-pointer px-4 py-3 ${active ? 'bg-zinc-900' : 'hover:bg-zinc-900/50'}`}
                 >
                   <button
-                    onClick={() => {
-                      setSelected(c);
-                      setTab('conversa');
-                    }}
+                    type="button"
                     className="flex w-full items-start gap-3 text-left"
                   >
                     <span
@@ -492,7 +508,10 @@ export function Atendimento() {
                     {c.status === 'pending' && (
                       <button
                         disabled={busyKey === key}
-                        onClick={() => setTriage(c, 'ignored')}
+                        onClick={(e) => {
+                          e.stopPropagation(); // marcar a cor não abre a conversa
+                          void setTriage(c, 'ignored');
+                        }}
                         title="Não vou responder esta (fim de conversa) — fica amarela"
                         className="rounded-md border border-amber-500/40 px-2 py-1 text-[11px] text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
                       >
@@ -502,7 +521,10 @@ export function Atendimento() {
                     {c.status === 'ignored' && (
                       <button
                         disabled={busyKey === key}
-                        onClick={() => setTriage(c, 'pending')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void setTriage(c, 'pending');
+                        }}
                         title="Voltar para a fila de resposta"
                         className="rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-300 hover:bg-red-500/10 disabled:opacity-50"
                       >
@@ -617,24 +639,44 @@ export function Atendimento() {
                 />
               )}
               {selected && (
-                <form
-                  onSubmit={reply}
-                  className="flex gap-2 border-t border-zinc-800 p-3"
-                >
-                  <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder={`Responder ${displayName(selected)} por ${selected.sessionName} (opcional — o normal é responder no aparelho)`}
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    disabled={!text.trim() || sending}
-                    aria-busy={sending}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-                  >
-                    {sending ? 'Enviando…' : 'Enviar'}
-                  </button>
-                </form>
+                <div className="border-t border-zinc-800 p-3">
+                  {(blocked || sendError) && (
+                    <p
+                      role="alert"
+                      className={`mb-2 rounded-md px-3 py-2 text-sm ${
+                        blocked
+                          ? 'bg-zinc-800 text-zinc-300'
+                          : 'bg-amber-500/10 text-amber-300'
+                      }`}
+                    >
+                      {blocked ?? sendError}
+                    </p>
+                  )}
+                  <form onSubmit={reply} className="flex gap-2">
+                    <input
+                      value={text}
+                      disabled={!!blocked}
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder={`Responder ${displayName(selected)} por ${selected.sessionName} (opcional — o normal é responder no aparelho)`}
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!text.trim() || sending || !!blocked}
+                      aria-busy={sending}
+                      title={
+                        blocked
+                          ? 'Aparelho desconectado'
+                          : !text.trim()
+                            ? 'Escreva a mensagem para enviar'
+                            : undefined
+                      }
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+                    >
+                      {sending ? 'Enviando…' : 'Enviar'}
+                    </button>
+                  </form>
+                </div>
               )}
             </>
           )}
