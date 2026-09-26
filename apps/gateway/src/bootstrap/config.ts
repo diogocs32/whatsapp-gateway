@@ -98,6 +98,12 @@ const base = z.object({
   GUARDRAIL_QUARANTINE_MULT: z.coerce.number().positive().default(0.6), // < mediana×0,6 => quarentena
   GUARDRAIL_TARGET_REPLY_RATE: z.coerce.number().positive().default(0.35), // alvo/fallback se frota pequena
   GUARDRAIL_COOLDOWN_HOURS: z.coerce.number().int().positive().default(48), // cooldown base da quarentena
+  // Observador de não-entrega em cold-sends WWEBJS. ACK atrasado não prova restrição/ban;
+  // apenas registra candidatos no log. Opt-in explícito, sem mudar estado nem bloquear envios.
+  UNDELIVERED_SWEEP_MIN: z.coerce.number().int().min(0).default(0), // 0 = desligado
+  UNDELIVERED_STUCK_MIN: z.coerce.number().int().positive().default(15), // idade mín. p/ contar como preso
+  UNDELIVERED_MIN_MSGS: z.coerce.number().int().positive().default(5), // mín. de cold-sends presos
+  UNDELIVERED_MIN_CHATS: z.coerce.number().int().positive().default(3), // mín. de contatos DISTINTOS presos
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   WA_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])

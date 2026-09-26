@@ -1,3 +1,7 @@
+---
+revisado_em: 2026-09-26
+---
+
 # 🛡️ Janela de observação do guard-rail (M2) — histórico e procedimento
 
 > **Revisado em 26/09/2026.** A M2 foi encerrada em 18/08 (D-017); o histórico recuperado registra
@@ -25,16 +29,21 @@ Estados manuais (`pausa_manual`, `banida` e override) são sticky — a avaliaç
 ## Coleta (procedimento reutilizável; a janela M2 está arquivada)
 
 ```bash
-# no WSL, na raiz do repo (terminal do usuário já tem Node 26):
-GATEWAY_API_KEY=<chave X-Api-Key> node scripts/guardrail-observe.mjs docs/observacao/guardrail-AAAA-MM-DD.jsonl
+# no WSL, na raiz do repo (substitua CHAVE_X_API_KEY):
+GATEWAY_API_KEY=CHAVE_X_API_KEY node scripts/guardrail-observe.mjs docs/observacao/guardrail-AAAA-MM-DD.jsonl
 ```
 
 - Acumula no arquivo novo informado (1 linha de config + 1 por sessão, por coleta)
   e imprime uma tabela-resumo com a coluna **divergente** (estado atual ≠ o que o enforce faria).
+- **Efeito operacional:** `GET /api/guardrail/:id` chama `evaluate`. Com
+  `GUARDRAIL_ENFORCE=true`, a coleta pode aplicar transição de estado e emitir evento, inclusive
+  quarentena com bloqueio cold. Planeje a janela e acompanhe os resultados; não trate o coletor
+  como consulta somente leitura.
 - `scripts/coleta.sh <arquivo-novo.jsonl>` faz o mesmo usando
   `scripts/coleta.secret.local` (gitignored) para a chave. Não acrescentar coletas atuais ao
   `guardrail-m2.jsonl`, que é histórico de julho.
-- Alternativa: agendar no n8n (Schedule Trigger diário → HTTP Request nos mesmos endpoints).
+- Agendamento no n8n desses endpoints tem o mesmo efeito operacional e exige a mesma decisão
+  antes de ativar o workflow.
 
 ## Critérios usados para ligar `GUARDRAIL_ENFORCE=true`
 

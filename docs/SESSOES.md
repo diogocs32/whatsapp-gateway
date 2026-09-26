@@ -18,6 +18,13 @@
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
 
+- **26/09 · integracao-branches (D-035/P-088, PR a abrir; sem deploy):** a branch local antiga do
+  detector foi adaptada para observação WWEBJS opt-in (`UNDELIVERED_SWEEP_MIN=0` por padrão). Se
+  habilitado, registra WARN; ACK atrasado não chama `recordHardSignal`, não gera evento, não muda
+  `session_guardrail` nem bloqueia. Quem trabalhar em guardrail/ACK preserva essa separação da
+  pausa nativa E8. As coletas M2 de julho foram reconciliadas em 12 coletas históricas; nenhuma
+  coleta atual nem operação no Dokploy foi feita.
+
 - **26/09 · reconciliação dos merges #10/#11 (sem Deploy):** `origin/main` contém E6/P-060
   pelo merge `d577b05` do PR #10 e E7–E10 pelo merge `8291c17` do PR #11. E11/P-051 e
   E12/P-052 seguem pendentes em nova branch/PR a partir da `main`. Os avisos anteriores

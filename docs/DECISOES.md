@@ -284,7 +284,7 @@
   ≤13/08 (a leitura da env em 13/08, sessão `wwebjs-store-travado`, o constatou na linha 63) e a
   operação real por >1 mês sem falso-positivo vale como validação superior ao restante da janela
   formal de observação.
-- **Evidência:** 6 coletas (10–14/07, `docs/observacao/guardrail-m2.jsonl`) com **zero
+- **Evidência disponível no fechamento de 18/08 (complementada pelo adendo abaixo):** 6 coletas (10–14/07, `docs/observacao/guardrail-m2.jsonl`) com **zero
   falso-positivo** · teste do 423 no n8n aprovado ponta a ponta com requeue N7 provado
   (`RETURNING id` — critério 4 fechado em definitivo em 10/07) · nenhum incidente de guard-rail
   registrado em PENDENCIAS/avisos/alertas entre 13/08 e 18/08. O critério 1 da janela (≥7 dias)
@@ -855,3 +855,9 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
 - **Decisão:** selecionar o proxy uma vez por conexão; usar o Agent Node para WebSocket/upload e criar um Dispatcher Undici 8.10.2 por mídia para o fetch da CDN em HTTP/HTTPS. Destruir esse dispatcher ao concluir ou expirar para interromper o stream sem afetar outro download da sessão. A espera total é 90 s, com até 20 s para reupload dentro dela. Se o proxy escolhido for SOCKS4/5, publicar só metadados, sem fetch direto pelo IP do servidor, até comprovar o caminho completo no canário. O payload público e a opcionalidade de `mediaKey` permanecem.
 - **Alternativas:** reaproveitar o `http.Agent` como `dispatcher` (interfaces incompatíveis); chamar o resolver de novo por mídia (muda o proxy em ROUND_ROBIN/RANDOM); deixar o fetch direto sob SOCKS (exporia o IP do servidor); confiar apenas no `Promise.race` sem destruir o dispatcher (o stream continuaria ativo). Todas rejeitadas.
 - **Limite:** o `Promise.race` do reupload devolve metadados no prazo, mas não cancela o listener interno de `sock.updateMediaMessage` da rc14, que pode persistir até resposta/fechamento do socket (P-087). Testes locais com socket/fetch falsos e proxy HTTP local provam a passagem do dispatcher; IP de saída por proxy e comportamento com chip exigem canário posterior do dono, após E12/merge/deploy B.
+
+## D-035 — 2026-09-26 — ACK de não-entrega não é sinal duro: observador WWEBJS opt-in (P-012/P-088)
+
+- **Contexto:** o commit local `19058c0` adicionava varredura de 5 em 5 minutos por padrão e chamava `recordHardSignal(sessionId, 'restriction')` após 5 cold-sends sem entrega em 3 chats. Na `main` atual, esse sinal aplica `banida` sticky com `GUARDRAIL_ENFORCE=true`; a branch lia também Baileys e repetiria o sinal enquanto os mesmos ACKs estivessem nas 24 h. A D-022 e a E8 reservam a ação de restrição ao sinal nativo com prazo.
+- **Decisão:** integrar a consulta só como observador WWEBJS desligado por padrão (`UNDELIVERED_SWEEP_MIN=0`). Mesmo se habilitada explicitamente, ela registra WARN e não chama `recordHardSignal`, não emite webhook nem bloqueia. A varredura não se sobrepõe e o timer é limpo no shutdown. Nenhum payload/contrato `/api` muda.
+- **Prova e limite:** a [documentação oficial do Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-client/using-raw-sql/raw-queries) confirma `$queryRaw` com template parametrizado; a [documentação do PostgreSQL 18](https://www.postgresql.org/docs/18/datatype-enum.html) descreve comparações de enum. Testes com Postgres local/CI e dados sintéticos conferem o filtro e ausência de mudança de estado. ACK sem entrega continua indício inconclusivo; ativação operacional e eventual alerta requerem P-088.

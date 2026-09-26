@@ -7,10 +7,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | Arquivo | Linhas |
 | --- | --- |
 | `modules/guardrail/guardrail.controller.ts` | 56 |
-| `modules/guardrail/guardrail.module.ts` | 16 |
+| `modules/guardrail/guardrail.module.ts` | 18 |
 | `modules/guardrail/guardrail.service.spec.ts` | 776 |
 | `modules/guardrail/guardrail.service.ts` | 627 |
 | `modules/guardrail/session-quarantined.exception.ts` | 19 |
+| `modules/guardrail/undelivered-detector.service.spec.ts` | 88 |
+| `modules/guardrail/undelivered-detector.service.ts` | 113 |
 
 ## `modules/guardrail/guardrail.controller.ts`
 
@@ -33,17 +35,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/guardrail/guardrail.module.ts`
 
-16 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.module.ts`
-- importa (interno): `modules/iam/iam.module.ts`, `modules/observability/observability.module.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/guardrail/guardrail.service.ts`
+18 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.module.ts`
+- importa (interno): `modules/iam/iam.module.ts`, `modules/observability/observability.module.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/undelivered-detector.service.ts`
 - importado por: `app.module.ts`, `modules/campaigns/campaigns.module.ts`, `modules/messaging/messaging.module.ts`, `modules/sessions/sessions.module.ts`
 
-**@Module `GuardrailModule`** L9
+**@Module `GuardrailModule`** L11
 - imports: `[IamModule, ObservabilityModule]`
 - controllers: `[GuardrailController]`
-- providers: `[GuardrailService]`
+- providers: `[GuardrailService, UndeliveredDetectorService]`
 - exports: `[GuardrailService]`
 
-**class `GuardrailModule`** L9 · @Module({ imports: [IamModule, ObservabilityModule], controllers: […)
+**class `GuardrailModule`** L11 · @Module({ imports: [IamModule, ObservabilityModule], controllers: […)
 
 ## `modules/guardrail/guardrail.service.spec.ts`
 
@@ -184,3 +186,39 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `state: string (param)` · `reason: string | null (param)`
 - `constructor(state, reason)` · L6
   - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:257), `SessionManager.sending` (session-manager.service.ts:675)
+
+## `modules/guardrail/undelivered-detector.service.spec.ts`
+
+88 linhas · caminho: `apps/gateway/src/modules/guardrail/undelivered-detector.service.spec.ts`
+- importa (interno): `modules/guardrail/undelivered-detector.service.ts`
+
+- describe “observador de não-entrega” · L42
+  - it “desligado não agenda consultas no boot” · L43
+  - it “opt-in agenda sem sobrepor ciclos e cancela no shutdown” · L52
+  - it “registra candidatos sem aplicar sinal ou mutar estado” · L64
+  - it “erro na consulta não derruba o job” · L77
+
+## `modules/guardrail/undelivered-detector.service.ts`
+
+113 linhas · caminho: `apps/gateway/src/modules/guardrail/undelivered-detector.service.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`
+- importado por: `modules/guardrail/guardrail.module.ts`, `modules/guardrail/undelivered-detector.service.spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`
+
+**class `UndeliveredDetectorService`** L23 · @Injectable · `implements OnApplicationBootstrap`, `implements OnApplicationShutdown`
+- injeta (construtor): `prisma: PrismaService` · `config: ConfigService<Env, true> (param)`
+- `logger` · L27 · private · campo
+- `timer` · L32 · private · campo
+- `stopped` · L33 · private · campo
+- `constructor(prisma, config)` · L35
+- `onApplicationBootstrap()` · L45
+  - chama: `runScheduled` L65
+  - env: `NODE_ENV`
+- `onApplicationShutdown()` · L60
+- `runScheduled()` · L65 · private · async
+  - chama: `sweep` L77
+  - chamado por: `onApplicationBootstrap` L45
+- `sweep()` · L77 · async
+  - chamado por: `runScheduled` L65
+
+**Tipos**
+- interface `StuckRow` L11 · 4 propriedade(s)

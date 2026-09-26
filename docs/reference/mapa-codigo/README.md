@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 287 arquivos · 1534 símbolos (métodos/funções/assinaturas/constantes) · 1539 chamadas resolvidas · 816 testes (it/test)
+- 290 arquivos · 1542 símbolos (métodos/funções/assinaturas/constantes) · 1541 chamadas resolvidas · 821 testes (it/test)
 
 ## Áreas
 
@@ -13,14 +13,14 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | --- | --- | --- | --- |
 | packages/contracts | 1 | 710 | [contracts.md](contracts.md) |
 | Dashboard (React) | 55 | 13780 | [dashboard.md](dashboard.md) |
-| Gateway — bootstrap (config, logs, adapter) | 15 | 1718 | [gateway-bootstrap.md](gateway-bootstrap.md) |
+| Gateway — bootstrap (config, logs, adapter) | 15 | 1724 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 6 | 993 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 29 | 7668 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 30 | 7763 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
-| módulo `guardrail` | 5 | 1494 | [gateway-guardrail.md](gateway-guardrail.md) |
+| módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
 | módulo `health` | 3 | 127 | [gateway-health.md](gateway-health.md) |
 | módulo `iam` | 40 | 2457 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
@@ -255,7 +255,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `MEDIA_MAX_BYTES` | `base` (config.ts) |
 | `MEDIA_URL_TTL` | `base` (config.ts) |
 | `METRICS_TOKEN` | `MetricsController.scrape` (metrics.controller.ts) |
-| `NODE_ENV` | `base` (config.ts), `EventFanout.onModuleInit` (event-fanout.ts), `AuthController.setAuthCookies` (auth.controller.ts), `RetentionService.onApplicationBootstrap` (retention.service.ts), `ProxyService.onApplicationBootstrap` (proxy.service.ts) |
+| `NODE_ENV` | `base` (config.ts), `EventFanout.onModuleInit` (event-fanout.ts), `UndeliveredDetectorService.onApplicationBootstrap` (undelivered-detector.service.ts), `AuthController.setAuthCookies` (auth.controller.ts), `RetentionService.onApplicationBootstrap` (retention.service.ts), `ProxyService.onApplicationBootstrap` (proxy.service.ts) |
 | `PASSWORD_SCRYPT_LOG2N` | `base` (config.ts), `currentScryptCost` (crypto.ts) |
 | `PORT` | `base` (config.ts) |
 | `PROXY_RETEST_INTERVAL_MIN` | `ProxyService.onApplicationBootstrap` (proxy.service.ts) |
@@ -274,6 +274,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `S3_FORCE_PATH_STYLE` | `base` (config.ts) |
 | `S3_REGION` | `base` (config.ts) |
 | `S3_SECRET_KEY` | `base` (config.ts) |
+| `UNDELIVERED_MIN_CHATS` | `base` (config.ts) |
+| `UNDELIVERED_MIN_MSGS` | `base` (config.ts) |
+| `UNDELIVERED_STUCK_MIN` | `base` (config.ts) |
+| `UNDELIVERED_SWEEP_MIN` | `base` (config.ts) |
 | `VITE_API_URL` | `BASE` (api.ts) |
 | `WA_LOG_LEVEL` | `base` (config.ts) |
 | `WA_REQUIRE_PROXY` | `base` (config.ts) |

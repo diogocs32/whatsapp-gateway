@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Coleta manual de observação do guard-rail. A janela M2 de julho está arquivada.
 # Carrega a X-Api-Key do cofre local (scripts/coleta.secret.local, gitignored)
-# SEM imprimi-la, e roda o coletor read-only contra a produção.
+# SEM imprimi-la. Com enforce ligado, GET /guardrail pode transicionar estado/emitir evento;
+# execute apenas em janela operacional aprovada.
 #
 # Uso: bash scripts/coleta.sh docs/observacao/guardrail-AAAA-MM-DD.jsonl
 set -euo pipefail

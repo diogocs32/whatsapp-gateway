@@ -6,7 +6,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
-| `bootstrap/config.ts` | 214 |
+| `bootstrap/config.ts` | 220 |
 | `bootstrap/console-bridge.spec.ts` | 81 |
 | `bootstrap/console-bridge.ts` | 71 |
 | `bootstrap/fastify-adapter.absolute-form.spec.ts` | 90 |
@@ -24,8 +24,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `bootstrap/config.ts`
 
-214 linhas · caminho: `apps/gateway/src/bootstrap/config.ts`
-- importado por: `app.module.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `infra/redis/redis.service.ts`, `infra/storage/media-storage.service.ts`, `main.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/license.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/auth.guard.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/observability/reply-rate.service.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/infrastructure/webshare.client.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/config.e2e-spec.ts`
+220 linhas · caminho: `apps/gateway/src/bootstrap/config.ts`
+- importado por: `app.module.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `infra/redis/redis.service.ts`, `infra/storage/media-storage.service.ts`, `main.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/undelivered-detector.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/license.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/auth.guard.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/observability/reply-rate.service.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/infrastructure/webshare.client.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/config.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `TRUE_WORDS` = `new Set(['true', '1', 'yes', 'on'])` · L16
@@ -36,12 +36,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `base` L33
 - `base` = `z.object({ NODE_ENV: z .enum(['development', 'production', 'test']) .…` · L33
   - chama: `envBool` L18, `envStr` L30
-  - env: `API_KEY`, `BAILEYS_PROTOCOL_CANARY_SESSION_ID`, `BAILEYS_PROTOCOL_VERSION`, `CORS_ORIGIN`, `DASHBOARD_PASSWORD`, `DASHBOARD_USERNAME`, `DATABASE_URL`, `DB_HOST`, `DB_NAME`, `DB_PASSWORD`, `DB_POOL_CONNECT_TIMEOUT_MS`, `DB_POOL_IDLE_TIMEOUT_MS`, `DB_POOL_MAX`, `DB_PORT`, `DB_SSL`, `DB_SSL_CA`, `DB_SSL_REJECT_UNAUTHORIZED`, `DB_USER`, `EGRESS_ALLOW_HOSTS`, `EGRESS_ALLOW_PRIVATE`, `GUARDRAIL_COOLDOWN_HOURS`, `GUARDRAIL_ENFORCE`, `GUARDRAIL_NMIN`, `GUARDRAIL_QUARANTINE_MULT`, `GUARDRAIL_TARGET_REPLY_RATE`, `GUARDRAIL_THROTTLE_MULT`, `JWT_ACCESS_TTL`, `JWT_EXPIRES_IN`, `JWT_REFRESH_TTL`, `JWT_SECRET`, `LICENSE_KEY`, `MAX_SEATS`, `MAX_SESSIONS`, `MEDIA_MAX_BYTES`, `MEDIA_URL_TTL`, `NODE_ENV`, `PASSWORD_SCRYPT_LOG2N`, `PORT`, `PROXY_TEST_ECHO_URL`, `REDIS_DB`, `REDIS_HOST`, `REDIS_PASSWORD`, `REDIS_PORT`, `REDIS_TLS`, `REDIS_URL`, `REDIS_USERNAME`, `S3_ACCESS_KEY`, `S3_BUCKET`, `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`, `S3_REGION`, `S3_SECRET_KEY`, `WA_LOG_LEVEL`, `WA_REQUIRE_PROXY`, `WEBHOOK_CONCURRENCY`, `WEBSHARE_API_KEY`, `WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA`, `WWEBJS_CHROME_PATH`, `WWEBJS_DATA_PATH`, `WWEBJS_INIT_TIMEOUT_MS`, `WWEBJS_USER_AGENT`, `WWEBJS_WEB_VERSION`
-- `envSchema` = `base.superRefine((env, ctx) => { if ( env.BAILEYS_PROTOCOL_VERSION &&…` · L160
-- `validateEnv(config)` · L204
+  - env: `API_KEY`, `BAILEYS_PROTOCOL_CANARY_SESSION_ID`, `BAILEYS_PROTOCOL_VERSION`, `CORS_ORIGIN`, `DASHBOARD_PASSWORD`, `DASHBOARD_USERNAME`, `DATABASE_URL`, `DB_HOST`, `DB_NAME`, `DB_PASSWORD`, `DB_POOL_CONNECT_TIMEOUT_MS`, `DB_POOL_IDLE_TIMEOUT_MS`, `DB_POOL_MAX`, `DB_PORT`, `DB_SSL`, `DB_SSL_CA`, `DB_SSL_REJECT_UNAUTHORIZED`, `DB_USER`, `EGRESS_ALLOW_HOSTS`, `EGRESS_ALLOW_PRIVATE`, `GUARDRAIL_COOLDOWN_HOURS`, `GUARDRAIL_ENFORCE`, `GUARDRAIL_NMIN`, `GUARDRAIL_QUARANTINE_MULT`, `GUARDRAIL_TARGET_REPLY_RATE`, `GUARDRAIL_THROTTLE_MULT`, `JWT_ACCESS_TTL`, `JWT_EXPIRES_IN`, `JWT_REFRESH_TTL`, `JWT_SECRET`, `LICENSE_KEY`, `MAX_SEATS`, `MAX_SESSIONS`, `MEDIA_MAX_BYTES`, `MEDIA_URL_TTL`, `NODE_ENV`, `PASSWORD_SCRYPT_LOG2N`, `PORT`, `PROXY_TEST_ECHO_URL`, `REDIS_DB`, `REDIS_HOST`, `REDIS_PASSWORD`, `REDIS_PORT`, `REDIS_TLS`, `REDIS_URL`, `REDIS_USERNAME`, `S3_ACCESS_KEY`, `S3_BUCKET`, `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`, `S3_REGION`, `S3_SECRET_KEY`, `UNDELIVERED_MIN_CHATS`, `UNDELIVERED_MIN_MSGS`, `UNDELIVERED_STUCK_MIN`, `UNDELIVERED_SWEEP_MIN`, `WA_LOG_LEVEL`, `WA_REQUIRE_PROXY`, `WEBHOOK_CONCURRENCY`, `WEBSHARE_API_KEY`, `WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA`, `WWEBJS_CHROME_PATH`, `WWEBJS_DATA_PATH`, `WWEBJS_INIT_TIMEOUT_MS`, `WWEBJS_USER_AGENT`, `WWEBJS_WEB_VERSION`
+- `envSchema` = `base.superRefine((env, ctx) => { if ( env.BAILEYS_PROTOCOL_VERSION &&…` · L166
+- `validateEnv(config)` · L210
 
 **Tipos**
-- type `Env` L202
+- type `Env` L208
 
 ## `bootstrap/console-bridge.spec.ts`
 

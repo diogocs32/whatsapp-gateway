@@ -6,6 +6,11 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Integrado — branches históricas M2 e observador WWEBJS (26/09 — D-035/P-088; sem deploy)
+
+- As branches `coleta-mac` e `feature/m2-guardrail-ativo` foram reconciliadas nesta integração; o JSONL histórico reúne 12 coletas de 10–19/07, sem duplicar a coleta do Mac. DONE/DECISOES/how-to corrigem a premissa anterior de 6 coletas e preservam a sessão M2 encerrada.
+- O antigo `feature/detector-nao-entrega` entra como observador WWEBJS **desligado por padrão**. Quando habilitado, apenas registra WARN de ACKs atrasados; não marca `banida`, não emite webhook nem bloqueia. Testes sintéticos em Postgres verificam SQL e ausência de alteração de estado. Nenhuma API ou contrato público muda.
+
 ### Corrigido — mídia recebida no Baileys (26/09 — E10/P-050/P-075; PR #11, sem deploy)
 
 - Download recebido tem espera total de 90 s, inclusive reupload e segunda tentativa; falha publica o evento com metadados sem `mediaKey`. Um dispatcher Undici 8.10.2 por mídia usa o mesmo proxy HTTP/HTTPS escolhido para o socket e é destruído ao concluir/expirar. Em SOCKS, a CDN não é buscada diretamente e o evento fica só com metadados até prova do caminho pelo proxy.

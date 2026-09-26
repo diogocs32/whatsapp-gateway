@@ -33,6 +33,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 131 |
 | `gateway/test/sessions.e2e-spec.ts` | 111 |
 | `gateway/test/setup-app.ts` | 181 |
+| `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1020 |
 
@@ -468,7 +469,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 181 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
@@ -487,6 +488,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Tipos**
 - interface `InjectOpts` L114 · 4 propriedade(s)
 - interface `InjectResponse` L121 · 4 propriedade(s)
+
+## `gateway/test/undelivered-observer.e2e-spec.ts`
+
+95 linhas · caminho: `apps/gateway/test/undelivered-observer.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `modules/guardrail/undelivered-detector.service.ts`, `gateway/test/setup-app.ts`
+
+- describe “observador de não-entrega (SQL real, sem sinal)” · L9
+  - it “só observa WWEBJS com 5 mensagens em 3 chats e nunca marca banida” · L79
 
 ## `gateway/test/webhooks.e2e-spec.ts`
 
