@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado — wwebjs pronto para canário isolado (26/09 — sessão `e5-wwebjs-pronto`, etapa E5, P-059/P-073 — **branch da Onda 6, sem merge/deploy**; D-032)
+
+- Patch da `whatsapp-web.js@1.34.7` cobre a colisão `__x_id` da mídia, fallback WID/MsgKey, contador de chats descartados e validação da versão no cache local. O default continua na última build validada; a candidata `2.3000.1046934385-alpha` fica disponível por sessão para canário no próximo start.
+- `PATCH/GET /api/sessions/:id/config` expõe `wwebjsWebVersion` nullable (migration aditiva); logs informam build pedida/efetiva e Chromium. LOGOUT/UNPAIRED/CONFLICT param sem novo QR automático; bloqueios TOS falham com código; pairing e recargas automáticas têm teto.
+- Teste instável da P-073 usa cliente falso sem abrir Chromium; 483 unit do gateway, 281 e2e locais e 180 testes do painel passaram. Runbook do canário em `docs/how-to/canario-wwebjs-onda6.md`. P-086 registra o link público temporário para conexão por QR como trabalho futuro.
+
 ### Adicionado — encaminhar no painel, fiel ao WhatsApp Web (26/09 — sessão `e25-encaminhar-painel`, etapa E25, P-068 parte interface — **fecha a Onda 8; PR #7, sobe no deploy G**; ver `docs/sessions/DONE-2026-09-26-0553-e25-encaminhar-painel.md`, D-031)
 
 - **Fluxo do WhatsApp Web no Inbox e no Atendimento:** menu **⌄** no balão (aparece no hover/foco; sem mouse, sempre) → **Encaminhar** → modo seleção (1 mensagem por vez — decisão do dono; "Cancelar encaminhamento", "1 selecionada") → diálogo **"Encaminhar mensagem para"** com "Pesquisar nome ou número" (sem acento; dígitos acham número ou nome) e "Conversas recentes" da MESMA sessão (contatos **e grupos**) → ➤ **Enviar**. Atalho **↪ "Encaminhar mídia"** ao lado de foto, vídeo, documento, localização e contato (direto ao diálogo). A ação some nos tipos que o gateway recusa (enquete, evento, convite, voto, `other`).

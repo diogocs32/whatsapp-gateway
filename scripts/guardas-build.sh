@@ -27,9 +27,13 @@ case "${1:-}" in
     # Sem o patch, o fix `$1` (B-002/D-013) e o fix do exposeFunction concorrente somem em silêncio.
     grep -q 'window.WWebJS.getMsgKeyId' "$ww/Injected/Utils.js" ||
       falha "patch do whatsapp-web.js NÃO aplicado em $ww/Injected/Utils.js (patches/ ausente ou patch-package falhou)"
+    grep -q 'delete message.__x_id' "$ww/Injected/Utils.js" ||
+      falha "patch de mídia __x_id do whatsapp-web.js NÃO aplicado"
     grep -q 'already exists' "$ww/Puppeteer.js" ||
       falha "patch do whatsapp-web.js NÃO aplicado em $ww/Puppeteer.js (patches/ ausente ou patch-package falhou)"
-    echo "[guardas-build] patches OK (whatsapp-web.js: Utils.js + Puppeteer.js)"
+    grep -q 'versionFilePath(version)' "node_modules/whatsapp-web.js/src/webCache/LocalWebCache.js" ||
+      falha "patch do cache de versões do whatsapp-web.js NÃO aplicado"
+    echo "[guardas-build] patches OK (whatsapp-web.js: Utils.js + Puppeteer.js + LocalWebCache.js)"
     ;;
   dist)
     # O entrypoint roda `node dist/main.js` (apps/gateway/docker-entrypoint.sh). Se o build mudar o

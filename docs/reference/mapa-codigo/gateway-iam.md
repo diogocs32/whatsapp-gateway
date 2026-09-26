@@ -149,7 +149,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `onModuleInit()` · L30 · async
   - chama: `reload` L40
 - `effective()` · L35
-  - chamado por: `UserService.create` (user.service.ts:50), `UserService.seats` (user.service.ts:43), `LicenseController.status` (license.controller.ts:40), `SessionsController.create` (sessions.controller.ts:96)
+  - chamado por: `UserService.create` (user.service.ts:50), `UserService.seats` (user.service.ts:43), `LicenseController.status` (license.controller.ts:40), `SessionsController.create` (sessions.controller.ts:98)
 - `reload()` · L40 · async
   - chama: `resolve` L71, `LicenseRepository.get` (license.repository.ts:3)
   - chamado por: `onModuleInit` L30, `remove` L66
@@ -842,7 +842,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `MIN_ROLE_KEY` = `'minRole'` · L4
 - `MinRole(role)` · L8
-  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:96), `SessionsController.remove` (sessions.controller.ts:348)
+  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:98), `SessionsController.remove` (sessions.controller.ts:350)
 
 ## `modules/iam/interface/roles.guard.ts`
 

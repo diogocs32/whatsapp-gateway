@@ -1,19 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import { newId } from '../../../shared-kernel/ulid';
+import type { UpdateSessionConfigRequest } from '@whatsapp-gateway/contracts';
 
 // G8 — config de envio por sessão. `cap_atual` é DERIVADO (não persistido) do capBase + warmupCurve
 // + estado guard-rail.
-export interface SessionConfigPatch {
-  capBase?: number;
-  warmupCurve?: number[];
-  regiaoDdd?: string | null;
-  modo?: string;
-  janelaInicio?: number;
-  janelaFim?: number;
-  timezone?: string;
-  device?: Record<string, unknown>;
-}
+export type SessionConfigPatch = UpdateSessionConfigRequest;
 
 export interface CapInfo {
   cap_base: number;

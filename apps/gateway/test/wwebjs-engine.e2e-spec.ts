@@ -66,23 +66,6 @@ describe('WWebJSEngine — guard WA_REQUIRE_PROXY (P0-2)', () => {
     // (logo após `new Client`) e tenta subir o Chromium. Guard ativo NUNCA emite STARTING.
     expect(events.some((e) => e.status === 'STARTING')).toBe(false);
   });
-
-  it('não bloqueia por engano quando requireProxy é ausente (default seguro reverso)', async () => {
-    // Sem requireProxy e sem proxy, o guard NÃO deve marcar FAILED por conta dele. Aqui só
-    // garantimos que o guard em si não dispara — o restante do start (webVersion/Chromium) exige
-    // browser e não é exercitado neste teste unitário.
-    const { deps, events } = makeDeps({ resolveProxyConfig: async () => null });
-    const engine = new WWebJSEngine(deps);
-    // Não aguardamos o start completo (ele tentaria subir o Chromium); checamos só que o guard
-    // não produziu o FAILED específico dele de forma síncrona na fase de resolução de proxy.
-    void engine.start();
-    await new Promise((r) => setImmediate(r));
-    const guardFail = events.find(
-      (e) => e.status === 'FAILED' && /WA_REQUIRE_PROXY/.test(e.error ?? ''),
-    );
-    expect(guardFail).toBeUndefined();
-    await engine.stop().catch(() => undefined);
-  });
 });
 
 describe('WWebJSEngine — rótulo da engine (P1-1)', () => {

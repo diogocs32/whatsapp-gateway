@@ -13,6 +13,8 @@ class FakeClient extends EventEmitter {
   static instances: FakeClient[] = [];
   static mode: Mode = 'hang';
   readonly destroy = vi.fn(async () => undefined);
+  readonly pupBrowser = { version: vi.fn(async () => 'Chrome/146.0') };
+  readonly pupPage = { reload: vi.fn(async () => undefined) };
   info: { wid: { _serialized: string }; pushname: string } | undefined;
   constructor(readonly opts: unknown) {
     super();
@@ -30,6 +32,9 @@ class FakeClient extends EventEmitter {
   }
   async getState(): Promise<string> {
     return 'CONNECTED';
+  }
+  async getWWebVersion(): Promise<string> {
+    return '2.3000.1046934385-alpha';
   }
   async logout(): Promise<void> {
     return undefined;
@@ -200,6 +205,115 @@ describe('WWebJSEngine — ciclo de vida com teto (WA-08/WA-09/P-025)', () => {
 
     await engine.stop();
     expect(engine.getStatus()).toBe('STOPPED');
+  });
+
+  it('sem requireProxy, inicia com fake sem subir Chromium (P-073)', async () => {
+    FakeClient.mode = 'ready';
+    const Engine = await loadEngine();
+    const { deps, events } = makeDeps('lc-sem-guard');
+    const engine = new Engine(deps as never);
+    await engine.start();
+    await waitFor(() => engine.getStatus() === 'WORKING');
+    expect(events.some((e) => /WA_REQUIRE_PROXY/.test(e.error ?? ''))).toBe(
+      false,
+    );
+    await engine.stop();
+  });
+
+  it('override da sessão escolhe a build do canário no próximo start', async () => {
+    FakeClient.mode = 'ready';
+    const Engine = await loadEngine();
+    const { deps } = makeDeps('lc-canario');
+    const engine = new Engine({
+      ...deps,
+      resolveWwebjsWebVersion: async () => '2.3000.1046934385-alpha',
+    } as never);
+    const internals = engine as unknown as {
+      ensureWebVersionHtml(version: string): Promise<boolean>;
+      checkPinnedBuildAge(version: string): Promise<void>;
+      reconnectAttempts: number;
+    };
+    internals.ensureWebVersionHtml = async () => true;
+    internals.checkPinnedBuildAge = async () => undefined;
+    internals.reconnectAttempts = 5;
+    await engine.start();
+    await waitFor(() => engine.getStatus() === 'WORKING');
+    expect(internals.reconnectAttempts).toBe(0);
+    expect(FakeClient.instances[0]!.opts).toMatchObject({
+      webVersion: '2.3000.1046934385-alpha',
+      webVersionCache: { type: 'local' },
+    });
+    await engine.stop();
+  });
+
+  it('override inválido não alcança o cache nem cria cliente', async () => {
+    const Engine = await loadEngine();
+    const { deps, events } = makeDeps('lc-versao-ruim');
+    const engine = new Engine({
+      ...deps,
+      resolveWwebjsWebVersion: async () => '../../outro-diretorio',
+    } as never);
+    await engine.start();
+    expect(engine.getStatus()).toBe('FAILED');
+    expect(events.at(-1)?.error).toMatch(/Versão.*inválida/);
+    expect(FakeClient.instances).toHaveLength(0);
+  });
+
+  it.each([
+    'LOGOUT',
+    'UNPAIRED',
+    'UNPAIRED_IDLE',
+    'CONFLICT',
+    'TOS_BLOCK',
+    'SMB_TOS_BLOCK',
+  ])('%s interrompe reconexão sem gerar QR novo', async (reason) => {
+    FakeClient.mode = 'ready';
+    const Engine = await loadEngine();
+    const { deps, events } = makeDeps(`lc-disconnect-${reason}`);
+    const engine = new Engine(deps as never);
+    await engine.start();
+    await waitFor(() => engine.getStatus() === 'WORKING');
+    FakeClient.instances.at(-1)!.emit('disconnected', reason);
+    await waitFor(() => engine.getStatus() !== 'WORKING');
+    expect(engine.getStatus()).toBe(
+      reason.includes('TOS_BLOCK') ? 'FAILED' : 'STOPPED',
+    );
+    expect(events.at(-1)?.error).toContain(reason);
+    expect(FakeClient.instances).toHaveLength(1);
+    await engine.stop();
+  });
+
+  it('limita renovação do código e recargas de página por ciclo', async () => {
+    FakeClient.mode = 'qr-once';
+    const Engine = await loadEngine();
+    const { deps } = makeDeps('lc-caps');
+    const engine = new Engine(deps as never);
+    await engine.start();
+    await engine.requestPairingCode('5511999990000');
+    const client = FakeClient.instances[0]!;
+    for (let i = 0; i < 5; i++) client.emit('code', `code-${i}`);
+    expect(engine.getStatus()).toBe('PAIRING_CODE');
+    client.emit('code', 'code-over-limit');
+    await waitFor(() => engine.getStatus() === 'FAILED');
+    expect(client.destroy).toHaveBeenCalled();
+
+    FakeClient.mode = 'ready';
+    await engine.start();
+    await waitFor(() => engine.getStatus() === 'WORKING');
+    const current = FakeClient.instances.at(-1)!;
+    const internals = engine as unknown as {
+      lastHealAt: number;
+      healWedgedPage(): Promise<void>;
+    };
+    for (let i = 0; i < 3; i++) {
+      internals.lastHealAt = 0;
+      await internals.healWedgedPage();
+    }
+    expect(current.pupPage.reload).toHaveBeenCalledTimes(3);
+    internals.lastHealAt = 0;
+    await internals.healWedgedPage();
+    await waitFor(() => engine.getStatus() === 'FAILED');
+    await engine.stop();
   });
 
   it('pairing code: fica disponível em getPairingCode() e some ao parar (WA-18)', async () => {

@@ -1,8 +1,18 @@
 diff --git a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js b/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
-index dfa30a5..8be2759 100644
+index dfa30a5..143839c 100644
 --- a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
 +++ b/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
-@@ -582,7 +582,7 @@ exports.LoadUtils = () => {
+@@ -483,6 +483,9 @@ exports.LoadUtils = () => {
+             ...extraOptions,
+         };
+ 
++        // MediaData pode carregar __x_id interno; ele colide com o MsgKey real.
++        delete message.__x_id;
++
+         // Bot's won't reply if canonicalUrl is set (linking)
+         if (botOptions) {
+             delete message.canonicalUrl;
+@@ -582,7 +585,7 @@ exports.LoadUtils = () => {
  
          return window
              .require('WAWebCollections')
@@ -11,7 +21,7 @@ index dfa30a5..8be2759 100644
      };
  
      window.WWebJS.editMessage = async (msg, content, options = {}) => {
-@@ -625,7 +625,9 @@ exports.LoadUtils = () => {
+@@ -625,7 +628,9 @@ exports.LoadUtils = () => {
          await window
              .require('WAWebSendMessageEditAction')
              .sendMessageEdit(msg, content, internalOptions);
@@ -22,7 +32,7 @@ index dfa30a5..8be2759 100644
      };
  
      window.WWebJS.toStickerData = async (mediaInfo) => {
-@@ -834,6 +836,20 @@ exports.LoadUtils = () => {
+@@ -834,6 +839,20 @@ exports.LoadUtils = () => {
              });
          }
  
@@ -43,7 +53,7 @@ index dfa30a5..8be2759 100644
          delete msg.pendingAckUpdate;
  
          return msg;
-@@ -917,12 +933,34 @@ exports.LoadUtils = () => {
+@@ -917,12 +936,46 @@ exports.LoadUtils = () => {
          };
      };
  
@@ -58,8 +68,17 @@ index dfa30a5..8be2759 100644
 +     * @param {Object} key a message key, e.g. `chat.lastReceivedKey` or a raw `msg.id`
 +     * @returns {string|undefined}
 +     */
-+    window.WWebJS.getMsgKeyId = (key) =>
-+        key?._serialized ?? key?.$1 ?? undefined;
++    window.WWebJS.getMsgKeyId = (key) => {
++        const id = key?._serialized ?? key?.$1;
++        if (typeof id === 'string' && id.length > 0) return id;
++        if (key && key.toString !== Object.prototype.toString) {
++            const serialized = key.toString();
++            if (typeof serialized === 'string' && serialized !== '[object Object]') {
++                return serialized;
++            }
++        }
++        return undefined;
++    };
 +
      window.WWebJS.getChats = async () => {
          const chats = window.require('WAWebCollections').Chat.getModelsArray();
@@ -70,19 +89,27 @@ index dfa30a5..8be2759 100644
 +
 +        // Process each chat individually — one failure should not discard every chat
 +        const results = [];
++        let skipped = 0;
 +        for (const chat of chats) {
 +            try {
 +                const model = await window.WWebJS.getChatModel(chat);
 +                if (model) results.push(model);
 +            } catch {
 +                // skip chats that fail serialization (e.g. LID-based group metadata issues)
++                skipped += 1;
 +            }
 +        }
++        if (skipped > 0) console.warn('wwebjs: getChats ignorou chats com serialização inválida', { skipped });
 +        return results;
      };
  
      window.WWebJS.getChannels = async () => {
-@@ -957,7 +995,12 @@ exports.LoadUtils = () => {
+@@ -953,11 +1006,16 @@ exports.LoadUtils = () => {
+             model.isGroup = true;
+             const chatWid = window
+                 .require('WAWebWidFactory')
+-                .createWid(chat.id._serialized);
++                .createWid(chat.id._serialized || chat.id.$1);
              const groupMetadata =
                  window.require('WAWebCollections').GroupMetadata ||
                  window.require('WAWebCollections').WAWebGroupMetadataCollection;
@@ -96,7 +123,7 @@ index dfa30a5..8be2759 100644
              const { toPn } = window.require('WAWebLidMigrationUtils');
              const serializedMetadata = chat.groupMetadata.serialize();
              for (const p of serializedMetadata.participants || []) {
-@@ -981,16 +1024,17 @@ exports.LoadUtils = () => {
+@@ -981,16 +1039,17 @@ exports.LoadUtils = () => {
  
          model.lastMessage = null;
          if (model.msgs && model.msgs.length) {
@@ -141,3 +168,42 @@ index 54df700..84b2e7a 100644
  }
  
  module.exports = { exposeFunctionIfAbsent };
+diff --git a/node_modules/whatsapp-web.js/src/webCache/LocalWebCache.js b/node_modules/whatsapp-web.js/src/webCache/LocalWebCache.js
+index f485c7c..0b4f1e7 100644
+--- a/node_modules/whatsapp-web.js/src/webCache/LocalWebCache.js
++++ b/node_modules/whatsapp-web.js/src/webCache/LocalWebCache.js
+@@ -18,7 +18,7 @@ class LocalWebCache extends WebCache {
+     }
+ 
+     async resolve(version) {
+-        const filePath = path.join(this.path, `${version}.html`);
++        const filePath = this.versionFilePath(version);
+ 
+         try {
+             return fs.readFileSync(filePath, 'utf-8');
+@@ -32,11 +32,23 @@ class LocalWebCache extends WebCache {
+     }
+ 
+     async persist(indexHtml, version) {
+-        // version = (version+'').replace(/[^0-9.]/g,'');
+-        const filePath = path.join(this.path, `${version}.html`);
++        const filePath = this.versionFilePath(version);
+         fs.mkdirSync(this.path, { recursive: true });
+         fs.writeFileSync(filePath, indexHtml);
+     }
++
++    versionFilePath(version) {
++        // O catálogo usado pelo gateway inclui sufixo -alpha; nenhum separador de path é válido.
++        if (typeof version !== 'string' || !/^\d+(?:\.\d+)+(?:-alpha)?$/.test(version)) {
++            throw new VersionResolveError(`Invalid WhatsApp Web version ${version}`);
++        }
++        const base = path.resolve(this.path);
++        const filePath = path.resolve(base, `${version}.html`);
++        if (!filePath.startsWith(base + path.sep)) {
++            throw new VersionResolveError(`Invalid WhatsApp Web version ${version}`);
++        }
++        return filePath;
++    }
+ }
+ 
+ module.exports = LocalWebCache;

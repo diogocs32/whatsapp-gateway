@@ -172,6 +172,7 @@ model SessionConfig {
   janelaFim    Int      @default(20) // hora local de fim
   timezone     String   @default("America/Sao_Paulo")
   device       Json? // fingerprint estável/pinado
+  wwebjsWebVersion String? // override do WA Web por sessão; null usa WWEBJS_WEB_VERSION global
   updatedAt    DateTime @updatedAt @default(now())
 
   session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
