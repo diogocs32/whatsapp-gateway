@@ -262,6 +262,10 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
   armadilhas de validação: o Chrome da extensão pode estar noutra máquina (`list_connected_browsers`)
   e, com a aba oculta, o Chrome adia mídia e IntersectionObserver (validar com a janela à frente);
   (9) o `.env` local não tem S3 — suba o gateway com `S3_*` do MinIO de dev na linha de comando.
+  (10) conferência do dono no painel local (26/09): linha inteira da conversa clicável no Atendimento
+  (só o nome era), erro do Enviar junto da caixa + caixa travada com aparelho desligado
+  (`lib/send-feedback.ts`), e cursor de mãozinha em todo botão (o Tailwind 4 tirou o `pointer` do
+  `<button>` — regra em `index.css`); tela nova com botão herda isso sozinha.
 
 - **25/09 — E22 (sessão `e22-conversas-gateway`):** P-066 + P-072 (parte gateway) entregues na
   branch `feature/onda8-conversas` (PR da Onda 8 — sem merge; D-028). O que a E23 e as seguintes

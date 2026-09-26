@@ -174,6 +174,9 @@
   operador (`lib/send-feedback.ts`), caixa travada com aviso quando o aparelho está desligado, botão
   desabilitado cinza com dica. Validado no Chrome (clique na faixa de baixo abre; Helena/STOPPED
   travada; erro ao lado do campo). Painel 122/122.
+  (3) "o cursor de mãozinha não aparece em todos os lugares" — o preflight do Tailwind 4 deixa
+  `cursor: default` em `<button>` (upgrade guide oficial) → regra base em `index.css` (botão,
+  `[role=button]` e select habilitados = pointer). Commits `260107e` e `3d31aa6`.
 
 ## Provas (26/09, local — macOS, Node 26.0.0)
 
