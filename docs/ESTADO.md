@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 mergeada no PR #8 (deploy W pendente). **E6/P-060 concluída em código no PR #10 com CI verde; merge, deploy W manual e canário pendentes. Próxima: E7/P-047.** P-084 e P-086 são pedidos futuros. Em 26/09 o dono autorizou que o assistente integrasse os PRs #7 e #8 à `main`; **não autorizou deploy** enquanto a equipe trabalha. O Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 mergeada no PR #8 (deploy W pendente). **E6/P-060 concluída em código no PR #10, ainda aberto; E7/P-047 concluída em código no PR #11, também aberto e dependente do #10. Próxima: E8/P-048 na branch da Onda 2.** Merge/deploy W e B/canários pendentes. P-084 e P-086 são pedidos futuros. Em 26/09 o dono autorizou que o assistente integrasse os PRs #7 e #8 à `main`; **não autorizou deploy** enquanto a equipe trabalha. O Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,15 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **26/09/2026 (sessão `e7-baileys-offline`, E7/P-047 no PR #11 — sem merge/deploy):** `append`
+> Baileys de terceiros até 48 h passa ao mesmo fluxo de banco/webhook/Inbox/reply-rate do `notify`;
+> eco próprio, status e newsletter são filtrados por mensagem. Cache + consulta ao banco por
+> `(sessionId,keyId)` evitam replay sequencial, inclusive após restart. Sem migration/campo público.
+> 493 unit gateway, 776 testes gateway no total e 180 painel passaram localmente; E2E comprovou
+> o efeito. PR #11 depende do #10 aberto. A janela de duas instâncias (P-056/B-004) e a ausência de
+> outbox (P-034) permanecem. Produção segue no último SHA **documentado** `768fb26`; nenhuma
+> conta conectada, mensagem real enviada, restart ou Deploy nesta sessão. Canário após E12.
 
 > **26/09/2026 (sessão `e6-wwebjs-leve`, E6/P-060 na branch — sem deploy):** download WWEBJS
 > por stream de 2 MB e fila por sessão; mídia de grupo não baixa por padrão (opt-in por env), teto

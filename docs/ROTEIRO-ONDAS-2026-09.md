@@ -44,7 +44,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E4    | 1    | Rate-limit/log/auditoria por rota real em vez de `req.url` (P-053) + bypass do egress por IPv6 v4-mapeado em hex (P-065) → fecha a Onda 1                                                                                            | `feature/onda1-guardas-seguranca`   | **merge = deploy A**; depois **B-004** (stop-first)                                 | ✅ 25/09 |
 | E5    | 6    | wwebjs pronto para canário: build candidata + patch estendido (`__x_id`, WID), build efetiva no log, override por sessão, LOGOUT/TOS sem QR automático, tetos (P-059) — **prazo 13/10**                                              | `feature/onda6-wwebjs`              | PR #8 mergeado; canário por sessão após deploy W + **B-001**                        | ✅ 26/09 |
 | E6    | 6    | wwebjs leve: mídia por stream, sem auto-download de grupo, fila de mídia, teto de envio, flags do Chromium (P-060) → fecha a Onda 6                                                                                                  | `feature/onda6-wwebjs`              | PR #10 com CI verde; **merge/deploy W manual** depois (1 chip antes da frota)       | ✅ 26/09 |
-| E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | —                                                                                   | 🟡       |
+| E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | PR #11 aberto para a main; sem merge/deploy                                         | ✅ 26/09 |
 | E8    | 2    | Baileys: sinais nativos de restrição → pausa até o fim + alerta + evento aditivo (P-048)                                                                                                                                             | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
 | E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
 | E10   | 2    | Baileys: download de mídia com timeout e pelo proxy (P-050)                                                                                                                                                                          | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
@@ -296,6 +296,17 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064              |
 
 ## Diário de execução
+
+- **26/09 — E7 (sessão `e7-baileys-offline`, commit `1f8cb2b`, PR #11):** P-047 entregue em código
+  sem conta, envio ou deploy: `append` inbound de até 48 h entra no fluxo existente; eco próprio,
+  status e newsletter são filtrados por mensagem. Cache + consulta por `(sessionId,keyId)` barram
+  replay sequencial antes do EventBus, inclusive após restart; `describeBaileysMessage`, reação
+  separada, participante de grupo e `raw` inbound foram preservados. E2E do efeito: banco, job do
+  webhook, Inbox e reply-rate; 493 unit gateway + 776 testes gateway + 180 painel. Nenhuma migration
+  nem campo público novo. PR #11 depende do #10 aberto; E8 continua na mesma branch e PR. Limites:
+  concorrência de duas instâncias = P-056/B-004; falta de outbox = P-034. Canário após E12 no
+  `how-to/canario-baileys-onda2.md`. O `onMessagesUpsert` agora é async; tests privados devem
+  aguardar sua Promise. CI do PR ainda em andamento neste checkpoint.
 
 - **26/09 — E6 (sessão `e6-wwebjs-leve`, branch `feature/onda6-wwebjs`, PR #10, D-033):** P-060
   implementada sem deploy/conta real: stream de 2 MB no download, grupo sem auto-download por

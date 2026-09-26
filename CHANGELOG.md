@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Alterado — Baileys recupera mensagens recebidas na fila offline (26/09 — E7/P-047; PR #11, sem deploy)
+
+- `messages.upsert` `append` recebido durante queda/reconexão/deploy entra no mesmo fluxo de banco, webhook, Inbox e reply-rate do `notify`, limitado a 48 h. Eco de envio próprio, status e newsletter são filtrados por mensagem.
+- Dedupe por `sessionId` + `keyId` antes do evento, em cache e por consulta ao banco após restart. `describeBaileysMessage`, reação separada, autor de grupo e `raw` inbound foram preservados. Sem migration ou campo público novo; `INTEGRACAO` §3.2 documenta o horário original da mensagem.
+- Testes de efeito e runbook do canário da Onda 2; duas instâncias simultâneas e outbox seguem P-056/B-004 e P-034. PR #11 depende do PR #10 ainda aberto. Nenhum merge/deploy da Onda 2 nesta etapa.
+
 ### Alterado — wwebjs com perfil de mídia e memória leve (26/09 — E6/P-060, D-033; sem deploy)
 
 - Download recebido por stream de 2 MB, fila por sessão e 24 MB de teto de envio WWEBJS; mídia de grupo só baixa automaticamente com opt-in explícito. Sem opt-in, webhook mantém metadados e não inclui `mediaKey`.
