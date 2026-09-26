@@ -60,7 +60,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E21   | —    | Backlog anterior: triagem e execução do que ainda vale (P-001 resto, P-018, P-022, P-023, P-013, P-005, P-036, P-044..P-046 …) — pode virar mais de um chat                                                                          | definir no chat                     | —                                                                                   | ⬜       |
 | E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`           | **antes:** decidir reação fora do evento `message` + contando no reply-rate         | ✅ 25/09 |
 | E23   | 8    | Conversas fiéis — painel: balões e mídia (imagem/áudio/vídeo por blob, sem link que muda a cada 2,5 s) no Inbox e no Atendimento (P-067) + tiques ✓/✓✓ (P-072)                                                                       | `feature/onda8-conversas`           | **antes:** decidir P-074 (decidido: entra)                                          | ✅ 25/09 |
-| E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`           | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão) | ⬜       |
+| E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`           | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão) | ✅ 26/09 |
 | E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`           | **merge = deploy G**                                                                | ⬜       |
 
 **Ordem e porquê:** a Onda 1 vem antes de tudo porque o stop-first (B-004) só é seguro depois das
@@ -212,6 +212,18 @@ Nada em produção — nenhum envio real; o teste com chip é passo meu, descrev
 No fim: atualize o roteiro, o PR da Onda 8, e me dê a mensagem da E25 (ou da E5, se já for 08/10 — prazo da build do wwebjs: 13/10) e a lista do que eu preciso fazer.
 ```
 
+### E25 — encaminhar: interface (P-068) — fecha a Onda 8
+
+```text
+Etapa E25 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-068 parte interface — encaminhar fiel ao WhatsApp Web no painel (Inbox e Atendimento). ESTA ETAPA FECHA A ONDA 8 (merge = deploy G).
+Siga as "Regras de toda etapa". Branch: feature/onda8-conversas (continuar da E24 — mesmo PR #7 da Onda 8).
+LEIA ANTES: docs/INTEGRACAO.md §2 (item "Encaminhar" — limites, cold à força, 423 no pedido inteiro, idempotencyKey do pedido, results[] com target/ok/id/deduped/cold/confirmed/code/error, recusas FORWARD_UNSUPPORTED/FORWARD_SOURCE_UNAVAILABLE/FORWARD_LIMIT) e §3.2; D-030; MAPA-CODIGO §3.12 (fluxo do encaminhar) e §4.5 (painel); packages/contracts ForwardMessageRequest/ForwardResultDto; o Diário da E24 no roteiro; docs/analise-conversas-whatsapp-web-2026-09.md §4 (UI fiel).
+Itens: menu ⌄ no balão (components/chat/MessageBubble) → "Encaminhar" → modo seleção → diálogo "Encaminhar mensagem para" (busca, conversas da MESMA sessão, até 5; só 1 quando a original tem forwardingScore ≥ 5) → ➤ com progresso e erro por destino a partir de results[]; atalho ↪ nas mídias; esconder a ação nos tipos que o gateway recusa (poll/event/group_invite/poll_vote/other) e tratar com mensagem de operador os 400 com code (apagada/editada/visualização única/original indisponível — "encaminhe pelo celular"), o 423 (sessão em quarentena — nada foi enviado), o 409 e o confirmed:false (WWEBJS — "encaminhado, confirmação pendente", NÃO reenviar); idempotencyKey gerada por clique (reenvio do mesmo diálogo não duplica); o eco chega pelo SSE/polling como mensagem nossa (source api) com o selo. Libs puras em lib/* com vitest; validação no Chrome com seed local e gateway local (fake do encaminhar ou sessão de teste LOCAL) — nada em produção.
+Fechamento da Onda 8: PR #7 com CI verde + checklist do deploy G (migrations 20260925203458_reacoes_encaminhada e 20260926052719_encaminhar_marcas_apagada_editada; fluxos n8n da INTEGRACAO §3.2; conferência no Safari; teste com chip de docs/how-to/teste-chip-encaminhar.md) para eu executar depois do merge.
+Se já for 08/10, pare e faça a E5 antes (prazo da build do wwebjs: 13/10).
+No fim: atualize o roteiro, o PR #7, e me dê a mensagem da E5 e a lista do que eu preciso fazer.
+```
+
 ### E7 a E21
 
 As mensagens das etapas seguintes seguem o mesmo molde (Etapa, pendência, "Siga as Regras de toda
@@ -240,9 +252,31 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Quando puder (Onda 8)       | Checagens do diagnóstico §3: SQL só leitura dos tipos em `wa_messages` (7 dias), logs de mídia, `canPlayType` do áudio no seu navegador (Safari × Chrome)                                                                    | P-066/P-067        |
 | Antes do deploy G (Onda 8)  | Conferir o painel da E23 no **Safari** (áudio Ogg/Opus tocando, imagem, vídeo com seek, "Baixar", lightbox) — no Chrome já foi validado localmente                                                                           | P-067              |
 | Antes do deploy G (Onda 8)  | Fluxos n8n que usam `senderJid` em GRUPO (como destino ou para detectar grupo) — trocar por `chatJid` (INTEGRACAO §3.2 item 9)                                                                                               | P-074 · D-029      |
+| Antes do deploy G (Onda 8)  | Teste com chip do encaminhar (local antes da E25, ou no canário depois do deploy G) — [how-to/teste-chip-encaminhar.md](how-to/teste-chip-encaminhar.md); devolver o resultado no chat seguinte                              | P-083 · D-030      |
+| Quando puder (Onda 8)       | Decidir P-080 (mídia antiga no encaminhar pelo S3 — exige marca de visualização única) e P-081 (cold derivado também no `/text`, WA-02)                                                                                      | P-080 · P-081      |
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                              | P-064              |
 
 ## Diário de execução
+
+- **26/09 — E24 (sessão `e24-encaminhar-api`):** P-068 parte API/engines + P-077 (decisões do
+  dono na abertura: limites confirmados; P-077 entra) na branch `feature/onda8-conversas` (PR #7 —
+  sem merge; D-030). O que a E25 e as seguintes precisam saber: (1) a rota é
+  `POST …/messages/:msgId/forward` e devolve `results[]` na ordem de `to` — o painel mostra
+  progresso/erro por destino a partir dele; 400 com `code` (`FORWARD_UNSUPPORTED`/
+  `FORWARD_SOURCE_UNAVAILABLE`/`FORWARD_LIMIT`), 404, 409 e 423 vêm ANTES de enviar; (2) destino
+  sem conversa RECEBIDA no número EXATO vira cold à força (o 9º dígito não conta — o "gêmeo" pode
+  ser outra pessoa); com a sessão em quarentena, qualquer destino cold dá 423 no pedido inteiro;
+  (3) o Baileys guarda a original das recebidas em `wa_messages.raw` só por 7 dias — mídia/local/
+  contato mais antigos não encaminham (P-080); texto sim; (4) o wwebjs encaminha pelo caminho nativo
+  e correlaciona o eco — `confirmed:false` = saiu sem o id a tempo (o painel NÃO deve oferecer
+  reenviar); (5) o eco da cópia é uma mensagem nossa (`source:'api'`) com o selo — o painel já
+  desenha pelo `ForwardedTag` da E23; (6) `revokedAt`/`editedAt` existem só no banco (não vão no
+  DTO) — a P-069 pode expô-los; (7) armadilhas: `sendFingerprint` apaga objeto aninhado (fingerprint
+  sempre plano); o `generateForwardMessageContent` da rc14 usa `Object.keys(content)[0]` (passe só o
+  nó); `withLidFallback` trata `undefined` como "não enviou" (op do forward devolve o destino); o
+  e2e zera o intervalo espiando `ForwardService.sleep`; (8) achados abertos: P-080..P-083 (a P-083
+  lista o que só o chip prova — `how-to/teste-chip-encaminhar.md`); (9) testes da etapa: 4 arquivos
+  novos (unit sem infra + e2e), mutantes do nó único e do casamento do eco mortos.
 
 - **25/09 — E23 (sessão `e23-conversas-painel`):** P-067 + P-072 (parte painel) + P-074 (decisão do
   dono: entra) entregues na branch `feature/onda8-conversas` (PR #7 — sem merge; D-029). O que a E24

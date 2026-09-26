@@ -664,3 +664,101 @@ req.routeOptions.url === '/api/auth/login' ? 10 : 600`) — rejeitada: carrega o
     gateway no `tsc` do painel); passo próprio no CI.
 - **Deploy:** tudo sobe no deploy G (fim da Onda 8). O painel tem defaults para campos que um
   gateway antigo não manda (deploy manual dos dois apps — D-027).
+
+## D-030 — 2026-09-26 — Encaminhar fiel ao WhatsApp Web: limites do dono, lote idempotente, cold derivado do servidor e a original das recebidas guardada (P-068 parte API, P-077)
+
+- **Decisão do dono (abertura da E24):** limites confirmados como no roteiro — até **5 destinos**
+  por pedido; **só 1** quando a original já é "encaminhada com frequência" (`forwardingScore ≥ 5`,
+  lido da ORIGINAL — a análise §4 dizia "se a cópia ficar ≥ 5", o que numa recebida é original ≥ 4;
+  vale a regra do dono); **só a MESMA sessão**; **destino sem conversa = cold com a trava 423**;
+  `idempotencyKey` por destino. **P-077 entra na E24** (ecos de localização/enquete da API com o
+  texto completo — muda o `text` do webhook desses ecos).
+- **Escolhas técnicas da etapa (sem pergunta ao dono, registradas aqui):**
+  - **Rota aditiva** `POST /api/sessions/:s/messages/:msgId/forward` `{to[], cold?, idempotencyKey?}`
+    → 201 `{results[]}` (uma posição por destino). O laço mora em `messaging/application/
+forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode importar
+    `messaging/domain`); o `SessionManager` só transporta: `prepareForward(sessionId, src)` →
+    `IEngine.prepareForward` carrega/confere a original UMA vez e devolve `send(to, opts)` por
+    destino (o "SessionManager.forwardMessage pelo sendWithIntent" do roteiro virou esse par — a
+    semântica do sendWithIntent é reproduzida por destino: dedup legado → reserva → gate → envio →
+    complete/fail).
+  - **Ordem — tudo o que recusa vem antes de enviar:** destino canônico/repetido (inclusive o 9º
+    dígito)/proibido (`@newsletter`, `@broadcast`, bots) → 400; original da sessão → 404;
+    apagada/editada/tipo não encaminhável → 400 `FORWARD_UNSUPPORTED` (antes do gate: nunca 423 por
+    um tipo proibido); limite → 400 `FORWARD_LIMIT`; reserva do LOTE e de cada destino; a engine
+    confere o tipo vivo/visualização única/disponibilidade → 400 `FORWARD_UNSUPPORTED`/
+    `FORWARD_SOURCE_UNAVAILABLE`; **gate cold UMA vez** (1 `send.blocked`) → **423 no lote inteiro,
+    nada sai** (mandar parte e responder 423 faria o n8n re-enfileirar e duplicar os já enviados
+    quando não há chave). Status: algum ok → 201; nenhum → o status comum dos itens (409/400) ou 400
+    `FORWARD_FAILED`, sempre com `results[]`. 400 com `code` (não 422 — o gateway nunca usou 422 e o
+    node 0.4.1 trata 400 genérico).
+  - **Idempotência do lote:** a `idempotencyKey` reserva o PEDIDO (fingerprint plano = keyId da
+    original + destinos canônicos ordenados): a mesma chave com outra original ou outro conjunto →
+    409 (sem isso, `[A,B]` e depois `[A,C]` com a mesma chave mandava C — quebrava o 409 do
+    contrato). Cada destino usa `<chave>:<destino canônico>` (vai no eco/webhook e em
+    `results[].idempotencyKey`); o `:` é seguro (chave de intenção nunca vira jobId de BullMQ).
+    Replay antes do gate (retry de lote já enviado em quarentena = 201 `deduped`, como no `/text`).
+  - **Cold derivado do servidor (só no encaminhar):** "tem conversa" = existe mensagem RECEBIDA
+    (`fromMe=false`) daquele chat na sessão, **no número EXATO** (os dois sufixos
+    `@s.whatsapp.net`/`@c.us`); o cliente só SOBE o cold (`cold:false` não rebaixa). "Qualquer linha"
+    deixaria um envio anterior sem `cold` escapar da trava para sempre. **Sem o 9º dígito** (achado da
+    revisão): o "gêmeo" (celular 11 9 4123-4567 × fixo 11 4123-4567) pode ser OUTRA pessoa — casar
+    com a conversa dele trataria o destino como quente (sem a trava) e mandaria para o número errado.
+    O transporte é SEMPRE o número pedido (o resíduo do 9º dígito fica igual ao do `/text`, P-023).
+    Conservador: conversa gravada só como `@lid` sem par conhecido, só na variante do 9º dígito, ou
+    mais velha que a retenção (90 d), conta como cold. O `/text` NÃO muda (R0). Apagada/editada é
+    recusada DEPOIS do replay (a repetição de um lote já entregue segue 201 `deduped`). Erro
+    inesperado depois de reservar (banco, guard-rail) → as intenções viram `failed` (sem 409 falso
+    de 2 min no retry).
+  - **Um destino por vez, 1–3 s** entre envios EFETIVOS (também entre pedidos da mesma sessão —
+    mutex por sessão no processo); sem "digitando" (o encaminhar do WhatsApp Web não mostra).
+  - **Baileys — a original completa passa a ser guardada também nas RECEBIDAS** (`wa_messages.raw`,
+    mesma retenção `RETENTION_MESSAGE_RAW_DAYS` = 7 d, sem env nova; webhook, SSE e agora o fan-out do
+    Redis a removem). Encaminha só o **nó de conteúdo** (`{[ctype]: nó}`): o
+    `generateForwardMessageContent` da rc14 escolhe o nó por `Object.keys(content)[0]`
+    (`Utils/messages.js:246`) e, com `messageContextInfo`/SKDM de grupo na frente, perdia o selo e
+    VAZAVA a citação/menções da original (provado offline). Visualização única só se prova pelo
+    invólucro do `raw` → recusada (o `forward` a mandaria como mídia permanente). Sem `raw`: texto
+    remonta fiel (só a prévia de link se perde — o gateway nunca gerou prévia); mídia, localização e
+    contato antigos → `FORWARD_SOURCE_UNAVAILABLE` (encaminhar mídia antiga pelo S3 = P-080). O eco
+    descreve o que saiu (`describeBaileysMessage(sent.message)`) e reaproveita o objeto S3 da
+    original. `decodeProto` passa pelo `proto.Message.fromObject` (sem ele, enum ≠ 0 virava 0 — vale
+    também para o retry de descriptografia).
+  - **Apagada/editada:** o Baileys marca `wa_messages.revokedAt`/`editedAt` (migration aditiva
+    `20260926052719_encaminhar_marcas_apagada_editada`) a partir do `messages.update` (REVOKE/EDIT),
+    só do MESMO lado (`fromMe` da chave — a lib não confere o autor) e sem engolir um ACK fundido no
+    mesmo update pelo event-buffer; o wwebjs confere na Message viva. As duas são recusadas — **editada também**, até a P-069: o
+    painel ainda mostra a versão velha e, no Baileys, a original guardada é a velha. Resíduo: marca
+    que chega antes do INSERT (mídia recebida há segundos) se perde; apagada/editada antes do deploy
+    não tem marca — e sem a original (antes do deploy ou passados os 7 dias), um TEXTO apagado/editado
+    antes do deploy, uma resposta de botão/lista ou uma mensagem de empresa (gravadas como `text`)
+    ainda sai pelo fallback de texto (documentado na INTEGRACAO §2; marca própria na linha = P-082). Mensagem
+    temporária já vencida (`contextInfo.expiration`) também é recusada (a cópia chegaria
+    permanente); mensagem de empresa com botões/modelo é recusada antes do `extractMessageContent`
+    (que a transformaria em texto comum).
+  - **wwebjs — caminho nativo** (`Message.forward` → `WAWebChatForwardMessage.forwardMessages`):
+    selo/contador calculados pela Meta. A lib devolve `Promise<void>` → o eco é **correlacionado**
+    (destino + tipo, registrado ANTES do forward, casado no `message_create` antes da janela de 3 s)
+    e sai `source:'api'` com o cold/chave do destino (antes viraria `phone` = handoff falso e sumiria
+    do reply-rate); não exige `isForwarded` (a própria mensagem encaminhada sai sem selo). Casa
+    também pelo `@lid` que o cache LOCAL liga ao destino (o `getChat` pode cair no chat @lid) e, quando
+    a original tem texto/legenda, só com o MESMO texto (senão o eco de um `/text` no mesmo chat, ainda
+    sem id, era tomado como o do encaminhar — achado do teste). Mídia da cópia: o objeto S3 da
+    original; sem binário na original, baixa o da cópia pelo caminho normal. O op do
+    `withLidFallback` devolve o destino (o `undefined` do forward fazia o fallback reenviar pelo PN —
+    encaminhar 2×). Sem eco em 10 s → `ok` com `id: null`/`confirmed:false` (intenção `sent` — um
+    retry não pode reencaminhar), sem inventar selo, e a expectativa vive só mais 20 s (até 60 s
+    só no teto do forward, quando ele ainda pode sair). Teto de 30 s no forward (sem ele, 240 s
+    do protocolTimeout). A análise §4 dizia "destino precisa ser chat existente" — o `getChat` da lib
+    CRIA o chat (`Utils.js:878-887`); corrigido lá.
+  - **`\u0000` e surrogate solto:** texto, nome de arquivo, mimetype e o `raw` perdem o NUL e têm o
+    surrogate UTF-16 solto trocado por U+FFFD (`toWellFormed`) na gravação (PG18: `text` e `jsonb`
+    recusam NUL; o `jsonb` recusa o surrogate solto — texto com UTF-8 malformado, ex. emoji cortado
+    por bot, derrubava o INSERT com o `raw` das recebidas; o NUL no `text` era pré-existente). As
+    listagens (`GET /messages`, `/search`, `findByRef`) deixam o `raw` de fora (`omit`).
+- **Não verificado (teste com chip do dono — `how-to/teste-chip-encaminhar.md`):** selo
+  "Encaminhada"/"com frequência" no aparelho do destinatário nas duas engines; se o
+  `forwardMessages` do WhatsApp Web aceita destino SEM conversa (a JSDoc da lib diz que falha; o
+  código cria o chat); se o `forwardMessages` do WhatsApp Web gera `message_create` e com
+  que `to`/tipo; mídia com mais de ~30 dias no CDN; `rawData.isViewOnce`/`isLive` no wwebjs; limite
+  real de destinos do servidor; timeout do Traefik/n8n para um pedido de ~10–20 s.
