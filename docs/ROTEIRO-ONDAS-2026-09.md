@@ -186,7 +186,7 @@ No fim: atualize o roteiro, e me dê a mensagem da E7 e a lista do que eu precis
 ```text
 Execute a E7 do ConexoZenvo: mensagens recebidas durante queda, reconexão ou deploy devem chegar ao webhook, Inbox e reply-rate (P-047), conforme docs/ROTEIRO-ONDAS-2026-09.md e docs/PENDENCIAS.md.
 
-Siga a leitura obrigatória do AGENTS.md/R9, abra uma sessão própria e trabalhe na branch feature/onda2-baileys a partir da main atualizada. Preserve os arquivos locais não versionados. Antes de usar APIs, confira o Baileys instalado (rc14) e a documentação oficial; leia docs/MAPA-CODIGO.md §3.2/§5.1 P-047, os avisos da E22/E24 e docs/INTEGRACAO.md §3.2.
+Siga a leitura obrigatória do AGENTS.md/R9, abra uma sessão própria e trabalhe na branch feature/onda2-baileys a partir da main atualizada (ou da feature/onda6-wwebjs se o PR #10 ainda não tiver sido mergeado, conforme a regra 2 do roteiro). Preserve os arquivos locais não versionados. Antes de usar APIs, confira o Baileys instalado (rc14) e a documentação oficial; leia docs/MAPA-CODIGO.md §3.2/§5.1 P-047, os avisos da E22/E24 e docs/INTEGRACAO.md §3.2.
 
 Corrija o descarte de messages.upsert type=append com decisão por mensagem: janela 24–48 h, sem eco dos nossos envios, sem newsletter/status, dedupe por sessão+keyId inclusive após restart. Preserve describeBaileysMessage, reação fora de message, remetente de grupo e raw inbound do encaminhar. Se acrescentar campo público de histórico/offline, atualize packages/contracts e INTEGRACAO no mesmo commit. Use migration somente forward-only se necessária. Teste o efeito no banco, webhook, Inbox e reply-rate, com lote misto notify/append/eco/reação e chave repetida; não conecte conta, não envie mensagem real e não faça deploy.
 
