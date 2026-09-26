@@ -617,3 +617,50 @@ req.routeOptions.url === '/api/auth/login' ? 10 : 600`) — rejeitada: carrega o
 - **Não verificado:** quanto do `other` em produção é reação (SQL do diagnóstico §3); se o wwebjs
   emite `message_reaction` com emoji vazio na remoção; formato real da chave-alvo da reação no
   wwebjs na build de produção (o mapeamento novo aceita `_serialized`, `$1` e `remote` como Wid).
+
+## D-029 — 2026-09-25 — Painel fiel ao WhatsApp Web: mídia só pelo gateway como blob, tiques só exibição, e `senderJid` de grupo = participante (P-067, P-072, P-074)
+
+- **Decisão do dono (abertura da E23):** a P-074 entra na etapa — em mensagem RECEBIDA em grupo,
+  `senderJid` passa a ser o participante (nas 2 engines). Muda o VALOR de um campo existente do
+  webhook `message` sem `/api/v1`: o valor antigo era o jid do grupo, idêntico ao `chatJid` (sem
+  informação); 1:1, `fromMe` e linhas já gravadas não mudam. Risco documentado na INTEGRACAO §3.2
+  item 9 (fluxo que respondia para `senderJid` em grupo passaria a mandar no privado) — a skill do
+  nó n8n responde para `chatJid`.
+- **Escolhas técnicas da etapa (sem pergunta ao dono, registradas aqui):**
+  - **P-074 no Baileys:** lado telefone primeiro (`phoneFirst(participant, participantAlt)`), como
+    a reação da E22 — a fórmula escrita na pendência (`participantAlt ?? participant`) devolve o
+    `@lid` no modo PN do rc14 (`Utils/decode-wa-message.js`). Par LID↔telefone novo (ou pushName
+    novo) vai para o diretório de contatos. **No wwebjs:** `@lid` do autor → telefone SÓ pelo cache
+    em memória; resolver na hora = `page.evaluate` + consulta de existência na rede por autor
+    desconhecido (padrão contact-check, proibido).
+  - **`senderName` aditivo** no `GET /messages`/`/search` (agenda > pushName, uma consulta ao
+    diretório por página; falha = sem nome). Não vai no webhook (o n8n não precisa e o payload fica
+    igual).
+  - **Mídia no painel só pelo `GET /:msgId/media`, como blob** (cookie + silent refresh), em cache
+    por mensagem — nunca pela `mediaUrl` pré-assinada (muda a cada leitura e o `<img>` de outra
+    origem é barrado pelo CORP `same-origin` do helmet, que fica como está). A `mediaUrl` segue no
+    contrato para a API/n8n. O blob mora na origem do painel: documento, SVG e mimetype composto ou
+    malformado viram `application/octet-stream` (só baixam, nunca executam), e o painel nunca abre um
+    `blob:` em aba.
+  - **Tiques:** só em `fromMe`; nenhum em grupo/transmissão/canal nas duas engines (o Baileys nunca
+    grava ACK de grupo e o "lida" de grupo do WhatsApp é "todos leram" — o wwebjs grava algo com
+    semântica não verificada); status null ou desconhecido = sem tique e sem relógio. O painel nunca
+    manda recibo de leitura.
+  - **Tempo real no Atendimento:** casar ACK/reação por `(sessionId, keyId)`; memória de ACK e de
+    reação reaplicada sobre cada recarga (o GET que saiu antes do evento não o desfaz; o replay de
+    reação só vale para GET que saiu até 2 s depois do evento, para não ressuscitar reação removida
+    enquanto o SSE esteve fora); SSE recriado depois de fechar de vez, com `GET /api/auth/me` antes
+    (o EventSource não passa pelo silent refresh).
+  - **`Content-Disposition` do `/media`:** nome que o Node aceita e sem `%` `\` `;` `=` → header
+    idêntico ao de antes (zero mudança para o n8n); o resto → `filename` ASCII + `filename*` UTF-8
+    (RFC 5987). Antes, nome fora do Latin-1 dava 500 (P-076). O `Content-Type` usa o mimetype só se
+    ele cabe num header (vem do remetente); senão, o tipo do objeto no S3 ou `application/octet-stream`.
+  - **Balão de saída `emerald-800`** (o verde-escuro do WhatsApp Web; texto 7,6:1): o `emerald-600`
+    anterior reprovava o WCAG (3,67:1 no texto, 1,68:1 no tique azul). Consequência: o balão deixa
+    de seguir a cor de marca do cliente (o branding sobrescreve só `emerald-400..700`).
+  - **Testes no painel:** vitest 4.1.11 (já instalado — devDependency declarada, lockfile +1 linha)
+    em ambiente node só para `src/lib/*`; os specs importam o `message-content.ts` e o
+    `reaction-key.ts` REAIS do gateway por import dinâmico (contrato ida e volta sem pôr arquivos do
+    gateway no `tsc` do painel); passo próprio no CI.
+- **Deploy:** tudo sobe no deploy G (fim da Onda 8). O painel tem defaults para campos que um
+  gateway antigo não manda (deploy manual dos dois apps — D-027).
