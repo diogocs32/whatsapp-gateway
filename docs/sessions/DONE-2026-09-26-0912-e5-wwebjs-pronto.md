@@ -38,3 +38,12 @@
 - **BLOQUEADO EM VOCÊ:** canário real da build candidata, teste com chip e promoção global ficam para depois do deploy W, na janela do dono; nenhuma publicação agora porque o deploy derruba contas conectadas. B-001 (proxy obrigatório) e B-004 (stop-first) seguem como controles operacionais do dono.
 - **DOCS TOCADAS PELO DIFF:** `docs/DECISOES.md` (D-032), `docs/PENDENCIAS.md` (P-059, P-073 e P-086), `docs/MAPA-CODIGO.md` + `docs/reference/mapa-codigo/` (regenerado), `docs/INTEGRACAO.md`, `docs/ROTEIRO-ONDAS-2026-09.md`, `docs/ESTADO.md`, `docs/SESSOES.md`, `docs/how-to/canario-wwebjs-onda6.md`, `CHANGELOG.md` e este arquivo.
 - **Reconciliação documental (R3):** `INTEGRACAO` ganhou o campo do contrato; `MAPA-CODIGO` foi revisado para o ciclo wwebjs; `ESTADO`, `PENDENCIAS`, `ROTEIRO` e `CHANGELOG` distinguem código local, canário futuro e produção inalterada. `ARQUITETURA` não mudou de proprietário de módulo/tabela; a coluna nova pertence à `session_config` já mapeada.
+
+## Atualização após os merges — 26/09/2026
+
+Por pedido explícito do dono na conversa seguinte, o PR #7 foi mergeado na `main` (`ddca44a`) e o
+PR #8 foi retargetado de `feature/onda8-conversas` para `main`, marcado pronto e mergeado
+(`6567112`), ambos com CI/imagens verdes. A E6/P-060 segue pendente. Não houve Deploy manual;
+às 13:16 UTC os dois domínios de `/health` respondiam `ok`, com uptime de 947.341 s (boot do
+gateway em 15/09). O último SHA de produção documentado continua `768fb26`; o toggle do Dokploy
+não foi inspecionado ao vivo.
