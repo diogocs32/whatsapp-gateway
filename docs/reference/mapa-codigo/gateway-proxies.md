@@ -6,7 +6,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
-| `modules/proxies/application/proxy-resolver.media.spec.ts` | 113 |
+| `modules/proxies/application/proxy-resolver.media.spec.ts` | 117 |
 | `modules/proxies/application/proxy-resolver.service.ts` | 186 |
 | `modules/proxies/application/proxy.service.ts` | 361 |
 | `modules/proxies/domain/proxy-types.ts` | 7 |
@@ -22,12 +22,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/proxies/application/proxy-resolver.media.spec.ts`
 
-113 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.media.spec.ts`
+117 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.media.spec.ts`
 - importa (interno): `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/infrastructure/proxy-agent.factory.ts`
 
 - describe “ProxyResolver — transporte Baileys (E10)” · L38
   - it “fetch global do Node usa o dispatcher no proxy HTTP falso, com auth codificada” · L39
-  - it “SOCKS conserva o Agent do socket e não fornece dispatcher para CDN” · L101
+  - it “SOCKS conserva o Agent do socket e não fornece dispatcher para CDN” · L105
 
 ## `modules/proxies/application/proxy-resolver.service.ts`
 

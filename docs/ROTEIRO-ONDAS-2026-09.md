@@ -47,7 +47,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | PR #11 aberto para a main; sem merge/deploy                                         | ✅ 26/09           |
 | E8    | 2    | Baileys: sinais nativos de restrição → pausa até o fim + alerta + evento aditivo (P-048)                                                                                                                                             | `feature/onda2-baileys`             | —                                                                                   | ✅ 26/09 · 8b513c5 |
 | E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | PR #11 aberto; sem merge/deploy; canário após E12                                   | ✅ 26/09 · 7c0441c |
-| E10   | 2    | Baileys: download de mídia com timeout, proxy e reupload (P-050/P-075)                                                                                                                                                               | `feature/onda2-baileys`             | PR #11; sem merge/deploy; canário após E12                                          | ✅ 26/09           |
+| E10   | 2    | Baileys: download de mídia com timeout, proxy e reupload (P-050/P-075)                                                                                                                                                               | `feature/onda2-baileys`             | PR #11; sem merge/deploy; canário após E12                                          | ✅ 26/09 · b489b21 |
 | E11   | 2    | Baileys: patch-package mínimo (#2751 Curve.verify, #2815 stream de mídia) (P-051)                                                                                                                                                    | `feature/onda2-baileys`             | teste de pareamento com chip (B-007)                                                | ⬜                 |
 | E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys`             | **merge = deploy B**                                                                | ⬜                 |
 | E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-exclusividade-ritmo` | —                                                                                   | ⬜                 |
@@ -331,8 +331,9 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
   novo; `ptvMessage` usa alias de `videoMessage` no reupload, sem perder o `raw` original. Sem campo
   público novo. Testes com rc14/fetch/socket falsos e proxy HTTP local passaram; 843 gateway no
   total e 180 painel, typecheck, fronteiras e ambos os builds locais verdes. A espera interna de
-  `updateMediaMessage` sem cancelamento ficou registrada na P-087. CI/commit entram no checkpoint
-  de fechamento; canário com chip e prova do IP de saída só após E12, merge e deploy B do dono.
+  `updateMediaMessage` sem cancelamento ficou registrada na P-087. Commit `b489b21` com CI `ci`/
+  `imagens` verde no run `36272852120`; canário com chip e prova do IP de saída só após E12,
+  merge e deploy B do dono.
   **Para E11:** patch mínimo P-051, conferir fontes dos PRs e código instalado antes de editar;
   não presumir que #2815 resolve P-087.
 

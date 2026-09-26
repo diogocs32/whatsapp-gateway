@@ -21,7 +21,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/infrastructure/baileys/baileys.engine.ts` | 2435 |
 | `modules/sessions/infrastructure/baileys/baileys.forward.spec.ts` | 1354 |
 | `modules/sessions/infrastructure/baileys/baileys.inbound.spec.ts` | 812 |
-| `modules/sessions/infrastructure/baileys/baileys.media.spec.ts` | 338 |
+| `modules/sessions/infrastructure/baileys/baileys.media.spec.ts` | 335 |
 | `modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts` | 228 |
 | `modules/sessions/infrastructure/baileys/baileys.shutdown.spec.ts` | 92 |
 | `modules/sessions/infrastructure/baileys/browser-fingerprint.ts` | 44 |
@@ -1043,7 +1043,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/sessions/infrastructure/baileys/baileys.media.spec.ts`
 
-338 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.media.spec.ts`
+335 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.media.spec.ts`
 - importa (interno): `modules/sessions/infrastructure/baileys/baileys.engine.ts`
 
 - describe “BaileysEngine — mídia recebida E10” · L118
