@@ -10,6 +10,7 @@
 
 | ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
 | ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
+| integracao-branches | 26/09 19:45 | Reconciliar branches antigas M2 e detector local com a `main`, por PR/CI, sem deploy | histórico M2, guardrail e docs R9/R3 | feature/integracao-branches-20260926 |
 | lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
