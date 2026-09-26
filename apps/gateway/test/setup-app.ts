@@ -89,10 +89,12 @@ const fakeChannel = {
   subscribers: 0,
 };
 
-export async function createTestApp(): Promise<NestFastifyApplication> {
+export async function createTestApp(
+  managerOverride: object = fakeSessionManager,
+): Promise<NestFastifyApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(SessionManager)
-    .useValue(fakeSessionManager)
+    .useValue(managerOverride)
     .compile();
 
   const app = moduleRef.createNestApplication<NestFastifyApplication>(

@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { SessionRestrictedPayload } from '@whatsapp-gateway/contracts';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../bootstrap/config';
-import { PrismaService } from '../../infra/prisma/prisma.service';
+import { PrismaService, Prisma } from '../../infra/prisma/prisma.service';
 import { EventBus } from '../../shared-kernel/event-bus/event-bus';
 import { recordProcessError } from '../../shared-kernel/process-errors';
 import { newId } from '../../shared-kernel/ulid';
@@ -70,6 +71,14 @@ export interface ColdGate {
   allowed: boolean;
   state: GuardrailState;
   reason?: string | null;
+  until?: Date;
+}
+
+export interface MessageGate {
+  allowed: boolean;
+  state: GuardrailState;
+  reason?: string | null;
+  until?: Date;
 }
 
 // G7 — objeto de saúde por sessão (GET /sessions/:id/health). cap_* virão do G8.
@@ -86,6 +95,7 @@ export interface SessionHealth {
   cap_atual: number | null;
   quarentena_desde: string | null;
   cooldown_ate: string | null;
+  restriction_until: string | null;
   ultimos_sinais: string[];
   enforce: boolean;
 }
@@ -109,6 +119,9 @@ type GuardrailRow = Awaited<
 const FLEET_SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Marca de override manual no `reason` — quarentena manual só sai por ação explícita (WA-04).
 const MANUAL_REASON_PREFIX = 'override manual';
+// Se o RPC de timelock falhar ou não trouxer prazo, um sinal duro impede o retry imediato.
+// A trava curta expira sozinha; não inventamos um ban permanente sem horário do WhatsApp.
+const RESTRICTION_PROVISIONAL_MS = 60_000;
 
 @Injectable()
 export class GuardrailService {
@@ -404,6 +417,8 @@ export class GuardrailService {
   // a esses valores por override manual (a avaliação automática não aplica), então o automático
   // nunca bloqueia até enforce=true — mas um pause/quarentena MANUAL bloqueia sempre.
   async canSendCold(sessionId: string): Promise<ColdGate> {
+    const restriction = await this.canSendMessage(sessionId);
+    if (!restriction.allowed) return restriction;
     const gr = await this.getState(sessionId);
     const state = gr.state as GuardrailState;
     if (BLOCKS_COLD.has(state)) {
@@ -417,11 +432,106 @@ export class GuardrailService {
     return { allowed: true, state };
   }
 
+  // P-048: trava independente do estado G5 e de GUARDRAIL_ENFORCE. Vale também para chat aberto,
+  // encaminhamento, reação e campanha. Ler o prazo no banco em TODO envio cobre restart e múltiplas
+  // instâncias; o próprio relógio libera automaticamente quando vence.
+  async canSendMessage(sessionId: string): Promise<MessageGate> {
+    const row = await this.prisma.sessionGuardrail.findUnique({
+      where: { sessionId },
+      select: { restrictionUntil: true, restrictionSignal: true },
+    });
+    const until = row?.restrictionUntil;
+    if (until && until.getTime() > Date.now()) {
+      const reason = `Envios pausados pelo WhatsApp (${row.restrictionSignal ?? 'restrição'}) até ${until.toISOString()}`;
+      void this.emit(sessionId, 'send.blocked', {
+        state: 'quarentena',
+        motivo: reason,
+        restriction_until: until.toISOString(),
+      }).catch((e: unknown) => this.emitFailed('send.blocked', sessionId, e));
+      return { allowed: false, state: 'quarentena', reason, until };
+    }
+    return { allowed: true, state: 'ativa' };
+  }
+
+  async recordReachoutRestriction(
+    sessionId: string,
+    signal: '463' | 'reachoutTimeLock' | 'message-capping',
+    options: {
+      until?: Date;
+      source?: 'timeEnforcementEnds' | 'cycle_end_timestamp';
+      enforcementType?: string;
+    } = {},
+  ): Promise<Date> {
+    const now = new Date();
+    const supplied = options.until;
+    const hasValidEnd =
+      supplied instanceof Date &&
+      Number.isFinite(supplied.getTime()) &&
+      supplied.getTime() > now.getTime();
+    const until = hasValidEnd
+      ? supplied
+      : new Date(now.getTime() + RESTRICTION_PROVISIONAL_MS);
+    const source = hasValidEnd
+      ? (options.source ?? 'timeEnforcementEnds')
+      : 'temporary';
+    // A linha precisa existir antes do updateMany. `recordHardSignal` registra o último sinal,
+    // mas 463 NÃO aplica quarentena com cooldown de 48 h: o prazo nativo é a única trava.
+    await this.recordHardSignal(sessionId, signal);
+    const extension: Prisma.SessionGuardrailWhereInput[] =
+      source === 'timeEnforcementEnds'
+        ? [
+            { restrictionSource: { not: 'timeEnforcementEnds' } },
+            { restrictionUntil: { lt: until } },
+          ]
+        : source === 'cycle_end_timestamp'
+          ? [
+              { restrictionSource: 'temporary' },
+              {
+                restrictionSource: 'cycle_end_timestamp',
+                restrictionUntil: { lt: until },
+              },
+            ]
+          : [];
+    const changed = await this.prisma.sessionGuardrail.updateMany({
+      where: {
+        sessionId,
+        OR: [
+          { restrictionUntil: null },
+          { restrictionUntil: { lte: now } },
+          ...extension,
+        ],
+      },
+      data: {
+        restrictionUntil: until,
+        restrictionSignal: signal,
+        restrictionSource: source,
+        restrictionType: options.enforcementType ?? null,
+      },
+    });
+    if (changed.count) {
+      try {
+        const payload = {
+          signal,
+          pausedUntil: until.toISOString(),
+          timeEnforcementEnds:
+            source === 'timeEnforcementEnds' ? until.toISOString() : null,
+          source,
+          enforcementType: options.enforcementType ?? null,
+        } satisfies SessionRestrictedPayload;
+        await this.emit(sessionId, 'session.restricted', payload);
+      } catch (e) {
+        this.emitFailed('session.restricted', sessionId, e);
+      }
+    }
+    return until;
+  }
+
   // Sinal duro (463, close não-recuperável, restrição). Emite o evento sempre; aplica quarentena/
   // banida só com enforce (em observação só registra o último sinal).
   //
   // WA-03 (auditoria 09/2026) — taxonomia: só `ban`/`restriction` (confirmação explícita de
-  // restrição da conta) viram `banida`; `463` (número cru) vira quarentena; `401`/`loggedOut` é
+  // ban sem prazo) viram `banida`; `463` usa o prazo nativo da P-048, sem cooldown G5;
+  // `401`/`loggedOut` é
   // CREDENCIAL/aparelho desvinculado (o enum do Baileys distingue loggedOut=401 de forbidden=403)
   // e NÃO é prova de ban — só fica registrado como último sinal, sem transição.
   async recordHardSignal(sessionId: string, signal: string): Promise<void> {
@@ -438,11 +548,7 @@ export class GuardrailService {
       );
     }
     const target: GuardrailState | null =
-      signal === 'ban' || signal === 'restriction'
-        ? 'banida'
-        : signal === '463'
-          ? 'quarentena'
-          : null; // 401/loggedOut/outros: sem transição automática
+      signal === 'ban' || signal === 'restriction' ? 'banida' : null; // 463/401/outros: sem transição automática G5
     if (this.enforce && target) {
       await this.apply(sessionId, target, `sinal duro: ${signal}`);
     }
@@ -486,6 +592,10 @@ export class GuardrailService {
       cap_atual: null,
       quarentena_desde: gr.quarentenaDesde?.toISOString() ?? null,
       cooldown_ate: gr.cooldownAte?.toISOString() ?? null,
+      restriction_until:
+        gr.restrictionUntil && gr.restrictionUntil.getTime() > Date.now()
+          ? gr.restrictionUntil.toISOString()
+          : null,
       ultimos_sinais: gr.ultimoSinal ? [gr.ultimoSinal] : [],
       enforce: this.enforce,
     };

@@ -9,7 +9,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/messaging/application/chat-jids.ts` | 26 |
 | `modules/messaging/application/forward.decision.spec.ts` | 458 |
 | `modules/messaging/application/forward.decision.ts` | 188 |
-| `modules/messaging/application/forward.service.ts` | 521 |
+| `modules/messaging/application/forward.service.ts` | 567 |
 | `modules/messaging/application/inbox-sync.service.ts` | 90 |
 | `modules/messaging/application/message-persister.service.ts` | 71 |
 | `modules/messaging/application/reaction-key.spec.ts` | 115 |
@@ -24,12 +24,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/messaging/domain/message.repository.ts` | 126 |
 | `modules/messaging/domain/reaction.repository.ts` | 35 |
 | `modules/messaging/infrastructure/prisma-inbox.repository.ts` | 207 |
-| `modules/messaging/infrastructure/prisma-message.repository.ts` | 342 |
+| `modules/messaging/infrastructure/prisma-message.repository.ts` | 344 |
 | `modules/messaging/infrastructure/prisma-reaction.repository.ts` | 64 |
 | `modules/messaging/interface/content-disposition.spec.ts` | 187 |
 | `modules/messaging/interface/content-disposition.ts` | 60 |
 | `modules/messaging/interface/inbox.controller.ts` | 203 |
-| `modules/messaging/interface/messages.controller.ts` | 860 |
+| `modules/messaging/interface/messages.controller.ts` | 862 |
 | `modules/messaging/messaging.module.ts` | 37 |
 
 ## `modules/messaging/application/chat-jids.ts`
@@ -108,88 +108,88 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `FORWARDABLE_TYPES` = `new Set([ 'text', 'image', 'video', 'audio', 'document', 'sticker', '…` · L12
 - `TYPE_LABEL` = `{ poll: 'enquete', event: 'evento', group_invite: 'convite de grupo',…` · L23
 - `unsupportedTypeLabel(type)` · L31
-  - chamado por: `ForwardService.forward` (forward.service.ts:101)
+  - chamado por: `ForwardService.forward` (forward.service.ts:102)
 - `canonicalDestination(raw)` · L54
   - chama: `phone` L102
-  - chamado por: `ForwardService.forward` (forward.service.ts:101)
+  - chamado por: `ForwardService.forward` (forward.service.ts:102)
 - `phone(input, digits)` · L102
   - chama: `candidateJids` (chat-jids.ts:6)
   - chamado por: `canonicalDestination` L54
 - `findDuplicate(dests)` · L116
-  - chamado por: `ForwardService.forward` (forward.service.ts:101)
+  - chamado por: `ForwardService.forward` (forward.service.ts:102)
 - `exceedsFrequentLimit(score, targets, frequentMin)` · L135
-  - chamado por: `ForwardService.forward` (forward.service.ts:101), `ForwardService.runReserved` (forward.service.ts:169)
+  - chamado por: `ForwardService.forward` (forward.service.ts:102), `ForwardService.runReserved` (forward.service.ts:170)
 - `derivedKey(base, dest)` · L146
-  - chamado por: `ForwardService.runReserved` (forward.service.ts:169)
+  - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
 - `batchFingerprint(keyId, dests)` · L153
   - chama: `sendFingerprint` (send-intent.decision.ts:53)
-  - chamado por: `ForwardService.runReserved` (forward.service.ts:169)
+  - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
 - `destinationFingerprint(keyId, dest)` · L167
   - chama: `sendFingerprint` (send-intent.decision.ts:53)
-  - chamado por: `ForwardService.runReserved` (forward.service.ts:169)
+  - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
 - `batchStatus(items)` · L176
-  - chamado por: `ForwardService.runReserved` (forward.service.ts:169)
+  - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
 - `forwardGapMs(random)` · L185
-  - chamado por: `ForwardService.gapMs` (forward.service.ts:406)
+  - chamado por: `ForwardService.gapMs` (forward.service.ts:452)
 
 **Tipos**
 - interface `ForwardDestination` L43 · 6 propriedade(s)
 
 ## `modules/messaging/application/forward.service.ts`
 
-521 linhas · caminho: `apps/gateway/src/modules/messaging/application/forward.service.ts`
-- importa (interno): `modules/guardrail/guardrail.service.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/messaging/domain/message.repository.ts`, `modules/messaging/application/forward.decision.ts`, `modules/messaging/application/send-intent.service.ts`
+567 linhas · caminho: `apps/gateway/src/modules/messaging/application/forward.service.ts`
+- importa (interno): `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/messaging/domain/message.repository.ts`, `modules/messaging/application/forward.decision.ts`, `modules/messaging/application/send-intent.service.ts`
 - importado por: `modules/messaging/interface/messages.controller.ts`, `modules/messaging/messaging.module.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`
 
-**class `ForwardService`** L86 · @Injectable
+**class `ForwardService`** L87 · @Injectable
 - injeta (construtor): `repo: @Inject(MESSAGE_REPOSITORY) MessageRepository` · `intents: SendIntentService` · `guardrail: GuardrailService` · `manager: SessionManager`
-- `logger` · L88 · private · campo
-- `locks` · L91 · private · campo
-- `lastSentAt` · L92 · private · campo
-- `constructor(repo, intents, guardrail, manager)` · L94
-- `forward(sessionId, ref, input)` · L101 · async
-  - chama: `canonicalDestination` (forward.decision.ts:54), `exceedsFrequentLimit` (forward.decision.ts:135), `findDuplicate` (forward.decision.ts:116), `unsupportedTypeLabel` (forward.decision.ts:31), `limitError` L474, `run` L147, `unsupported` L465, `withSessionLock` L448, `MessageRepository.findByRef` (message.repository.ts:108)
-  - chamado por: `MessagesController.forward` (messages.controller.ts:528)
-- `run(sessionId, orig, dests, input)` · L147 · private · async
-  - chama: `runReserved` L169, `SendIntentService.fail` (send-intent.service.ts:105)
-  - chamado por: `forward` L101
-- `runReserved(sessionId, orig, dests, input, reserved)` · L169 · private · async
-  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:406), `batchFingerprint` (forward.decision.ts:153), `batchStatus` (forward.decision.ts:176), `derivedKey` (forward.decision.ts:146), `destinationFingerprint` (forward.decision.ts:167), `exceedsFrequentLimit` (forward.decision.ts:135), `failAll` L414, `finishBatch` L433, `limitError` L474, `sendOne` L357, `toSource` L484, `SendIntentService.reserve` (send-intent.service.ts:26), `MessageRepository.findByIdempotencyKey` (message.repository.ts:80), `MessageRepository.findInboundChat` (message.repository.ts:92), `SessionManager.prepareForward` (session-manager.service.ts:572)
-  - chamado por: `run` L147
-- `sendOne(sessionId, prepared, p, results)` · L357 · private · async
-  - chama: `pace` L399, `withTimeout` L501, `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `PreparedForward.send` (engine.port.ts:278)
-  - chamado por: `runReserved` L169
-- `pace(sessionId)` · L399 · protected · async
-  - chama: `gapMs` L406, `sleep` L410
-  - chamado por: `sendOne` L357
-- `gapMs()` · L406 · protected
+- `logger` · L89 · private · campo
+- `locks` · L92 · private · campo
+- `lastSentAt` · L93 · private · campo
+- `constructor(repo, intents, guardrail, manager)` · L95
+- `forward(sessionId, ref, input)` · L102 · async
+  - chama: `canonicalDestination` (forward.decision.ts:54), `exceedsFrequentLimit` (forward.decision.ts:135), `findDuplicate` (forward.decision.ts:116), `unsupportedTypeLabel` (forward.decision.ts:31), `limitError` L520, `run` L148, `unsupported` L511, `withSessionLock` L494, `MessageRepository.findByRef` (message.repository.ts:108)
+  - chamado por: `MessagesController.forward` (messages.controller.ts:529)
+- `run(sessionId, orig, dests, input)` · L148 · private · async
+  - chama: `runReserved` L170, `SendIntentService.fail` (send-intent.service.ts:105)
+  - chamado por: `forward` L102
+- `runReserved(sessionId, orig, dests, input, reserved)` · L170 · private · async
+  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:419), `GuardrailService.canSendMessage` (guardrail.service.ts:438), `batchFingerprint` (forward.decision.ts:153), `batchStatus` (forward.decision.ts:176), `derivedKey` (forward.decision.ts:146), `destinationFingerprint` (forward.decision.ts:167), `exceedsFrequentLimit` (forward.decision.ts:135), `failAll` L460, `finishBatch` L479, `limitError` L520, `sendOne` L402, `toSource` L530, `SendIntentService.reserve` (send-intent.service.ts:26), `MessageRepository.findByIdempotencyKey` (message.repository.ts:80), `MessageRepository.findInboundChat` (message.repository.ts:92), `SessionManager.prepareForward` (session-manager.service.ts:588)
+  - chamado por: `run` L148
+- `sendOne(sessionId, prepared, p, results)` · L402 · private · async
+  - chama: `pace` L445, `withTimeout` L547, `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `PreparedForward.send` (engine.port.ts:286)
+  - chamado por: `runReserved` L170
+- `pace(sessionId)` · L445 · protected · async
+  - chama: `gapMs` L452, `sleep` L456
+  - chamado por: `sendOne` L402
+- `gapMs()` · L452 · protected
   - chama: `forwardGapMs` (forward.decision.ts:185)
-  - chamado por: `pace` L399
-- `sleep(ms)` · L410 · protected
-  - chamado por: `pace` L399
-- `failAll(pending, results, error, status, code)` · L414 · private · async
+  - chamado por: `pace` L445
+- `sleep(ms)` · L456 · protected
+  - chamado por: `pace` L445
+- `failAll(pending, results, error, status, code)` · L460 · private · async
   - chama: `SendIntentService.fail` (send-intent.service.ts:105)
-  - chamado por: `runReserved` L169
-- `finishBatch(batchId, results)` · L433 · private · async
+  - chamado por: `runReserved` L170
+- `finishBatch(batchId, results)` · L479 · private · async
   - chama: `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105)
-  - chamado por: `runReserved` L169
-- `withSessionLock(sessionId, fn)` · L448 · private
-  - chamado por: `forward` L101
-- `unsupported(reason)` · L465 · private
-  - chamado por: `forward` L101
-- `limitError()` · L474 · private
-  - chamado por: `forward` L101, `runReserved` L169
+  - chamado por: `runReserved` L170
+- `withSessionLock(sessionId, fn)` · L494 · private
+  - chamado por: `forward` L102
+- `unsupported(reason)` · L511 · private
+  - chamado por: `forward` L102
+- `limitError()` · L520 · private
+  - chamado por: `forward` L102, `runReserved` L170
 
 **Funções e constantes de topo**
-- `toSource(m)` · L484
-  - chamado por: `runReserved` L169
-- `withTimeout(op, ms, message)` · L501 · async
-  - chamado por: `sendOne` L357
+- `toSource(m)` · L530
+  - chamado por: `runReserved` L170
+- `withTimeout(op, ms, message)` · L547 · async
+  - chamado por: `sendOne` L402
 
 **Tipos**
-- interface `ForwardInput` L40 · 3 propriedade(s)
-- interface `ForwardResult` L47 · 13 propriedade(s)
-- interface `Pending` L64 · 6 propriedade(s)
+- interface `ForwardInput` L41 · 3 propriedade(s)
+- interface `ForwardResult` L48 · 13 propriedade(s)
+- interface `Pending` L65 · 6 propriedade(s)
 
 ## `modules/messaging/application/inbox-sync.service.ts`
 
@@ -202,10 +202,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `logger` · L17 · private · campo
 - `constructor(repo, manager)` · L19
 - `syncChat(sessionId, chatJid, limit)` · L25 · async
-  - chama: `toInput` L65, `MessageRepository.saveHistorical` (message.repository.ts:78), `SessionManager.fetchChatHistory` (session-manager.service.ts:543)
+  - chama: `toInput` L65, `MessageRepository.saveHistorical` (message.repository.ts:78), `SessionManager.fetchChatHistory` (session-manager.service.ts:554)
   - chamado por: `syncAll` L44, `MessagesController.sync` (messages.controller.ts:381)
 - `syncAll(sessionId, opts)` · L44 · async
-  - chama: `syncChat` L25, `SessionManager.listChats` (session-manager.service.ts:540)
+  - chama: `syncChat` L25, `SessionManager.listChats` (session-manager.service.ts:551)
   - chamado por: `MessagesController.sync` (messages.controller.ts:381)
 - `toInput(sessionId, h)` · L65 · private
   - chamado por: `syncChat` L25
@@ -292,7 +292,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `decideOnExistingIntent(row, fingerprint, now, pendingTtlMs)` · L29
   - chamado por: `SendIntentService.reserve` (send-intent.service.ts:26)
 - `sendFingerprint(parts)` · L53
-  - chamado por: `batchFingerprint` (forward.decision.ts:153), `destinationFingerprint` (forward.decision.ts:167), `MessagesController.sendMedia` (messages.controller.ts:643), `MessagesController.sendWithIntent` (messages.controller.ts:561)
+  - chamado por: `batchFingerprint` (forward.decision.ts:153), `destinationFingerprint` (forward.decision.ts:167), `MessagesController.sendMedia` (messages.controller.ts:645), `MessagesController.sendWithIntent` (messages.controller.ts:562)
 
 **Tipos**
 - interface `ExistingIntent` L11 · 5 propriedade(s)
@@ -310,13 +310,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `constructor(prisma)` · L24
 - `reserve(sessionId, idempotencyKey, fingerprint)` · L26 · async
   - chama: `decideOnExistingIntent` (send-intent.decision.ts:29), `newId` (ulid.ts:4)
-  - chamado por: `ForwardService.runReserved` (forward.service.ts:169), `MessagesController.sendWithIntent` (messages.controller.ts:561)
+  - chamado por: `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.sendWithIntent` (messages.controller.ts:562)
   - banco: `sendIntent.create`, `sendIntent.findUnique`, `sendIntent.updateMany`
 - `complete(intentId, keyId, chatJid)` · L88 · async
-  - chamado por: `ForwardService.finishBatch` (forward.service.ts:433), `ForwardService.sendOne` (forward.service.ts:357), `MessagesController.sendWithIntent` (messages.controller.ts:561)
+  - chamado por: `ForwardService.finishBatch` (forward.service.ts:479), `ForwardService.sendOne` (forward.service.ts:402), `MessagesController.sendWithIntent` (messages.controller.ts:562)
   - banco: `sendIntent.update`
 - `fail(intentId, error)` · L105 · async
-  - chamado por: `ForwardService.failAll` (forward.service.ts:414), `ForwardService.finishBatch` (forward.service.ts:433), `ForwardService.run` (forward.service.ts:147), `ForwardService.sendOne` (forward.service.ts:357), `MessagesController.sendWithIntent` (messages.controller.ts:561)
+  - chamado por: `ForwardService.failAll` (forward.service.ts:460), `ForwardService.finishBatch` (forward.service.ts:479), `ForwardService.run` (forward.service.ts:148), `ForwardService.sendOne` (forward.service.ts:402), `MessagesController.sendWithIntent` (messages.controller.ts:562)
   - banco: `sendIntent.update`
 - `PENDING_TTL_MS` · L119 · static · campo
 
@@ -405,27 +405,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - chamado por: `InboxSyncService.syncChat` (inbox-sync.service.ts:25)
   - `MessageRepository.findByIdempotencyKey(sessionId, idempotencyKey)` · L80
     - implementado por: `PrismaMessageRepository.findByIdempotencyKey` (prisma-message.repository.ts:130)
-    - chamado por: `ForwardService.runReserved` (forward.service.ts:169), `MessagesController.deduped` (messages.controller.ts:546)
+    - chamado por: `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.deduped` (messages.controller.ts:547)
   - `MessageRepository.updateStatusByKey(sessionId, keyId, status)` · L85
-    - implementado por: `PrismaMessageRepository.updateStatusByKey` (prisma-message.repository.ts:177)
+    - implementado por: `PrismaMessageRepository.updateStatusByKey` (prisma-message.repository.ts:178)
     - chamado por: `MessagePersister.onModuleInit` (message-persister.service.ts:24)
   - `MessageRepository.findInboundChat(sessionId, chatJids)` · L92
     - implementado por: `PrismaMessageRepository.findInboundChat` (prisma-message.repository.ts:144)
-    - chamado por: `ForwardService.runReserved` (forward.service.ts:169)
+    - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
   - `MessageRepository.findByKeyId(sessionId, keyId)` · L97
     - implementado por: `PrismaMessageRepository.findByKeyId` (prisma-message.repository.ts:157)
     - chamado por: `MessagesController.markRead` (messages.controller.ts:484), `MessagesController.reaction` (messages.controller.ts:496)
   - `MessageRepository.listByChat(sessionId, chatJids, limit)` · L101
-    - implementado por: `PrismaMessageRepository.listByChat` (prisma-message.repository.ts:254)
+    - implementado por: `PrismaMessageRepository.listByChat` (prisma-message.repository.ts:256)
     - chamado por: `MessagesController.list` (messages.controller.ts:276)
   - `MessageRepository.findByRef(sessionId, ref)` · L108
-    - implementado por: `PrismaMessageRepository.findByRef` (prisma-message.repository.ts:294)
-    - chamado por: `ForwardService.forward` (forward.service.ts:101), `MessagesController.downloadMedia` (messages.controller.ts:442)
+    - implementado por: `PrismaMessageRepository.findByRef` (prisma-message.repository.ts:296)
+    - chamado por: `ForwardService.forward` (forward.service.ts:102), `MessagesController.downloadMedia` (messages.controller.ts:442)
   - `MessageRepository.listConversations(sessionId, limit)` · L110
-    - implementado por: `PrismaMessageRepository.listConversations` (prisma-message.repository.ts:309)
+    - implementado por: `PrismaMessageRepository.listConversations` (prisma-message.repository.ts:311)
     - chamado por: `MessagesController.conversations` (messages.controller.ts:266)
   - `MessageRepository.searchMessages(sessionId, query, chatJids, limit)` · L117
-    - implementado por: `PrismaMessageRepository.searchMessages` (prisma-message.repository.ts:270)
+    - implementado por: `PrismaMessageRepository.searchMessages` (prisma-message.repository.ts:272)
     - chamado por: `MessagesController.search` (messages.controller.ts:359)
 
 ## `modules/messaging/domain/reaction.repository.ts`
@@ -478,7 +478,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/messaging/infrastructure/prisma-message.repository.ts`
 
-342 linhas · caminho: `apps/gateway/src/modules/messaging/infrastructure/prisma-message.repository.ts`
+344 linhas · caminho: `apps/gateway/src/modules/messaging/infrastructure/prisma-message.repository.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`, `modules/messaging/domain/message.repository.ts`
 - importado por: `modules/messaging/messaging.module.ts`
 
@@ -503,23 +503,23 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - implementa: `MessageRepository.findByKeyId` (message.repository.ts:97)
   - banco: `waMessage.findFirst`
 - `ACK_RANK` · L171 · private · static · campo
-- `updateStatusByKey(sessionId, keyId, status)` · L177 · async
+- `updateStatusByKey(sessionId, keyId, status)` · L178 · async
   - implementa: `MessageRepository.updateStatusByKey` (message.repository.ts:85)
-- `toStored(r)` · L206 · private
-  - chamado por: `findByRef` L294, `listByChat` L254, `searchMessages` L270
-- `listByChat(sessionId, chatJids, limit)` · L254 · async
+- `toStored(r)` · L208 · private
+  - chamado por: `findByRef` L296, `listByChat` L256, `searchMessages` L272
+- `listByChat(sessionId, chatJids, limit)` · L256 · async
   - implementa: `MessageRepository.listByChat` (message.repository.ts:101)
-  - chama: `toStored` L206
+  - chama: `toStored` L208
   - banco: `waMessage.findMany`
-- `searchMessages(sessionId, query, chatJids, limit)` · L270 · async
+- `searchMessages(sessionId, query, chatJids, limit)` · L272 · async
   - implementa: `MessageRepository.searchMessages` (message.repository.ts:117)
-  - chama: `toStored` L206
+  - chama: `toStored` L208
   - banco: `waMessage.findMany`
-- `findByRef(sessionId, ref)` · L294 · async
+- `findByRef(sessionId, ref)` · L296 · async
   - implementa: `MessageRepository.findByRef` (message.repository.ts:108)
-  - chama: `toStored` L206
+  - chama: `toStored` L208
   - banco: `waMessage.findFirst`
-- `listConversations(sessionId, limit)` · L309 · async
+- `listConversations(sessionId, limit)` · L311 · async
   - implementa: `MessageRepository.listConversations` (message.repository.ts:110)
 
 **Funções e constantes de topo**
@@ -614,7 +614,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/messaging/interface/messages.controller.ts`
 
-860 linhas · caminho: `apps/gateway/src/modules/messaging/interface/messages.controller.ts`
+862 linhas · caminho: `apps/gateway/src/modules/messaging/interface/messages.controller.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/directory/contact-directory.service.ts`, `infra/storage/media-storage.service.ts`, `shared-kernel/query-int.ts`, `shared-kernel/safe-fetch.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.guard.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/messaging/application/chat-jids.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/application/send-intent.decision.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/domain/message.repository.ts`, `modules/messaging/domain/reaction.repository.ts`, `modules/messaging/interface/content-disposition.ts`
 - importado por: `modules/messaging/messaging.module.ts`
 
@@ -623,8 +623,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `logger` · L237 · private · campo
 - `constructor(repo, reactions, manager, mediaStorage, guardrail, inboxSyn…)` · L239
 - `assertColdAllowed(id, cold)` · L257 · private · async
-  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:406), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6)
-  - chamado por: `sendWithIntent` L561
+  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:419), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6)
+  - chamado por: `sendWithIntent` L562
 - `conversations(id, limit)` · L266 · async · @Get('conversations')
   - chama: `MessageRepository.listConversations` (message.repository.ts:110), `clampInt` (query-int.ts:4)
 - `list(id, chatId, limit)` · L276 · async · @Get
@@ -640,31 +640,31 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `sync(id, body)` · L381 · async · @Post('sync')
   - chama: `InboxSyncService.syncAll` (inbox-sync.service.ts:44), `InboxSyncService.syncChat` (inbox-sync.service.ts:25)
 - `chatFlag(id, chatId, body)` · L410 · async · @Post(':chatId/flag')
-  - chama: `SessionManager.setChatFlag` (session-manager.service.ts:550)
+  - chama: `SessionManager.setChatFlag` (session-manager.service.ts:561)
 - `downloadMedia(id, msgId)` · L442 · async · @Get(':msgId/media')
   - chama: `MediaStorage.getObject` (media-storage.service.ts:118), `MessageRepository.findByRef` (message.repository.ts:108), `inlineDisposition` (content-disposition.ts:17), `safeContentType` (content-disposition.ts:54)
 - `markRead(id, msgId)` · L484 · async · @Post(':msgId/read')
-  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.markRead` (session-manager.service.ts:535)
+  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.markRead` (session-manager.service.ts:546)
 - `reaction(id, msgId, body)` · L496 · async · @Post(':msgId/reaction')
-  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.sendReaction` (session-manager.service.ts:559)
-- `forward(id, msgId, body)` · L528 · async · @Post(':msgId/forward')
-  - chama: `ForwardService.forward` (forward.service.ts:101)
-- `deduped(id, idempotencyKey)` · L546 · private · async
+  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.sendReaction` (session-manager.service.ts:570)
+- `forward(id, msgId, body)` · L529 · async · @Post(':msgId/forward')
+  - chama: `ForwardService.forward` (forward.service.ts:102)
+- `deduped(id, idempotencyKey)` · L547 · private · async
   - chama: `MessageRepository.findByIdempotencyKey` (message.repository.ts:80)
-  - chamado por: `sendWithIntent` L561
-- `sendWithIntent(id, input, send)` · L561 · private · async
-  - chama: `sendFingerprint` (send-intent.decision.ts:53), `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `SendIntentService.reserve` (send-intent.service.ts:26), `assertColdAllowed` L257, `deduped` L546
-  - chamado por: `sendLocation` L785, `sendMedia` L643, `sendMediaUrl` L713, `sendPoll` L824, `sendText` L614
-- `sendText(id, body)` · L614 · async · @Post('text')
-  - chama: `sendWithIntent` L561, `SessionManager.sendText` (session-manager.service.ts:475)
-- `sendMedia(id, req)` · L643 · async · @Post('media')
-  - chama: `sendFingerprint` (send-intent.decision.ts:53), `inferType` L149, `sendWithIntent` L561, `SessionManager.sendMedia` (session-manager.service.ts:489)
-- `sendMediaUrl(id, body)` · L713 · async · @Post('media-url')
-  - chama: `inferType` L149, `sendWithIntent` L561, `SessionManager.sendMedia` (session-manager.service.ts:489), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
-- `sendLocation(id, body)` · L785 · async · @Post('location')
-  - chama: `sendWithIntent` L561, `SessionManager.sendLocation` (session-manager.service.ts:497)
-- `sendPoll(id, body)` · L824 · async · @Post('poll')
-  - chama: `sendWithIntent` L561, `SessionManager.sendPoll` (session-manager.service.ts:505)
+  - chamado por: `sendWithIntent` L562
+- `sendWithIntent(id, input, send)` · L562 · private · async
+  - chama: `sendFingerprint` (send-intent.decision.ts:53), `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `SendIntentService.reserve` (send-intent.service.ts:26), `assertColdAllowed` L257, `deduped` L547
+  - chamado por: `sendLocation` L787, `sendMedia` L645, `sendMediaUrl` L715, `sendPoll` L826, `sendText` L616
+- `sendText(id, body)` · L616 · async · @Post('text')
+  - chama: `sendWithIntent` L562, `SessionManager.sendText` (session-manager.service.ts:490)
+- `sendMedia(id, req)` · L645 · async · @Post('media')
+  - chama: `sendFingerprint` (send-intent.decision.ts:53), `inferType` L149, `sendWithIntent` L562, `SessionManager.sendMedia` (session-manager.service.ts:500)
+- `sendMediaUrl(id, body)` · L715 · async · @Post('media-url')
+  - chama: `inferType` L149, `sendWithIntent` L562, `SessionManager.sendMedia` (session-manager.service.ts:500), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
+- `sendLocation(id, body)` · L787 · async · @Post('location')
+  - chama: `sendWithIntent` L562, `SessionManager.sendLocation` (session-manager.service.ts:508)
+- `sendPoll(id, body)` · L826 · async · @Post('poll')
+  - chama: `sendWithIntent` L562, `SessionManager.sendPoll` (session-manager.service.ts:516)
 
 **Funções e constantes de topo**
 - `coldField` = `z.boolean().optional()` · L66
@@ -679,7 +679,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `sendLocationSchema` = `z.object({ to: z.string().min(5).max(40), latitude: z.number().min(-9…` · L128
 - `sendPollSchema` = `z.object({ to: z.string().min(5).max(40), name: z.string().min(1).max…` · L139
 - `inferType(mimetype)` · L149
-  - chamado por: `sendMedia` L643, `sendMediaUrl` L713
+  - chamado por: `sendMedia` L645, `sendMediaUrl` L715
 - `toConversationDto(c)` · L156
 - `toReactionDto(r)` · L170
 - `groupSenderOf(m)` · L181

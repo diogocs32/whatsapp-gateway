@@ -70,14 +70,15 @@ Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`,
 
 Catálogo:
 
-| Evento                                                       | Quando                   | Payload-chave                                                                                                                                                                        |
-| ------------------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular |
-| `message.ack`                                                | entrega/leitura          | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read, timestamp }` (casar por `keyId`)                                                                                           |
-| `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                            |
-| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                               |
-| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                                                                                                                                         |
-| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                                                                                                                                  |
+| Evento                                                       | Quando                 | Payload-chave                                                                                                                                                                                   |
+| ------------------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message`                                                    | inbound/eco            | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular            |
+| `message.ack`                                                | entrega/leitura/erro   | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read\|error, timestamp }` (casar por `sessionId` + `keyId`; `error` não mostra tique)                                                       |
+| `message.reaction` (W6, aditivo)                             | o contato/você reagiu  | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                                       |
+| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail   | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                                          |
+| `signal.463` / `signal.restriction`                          | sinal duro             | `{ signal }`                                                                                                                                                                                    |
+| `session.restricted` (E8, aditivo)                           | pausa nativa Baileys   | `{ signal: "463"\|"reachoutTimeLock"\|"message-capping", pausedUntil, timeEnforcementEnds, source, enforcementType }` — datas ISO UTC; `timeEnforcementEnds` só quando confirmado pelo WhatsApp |
+| `send.blocked`                                               | hard-gate barrou envio | `{ state, motivo, restriction_until? }` (`restriction_until` só na pausa nativa)                                                                                                                |
 
 > **Handoff (G2):** `source: "phone"` num `fromMe` = o humano respondeu pelo celular → pause a IA.
 > **Reação não é handoff (E22, D-028):** reagir pelo celular não gera mais `message` `source=phone`
@@ -234,7 +235,7 @@ trazem o conteúdo como o WhatsApp Web mostra — nas **duas engines**, com o me
 
 ```
 GET /api/sessions/{sessao}/health
-→ { state, reply_rate, amostra, score, cap_base, cap_atual, cooldown_ate, ultimos_sinais, enforce }
+→ { state, reply_rate, amostra, score, cap_base, cap_atual, cooldown_ate, restriction_until, ultimos_sinais, enforce }
 GET /api/observability/reply-rate/{sessao}?window=7   # ou 30; sem window = ambas
 GET /api/sessions?state=ativa,aquecimento             # filtra a listagem por estado guard-rail
 ```
@@ -250,18 +251,34 @@ notificações de sistema do wwebjs, que contavam por engano, também saem.
 
 Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
 
-- **Hard-gate:** um envio `cold: true` numa sessão bloqueada responde **HTTP 423 `SESSION_QUARANTINED`**.
-  Envio `cold: false` (chat aberto) sempre passa. → trate o 423 ramificando e re-enfileirando o lead.
+- **Hard-gate G5:** um envio `cold: true` numa sessão em quarentena/banida/pausa manual responde
+  **HTTP 423 `SESSION_QUARANTINED`**. Sem restrição nativa, `cold: false` (chat aberto) passa por
+  esses estados. Trate o 423 ramificando e re-enfileirando o lead.
+- **Restrição nativa Baileys (E8/P-048):** `463`, `reachoutTimeLock` ativo ou
+  `message-capping.update` com `capping_status=CAPPED` pausam **todos os envios de mensagem da
+  sessão** (inclusive `cold: false`, mídia, localização, enquete, reação, encaminhamento e campanha)
+  com o mesmo **423 `SESSION_QUARANTINED`** e `state: "quarentena"` no erro. O `state` persistido de
+  G5 não vira `banida` nem quarentena de 48 h por `463`. O prazo efetivo é
+  o campo `restriction_until` de `GET /sessions/:id/health`; ao vencer, o próximo envio passa automaticamente,
+  sem `/activate`, restart ou `/resume` da campanha. O `timeEnforcementEnds` confirmado prevalece
+  sobre o `cycle_end_timestamp` do capping. Se o WhatsApp não fornecer prazo ou a consulta de 3 s
+  falhar, a pausa provisória dura 60 s e o alerta traz `source: "temporary"` com
+  `timeEnforcementEnds: null`; não há como afirmar o fim remoto nesse caso. O node n8n 0.4.1 já
+  trata 423; inscreva o webhook em `session.restricted` ou `*` para receber o alerta.
 - **Campanhas (09/2026, ABE-02):** `POST /api/campaigns` aceita `firstContact` (default `true`).
   Campanha de 1º contato passa pelo MESMO hard-gate (sessão em quarentena/pausa manual → a
   campanha é **pausada**, não falha por destinatário), envia com `cold: true` (conta no reply-rate)
   e usa `idempotencyKey` determinística por destinatário (retry/stall da fila não duplica).
-  `firstContact: false` = campanha para contatos que já conversam com a sessão (sem gate).
+  `firstContact: false` = campanha para contatos que já conversam com a sessão (sem gate G5).
+  Sob restrição nativa, as duas modalidades re-agendam o job sem mudar a campanha para `PAUSED`;
+  a fila retoma após o prazo. Se o sinal chegar depois da reserva, o destinatário é liberado e
+  re-agendado.
   O `dailyCap` agora conta o **dia local** (fuso da `SessionConfig`), não o total acumulado.
 - **Quarentena/cooldown (09/2026, P-030):** uma sessão em quarentena só volta a `ativa` depois
   do `cooldown_ate` (mesmo que a taxa melhore antes) e uma quarentena aplicada por override
   manual só sai por outro override (`activate`/`warmup`). `401`/loggedOut da engine NÃO vira
-  `banida` (é credencial perdida); só `ban`/`restriction` viram `banida`, `463` vira quarentena.
+  `banida` (é credencial perdida); só `ban`/`restriction` sem prazo viram `banida`. `463` usa a
+  pausa temporária acima, independente de `GUARDRAIL_ENFORCE`.
 - **MODO OBSERVAÇÃO (padrão):** `GUARDRAIL_ENFORCE=false` → o gateway **mede e registra mas NÃO bloqueia**
   nem quarentena automaticamente. **Ligue (`true`) só depois de ter a mediana real da frota.**
 - **Override manual:** `POST /api/sessions/{sessao}/quarantine|warmup|activate|pause`.

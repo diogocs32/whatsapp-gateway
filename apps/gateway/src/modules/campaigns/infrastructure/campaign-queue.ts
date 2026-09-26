@@ -13,6 +13,7 @@ import {
   safeFetch,
 } from '../../../shared-kernel/safe-fetch';
 import { GuardrailService } from '../../guardrail/guardrail.service';
+import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { CampaignRepository } from './campaign.repository';
@@ -126,9 +127,12 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private async requeue(data: CampaignJob): Promise<void> {
+  private async requeue(
+    data: CampaignJob,
+    delayMs = PAUSE_REQUEUE_MS,
+  ): Promise<void> {
     await this.queue.add('send', data, {
-      delay: PAUSE_REQUEUE_MS,
+      delay: delayMs,
       attempts: 1,
       removeOnComplete: true,
       removeOnFail: true,
@@ -143,11 +147,31 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       await this.requeue(data);
       return;
     }
+    const messageGate = await this.guardrail.canSendMessage(c.sessionId);
+    if (!messageGate.allowed) {
+      // Não muda a campanha para PAUSED: esse estado exigiria /resume manual. O job espera e
+      // reconsulta o banco; depois de restrictionUntil ele volta sozinho, inclusive após restart.
+      await this.requeue(
+        data,
+        Math.min(
+          60 * 60_000,
+          Math.max(
+            PAUSE_REQUEUE_MS,
+            (messageGate.until?.getTime() ?? 0) - Date.now(),
+          ),
+        ),
+      );
+      return;
+    }
     // ABE-02: campanha de 1º contato respeita o guard-rail (quarentena/pausa manual) — antes
     // passava por fora do gate que o endpoint /messages aplica a `cold:true`.
     if (c.firstContact) {
       const gate = await this.guardrail.canSendCold(c.sessionId);
       if (!gate.allowed) {
+        if (gate.until) {
+          await this.requeue(data);
+          return;
+        }
         this.logger.warn(
           `campanha ${c.id} pausada pelo guard-rail (${gate.state}${gate.reason ? `: ${gate.reason}` : ''})`,
         );
@@ -234,6 +258,11 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       }
       await this.repo.markRecipientSent(r.id, keyId);
     } catch (e) {
+      if (e instanceof SessionQuarantinedException) {
+        await this.repo.releaseRecipient(r.id);
+        await this.requeue(data);
+        return;
+      }
       await this.repo.markRecipientFailed(r.id, (e as Error).message);
     }
     await this.repo.refreshCounts(c.id);

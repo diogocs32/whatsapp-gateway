@@ -8,7 +8,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `modules/campaigns/application/campaign.service.ts` | 116 |
 | `modules/campaigns/campaigns.module.ts` | 17 |
-| `modules/campaigns/infrastructure/campaign-queue.ts` | 259 |
+| `modules/campaigns/infrastructure/campaign-queue.ts` | 288 |
+| `modules/campaigns/infrastructure/campaign-restriction.spec.ts` | 109 |
 | `modules/campaigns/infrastructure/campaign.repository.ts` | 263 |
 | `modules/campaigns/interface/campaigns.controller.ts` | 200 |
 
@@ -38,7 +39,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `schedulePending` L58, `CampaignRepository.findByIdOrThrow` (campaign.repository.ts:69), `CampaignRepository.transitionToRunning` (campaign.repository.ts:115)
   - chamado por: `create` L31, `CampaignsController.start` (campaigns.controller.ts:158)
 - `schedulePending(id, c, jobPrefix)` · L58 · private · async
-  - chama: `randInt` L8, `CampaignQueue.enqueueSend` (campaign-queue.ts:114), `CampaignRepository.listPendingRecipients` (campaign.repository.ts:91)
+  - chama: `randInt` L8, `CampaignQueue.enqueueSend` (campaign-queue.ts:115), `CampaignRepository.listPendingRecipients` (campaign.repository.ts:91)
   - chamado por: `resume` L88, `start` L40
 - `pause(id)` · L80 · async
   - chama: `CampaignRepository.findByIdOrThrow` (campaign.repository.ts:69), `CampaignRepository.updateStatus` (campaign.repository.ts:102)
@@ -72,38 +73,47 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/campaigns/infrastructure/campaign-queue.ts`
 
-259 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`
-- importa (interno): `bootstrap/config.ts`, `infra/redis/redis-connection.ts`, `shared-kernel/safe-fetch.ts`, `modules/guardrail/guardrail.service.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`
-- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`
+288 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/redis/redis-connection.ts`, `shared-kernel/safe-fetch.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`
+- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`
 
-**class `CampaignQueue`** L68 · @Injectable · `implements OnModuleInit`, `implements OnModuleDestroy`
+**class `CampaignQueue`** L69 · @Injectable · `implements OnModuleInit`, `implements OnModuleDestroy`
 - injeta (construtor): `config: ConfigService<Env, true>` · `repo: CampaignRepository` · `manager: SessionManager` · `guardrail: GuardrailService`
-- `logger` · L70 · private · campo
-- `constructor(config, repo, manager, guardrail)` · L74
-- `onModuleInit()` · L81 · async
-  - chama: `redisConnection` (redis-connection.ts:21), `process` L138
-- `enqueueSend(data, delayMs, jobId)` · L114
+- `logger` · L71 · private · campo
+- `constructor(config, repo, manager, guardrail)` · L75
+- `onModuleInit()` · L82 · async
+  - chama: `redisConnection` (redis-connection.ts:21), `process` L142
+- `enqueueSend(data, delayMs, jobId)` · L115
   - chamado por: `CampaignService.schedulePending` (campaign.service.ts:58)
-  - enfileira: `this.queue.add('send')` L120 · jobId = `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)`
-- `requeue(data)` · L129 · private · async
-  - chamado por: `process` L138
-  - enfileira: `this.queue.add('send')` L130 · sem jobId explícito
-- `process(data)` · L138 · private · async
-  - chama: `requeue` L129, `fetchMedia` L41, `randInt` L31, `sleep` L34, `CampaignRepository.findById` (campaign.repository.ts:65), `CampaignRepository.markRecipientFailed` (campaign.repository.ts:214), `CampaignRepository.markRecipientSent` (campaign.repository.ts:207), `CampaignRepository.refreshCounts` (campaign.repository.ts:233), `CampaignRepository.releaseRecipient` (campaign.repository.ts:187), `CampaignRepository.reserveRecipient` (campaign.repository.ts:128), `CampaignRepository.updateStatus` (campaign.repository.ts:102), `GuardrailService.canSendCold` (guardrail.service.ts:406), `SessionManager.sendMedia` (session-manager.service.ts:489), `SessionManager.sendPresence` (session-manager.service.ts:513), `SessionManager.sendText` (session-manager.service.ts:475)
-  - chamado por: `onModuleInit` L81
-- `onModuleDestroy()` · L242 · async
+  - enfileira: `this.queue.add('send')` L121 · jobId = `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)`
+- `requeue(data, delayMs)` · L130 · private · async
+  - chamado por: `process` L142
+  - enfileira: `this.queue.add('send')` L134 · sem jobId explícito
+- `process(data)` · L142 · private · async
+  - chama: `requeue` L130, `fetchMedia` L42, `randInt` L32, `sleep` L35, `CampaignRepository.findById` (campaign.repository.ts:65), `CampaignRepository.markRecipientFailed` (campaign.repository.ts:214), `CampaignRepository.markRecipientSent` (campaign.repository.ts:207), `CampaignRepository.refreshCounts` (campaign.repository.ts:233), `CampaignRepository.releaseRecipient` (campaign.repository.ts:187), `CampaignRepository.reserveRecipient` (campaign.repository.ts:128), `CampaignRepository.updateStatus` (campaign.repository.ts:102), `GuardrailService.canSendCold` (guardrail.service.ts:419), `GuardrailService.canSendMessage` (guardrail.service.ts:438), `SessionManager.sendMedia` (session-manager.service.ts:500), `SessionManager.sendPresence` (session-manager.service.ts:524), `SessionManager.sendText` (session-manager.service.ts:490)
+  - chamado por: `onModuleInit` L82
+- `onModuleDestroy()` · L271 · async
 
 **Funções e constantes de topo**
-- `randInt(min, max)` · L31
-  - chamado por: `process` L138
-- `sleep(ms)` · L34
-  - chamado por: `process` L138
-- `fetchMedia(url, fallbackMime, maxBytes)` · L41 · async
+- `randInt(min, max)` · L32
+  - chamado por: `process` L142
+- `sleep(ms)` · L35
+  - chamado por: `process` L142
+- `fetchMedia(url, fallbackMime, maxBytes)` · L42 · async
   - chama: `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
-  - chamado por: `process` L138
+  - chamado por: `process` L142
 
 **Tipos**
-- interface `CampaignJob` L20 · 2 propriedade(s)
+- interface `CampaignJob` L21 · 2 propriedade(s)
+
+## `modules/campaigns/infrastructure/campaign-restriction.spec.ts`
+
+109 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign-restriction.spec.ts`
+- importa (interno): `modules/guardrail/session-quarantined.exception.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`
+
+- describe “CampaignQueue — restrição temporária da sessão” · L80
+  - it “reagenda sem PAUSED e retoma o mesmo destinatário quando o prazo vence” · L81
+  - it “restrição entre a reserva e o envio libera o destinatário e reagenda” · L96
 
 ## `modules/campaigns/infrastructure/campaign.repository.ts`
 
@@ -119,7 +129,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignService.create` (campaign.service.ts:31)
   - banco: `campaign.create`
 - `findById(id)` · L65
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `findByIdOrThrow` L69
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142), `findByIdOrThrow` L69
   - banco: `campaign.findUnique`
 - `findByIdOrThrow(id)` · L69 · async
   - chama: `findById` L65
@@ -136,26 +146,26 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `findRecipient(id)` · L98
   - banco: `campaignRecipient.findUnique`
 - `updateStatus(id, status, extra)` · L102
-  - chamado por: `CampaignService.cancel` (campaign.service.ts:106), `CampaignService.pause` (campaign.service.ts:80), `CampaignQueue.process` (campaign-queue.ts:138)
+  - chamado por: `CampaignService.cancel` (campaign.service.ts:106), `CampaignService.pause` (campaign.service.ts:80), `CampaignQueue.process` (campaign-queue.ts:142)
   - banco: `campaign.update`
 - `transitionToRunning(id, startedAt)` · L115 · async
   - chamado por: `CampaignService.resume` (campaign.service.ts:88), `CampaignService.start` (campaign.service.ts:40)
   - banco: `campaign.updateMany`
 - `reserveRecipient(campaignId, recipientId, opts)` · L128 · async
   - chama: `sessionTimezone` L194, `startOfLocalDay` (local-day.ts:8)
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142)
   - banco: `campaignRecipient.count`, `campaignRecipient.findUnique`, `campaignRecipient.update`
 - `releaseRecipient(id)` · L187
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142)
   - banco: `campaignRecipient.updateMany`
 - `sessionTimezone(tx, campaignId)` · L194 · private · async
   - chamado por: `reserveRecipient` L128
   - banco: `campaign.findUnique`
 - `markRecipientSent(id, keyId)` · L207
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142)
   - banco: `campaignRecipient.update`
 - `markRecipientFailed(id, error)` · L214
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142)
   - banco: `campaignRecipient.update`
 - `cancelPending(campaignId)` · L221
   - chamado por: `CampaignService.cancel` (campaign.service.ts:106)
@@ -164,7 +174,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignService.remove` (campaign.service.ts:112)
   - banco: `campaign.delete`
 - `refreshCounts(campaignId)` · L233 · async
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142)
   - banco: `campaign.findUnique`, `campaign.update`, `campaignRecipient.groupBy`
 
 **Tipos**

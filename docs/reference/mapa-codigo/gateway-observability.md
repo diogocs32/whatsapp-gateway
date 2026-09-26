@@ -109,7 +109,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - banco: `waSession.findFirst`
 - `compute(ref, windowDays)` · L80 · async
   - chama: `computeFor` L93, `resolveSessionId` L71
-  - chamado por: `GuardrailService.evaluate` (guardrail.service.ts:236), `GuardrailService.health` (guardrail.service.ts:473), `ObservabilityController.replyRateMetrics` (observability.controller.ts:33)
+  - chamado por: `GuardrailService.evaluate` (guardrail.service.ts:249), `GuardrailService.health` (guardrail.service.ts:579), `ObservabilityController.replyRateMetrics` (observability.controller.ts:33)
 - `snapshot(ref)` · L85 · async
   - chama: `computeFor` L93, `resolveSessionId` L71
   - chamado por: `ObservabilityController.replyRateMetrics` (observability.controller.ts:33)

@@ -420,6 +420,11 @@
   (`packages/contracts` + `INTEGRACAO.md` no mesmo commit) e sem novos códigos HTTP de erro para o node
   n8n 0.4.1 (que só trata 423): a pausa usa o mecanismo de quarentena/423 já existente do guard-rail
   ou fila interna — a E8 escolhe com base no código e documenta.
+- **Registro da E8 (26/09/2026, sem deploy):** a trava temporária foi colocada no
+  `SessionManager` para cobrir também mensagens em chat aberto, mídia, reação e encaminhamento;
+  campanhas re-agendam sem exigir `/resume`. O estado G5 não vira `banida` e o 423 preserva o
+  contrato. Sem prazo informado pelo WhatsApp, a pausa é provisória de 60 s, identificada no
+  alerta como `temporary`.
 - **Alternativas:** marcar como `banida` (rejeitado pelo dono); só registrar e alertar (rejeitado
   pelo dono).
 

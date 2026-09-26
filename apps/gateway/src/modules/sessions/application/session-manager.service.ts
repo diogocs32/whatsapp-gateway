@@ -14,6 +14,8 @@ import { newId } from '../../../shared-kernel/ulid';
 import { ContactDirectory } from '../../../infra/directory/contact-directory.service';
 import { MediaStorage } from '../../../infra/storage/media-storage.service';
 import { ProxyResolver } from '../../proxies/application/proxy-resolver.service';
+import { GuardrailService } from '../../guardrail/guardrail.service';
+import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import {
   SESSION_REPOSITORY,
   type SessionRepository,
@@ -66,6 +68,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly mediaStorage: MediaStorage,
     private readonly contactDirectory: ContactDirectory,
     private readonly engineFactory: EngineFactory,
+    private readonly guardrail: GuardrailService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -156,6 +159,18 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       onEvent: (name, payload) => {
         if (this.engines.get(sessionId) !== created) return;
         void this.handleEngineEvent(sessionId, name, payload);
+      },
+      onRestrictionSignal: async (signal) => {
+        if (this.engines.get(sessionId) !== created) return;
+        await this.guardrail.recordReachoutRestriction(
+          sessionId,
+          signal.signal,
+          {
+            until: signal.until,
+            source: signal.source,
+            enforcementType: signal.enforcementType,
+          },
+        );
       },
       resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
       resolveProxyConfig: () =>
@@ -478,11 +493,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     text: string,
     opts?: SendOptions,
   ): Promise<{ keyId: string; jid: string }> {
-    const engine = this.engines.get(sessionId);
-    if (!engine) throw new Error('Sessão não iniciada');
-    if (engine.getStatus() !== 'WORKING') {
-      throw new Error('Sessão não está conectada');
-    }
+    const engine = await this.sending(sessionId);
     return engine.sendText(to, text, opts);
   }
 
@@ -491,23 +502,23 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     to: string,
     input: SendMediaInput,
   ): Promise<{ keyId: string; jid: string }> {
-    return this.working(sessionId).sendMedia(to, input);
+    return (await this.sending(sessionId)).sendMedia(to, input);
   }
 
-  sendLocation(
+  async sendLocation(
     sessionId: string,
     to: string,
     input: SendLocationInput,
   ): Promise<{ keyId: string; jid: string }> {
-    return this.working(sessionId).sendLocation(to, input);
+    return (await this.sending(sessionId)).sendLocation(to, input);
   }
 
-  sendPoll(
+  async sendPoll(
     sessionId: string,
     to: string,
     input: SendPollInput,
   ): Promise<{ keyId: string; jid: string }> {
-    return this.working(sessionId).sendPoll(to, input);
+    return (await this.sending(sessionId)).sendPoll(to, input);
   }
 
   sendPresence(
@@ -556,24 +567,51 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return this.working(sessionId).setChatFlag(chatJid, flag, enabled);
   }
 
-  sendReaction(
+  async sendReaction(
     sessionId: string,
     chatJid: string,
     msgId: string,
     fromMe: boolean,
     emoji: string,
   ): Promise<void> {
-    return this.working(sessionId).sendReaction(chatJid, msgId, fromMe, emoji);
+    return (await this.sending(sessionId)).sendReaction(
+      chatJid,
+      msgId,
+      fromMe,
+      emoji,
+    );
   }
 
   // P-068 (E24) — encaminhar: a engine carrega e confere a original UMA vez e devolve quem envia
   // para UM destino. O laço (um destino por vez, intervalo, idempotência, gate cold) é do
   // messaging (ForwardService) — o SessionManager só transporta.
-  prepareForward(
+  async prepareForward(
     sessionId: string,
     src: ForwardSource,
   ): Promise<PreparedForward> {
-    return this.working(sessionId).prepareForward(src);
+    const engine = this.working(sessionId);
+    const prepared = await engine.prepareForward(src);
+    return {
+      ...prepared,
+      // O laço do ForwardService espaça cada destino. A restrição pode começar DURANTE esse
+      // intervalo: conferir no momento de cada envio, não só ao preparar a original.
+      send: async (to, opts) => {
+        if ((await this.sending(sessionId)) !== engine) {
+          throw new Error(
+            'Sessão reconectou durante o encaminhamento; repita o pedido',
+          );
+        }
+        return prepared.send(to, opts);
+      },
+    };
+  }
+
+  private async sending(sessionId: string): Promise<IEngine> {
+    const gate = await this.guardrail.canSendMessage(sessionId);
+    if (!gate.allowed) {
+      throw new SessionQuarantinedException(gate.state, gate.reason);
+    }
+    return this.working(sessionId);
   }
 
   // Retorna a engine só se a sessão estiver conectada (WORKING) — usado pelas operações F5.

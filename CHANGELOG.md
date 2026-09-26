@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado — pausa temporária por restrição nativa do Baileys (26/09 — E8/P-048; PR #11, sem deploy)
+
+- `reachoutTimeLock`, `message-capping.update` CAPPED e ACK ERROR 463 agora gravam o sinal e pausam todos os envios da sessão pelo prazo nativo; a consulta `fetchAccountReachoutTimelock()` tem teto de 3 s e intervalo mínimo de 30 s. ERROR 479 é contado sem classificar a sessão como banida.
+- A trava sobrevive a restart por migration aditiva em `session_guardrail`, responde HTTP 423 no contrato já usado pelo n8n e libera o próximo envio após o prazo, sem ação manual. Campanhas aguardam e re-agendam; ACK ERROR passa a persistir como `error`.
+- Evento aditivo `session.restricted` com prazo, fonte e tipo de enforcement em `packages/contracts` e `INTEGRACAO`; sem prazo remoto, a pausa provisória de 60 s é marcada `source: temporary`. Testes unit e e2e com socket falso cobrem pausa, alerta, retomada e envios normais; canário fica para a janela posterior à E12.
+
 ### Alterado — Baileys recupera mensagens recebidas na fila offline (26/09 — E7/P-047; PR #11, sem deploy)
 
 - `messages.upsert` `append` recebido durante queda/reconexão/deploy entra no mesmo fluxo de banco, webhook, Inbox e reply-rate do `notify`, limitado a 48 h. Eco de envio próprio, status e newsletter são filtrados por mensagem.

@@ -47,6 +47,7 @@ function makeManager(): {
     {} as never, // mediaStorage
     {} as never, // contactDirectory
     {} as never, // engineFactory
+    {} as never, // guardrail
   );
   return { manager, published, statusWrites };
 }

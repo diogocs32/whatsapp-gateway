@@ -11,6 +11,7 @@ import makeWASocket, {
   type Contact,
   type GroupMetadata,
   type MessageUpsertType,
+  type NewChatMessageCapInfo,
   type WAMessage,
   type WAMessageKey,
   type WAMessageUpdate,
@@ -43,6 +44,7 @@ import type {
   PreparedForward,
   PresenceState,
   ReactionPayload,
+  ReachoutRestrictionSignal,
   SaveContactInput,
   SendLocationInput,
   SendMediaInput,
@@ -69,6 +71,7 @@ import {
   toNum,
 } from './baileys-content';
 import { shouldAcceptUpsert } from './upsert-decision';
+import { recordProcessError } from '../../../../shared-kernel/process-errors';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -76,6 +79,8 @@ export interface BaileysEngineDeps {
   prisma: PrismaService;
   logger: Logger;
   onEvent: EngineEventHandler;
+  // E8: sinal LOCAL para o SessionManager gravar a pausa no guardrail; não usa EventBus remoto.
+  onRestrictionSignal?: (signal: ReachoutRestrictionSignal) => Promise<void>;
   // Guard anti-vazamento (WA_REQUIRE_PROXY): quando true, a engine RECUSA conectar se resolveAgent
   // não devolver proxy — evita expor o IP do servidor (datacenter) ao WhatsApp. Default false.
   requireProxy?: boolean;
@@ -255,6 +260,8 @@ function mapAckStatus(
     case S.READ:
     case S.PLAYED:
       return 'read';
+    case S.ERROR:
+      return 'error';
     default:
       return null;
   }
@@ -409,6 +416,30 @@ const UPSERT_CACHE_MAX = 2000;
 // (consulta repetida é associada por eles a rate-limit). TTL curto + invalidação por evento.
 const GROUP_META_TTL_MS = 10 * 60_000;
 const GROUP_META_MAX = 500;
+const SOCKET_EVENTS = [
+  'connection.update',
+  'creds.update',
+  'messages.upsert',
+  'messages.update',
+  'message-capping.update',
+  'messages.reaction',
+  'contacts.upsert',
+  'contacts.update',
+  'groups.update',
+  'group-participants.update',
+] as const;
+const TIMELOCK_FETCH_TIMEOUT_MS = 3_000;
+const TIMELOCK_FETCH_MIN_INTERVAL_MS = 30_000;
+
+function cappingCycleEnd(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const raw = Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) return undefined;
+  const date = new Date(raw < 1e12 ? raw * 1000 : raw);
+  return Number.isFinite(date.getTime()) && date.getTime() > Date.now()
+    ? date
+    : undefined;
+}
 
 export class BaileysEngine implements IEngine {
   readonly engineName = 'baileys' as const;
@@ -438,6 +469,8 @@ export class BaileysEngine implements IEngine {
   // para "reconectar". Agora: start/stop/logout cancelam o timer e o callback checa a geração.
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private connectGeneration = 0;
+  private timelockFetch: Promise<void> | null = null;
+  private lastTimelockFetchAt = 0;
   // WA-12: metadata de grupo (jid → metadata + instante) servida ao `cachedGroupMetadata`.
   private readonly groupMetaCache = new Map<
     string,
@@ -499,16 +532,7 @@ export class BaileysEngine implements IEngine {
 
   private async connect(): Promise<void> {
     if (this.sock) {
-      const ev = this.sock.ev as unknown as {
-        removeAllListeners?: (event?: string) => void;
-      };
-      try {
-        ev.removeAllListeners?.('connection.update');
-        ev.removeAllListeners?.('creds.update');
-        ev.removeAllListeners?.('messages.upsert');
-      } catch {
-        /* noop */
-      }
+      this.detachSocketListeners();
       try {
         this.sock.end(undefined);
       } catch {
@@ -607,6 +631,9 @@ export class BaileysEngine implements IEngine {
     // G3 — ACK de entrega/leitura (receipts das mensagens que enviamos).
     sock.ev.on('messages.update', (u) =>
       this.safe(() => this.onMessagesUpdate(u), 'messages.update'),
+    );
+    sock.ev.on('message-capping.update', (info) =>
+      this.safe(() => this.onMessageCapping(info), 'message-capping.update'),
     );
     // Sync de contatos do WhatsApp → diretório persistente (a fonte mais rica de LID↔telefone).
     sock.ev.on('contacts.upsert', (cs) =>
@@ -739,6 +766,24 @@ export class BaileysEngine implements IEngine {
     update: Partial<ConnectionState>,
   ): Promise<void> {
     const { connection, lastDisconnect, qr } = update;
+
+    // rc14: notificação MEX e fetchAccountReachoutTimelock chegam aqui. `isActive:false`
+    // não apaga a pausa: o prazo gravado expira por relógio e evita liberação prematura por
+    // resposta de consulta concorrente a um capping ainda ativo.
+    const lock = update.reachoutTimeLock;
+    if (lock?.isActive) {
+      try {
+        await this.deps.onRestrictionSignal?.({
+          signal: 'reachoutTimeLock',
+          until: lock.timeEnforcementEnds,
+          source: 'timeEnforcementEnds',
+          enforcementType: lock.enforcementType,
+        });
+      } catch (err) {
+        recordProcessError('baileys_restriction_record');
+        this.deps.logger.error({ err }, 'falha ao gravar restrição nativa');
+      }
+    }
 
     if (qr) {
       try {
@@ -965,7 +1010,7 @@ export class BaileysEngine implements IEngine {
 
   // G3 — receipts: o Baileys emite messages.update com `update.status` quando uma mensagem que
   // enviamos é entregue/lida. Traduzimos para um evento `message.ack` first-class.
-  private onMessagesUpdate(updates: WAMessageUpdate[]): void {
+  private async onMessagesUpdate(updates: WAMessageUpdate[]): Promise<void> {
     for (const { key, update } of updates) {
       // P-068 (E24): apagada para todos (REVOKE: `message:null` + stub) e editada (MESSAGE_EDIT:
       // `message.editedMessage`) — Utils/process-message.js:298-307, :364-380. Só MARCAM a linha: o
@@ -981,6 +1026,26 @@ export class BaileysEngine implements IEngine {
           this.markMessage(key.id, !!key.fromMe, 'revokedAt');
         } else if (update.message?.editedMessage) {
           this.markMessage(key.id, !!key.fromMe, 'editedAt');
+        }
+      }
+      if (update.status === proto.WebMessageInfo.Status.ERROR) {
+        const code = String(update.messageStubParameters?.[0] ?? '');
+        if (code === '463' && key.fromMe) {
+          // No rc14 o ramo `MessageAccountRestriction` consome o 463 antes do ramo que consulta
+          // o timelock (messages-recv.js:1513-1552). Trava provisória antes do RPC, com teto.
+          try {
+            await this.deps.onRestrictionSignal?.({ signal: '463' });
+          } catch (err) {
+            recordProcessError('baileys_restriction_record');
+            this.deps.logger.error({ err }, 'falha ao gravar ACK 463');
+          }
+          await this.fetchReachoutTimelock();
+        } else if (code === '479') {
+          recordProcessError('baileys_ack_479');
+          this.deps.logger.warn(
+            { sessionId: this.deps.sessionId, keyId: key.id },
+            'ACK 479: stanza rejeitada; não é prova de restrição',
+          );
         }
       }
       const status = mapAckStatus(update.status);
@@ -1005,6 +1070,78 @@ export class BaileysEngine implements IEngine {
         timestamp: Math.floor(Date.now() / 1000),
       });
     }
+  }
+
+  private async onMessageCapping(info: NewChatMessageCapInfo): Promise<void> {
+    if (info.capping_status !== 'CAPPED') {
+      this.deps.logger.info(
+        {
+          status: info.capping_status,
+          used: info.used_quota,
+          total: info.total_quota,
+        },
+        'atualização do limite de novos chats (sem pausa)',
+      );
+      return;
+    }
+    const until = cappingCycleEnd(info.cycle_end_timestamp);
+    try {
+      await this.deps.onRestrictionSignal?.({
+        signal: 'message-capping',
+        until,
+        source: until ? 'cycle_end_timestamp' : undefined,
+      });
+    } catch (err) {
+      recordProcessError('baileys_restriction_record');
+      this.deps.logger.error({ err }, 'falha ao gravar message-capping');
+    }
+    await this.fetchReachoutTimelock();
+  }
+
+  private fetchReachoutTimelock(): Promise<void> {
+    if (this.timelockFetch) return this.timelockFetch;
+    if (
+      Date.now() - this.lastTimelockFetchAt <
+      TIMELOCK_FETCH_MIN_INTERVAL_MS
+    ) {
+      return Promise.resolve();
+    }
+    const sock = this.sock;
+    if (!sock) return Promise.resolve();
+    this.lastTimelockFetchAt = Date.now();
+    this.timelockFetch = (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const state = await Promise.race([
+          sock.fetchAccountReachoutTimelock(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error('consulta do timelock excedeu 3 s')),
+              TIMELOCK_FETCH_TIMEOUT_MS,
+            );
+            timer.unref?.();
+          }),
+        ]);
+        if (this.sock === sock && state.isActive) {
+          await this.deps.onRestrictionSignal?.({
+            signal: 'reachoutTimeLock',
+            until: state.timeEnforcementEnds,
+            source: 'timeEnforcementEnds',
+            enforcementType: state.enforcementType,
+          });
+        }
+      } catch (err) {
+        recordProcessError('baileys_timelock_fetch');
+        this.deps.logger.warn(
+          { err, sessionId: this.deps.sessionId },
+          'falha ao consultar prazo da restrição; pausa provisória expira sozinha',
+        );
+      } finally {
+        if (timer) clearTimeout(timer);
+        this.timelockFetch = null;
+      }
+    })();
+    return this.timelockFetch;
   }
 
   // P-068 (E24): marca apagada/editada nas linhas do keyId NESTA sessão (o mesmo keyId aparece nas
@@ -1884,9 +2021,7 @@ export class BaileysEngine implements IEngine {
       const ev = this.sock?.ev as unknown as {
         removeAllListeners?: (event?: string) => void;
       };
-      ev?.removeAllListeners?.('connection.update');
-      ev?.removeAllListeners?.('creds.update');
-      ev?.removeAllListeners?.('messages.upsert');
+      for (const event of SOCKET_EVENTS) ev?.removeAllListeners?.(event);
     } catch {
       /* noop */
     }

@@ -18,6 +18,10 @@ interface GuardrailRow {
   quarentenaDesde: Date | null;
   cooldownAte: Date | null;
   ultimoSinal: string | null;
+  restrictionUntil: Date | null;
+  restrictionSignal: string | null;
+  restrictionSource: string | null;
+  restrictionType: string | null;
   eventTs: Date;
 }
 
@@ -57,6 +61,10 @@ class PrismaFake {
         quarentenaDesde: null,
         cooldownAte: null,
         ultimoSinal: null,
+        restrictionUntil: null,
+        restrictionSignal: null,
+        restrictionSource: null,
+        restrictionType: null,
         eventTs: new Date(),
         ...data,
       };
@@ -67,7 +75,14 @@ class PrismaFake {
       where,
       data,
     }: {
-      where: { sessionId: string; eventTs?: Date };
+      where: {
+        sessionId: string;
+        eventTs?: Date;
+        OR?: Array<{
+          restrictionUntil?: null | { lte?: Date; lt?: Date };
+          restrictionSource?: string | { not: string };
+        }>;
+      };
       data: Partial<GuardrailRow>;
     }) => {
       const row = this.rows.get(where.sessionId);
@@ -75,6 +90,31 @@ class PrismaFake {
       if (
         where.eventTs !== undefined &&
         row.eventTs.getTime() !== where.eventTs.getTime()
+      ) {
+        return { count: 0 };
+      }
+      if (
+        where.OR &&
+        !where.OR.some((condition) => {
+          const sourceMatch =
+            condition.restrictionSource === undefined ||
+            (typeof condition.restrictionSource === 'string'
+              ? row.restrictionSource === condition.restrictionSource
+              : row.restrictionSource !== condition.restrictionSource.not);
+          if (!sourceMatch) return false;
+          if (condition.restrictionUntil === null) {
+            return row.restrictionUntil === null;
+          }
+          if (condition.restrictionUntil === undefined) return true;
+          const t = row.restrictionUntil?.getTime();
+          if (t == null) return false;
+          return (
+            (condition.restrictionUntil?.lte !== undefined &&
+              t <= condition.restrictionUntil.lte.getTime()) ||
+            (condition.restrictionUntil?.lt !== undefined &&
+              t < condition.restrictionUntil.lt.getTime())
+          );
+        })
       ) {
         return { count: 0 };
       }
@@ -106,6 +146,10 @@ class PrismaFake {
             quarentenaDesde: null,
             cooldownAte: null,
             ultimoSinal: null,
+            restrictionUntil: null,
+            restrictionSignal: null,
+            restrictionSource: null,
+            restrictionType: null,
             eventTs: new Date(),
             ...create,
           };
@@ -123,6 +167,10 @@ class PrismaFake {
       quarentenaDesde: null,
       cooldownAte: null,
       ultimoSinal: null,
+      restrictionUntil: null,
+      restrictionSignal: null,
+      restrictionSource: null,
+      restrictionType: null,
       eventTs: new Date(0), // passado distante — não interfere no C10 dos testes
       ...patch,
     });
@@ -468,7 +516,7 @@ describe('GuardrailService.recordHardSignal — taxonomia (WA-03)', () => {
     expect(row?.ultimoSinal).toBe('401');
   });
 
-  it('ban/restriction → banida; 463 → quarentena (com enforce)', async () => {
+  it('ban/restriction → banida; 463 só registra sinal (prazo nativo separado)', async () => {
     const prisma = new PrismaFake();
     prisma.seed('S1', { state: 'ativa' });
     prisma.seed('S2', { state: 'ativa' });
@@ -477,7 +525,7 @@ describe('GuardrailService.recordHardSignal — taxonomia (WA-03)', () => {
     await service.recordHardSignal('S1', 'ban');
     await service.recordHardSignal('S2', '463');
     expect(prisma.rows.get('S1')?.state).toBe('banida');
-    expect(prisma.rows.get('S2')?.state).toBe('quarentena');
+    expect(prisma.rows.get('S2')?.state).toBe('ativa');
     await bus.flush();
     expect(bus.eventNames()).toContain('signal.restriction');
     expect(bus.eventNames()).toContain('signal.463');
@@ -490,6 +538,82 @@ describe('GuardrailService.recordHardSignal — taxonomia (WA-03)', () => {
     await service.recordHardSignal('S1', 'ban');
     expect(prisma.rows.get('S1')?.state).toBe('ativa');
     expect(prisma.rows.get('S1')?.ultimoSinal).toBe('ban');
+  });
+});
+
+describe('GuardrailService — pausa nativa temporária (P-048)', () => {
+  it('bloqueia também chat aberto sem banir e libera pelo relógio', async () => {
+    const prisma = new PrismaFake();
+    const bus = new EventBusFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma, bus, enforce: false });
+    const until = new Date(Date.now() + 5 * 60_000);
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until,
+      source: 'timeEnforcementEnds',
+      enforcementType: 'BIZ_QUALITY',
+    });
+    expect(prisma.rows.get('S1')?.state).toBe('ativa');
+    expect(prisma.rows.get('S1')?.restrictionUntil).toEqual(until);
+    expect(await service.canSendMessage('S1')).toMatchObject({
+      allowed: false,
+      state: 'quarentena',
+    });
+    expect((await service.canSendCold('S1')).allowed).toBe(false);
+    expect(bus.eventNames()).toContain('session.restricted');
+    const alert = bus.published.find(
+      (e) => (e.payload as { event?: string }).event === 'session.restricted',
+    )?.payload as { payload?: Record<string, unknown> } | undefined;
+    expect(alert?.payload).toMatchObject({
+      signal: 'reachoutTimeLock',
+      timeEnforcementEnds: until.toISOString(),
+      source: 'timeEnforcementEnds',
+    });
+
+    // A linha continua, mas o prazo vencido deixa o envio passar sem /activate nem restart.
+    prisma.rows.get('S1')!.restrictionUntil = new Date(Date.now() - 1);
+    expect((await service.canSendMessage('S1')).allowed).toBe(true);
+    expect(prisma.rows.get('S1')?.state).toBe('ativa');
+  });
+
+  it('463 começa com pausa curta e prazo confirmado a substitui; repetição não amplia', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma, enforce: true });
+    const initial = await service.recordReachoutRestriction('S1', '463');
+    expect(initial.getTime() - Date.now()).toBeGreaterThan(50_000);
+    expect(prisma.rows.get('S1')?.state).toBe('ativa');
+    const confirmed = new Date(Date.now() + 30_000);
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until: confirmed,
+      source: 'timeEnforcementEnds',
+    });
+    expect(prisma.rows.get('S1')?.restrictionUntil).toEqual(confirmed);
+    await service.recordReachoutRestriction('S1', '463');
+    expect(prisma.rows.get('S1')?.restrictionUntil).toEqual(confirmed);
+    expect(prisma.rows.get('S1')?.state).toBe('ativa');
+  });
+
+  it('timeEnforcementEnds prevalece sobre cycle_end_timestamp do capping', async () => {
+    const prisma = new PrismaFake();
+    prisma.seed('S1', { state: 'ativa' });
+    const { service } = makeService({ prisma });
+    const cycle = new Date(Date.now() + 60 * 60_000);
+    const timelock = new Date(Date.now() + 5 * 60_000);
+    await service.recordReachoutRestriction('S1', 'message-capping', {
+      until: cycle,
+      source: 'cycle_end_timestamp',
+    });
+    await service.recordReachoutRestriction('S1', 'reachoutTimeLock', {
+      until: timelock,
+      source: 'timeEnforcementEnds',
+    });
+    expect(prisma.rows.get('S1')?.restrictionUntil).toEqual(timelock);
+    await service.recordReachoutRestriction('S1', 'message-capping', {
+      until: cycle,
+      source: 'cycle_end_timestamp',
+    });
+    expect(prisma.rows.get('S1')?.restrictionUntil).toEqual(timelock);
   });
 });
 

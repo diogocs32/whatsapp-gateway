@@ -348,6 +348,27 @@ export interface CreateWebhookRequest {
   maxAttempts?: number;
 }
 
+// E8/P-048: alerta aditivo `session.restricted`. `pausedUntil` é sempre o prazo efetivo do
+// gateway; `timeEnforcementEnds` só vem quando o RPC/notificação do WhatsApp confirmou esse
+// campo. O estado G5 da sessão não vira `banida` por este evento.
+export interface SessionRestrictedPayload {
+  signal: '463' | 'reachoutTimeLock' | 'message-capping';
+  pausedUntil: string;
+  timeEnforcementEnds: string | null;
+  source: 'timeEnforcementEnds' | 'cycle_end_timestamp' | 'temporary';
+  enforcementType: string | null;
+}
+
+// `message.ack` (E8): ERROR 463/479 passa a persistir como `error`; o painel não mostra tique.
+export type MessageAckStatus = 'sent' | 'delivered' | 'read' | 'error';
+export interface MessageAckEventPayload {
+  keyId: string;
+  chatJid: string;
+  fromMe: boolean;
+  status: MessageAckStatus;
+  timestamp: number; // Unix seconds
+}
+
 // Eventos disponíveis para assinar (use '*' para todos). E22: `message.ack` e `message.reaction`
 // entram na lista do painel — desde a E22 a reação sai SÓ como `message.reaction` (não mais como
 // `message` tipo `other`). O painel não edita eventos: para incluir, remova e recrie o webhook — NÃO
@@ -359,6 +380,7 @@ export const WEBHOOK_EVENTS = [
   'message.ack',
   'message.reaction',
   'session.status',
+  'session.restricted',
 ] as const;
 
 // ---- API keys (F9.1) ----

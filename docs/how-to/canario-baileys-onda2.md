@@ -1,15 +1,18 @@
-# Canário da Onda 2 — fila offline Baileys (E7)
+# Canário da Onda 2 — fila offline e restrição Baileys (E7/E8)
 
 > Preparação para a janela de deploy B, depois das E8–E12 e do merge pelo dono. Não foi executado
-> na E7. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
+> na E7/E8. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
 > residencial dedicado. Não reiniciar contas da frota para simular queda.
 
 ## Antes da janela
 
 1. Concluir backup com restore testado (B-005) e acertar `stop-first` do gateway (B-004). Confirmar
    qual imagem/SHA está rodando e guardar o rollback; seguir `how-to/rollback-gateway.md`.
-2. Conferir que PR da Onda 2 está mergeado e CI verde, migrations (se houver em E8–E12) aplicadas
-   por `prisma migrate deploy`, `/health` saudável e sessão canário `WORKING` após deploy manual.
+2. Conferir que PR da Onda 2 está mergeado e CI verde, a migration aditiva da E8
+   (`20260926164000_restricao_temporaria`) e as posteriores aplicadas por `prisma migrate deploy`,
+   `/health` saudável e sessão canário `WORKING` após deploy manual. Antes de conectar o chip,
+   consultar o banco e confirmar as quatro colunas `restrictionUntil`, `restrictionSignal`,
+   `restrictionSource` e `restrictionType` em `session_guardrail`.
 3. Separar uma conversa de teste 1:1, um webhook de teste inscrito em `message` (URL distinta do
    Trigger n8n existente) e anotar `sessionId`, `chatJid`, `keyId` e horários. Usar credenciais
    próprias de teste; não tocar números reais da frota.
@@ -32,7 +35,27 @@
 5. Registrar horário, keyId, contagens e SHA no diário da sessão de deploy; em caso de duplicata,
    ausência de evento ou falha de reidratação, seguir o rollback da janela e manter a frota parada.
 
-## Limites conhecidos na E7
+## Verificação da E8 na janela
+
+1. No ambiente local, os testes automatizados usam socket e engine falsos; comprovam ERROR 463,
+   `reachoutTimeLock`, `message-capping.update`, HTTP 423, job do webhook `session.restricted`,
+   ACK `error`, re-agendamento da campanha e volta após o prazo. **Não provocar 463 nem capping
+   num chip real** para repetir esse teste.
+2. No canário, inscrever o webhook de teste em `session.restricted` ou `*`, consultar
+   `GET /api/sessions/:id/health` e verificar `restriction_until: null` antes do envio normal
+   de teste da E7. Se um sinal nativo ocorrer espontaneamente, registrar o evento, a fonte
+   (`timeEnforcementEnds`, `cycle_end_timestamp` ou `temporary`), o prazo e o ACK; confirmar que
+   o estado G5 não vira `banida`. Enquanto o prazo estiver vigente, 423 é o resultado esperado
+   para envios de mensagem da sessão; ao vencer, o próximo envio volta sem `/activate`.
+3. Se o prazo não vier do WhatsApp ou o RPC falhar, o gateway trava por 60 s e alerta com
+   `source=temporary`. Uma retomada depois disso **não prova** que a restrição remota terminou;
+   anotar e investigar o estado no aparelho antes de autorizar mais tráfego. A campanha reconsulta
+   o prazo até vencer e não deve ficar `PAUSED` por esse sinal.
+4. Em rollback de imagem depois de a migration ter sido aplicada, **não reverter a migration**.
+   As colunas são aditivas; a imagem antiga não lê a trava E8. Interromper envios da sessão canário
+   e seguir `how-to/rollback-gateway.md`; não confiar no rollback para manter a pausa temporária.
+
+## Limites conhecidos
 
 - O dedupe entre instâncias simultâneas depende da exclusividade de sessão (P-056, E13); até B-004,
   `start-first` ainda pode abrir a mesma conta em dois containers. O canário só dá prova da sessão

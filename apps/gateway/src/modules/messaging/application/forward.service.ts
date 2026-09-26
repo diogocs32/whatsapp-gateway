@@ -9,6 +9,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { GuardrailService } from '../../guardrail/guardrail.service';
+import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import {
   ForwardSourceError,
   FREQUENTLY_FORWARDED_MIN,
@@ -270,6 +271,26 @@ export class ForwardService {
     if (pending.length) {
       // ---- F2: original na engine + gate cold (uma vez) ----
       let prepared: PreparedForward | null = null;
+      const restriction = await this.guardrail.canSendMessage(sessionId);
+      if (!restriction.allowed) {
+        await this.failAll(
+          pending,
+          results,
+          restriction.reason ?? 'Envios pausados pelo WhatsApp',
+          423,
+          'SESSION_QUARANTINED',
+        );
+        await this.finishBatch(batchId, results);
+        throw new HttpException(
+          {
+            code: 'SESSION_QUARANTINED',
+            state: restriction.state,
+            message: restriction.reason,
+            results,
+          },
+          HttpStatus.LOCKED,
+        );
+      }
       try {
         prepared = await this.manager.prepareForward(sessionId, toSource(orig));
       } catch (e) {
@@ -325,8 +346,32 @@ export class ForwardService {
       }
       // ---- F3: um destino por vez ----
       if (prepared) {
-        for (const p of pending)
-          await this.sendOne(sessionId, prepared, p, results);
+        for (let i = 0; i < pending.length; i++) {
+          try {
+            await this.sendOne(sessionId, prepared, pending[i], results);
+          } catch (e) {
+            if (!(e instanceof SessionQuarantinedException)) throw e;
+            // A restrição pode chegar entre dois destinos, durante o intervalo da E24.
+            // Os anteriores permanecem ok; os restantes recebem 423 no mesmo results[].
+            await this.failAll(
+              pending.slice(i),
+              results,
+              e.message,
+              423,
+              'SESSION_QUARANTINED',
+            );
+            await this.finishBatch(batchId, results);
+            throw new HttpException(
+              {
+                code: 'SESSION_QUARANTINED',
+                state: 'quarentena',
+                message: e.message,
+                results,
+              },
+              HttpStatus.LOCKED,
+            );
+          }
+        }
       }
     }
 
@@ -373,6 +418,7 @@ export class ForwardService {
         'o envio não respondeu a tempo — confira no celular antes de tentar de novo',
       );
     } catch (e) {
+      if (e instanceof SessionQuarantinedException) throw e;
       const msg = (e as Error).message;
       if (p.intentId) await this.intents.fail(p.intentId, msg);
       Object.assign(item, { status: 400, error: msg });

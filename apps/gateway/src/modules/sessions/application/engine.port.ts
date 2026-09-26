@@ -1,4 +1,8 @@
 import type { SessionStatus } from '../domain/session-status';
+import type {
+  MessageAckEventPayload,
+  MessageAckStatus,
+} from '@whatsapp-gateway/contracts';
 
 export interface SessionStatePayload {
   status: SessionStatus;
@@ -60,15 +64,9 @@ export interface MessagePayload {
 
 // G3: ACK de entrega/leitura de uma mensagem (sent→delivered→read). Resolve "enviado ≠ entregue"
 // e alimenta o ACK ratio do score_saude (G4). Persistido em WaMessage.status (último vence, sem regredir).
-export type AckStatus = 'sent' | 'delivered' | 'read';
+export type AckStatus = MessageAckStatus;
 
-export interface MessageAckPayload {
-  keyId: string; // msg_id
-  chatJid: string;
-  fromMe: boolean;
-  status: AckStatus;
-  timestamp: number; // unix seconds (momento do receipt)
-}
+export type MessageAckPayload = MessageAckEventPayload;
 
 // W6 — reação RECEBIDA a uma mensagem (novo evento aditivo no webhook). keyId = id da mensagem-alvo.
 export interface ReactionPayload {
@@ -97,7 +95,17 @@ export type GuardrailEventName =
   | 'session.banned'
   | 'signal.463'
   | 'signal.restriction'
+  | 'session.restricted'
   | 'send.blocked';
+
+// P-048: callback INTERNO Baileys → SessionManager → GuardrailService. Não trafega pelo
+// EventBus entre réplicas (senão o mesmo sinal seria aplicado mais de uma vez).
+export interface ReachoutRestrictionSignal {
+  signal: '463' | 'reachoutTimeLock' | 'message-capping';
+  until?: Date;
+  source?: 'timeEnforcementEnds' | 'cycle_end_timestamp';
+  enforcementType?: string;
+}
 
 // Qualquer evento que trafega no EventBus → webhook OUT.
 export type WaEventName = EngineEventName | GuardrailEventName;
