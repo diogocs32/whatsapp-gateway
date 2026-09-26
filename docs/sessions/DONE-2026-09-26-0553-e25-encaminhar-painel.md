@@ -217,3 +217,9 @@ encaminhar.md` (§4 pelo painel).
   que ficou falsa era a da INTEGRACAO §2 sobre recusas "sem `results`" (divergência da E24, corrigida);
   MAPA-CODIGO §4.5 dizia "118 its" no painel (atualizado) e que o `parseError` descarta o `code`
   (agora lê — anotado no invariante do encaminhar).
+
+## CI do PR #7 (26/09)
+
+- `943b6ed` (feat `06d4ac1` + fix `f6d0116` + docs): **ci** ✅ (3m04s — run 36234576550), **imagens** ✅
+  (2m26s — build dos 2 Dockerfiles + boot do gateway), **advisories** ✅ (run 36234576539). PR #7
+  pronto para o merge do dono (deploy G — `how-to/deploy-g-onda8.md`).
