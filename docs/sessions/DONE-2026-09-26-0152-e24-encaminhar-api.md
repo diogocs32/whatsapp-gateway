@@ -196,6 +196,9 @@ prepareForward`; Baileys (`prepareForward`/`forwardTo`, `raw` das recebidas seri
   unit gateway **471/471** · e2e gateway **281/281** (infra local) · painel **122/122** ·
   `dashboard:build` · `gateway:build` (`dist/main.js`) · `node scripts/mapa-codigo.mjs --check` em
   dia. Mutantes: nó único do Baileys (6 falhas) e casamento do eco antes da janela (4 falhas) mortos.
+- **CI do PR #7 (commits `afecd47` + `b916031`, run 36223333958):** `ci` ✅ (3m20s — lint, format,
+  depcruise, suíte com cobertura, painel), `imagens` ✅ (build dos 2 Dockerfiles + boot do gateway),
+  `advisories` ✅.
 
 ### Reconciliação documental — R3/R9
 
