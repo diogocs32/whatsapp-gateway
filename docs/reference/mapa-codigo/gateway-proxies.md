@@ -6,45 +6,58 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
-| `modules/proxies/application/proxy-resolver.service.ts` | 166 |
+| `modules/proxies/application/proxy-resolver.media.spec.ts` | 113 |
+| `modules/proxies/application/proxy-resolver.service.ts` | 186 |
 | `modules/proxies/application/proxy.service.ts` | 361 |
 | `modules/proxies/domain/proxy-types.ts` | 7 |
 | `modules/proxies/domain/proxy.entity.ts` | 38 |
 | `modules/proxies/domain/proxy.repository.ts` | 64 |
 | `modules/proxies/infrastructure/prisma-proxy.repository.ts` | 224 |
-| `modules/proxies/infrastructure/proxy-agent.factory.ts` | 21 |
+| `modules/proxies/infrastructure/proxy-agent.factory.ts` | 31 |
 | `modules/proxies/infrastructure/proxy-health-tester.ts` | 80 |
 | `modules/proxies/infrastructure/webshare.client.ts` | 60 |
 | `modules/proxies/interface/dto.ts` | 50 |
 | `modules/proxies/interface/proxies.controller.ts` | 179 |
 | `modules/proxies/proxies.module.ts` | 27 |
 
+## `modules/proxies/application/proxy-resolver.media.spec.ts`
+
+113 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.media.spec.ts`
+- importa (interno): `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/infrastructure/proxy-agent.factory.ts`
+
+- describe “ProxyResolver — transporte Baileys (E10)” · L38
+  - it “fetch global do Node usa o dispatcher no proxy HTTP falso, com auth codificada” · L39
+  - it “SOCKS conserva o Agent do socket e não fornece dispatcher para CDN” · L101
+
 ## `modules/proxies/application/proxy-resolver.service.ts`
 
-166 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.service.ts`
+186 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.service.ts`
 - importa (interno): `infra/redis/redis.service.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-types.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/infrastructure/proxy-agent.factory.ts`
-- importado por: `modules/proxies/proxies.module.ts`, `modules/sessions/application/session-manager.service.ts`
+- importado por: `modules/proxies/application/proxy-resolver.media.spec.ts`, `modules/proxies/proxies.module.ts`, `modules/sessions/application/session-manager.service.ts`
 
-**class `ProxyResolver`** L23 · @Injectable
+**class `ProxyResolver`** L26 · @Injectable
 - injeta (construtor): `repo: @Inject(PROXY_REPOSITORY) ProxyRepository` · `redis: RedisService`
-- `logger` · L25 · private · campo
-- `constructor(repo, redis)` · L27
-- `resolve(sessionId)` · L32 · async
-  - chama: `hashString` L13, `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.getAssignment` (proxy.repository.ts:55), `ProxyRepository.listEnabledAlive` (proxy.repository.ts:47), `ProxyRepository.listInRange` (proxy.repository.ts:46), `ProxyRepository.setCurrent` (proxy.repository.ts:57)
-  - chamado por: `resolveAgent` L142, `resolveProxyConfig` L124
-- `reportFailure(sessionId, reason)` · L101 · async
+- `logger` · L28 · private · campo
+- `constructor(repo, redis)` · L30
+- `resolve(sessionId)` · L35 · async
+  - chama: `hashString` L16, `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.getAssignment` (proxy.repository.ts:55), `ProxyRepository.listEnabledAlive` (proxy.repository.ts:47), `ProxyRepository.listInRange` (proxy.repository.ts:46), `ProxyRepository.setCurrent` (proxy.repository.ts:57)
+  - chamado por: `resolveBaileysTransport` L146, `resolveProxyConfig` L127
+- `reportFailure(sessionId, reason)` · L104 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.getAssignment` (proxy.repository.ts:55), `ProxyRepository.updateTest` (proxy.repository.ts:48)
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
-- `resolveProxyConfig(sessionId)` · L124 · async
-  - chama: `resolve` L32
+- `resolveProxyConfig(sessionId)` · L127 · async
+  - chama: `resolve` L35
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
-- `resolveAgent(sessionId)` · L142 · async
-  - chama: `resolve` L32, `ProxyRepository.getAssignment` (proxy.repository.ts:55), `buildProxyAgent` (proxy-agent.factory.ts:14)
+- `resolveBaileysTransport(sessionId)` · L146 · async
+  - chama: `resolve` L35, `ProxyRepository.getAssignment` (proxy.repository.ts:55), `buildMediaDispatcher` (proxy-agent.factory.ts:25), `buildProxyAgent` (proxy-agent.factory.ts:15)
+  - chamado por: `resolveAgent` L182, `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
+- `resolveAgent(sessionId)` · L182 · async
+  - chama: `resolveBaileysTransport` L146
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
 
 **Funções e constantes de topo**
-- `hashString(s)` · L13
-  - chamado por: `resolve` L32
+- `hashString(s)` · L16
+  - chamado por: `resolve` L35
 
 ## `modules/proxies/application/proxy.service.ts`
 
@@ -172,16 +185,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - chamado por: `ProxyService.list` (proxy.service.ts:99), `ProxyService.listAvailable` (proxy.service.ts:205), `ProxyService.testAll` (proxy.service.ts:193)
   - `ProxyRepository.findById(id)` · L45
     - implementado por: `PrismaProxyRepository.findById` (prisma-proxy.repository.ts:132)
-    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:101), `ProxyResolver.resolve` (proxy-resolver.service.ts:32), `ProxyService.ensureAvailable` (proxy.service.ts:218), `ProxyService.test` (proxy.service.ts:178)
+    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyResolver.resolve` (proxy-resolver.service.ts:35), `ProxyService.ensureAvailable` (proxy.service.ts:218), `ProxyService.test` (proxy.service.ts:178)
   - `ProxyRepository.listInRange(start, end)` · L46
     - implementado por: `PrismaProxyRepository.listInRange` (prisma-proxy.repository.ts:137)
-    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:32)
+    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:35)
   - `ProxyRepository.listEnabledAlive()` · L47
     - implementado por: `PrismaProxyRepository.listEnabledAlive` (prisma-proxy.repository.ts:145)
-    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:32)
+    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:35)
   - `ProxyRepository.updateTest(id, r)` · L48
     - implementado por: `PrismaProxyRepository.updateTest` (prisma-proxy.repository.ts:153)
-    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:101), `ProxyService.test` (proxy.service.ts:178)
+    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyService.test` (proxy.service.ts:178)
   - `ProxyRepository.setEnabled(id, enabled)` · L52
     - implementado por: `PrismaProxyRepository.setEnabled` (prisma-proxy.repository.ts:168)
     - chamado por: `ProxyService.setEnabled` (proxy.service.ts:174)
@@ -190,13 +203,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - chamado por: `ProxyService.remove` (proxy.service.ts:170)
   - `ProxyRepository.getAssignment(sessionId)` · L55
     - implementado por: `PrismaProxyRepository.getAssignment` (prisma-proxy.repository.ts:176)
-    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:101), `ProxyResolver.resolve` (proxy-resolver.service.ts:32), `ProxyResolver.resolveAgent` (proxy-resolver.service.ts:142), `ProxyService.getAssignment` (proxy.service.ts:198)
+    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyResolver.resolve` (proxy-resolver.service.ts:35), `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146), `ProxyService.getAssignment` (proxy.service.ts:198)
   - `ProxyRepository.setAssignment(input)` · L56
     - implementado por: `PrismaProxyRepository.setAssignment` (prisma-proxy.repository.ts:183)
     - chamado por: `ProxyService.setAssignment` (proxy.service.ts:246)
   - `ProxyRepository.setCurrent(sessionId, proxyId)` · L57
     - implementado por: `PrismaProxyRepository.setCurrent` (prisma-proxy.repository.ts:203)
-    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:32), `ProxyService.setAssignment` (proxy.service.ts:246)
+    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:35), `ProxyService.setAssignment` (proxy.service.ts:246)
   - `ProxyRepository.usedProxyIds()` · L60
     - implementado por: `PrismaProxyRepository.usedProxyIds` (prisma-proxy.repository.ts:210)
     - chamado por: `ProxyService.ensureAvailable` (proxy.service.ts:218), `ProxyService.listAvailable` (proxy.service.ts:205)
@@ -275,16 +288,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/proxies/infrastructure/proxy-agent.factory.ts`
 
-21 linhas · caminho: `apps/gateway/src/modules/proxies/infrastructure/proxy-agent.factory.ts`
+31 linhas · caminho: `apps/gateway/src/modules/proxies/infrastructure/proxy-agent.factory.ts`
 - importa (interno): `modules/proxies/domain/proxy.entity.ts`
-- importado por: `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`
+- importado por: `modules/proxies/application/proxy-resolver.media.spec.ts`, `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`
 
 **Funções e constantes de topo**
-- `buildProxyUrl(p)` · L6
-  - chamado por: `buildProxyAgent` L14
-- `buildProxyAgent(p)` · L14
-  - chama: `buildProxyUrl` L6
-  - chamado por: `ProxyResolver.resolveAgent` (proxy-resolver.service.ts:142), `ProxyHealthTester.test` (proxy-health-tester.ts:23)
+- `buildProxyUrl(p)` · L7
+  - chamado por: `buildMediaDispatcher` L25, `buildProxyAgent` L15
+- `buildProxyAgent(p)` · L15
+  - chama: `buildProxyUrl` L7
+  - chamado por: `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146), `ProxyHealthTester.test` (proxy-health-tester.ts:23)
+- `buildMediaDispatcher(p)` · L25
+  - chama: `buildProxyUrl` L7
+  - chamado por: `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146)
 
 ## `modules/proxies/infrastructure/proxy-health-tester.ts`
 
@@ -296,7 +312,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `config: ConfigService<Env, true>`
 - `constructor(config)` · L21
 - `test(proxy)` · L23 · async
-  - chama: `buildProxyAgent` (proxy-agent.factory.ts:14)
+  - chama: `buildProxyAgent` (proxy-agent.factory.ts:15)
   - chamado por: `ProxyService.test` (proxy.service.ts:178)
 
 **Tipos**

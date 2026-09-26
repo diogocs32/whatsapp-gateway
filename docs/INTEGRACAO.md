@@ -124,6 +124,16 @@ de grupos, o operador define `WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA=true` no gateway 
 de deploy. Mídia 1:1 continua baixando, agora em blocos de 2 MB com teto de 24 MB e fila por sessão.
 O campo `mediaKey` já era opcional; consumidores devem testar sua presença antes de baixar.
 
+**Baileys após o deploy B da Onda 2 (E10):** a mídia recebida tem até 90 s para baixar, incluindo
+uma tentativa de reupload de até 20 s quando a CDN responde 404/410. Foto, áudio, documento,
+vídeo e vídeo redondo (`ptvMessage`) seguem o mesmo contrato. O download usa o proxy HTTP/HTTPS
+escolhido para a conexão daquela sessão; se a sessão usa SOCKS, o download automático ainda não
+foi validado e a mensagem sai somente com metadados, sem `mediaKey`/`mediaUrl`. O mesmo fallback
+vale se o download, reupload ou armazenamento falhar. Nesses casos, `GET .../media` responde 404.
+O limite de 90 s cobre o download e o reupload, não a gravação no S3. Não há campo, rota ou evento
+novo; o reupload depende de outro aparelho ainda ter a mídia. Esta mudança está apenas no PR da
+Onda 2 até merge e deploy manuais.
+
 ```
 GET /api/sessions/{sessao}/messages/{msgId}/media
 Header: X-Api-Key: <chave>          (ou Bearer do painel)

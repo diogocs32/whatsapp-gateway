@@ -188,7 +188,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `isNotFound` L25, `constructor` L18
   - chamado por: `MessagesController.downloadMedia` (messages.controller.ts:442)
 - `presignedGetUrl(key)` · L144
-  - chamado por: `MessagesController.toDtos` (messages.controller.ts:291), `SessionManager.handleEngineEvent` (session-manager.service.ts:272)
+  - chamado por: `MessagesController.toDtos` (messages.controller.ts:291), `SessionManager.handleEngineEvent` (session-manager.service.ts:274)
 
 **Funções e constantes de topo**
 - `isNotFound(e)` · L25

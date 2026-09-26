@@ -54,6 +54,7 @@
     "rxjs": "^7.8.1",
     "socks-proxy-agent": "^10.1.0",
     "ulid": "^2.3.0",
+    "undici": "8.10.2",
     "whatsapp-web.js": "https://github.com/wwebjs/whatsapp-web.js/archive/1780711a1c86dfeca7c5ba6a66f950eac93dde28.tar.gz",
     "zod": "^3.23.8"
   },

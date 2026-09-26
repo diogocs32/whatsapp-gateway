@@ -207,6 +207,8 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
         );
       },
       resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
+      resolveBaileysTransport: () =>
+        this.proxyResolver.resolveBaileysTransport(sessionId),
       resolveProxyConfig: () =>
         this.proxyResolver.resolveProxyConfig(sessionId),
       resolveWwebjsWebVersion: async () =>

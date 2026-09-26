@@ -4,13 +4,13 @@ dono: Diogo Santos
 revisado_em: 2026-09-26
 validade: 2026-10-26
 status: preparado — não executado; aguardar E12, merge e deploy B por ordem do dono
-origem: E7/P-047, E8/P-048, E9/P-049
+origem: E7/P-047, E8/P-048, E9/P-049, E10/P-050/P-075
 ---
 
-# Canário da Onda 2 — fila offline, restrição e desconexão Baileys (E7–E9)
+# Canário da Onda 2 — fila offline, restrição, desconexão e mídia Baileys (E7–E10)
 
 > Preparação para a janela de deploy B, depois da E12 e do merge pelo dono. Não foi executado
-> na E7–E9. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
+> na E7–E10. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
 > residencial dedicado. Não reiniciar contas da frota para simular queda.
 
 ## Antes da janela
@@ -98,6 +98,32 @@ origem: E7/P-047, E8/P-048, E9/P-049
    RPC confirma `timeEnforcementEnds`. Reconectar, cair ou vencer o prazo local provisório não
    confirma que o WhatsApp removeu a restrição remota.
 
+## Verificação da E10 na janela
+
+1. Antes do canário, conferir que os testes locais/CI cobriram stream pendurado, caminho pelo
+   dispatcher HTTP/HTTPS, falha sem binário, 404/410 com uma solicitação de reupload e vídeo
+   redondo (`ptvMessage`) usando socket/fetch falsos, além de fetch pelo proxy HTTP local com
+   autenticação. O teto de 90 s abrange as duas tentativas de download e a espera pelo reupload;
+   esta espera tem também teto próprio de 20 s. **Não deixar um download real pendurado de
+   propósito** para reproduzir o teste de timeout.
+2. Na janela escolhida pelo dono, atribuir à **sessão de teste** um proxy HTTP/HTTPS dedicado já
+   testado, anotar seu ID e confirmar a saída pelo proxy com registro de tráfego/egress do próprio
+   proxy durante uma mídia de teste. O log de escolha do proxy no gateway, sozinho, não prova a
+   rota da requisição à CDN. Não usar SOCKS para afirmar cobertura da E10: o código conserva a
+   conexão pelo Agent existente, mas emite só metadados da mídia recebida até haver prova do
+   dispatcher nessa modalidade.
+3. Usar apenas mídia criada para o canário, enviada à conversa 1:1 da sessão de teste, incluindo
+   uma imagem e um vídeo redondo quando o aparelho permitir. Anotar `keyId`, tipo, duração,
+   horário, SHA da imagem, proxy escolhido e resultado do webhook `message`. Em download bem
+   sucedido, esperar `mediaKey` e conferir os bytes com `GET .../messages/:msgId/media`. Em falha,
+   esperar o mesmo evento com metadados e sem `mediaKey`/`mediaUrl`, seguido de 404 nessa rota;
+   a conversa não deve desaparecer. Não usar mídia ou mensagens da frota.
+4. Se uma mídia de teste tiver URL da CDN naturalmente expirada e produzir 404/410, registrar o
+   pedido de reupload e a segunda tentativa, sem presumir sucesso: outro aparelho precisa ainda
+   possuir o arquivo. Não fabricar erro na CDN nem reutilizar mídia real para forçar o cenário.
+   O teste automatizado é a prova do ramo de falha; o canário só acrescenta observação real se
+   esse caso ocorrer espontaneamente.
+
 ## Resposta ao 405: protocolo recusado
 
 1. Confirmar o sinal certo: `session.client_too_old` com `{code:405,reason}`, sessão `FAILED` em
@@ -138,3 +164,10 @@ origem: E7/P-047, E8/P-048, E9/P-049
 - O 440 pode ser disputa entre containers/réplicas. A retentativa única da E9 reduz a disputa,
   mas não identifica o dono da sessão; somente lease/fencing da P-056 resolve isso. O canário não
   deve induzir dois processos com as mesmas credenciais.
+- O teto E10 limita a espera do download, mas o reupload da rc14 não oferece cancelamento do
+  listener interno de `messages.media-update`; se o aparelho não responder, ele pode persistir até
+  o socket fechar (D-034, P-087). Um resultado tardio não deve produzir segundo evento nem
+  segundo binário. A correção desse listener depende de patch separado com teste de
+  listeners/fechamento; não provocar falha real na frota. SOCKS4/SOCKS5 e a saída real da CDN só
+  ficam comprovados após testes próprios. O sucesso do download não prova que o S3 esteja
+  disponível em todas as sessões; conferir o GET da mídia.

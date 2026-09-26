@@ -8,14 +8,22 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                | Início      | Objetivo                                                                                                      | Escopo                                                         | Branch                         |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------ |
+| lid-envio-wwebjs  | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs               | fix/lid-envio-wwebjs           |
+| e10-baileys-midia | 26/09 18:04 | E10/P-050/P-075: teto, proxy HTTP/HTTPS e reupload da mídia recebida no Baileys; sem conta/deploy             | `sessions/infrastructure/baileys/`, `proxies/` + docs/lockfile | feature/onda2-baileys (PR #11) |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **26/09 · e10-baileys-midia (E10/P-050/P-075 em andamento, PR #11):** o `ProxyResolver`
+  passa a escolher uma vez o transporte Baileys (`resolveBaileysTransport`), entregando Agent
+  Node para socket/upload e factory de Dispatcher undici para cada download HTTP/HTTPS da CDN.
+  SOCKS segue para conexão, mas download recebido com esse proxy emite apenas metadados até prova
+  de suporte pela CDN, sem fetch direto pelo IP do servidor. Não chamar `resolveAgent` de novo
+  para obter o dispatcher em modos rotativos. Ainda sem merge/deploy/canário.
 
 - **26/09 · e9-baileys-desconexao (E9/P-049, PR #11 — sem deploy):** `wa_sessions` ganhou
   `lastErrorDetails` JSONB pela migration `20260926175800_baileys_disconnect_details`;

@@ -2,6 +2,7 @@ import makeWASocket, {
   BufferJSON,
   DEFAULT_CONNECTION_CONFIG,
   downloadMediaMessage,
+  extractMessageContent,
   fetchLatestBaileysVersion,
   jidNormalizedUser,
   makeCacheableSignalKeyStore,
@@ -21,6 +22,7 @@ import * as QRCode from 'qrcode';
 import type { Agent } from 'node:http';
 import type { Agent as HttpsAgent } from 'node:https';
 import type { Logger } from 'pino';
+import { Agent as UndiciAgent, type Dispatcher } from 'undici';
 import { PrismaService, Prisma } from '../../../../infra/prisma/prisma.service';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
@@ -93,6 +95,12 @@ export interface BaileysEngineDeps {
   requireProxy?: boolean;
   // Resolve o proxy (agent) a cada conexão. null/ausente => conexão direta, sem proxy (§7.4).
   resolveAgent?: () => Promise<Agent | null>;
+  // A mesma escolha de proxy alimenta WebSocket/upload e o fetch da CDN. null na factory com
+  // Agent presente (SOCKS) = mídia apenas com metadados, sem saída direta pelo IP do servidor.
+  resolveBaileysTransport?: () => Promise<{
+    agent: Agent | null;
+    createMediaDispatcher: (() => Dispatcher) | null;
+  }>;
   // Dados crus do proxy (server + auth) para engines que aplicam proxy no browser (wwebjs:
   // --proxy-server + proxyAuthentication). null => conexão direta.
   resolveProxyConfig?: () => Promise<{
@@ -142,6 +150,8 @@ let baileysVersionCache: {
 const BAILEYS_VERSION_TTL_MS = 12 * 60 * 60 * 1000;
 const BAILEYS_VERSION_FETCH_TIMEOUT_MS = 3_000;
 const BAILEYS_VERSION_RETRY_MS = 30_000;
+const MEDIA_DOWNLOAD_WAIT_MS = 90_000;
+const MEDIA_REUPLOAD_WAIT_MS = 20_000;
 let baileysVersionFetch: Promise<VersionSelection> | null = null;
 let lastVersionFetchAt: number | null = null;
 
@@ -497,6 +507,10 @@ function cappingCycleEnd(value: string | undefined): Date | undefined {
 export class BaileysEngine implements IEngine {
   readonly engineName = 'baileys' as const;
   private sock: WASocket | null = null;
+  // Um Dispatcher por mídia permite destruir só a requisição pendurada, sem afetar outros
+  // downloads da sessão. O fetch da rc14 ignora AbortSignal; Promise.race sozinho não o cancela.
+  private createMediaDispatcher: (() => Dispatcher) | null = () =>
+    new UndiciAgent();
   private status: SessionStatus = 'STOPPED';
   private qrBase64: string | null = null;
   private stopped = false;
@@ -630,8 +644,18 @@ export class BaileysEngine implements IEngine {
       selected.source,
     );
 
-    // Proxy (§7.4): o mesmo Agent serve para o WebSocket (`agent`) e para o download de mídia (`fetchAgent`).
-    const agent = (await this.deps.resolveAgent?.()) ?? undefined;
+    // Proxy (§7.4): uma única resolução decide o Agent Node do WebSocket/upload (`fetchAgent`)
+    // e o Dispatcher undici do download. Uma segunda resolução avançaria o cursor rotativo.
+    const transport = await this.deps.resolveBaileysTransport?.();
+    const agent = transport
+      ? (transport.agent ?? undefined)
+      : ((await this.deps.resolveAgent?.()) ?? undefined);
+    this.createMediaDispatcher = transport
+      ? (transport.createMediaDispatcher ??
+        (agent ? null : () => new UndiciAgent()))
+      : agent
+        ? null
+        : () => new UndiciAgent();
     if (this.stopped) return;
 
     // Guard anti-vazamento (opcional, WA_REQUIRE_PROXY): sem proxy resolvido, o WhatsApp seria
@@ -1431,17 +1455,81 @@ export class BaileysEngine implements IEngine {
     original?: proto.IMessage | null,
   ): Promise<void> {
     const rawNow = () => (original ? encodeProto(original) : base.raw);
-    if (!this.sock) return;
+    const sock = this.sock;
+    if (!sock) return;
+    let dispatcher: Dispatcher | undefined;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    let active = true;
+    let dispatcherDestroyed = false;
+    const destroyDispatcher = () => {
+      if (dispatcher && !dispatcherDestroyed) {
+        dispatcherDestroyed = true;
+        // destroy(), ao contrário de close(), interrompe um fetch/stream que nunca terminou.
+        try {
+          void Promise.resolve(dispatcher.destroy()).catch(() => undefined);
+        } catch {
+          /* a falha do cleanup não impede o fallback da mensagem */
+        }
+      }
+    };
     try {
-      const buffer = (await downloadMediaMessage(
-        m,
-        'buffer',
-        {},
-        {
-          reuploadRequest: this.sock.updateMediaMessage,
-          logger: this.deps.logger as never,
-        },
-      )) as Buffer;
+      const createDispatcher = this.createMediaDispatcher;
+      if (!createDispatcher) {
+        throw new Error(
+          'download de mídia via SOCKS não validado; somente metadados',
+        );
+      }
+      dispatcher = createDispatcher();
+      const options = { options: { dispatcher } };
+      // A rc14 não repassa signal ao fetch. O teto cobre download, pedido de reupload e segunda
+      // tentativa JUNTOS. O dispatcher é privado desta mensagem e destruído no timeout.
+      const download = async () => {
+        try {
+          return await downloadMediaMessage(m, 'buffer', options);
+        } catch (error) {
+          const code = (error as { output?: { statusCode?: number } })?.output
+            ?.statusCode;
+          if (!active || (code !== 404 && code !== 410)) throw error;
+          // Não passamos ctx.reuploadRequest à lib: seu ramo usa error.status e não tem teto.
+          // Para ptv, assertMediaContent da rc14 aceita videoMessage mas não ptvMessage;
+          // a referência do nó é compartilhada para preservar url/directPath no raw original.
+          const content = extractMessageContent(m.message);
+          const reuploadMessage = content?.ptvMessage
+            ? { ...m, message: { videoMessage: content.ptvMessage } }
+            : m;
+          let reuploadDeadline: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([
+              sock.updateMediaMessage(reuploadMessage),
+              new Promise<never>((_, reject) => {
+                reuploadDeadline = setTimeout(
+                  () => reject(new Error('reupload de mídia excedeu 20 s')),
+                  MEDIA_REUPLOAD_WAIT_MS,
+                );
+                reuploadDeadline.unref?.();
+              }),
+            ]);
+          } finally {
+            if (reuploadDeadline) clearTimeout(reuploadDeadline);
+          }
+          if (!active)
+            throw new Error('download de mídia expirou após reupload');
+          return downloadMediaMessage(m, 'buffer', options);
+        }
+      };
+      const buffer = await Promise.race([
+        download(),
+        new Promise<never>((_, reject) => {
+          deadline = setTimeout(() => {
+            active = false;
+            destroyDispatcher();
+            reject(new Error('download de mídia excedeu 90 s'));
+          }, MEDIA_DOWNLOAD_WAIT_MS);
+          deadline.unref?.();
+        }),
+      ]);
+      if (deadline) clearTimeout(deadline);
+      deadline = undefined;
 
       const ext = extOf(media.mimetype, media.fileName);
       const safeId = (base.keyId || String(base.timestamp)).replace(
@@ -1484,6 +1572,10 @@ export class BaileysEngine implements IEngine {
         fileName: media.fileName,
         fileSize: media.fileSize,
       });
+    } finally {
+      active = false;
+      if (deadline) clearTimeout(deadline);
+      destroyDispatcher();
     }
   }
 

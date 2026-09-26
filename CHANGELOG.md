@@ -6,6 +6,11 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido — mídia recebida no Baileys (26/09 — E10/P-050/P-075; PR #11, sem deploy)
+
+- Download recebido tem espera total de 90 s, inclusive reupload e segunda tentativa; falha publica o evento com metadados sem `mediaKey`. Um dispatcher Undici 8.10.2 por mídia usa o mesmo proxy HTTP/HTTPS escolhido para o socket e é destruído ao concluir/expirar. Em SOCKS, a CDN não é buscada diretamente e o evento fica só com metadados até prova do caminho pelo proxy.
+- HTTP 404/410 da CDN aciona `sock.updateMediaMessage` com espera de até 20 s e um novo download. Vídeo redondo `ptvMessage` é adaptado para o reupload sem perder o `raw` original. `fetchAgent` permanece no upload. Testes locais usam rc14, fetch/socket falsos e proxy HTTP local; canário real aguarda E12 e ordem do dono. A espera interna sem cancelamento da rc14 está na P-087.
+
 ### Alterado — desconexões e versão do Baileys (26/09 — E9/P-049; PR #11, sem deploy)
 
 - Desconexões 401/403/405/408/411/428/440/500/503/515 agora seguem uma matriz explícita: 403/411/405 param em FAILED, 405 publica `session.client_too_old`, 515 reinicia sem consumir o orçamento comum (com teto separado para repetição) e 440 faz uma tentativa após 60 s sem gravar estado terminal. Quedas transitórias não deixam a engine local aceitar envios no socket fechado.

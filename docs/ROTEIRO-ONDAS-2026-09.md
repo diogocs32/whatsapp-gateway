@@ -47,7 +47,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | PR #11 aberto para a main; sem merge/deploy                                         | ✅ 26/09           |
 | E8    | 2    | Baileys: sinais nativos de restrição → pausa até o fim + alerta + evento aditivo (P-048)                                                                                                                                             | `feature/onda2-baileys`             | —                                                                                   | ✅ 26/09 · 8b513c5 |
 | E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | PR #11 aberto; sem merge/deploy; canário após E12                                   | ✅ 26/09 · 7c0441c |
-| E10   | 2    | Baileys: download de mídia com timeout e pelo proxy (P-050)                                                                                                                                                                          | `feature/onda2-baileys`             | —                                                                                   | ⬜                 |
+| E10   | 2    | Baileys: download de mídia com timeout, proxy e reupload (P-050/P-075)                                                                                                                                                               | `feature/onda2-baileys`             | PR #11; sem merge/deploy; canário após E12                                          | ✅ 26/09           |
 | E11   | 2    | Baileys: patch-package mínimo (#2751 Curve.verify, #2815 stream de mídia) (P-051)                                                                                                                                                    | `feature/onda2-baileys`             | teste de pareamento com chip (B-007)                                                | ⬜                 |
 | E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys`             | **merge = deploy B**                                                                | ⬜                 |
 | E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-exclusividade-ritmo` | —                                                                                   | ⬜                 |
@@ -219,6 +219,16 @@ Execute a E10 do ConexoZenvo (P-050 e P-075) na branch feature/onda2-baileys e n
 No download de mídia recebida, limite a espera a 60–120 s e preserve o fallback sem binário. A rc14 não usa `fetchAgent` no download: passe um `dispatcher` undici pelo proxy HTTP/HTTPS da sessão, sem prometer SOCKS antes de prova. Em 404/410 da CDN, use `sock.updateMediaMessage` com teto para pedir reupload e tente baixar de novo; cubra vídeo redondo `ptvMessage`. Corrija o comentário de `fetchAgent` e teste stream pendurado, proxy, falha e reupload com socket/fetch falsos. Preserve a dedupe E7, a pausa E8 e a matriz/versão E9. Sem conta, mídia ou mensagem real. Atualize contratos/INTEGRACAO se payload mudar, mapa, roteiro, runbook e PR; entregue a mensagem da E11 com CI verde.
 ```
 
+### E11 — Baileys: patch mínimo da rc14 (P-051)
+
+```text
+Execute a E11 do ConexoZenvo (P-051) na branch feature/onda2-baileys e no PR #11, sem merge nem deploy. Siga AGENTS.md/R9 e as Regras de toda etapa do roteiro. Leia o DONE da E10, P-051/P-087 em PENDENCIAS, MAPA-CODIGO §5.1 (P-051), o diário da E10 e o runbook do canário. Confirme a versão instalada da rc14, as fontes oficiais dos PRs #2751/#2815 e o código instalado ANTES de aplicar patch-package.
+
+Faça o patch mínimo no JS compilado para Curve.verify rejeitar assinatura inválida de 64 bytes e para a falha de stream de mídia coberta pelo #2815, sem copiar mudanças extras. Só inclua domainType hosted se a fonte oficial e o caso instalado confirmarem a necessidade. #2789, #2765 e #2781 dependem de reprodução concreta; não aplique por precaução. Prove Curve.verify com a lib real, sem mock, com assinatura inválida e válida; teste o stream com fixture sintética. Confirme postinstall --error-on-fail, guardas de patch e ambos os Dockerfiles/builds. Preserve E7–E10 e o contrato público; avalie P-087 separadamente, sem declarar que o patch cancelou o listener se não houver prova.
+
+Sem conta, QR em aparelho, mídia ou mensagem real. Pareamento/reconexão e saída real por proxy permanecem no canário do dono após E12/merge/deploy B. Atualize mapa, roteiro, runbook, PR e docs pelo R3; entregue a mensagem da E12 com CI verde.
+```
+
 ### E22 — conversas fiéis: gateway (P-066) — abre a Onda 8
 
 ```text
@@ -312,6 +322,19 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064              |
 
 ## Diário de execução
+
+- **26/09 — E10 (sessão `e10-baileys-midia`, PR #11, sem merge/deploy):** P-050/P-075 em código:
+  prazo total de 90 s para o download recebido, com até 20 s de reupload dentro dele; dispatcher
+  Undici 8.10.2 privado por mídia, destruído ao encerrar, passa ao `fetch` da rc14. Uma única
+  escolha de proxy alimenta socket/upload e CDN HTTP/HTTPS; SOCKS entrega apenas metadados até
+  prova, sem fetch direto. Boom 404/410 chama `sock.updateMediaMessage` uma vez e tenta baixar de
+  novo; `ptvMessage` usa alias de `videoMessage` no reupload, sem perder o `raw` original. Sem campo
+  público novo. Testes com rc14/fetch/socket falsos e proxy HTTP local passaram; 843 gateway no
+  total e 180 painel, typecheck, fronteiras e ambos os builds locais verdes. A espera interna de
+  `updateMediaMessage` sem cancelamento ficou registrada na P-087. CI/commit entram no checkpoint
+  de fechamento; canário com chip e prova do IP de saída só após E12, merge e deploy B do dono.
+  **Para E11:** patch mínimo P-051, conferir fontes dos PRs e código instalado antes de editar;
+  não presumir que #2815 resolve P-087.
 
 - **26/09 — E9 (sessão `e9-baileys-desconexao`, commit `7c0441c`, PR #11):** P-049 entregue
   em código: matriz 401/403/405/408/411/428/440/500/503/515, alerta `session.client_too_old`
