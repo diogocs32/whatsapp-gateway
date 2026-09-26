@@ -22,7 +22,8 @@
 - 11:54 — versão instalada `@whiskeysockets/baileys@7.0.0-rc14` e `npm view … dist-tags` conferidos (latest rc14). Documentação oficial: [Receiving Updates](https://github.com/WhiskeySockets/baileys.wiki-site/blob/main/docs/socket/receiving-updates.md) descreve `notify`/`append` e a iteração de todas as mensagens; fonte da versão instalada em `node_modules/@whiskeysockets/baileys/lib/Socket/messages-recv.js:1432` (offline → append) e `messages-send.js:1135-1138` (`emitOwnEvents` → append).
 - 11:58 — `upsert-decision.ts`: janela de 48 h, tolerância de 5 min futuro, filtro de eco `fromMe` no append, status/newsletter e key inválida; `onMessagesUpsert` mantém describe, remetente de grupo e raw, usa cache de keyId + consulta `(sessionId,keyId)` antes de emitir. Sem campo público/migration.
 - 12:03 — validação: 493 unit gateway, 776 testes gateway no `npm run test`, 180 painel; tsc, depcruise, builds gateway/painel e mapa `--check` passaram. E2E novo atravessa DB, job do webhook, Inbox e reply-rate com lote misto e replay após engine nova. `npm run lint` e `format:check` globais só falham nos arquivos locais não versionados preexistentes `seed-mock.js` e `apps/gateway/prisma/seed-mock.ts`; ESLint/Prettier dos arquivos da E7 passaram.
-- 12:05 — commit `1f8cb2b` enviado e PR #11 aberto para `main` (dependente do PR #10 ainda aberto). Nenhuma conta conectada, mensagem real enviada ou ação no Dokploy. CI do PR: registrar no fechamento após passar.
+- 12:05 — commit `1f8cb2b` enviado e PR #11 aberto para `main` (dependente do PR #10 ainda aberto). Nenhuma conta conectada, mensagem real enviada ou ação no Dokploy.
+- 12:11 — CI do commit documental `803f661` no PR #11 verde: jobs `ci` (3m10s) e `imagens` (2m31s), run `36250883011`. Incluiu lint, formato, fronteiras, typechecks, suíte com cobertura, builds e smoke do container. Este registro documental será reenviado ao PR para CI final.
 
 ## Checkpoint R9
 

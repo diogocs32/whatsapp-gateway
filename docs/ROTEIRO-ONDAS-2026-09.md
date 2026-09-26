@@ -306,7 +306,7 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
   nem campo público novo. PR #11 depende do #10 aberto; E8 continua na mesma branch e PR. Limites:
   concorrência de duas instâncias = P-056/B-004; falta de outbox = P-034. Canário após E12 no
   `how-to/canario-baileys-onda2.md`. O `onMessagesUpsert` agora é async; tests privados devem
-  aguardar sua Promise. CI do PR ainda em andamento neste checkpoint.
+  aguardar sua Promise. CI dos jobs `ci` e `imagens` verde no PR #11 (run `36250883011`).
 
 - **26/09 — E6 (sessão `e6-wwebjs-leve`, branch `feature/onda6-wwebjs`, PR #10, D-033):** P-060
   implementada sem deploy/conta real: stream de 2 MB no download, grupo sem auto-download por

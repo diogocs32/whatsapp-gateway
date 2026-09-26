@@ -27,7 +27,8 @@
 > eco próprio, status e newsletter são filtrados por mensagem. Cache + consulta ao banco por
 > `(sessionId,keyId)` evitam replay sequencial, inclusive após restart. Sem migration/campo público.
 > 493 unit gateway, 776 testes gateway no total e 180 painel passaram localmente; E2E comprovou
-> o efeito. PR #11 depende do #10 aberto. A janela de duas instâncias (P-056/B-004) e a ausência de
+> o efeito. Jobs `ci` e `imagens` do PR #11 verdes (run `36250883011`); o PR depende do #10 aberto.
+> A janela de duas instâncias (P-056/B-004) e a ausência de
 > outbox (P-034) permanecem. Produção segue no último SHA **documentado** `768fb26`; nenhuma
 > conta conectada, mensagem real enviada, restart ou Deploy nesta sessão. Canário após E12.
 
