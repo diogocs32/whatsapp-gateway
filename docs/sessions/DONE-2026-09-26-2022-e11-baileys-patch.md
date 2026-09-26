@@ -36,3 +36,12 @@
 - **BLOQUEADO EM VOCÊ:** para canário/deploy B, B-004 (stop-first), B-005 (backup/restore) e B-007 (chip/teste controlado), além de ordem explícita de merge e deploy. Nenhum deles impede o código da E12.
 - **DOCS TOCADAS PELO DIFF:** `CHANGELOG.md`, `docs/DECISOES.md`, `docs/ESTADO.md`, `docs/SESSOES.md`, `docs/SESSOES_ARQUIVO.md`, `docs/PENDENCIAS.md`, `docs/MAPA-CODIGO.md`, `docs/ROTEIRO-ONDAS-2026-09.md`, `docs/reference/mapa-codigo/`, `docs/how-to/canario-baileys-onda2.md` e este DONE.
 - **Próximo chat:** executar E12/P-052 usando a mensagem pronta em `docs/ROTEIRO-ONDAS-2026-09.md`, na mesma branch e PR #15.
+
+## Adendo de 26/09/2026 — orientação posterior do dono
+
+O encerramento acima registra o estado **daquele** chat. No chat seguinte, o dono instruiu
+“faça merge sempre ao fim”, autorizando a integração do PR #15 da E11 após CI verde,
+sem deploy. A E12/P-052 saiu do plano de compartilhar esse PR: deve começar de
+`origin/main` atualizada em `feature/onda2-baileys-e12`, com PR novo e merge ao fim.
+P-087, deploy B manual e canário com chip permanecem separados. Ver o DONE da sessão
+`2026-09-26-2051-merge-e11` e o roteiro atualizado.

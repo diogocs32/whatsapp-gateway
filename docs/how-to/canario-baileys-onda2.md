@@ -3,13 +3,13 @@ tipo: runbook
 dono: Diogo Santos
 revisado_em: 2026-09-26
 validade: 2026-10-26
-status: preparado — não executado; aguardar E12, merge e deploy B por ordem do dono
+status: preparado — não executado; aguardar E12, merge de seu PR e deploy B por ordem do dono
 origem: E7/P-047, E8/P-048, E9/P-049, E10/P-050/P-075
 ---
 
 # Canário da Onda 2 — fila offline, restrição, desconexão, mídia e patch Baileys (E7–E11)
 
-> Revisado em 26/09/2026 na E11. Preparação para a janela de deploy B, depois da E12 e do merge pelo dono. Não foi executado
+> Revisado em 26/09/2026 após a E11. Preparação para a janela de deploy B, depois da E12 e do merge de seu PR. Não foi executado
 > na E7–E11. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
 > residencial dedicado. Não reiniciar contas da frota para simular queda.
 
@@ -17,7 +17,7 @@ origem: E7/P-047, E8/P-048, E9/P-049, E10/P-050/P-075
 
 1. Concluir backup com restore testado (B-005) e acertar `stop-first` do gateway (B-004). Confirmar
    qual imagem/SHA está rodando e guardar o rollback; seguir `how-to/rollback-gateway.md`.
-2. Conferir que PR da Onda 2 está mergeado e CI verde, as migrations aditivas da E8
+2. Conferir que os PRs da Onda 2 (E7–E10 #11, E11 #15 e futuro E12) estão mergeados e com CI verde, as migrations aditivas da E8
    (`20260926164000_restricao_temporaria`) e E9
    (`20260926175800_baileys_disconnect_details`) e as posteriores aplicadas por `prisma migrate deploy`,
    `/health` saudável e sessão canário `WORKING` após deploy manual. Antes de conectar o chip,
