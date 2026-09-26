@@ -12,6 +12,54 @@ export interface MemoryStats {
   memoryUsedPct: number; // RAM do container se houver limite; senão cai no heap V8
 }
 
+// /proc é a fonte de PSS da árvore Chromium no container Linux. No macOS local a métrica
+// fica indisponível (null), sem confundir RSS somado com PSS.
+export function chromiumProcessTree(rootPid: number): number[] {
+  if (!Number.isInteger(rootPid) || rootPid <= 1 || rootPid === process.pid) {
+    return [];
+  }
+  const seen = new Set<number>();
+  const visit = (pid: number): void => {
+    if (seen.has(pid)) return;
+    seen.add(pid);
+    try {
+      const children = readFileSync(
+        `/proc/${pid}/task/${pid}/children`,
+        'utf8',
+      );
+      for (const value of children.trim().split(/\s+/)) {
+        const child = Number(value);
+        if (Number.isInteger(child) && child > 1 && child !== process.pid)
+          visit(child);
+      }
+    } catch {
+      // Processo encerrou durante a coleta ou /proc não existe neste SO.
+    }
+  };
+  visit(rootPid);
+  return [...seen];
+}
+
+export function chromiumTreePss(rootPid: number): {
+  pssBytes: number;
+  processCount: number;
+} | null {
+  let pssKb = 0;
+  let processCount = 0;
+  for (const pid of chromiumProcessTree(rootPid)) {
+    try {
+      const rollup = readFileSync(`/proc/${pid}/smaps_rollup`, 'utf8');
+      const match = /^Pss:\s+(\d+) kB/m.exec(rollup);
+      if (!match) continue;
+      pssKb += Number(match[1]);
+      processCount += 1;
+    } catch {
+      // Um filho pode desaparecer entre a enumeração e a leitura.
+    }
+  }
+  return processCount ? { pssBytes: pssKb * 1024, processCount } : null;
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }

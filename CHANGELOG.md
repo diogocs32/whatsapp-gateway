@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Alterado — wwebjs com perfil de mídia e memória leve (26/09 — E6/P-060, D-033; sem deploy)
+
+- Download recebido por stream de 2 MB, fila por sessão e 24 MB de teto de envio WWEBJS; mídia de grupo só baixa automaticamente com opt-in explícito. Sem opt-in, webhook mantém metadados e não inclui `mediaKey`.
+- `ready` evita varredura de agenda repetida após heal; patch da lib impede injeção concorrente no `onAppStateHasSyncedEvent`; falha/teto de destroy encerra a árvore do Chromium por PID; flags revistas e perfil JSHeap/PSS/IndexedDB por sessão nos logs.
+- Medição local isolada sem conta e roteiro do canário ampliado. Compatibilidade de vídeo, PSS com conta e comportamento real de download em grupo dependem do canário do dono após deploy W.
+
 ### Adicionado — wwebjs pronto para canário isolado (26/09 — sessão `e5-wwebjs-pronto`, etapa E5, P-059/P-073 — **PR #8 mergeado na `main`, deploy W pendente; E6 ainda aberta**; D-032)
 
 - Patch da `whatsapp-web.js@1.34.7` cobre a colisão `__x_id` da mídia, fallback WID/MsgKey, contador de chats descartados e validação da versão no cache local. O default continua na última build validada; a candidata `2.3000.1046934385-alpha` fica disponível por sessão para canário no próximo start.

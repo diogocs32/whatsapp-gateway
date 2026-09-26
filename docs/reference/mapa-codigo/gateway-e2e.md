@@ -23,7 +23,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/g8.e2e-spec.ts` | 151 |
 | `gateway/test/health.e2e-spec.ts` | 24 |
 | `gateway/test/inbox-triage.e2e-spec.ts` | 375 |
-| `gateway/test/media.e2e-spec.ts` | 484 |
+| `gateway/test/media.e2e-spec.ts` | 554 |
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
@@ -31,7 +31,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/sessions.e2e-spec.ts` | 111 |
 | `gateway/test/setup-app.ts` | 179 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
-| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1014 |
+| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1020 |
 
 ## `gateway/test/audit.e2e-spec.ts`
 
@@ -331,28 +331,29 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/media.e2e-spec.ts`
 
-484 linhas · caminho: `apps/gateway/test/media.e2e-spec.ts`
-- importa (interno): `infra/prisma/prisma.service.ts`, `infra/storage/media-storage.service.ts`, `gateway/test/setup-app.ts`
+554 linhas · caminho: `apps/gateway/test/media.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `infra/storage/media-storage.service.ts`, `modules/sessions/application/engine.port.ts`, `gateway/test/setup-app.ts`
 
-- describe “Mídia (e2e)” · L17
-  - it “POST media sem auth → 401” · L33
-  - it “upload multipart → 201 (SessionManager mockado)” · L41
-  - it “upload multipart sem o campo "to" → 400” · L69
-  - it “upload multipart com 2 arquivos → 413 e nada é enviado (limits.files=1)” · L96
-  - it “upload multipart com "to" DEPOIS do arquivo, em pedaço atrasado → 201 (corpo lido até o fim)” · L145
-  - it “upload multipart com campo de nome reservado → 400 e nada é enviado” · L188
-  - it “media-url sem url → 400” · L225
-  - describe “GET /messages/:msgId/media (GAP 2)” · L236
-    - it “baixa os bytes pelo keyId do WhatsApp (o mesmo do webhook)” · L271
-    - it “baixa os bytes pelo ULID interno (id do GET /messages)” · L286
-    - it “mensagem sem mídia → 404 com motivo claro” · L296
-    - describe “Content-Disposition com nome não-Latin-1 (E23)” · L323
-      - it “nome com travessão → 200 + filename* UTF-8 (antes: 500 ERR_INVALID_CHAR)” · L367
-      - it “nome com emoji → 200 + filename*” · L380
-      - it “nome Latin-1 e ASCII → header idêntico ao de antes (sem filename*)” · L392
-      - it “Latin-1 com % ; = \ → 200 + fallback com _ e filename* (antes: header cru)” · L412
-    - describe “Content-Type com mimetype inválido (E23)” · L434
-      - it “mimetype com CR/LF ou não-Latin-1 → 200 com o tipo do S3 (antes: 500), sem header injetado” · L468
+- describe “Mídia (e2e)” · L18
+  - it “POST media sem auth → 401” · L34
+  - it “upload multipart → 201 (SessionManager mockado)” · L42
+  - it “envio WWEBJS sem confirmação mantém intenção pendente até resultado tardio, sem duplicar” · L70
+  - it “upload multipart sem o campo "to" → 400” · L139
+  - it “upload multipart com 2 arquivos → 413 e nada é enviado (limits.files=1)” · L166
+  - it “upload multipart com "to" DEPOIS do arquivo, em pedaço atrasado → 201 (corpo lido até o fim)” · L215
+  - it “upload multipart com campo de nome reservado → 400 e nada é enviado” · L258
+  - it “media-url sem url → 400” · L295
+  - describe “GET /messages/:msgId/media (GAP 2)” · L306
+    - it “baixa os bytes pelo keyId do WhatsApp (o mesmo do webhook)” · L341
+    - it “baixa os bytes pelo ULID interno (id do GET /messages)” · L356
+    - it “mensagem sem mídia → 404 com motivo claro” · L366
+    - describe “Content-Disposition com nome não-Latin-1 (E23)” · L393
+      - it “nome com travessão → 200 + filename* UTF-8 (antes: 500 ERR_INVALID_CHAR)” · L437
+      - it “nome com emoji → 200 + filename*” · L450
+      - it “nome Latin-1 e ASCII → header idêntico ao de antes (sem filename*)” · L462
+      - it “Latin-1 com % ; = \ → 200 + fallback com _ e filename* (antes: header cru)” · L482
+    - describe “Content-Type com mimetype inválido (E23)” · L504
+      - it “mimetype com CR/LF ou não-Latin-1 → 200 com o tipo do S3 (antes: 500), sem header injetado” · L538
 
 ## `gateway/test/messaging.e2e-spec.ts`
 
@@ -474,7 +475,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/wwebjs-engine.e2e-spec.ts`
 
-1014 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
+1020 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
 - importa (interno): `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`
 
 - describe “WWebJSEngine — guard WA_REQUIRE_PROXY (P0-2)” · L51
@@ -539,12 +540,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “sendText numa página travada falha em segundos com erro acionável e dispara o heal (P-016)” · L733
   - it “mídia acima do teto NÃO baixa: emite metadados com fileSize e não toca downloadMedia (P-017)” · L763
   - it “mídia dentro do teto segue o fluxo normal de download (regressão)” · L792
-  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L820
-- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L847
-  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L860
-  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L873
-  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L907
-- describe “P-019 — watchdog de sync: fim do WORKING falso” · L937
-  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L950
-  - it “página volta a responder → status retorna a WORKING sozinho” · L982
-  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1005
+  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L823
+- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L853
+  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L866
+  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L879
+  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L913
+- describe “P-019 — watchdog de sync: fim do WORKING falso” · L943
+  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L956
+  - it “página volta a responder → status retorna a WORKING sozinho” · L988
+  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1011

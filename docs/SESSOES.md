@@ -8,14 +8,17 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID               | Início      | Objetivo                                                                                                      | Escopo                                                                           | Branch               |
+| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------- |
+| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs                                 | fix/lid-envio-wwebjs |
+| e6-wwebjs-leve   | 26/09 11:13 | E6/P-060: perfil leve de memória do wwebjs, métricas locais e canário documentado                             | `modules/sessions/infrastructure/wwebjs/`, patch wwebjs, métricas, testes e docs | feature/onda6-wwebjs |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **26/09 · e6-wwebjs-leve (E6/P-060, branch da Onda 6 — sem deploy):** mídia recebida em grupo na engine WWEBJS passa a sair sem `mediaKey` por padrão; `WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA=true` liga o download automático. Mídia 1:1 baixa por stream; envio WWEBJS acima de 24 MB retorna 400. Envio sem confirmação após 120 s conserva a intenção pendente até o resultado tardio, com 409 para retry da mesma chave enquanto isso. `ready` evita repetir syncAddressBook/merge após heal. Quem tocar fluxo de mídia ou enviar na E7+ deve preservar essas regras; INTEGRACAO §2/§3.1 e D-033 as descrevem. Canário com chip e deploy W permanecem para o dono.
 
 - **26/09 · e5-wwebjs-pronto (PR #8 mergeado na `main`, Onda 6 ainda sem deploy):** a E5
   preserva o default validado `2.3000.1045101284-alpha` e permite canário da candidata

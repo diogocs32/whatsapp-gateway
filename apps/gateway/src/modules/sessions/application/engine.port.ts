@@ -12,6 +12,16 @@ export interface SessionStatePayload {
 // Sustenta o handoff IA×celular: a IA pausa quando vê um fromMe com source=phone.
 export type MessageSource = 'api' | 'phone';
 
+// O CDP pode completar um envio depois que o HTTP desistiu de esperar. A intenção deve ficar
+// pending até o resultado real para um retry com a mesma chave não duplicar o envio.
+export class PendingMediaSendError extends Error {
+  constructor(readonly completion: Promise<{ keyId: string; jid: string }>) {
+    super(
+      'Envio de mídia WWEBJS sem confirmação; consulte a conversa antes de tentar novamente',
+    );
+  }
+}
+
 export interface MessagePayload {
   keyId: string;
   chatJid: string;

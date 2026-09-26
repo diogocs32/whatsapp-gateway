@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { Readable } from 'node:stream';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
 import { WWebJSEngine } from './wwebjs.engine';
 
@@ -38,6 +39,7 @@ function makeEngine() {
     onReaction: (r: unknown) => Promise<void>;
     toHistoryMessage: (m: unknown) => Promise<Record<string, unknown> | null>;
     lidToPnCache: Map<string, string>;
+    autoDownloadGroupMedia: boolean;
   };
   priv.client = { info: { wid: { _serialized: '5511000@c.us' } } };
   return { priv, events, stored };
@@ -58,6 +60,21 @@ const msg = (over: Record<string, unknown>) => ({
 });
 
 describe('WWebJSEngine.onMessageCreate (P-066)', () => {
+  it('envio WWEBJS acima de 24 MB recusa antes de codificar/chamar o client', async () => {
+    const { priv } = makeEngine();
+    const sendMessage = vi.fn();
+    priv.client = { sendMessage };
+    const engine = priv as unknown as WWebJSEngine;
+    await expect(
+      engine.sendMedia('5511999999999', {
+        buffer: Buffer.alloc(24 * 1024 * 1024 + 1),
+        mimetype: 'image/png',
+        type: 'image',
+      }),
+    ).rejects.toThrow('teto de 24 MB');
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it('tipo de sistema DO CELULAR (fromMe) sai na hora, sem evento (não espera 3 s nem vira handoff)', async () => {
     const { priv, events } = makeEngine();
     const t0 = Date.now();
@@ -136,6 +153,35 @@ describe('WWebJSEngine.onMessageCreate (P-066)', () => {
       text: 'Camiseta',
       mediaType: 'document',
       mediaKey: stored[0],
+    });
+  });
+
+  it('mídia 1:1 usa stream em blocos de 2 MB e mantém mediaKey no evento', async () => {
+    const { priv, events, stored } = makeEngine();
+    const downloadMedia = vi.fn();
+    const downloadMediaStream = vi.fn(async () => ({
+      stream: Readable.from([Buffer.from('ab'), Buffer.from('cd')]),
+      mimetype: 'image/png',
+      filename: 'foto.png',
+      filesize: 4,
+    }));
+    await priv.onMessageCreate(
+      msg({
+        type: 'image',
+        hasMedia: true,
+        downloadMediaStream,
+        downloadMedia,
+      }),
+    );
+    expect(downloadMediaStream).toHaveBeenCalledWith({
+      chunkSize: 2 * 1024 * 1024,
+    });
+    expect(downloadMedia).not.toHaveBeenCalled();
+    expect(stored).toHaveLength(1);
+    expect(events[0].payload).toMatchObject({
+      mediaKey: stored[0],
+      mimetype: 'image/png',
+      fileSize: 4,
     });
   });
 });
@@ -286,6 +332,7 @@ describe('WWebJSEngine — remetente em grupo (E23 · P-074)', () => {
 
   it('mídia em grupo: o evento com o arquivo sai com o senderJid do autor', async () => {
     const { priv, events, stored } = makeEngine();
+    priv.autoDownloadGroupMedia = true;
     priv.lidToPnCache.set(LID, '5511933333333@c.us');
     await priv.onMessageCreate(
       groupMsg({
@@ -305,6 +352,30 @@ describe('WWebJSEngine — remetente em grupo (E23 · P-074)', () => {
       senderJid: '5511933333333@c.us',
       mediaKey: stored[0],
     });
+  });
+
+  it('grupo sem opt-in preserva metadados e não baixa binário', async () => {
+    const { priv, events, stored } = makeEngine();
+    const downloadMediaStream = vi.fn();
+    await priv.onMessageCreate(
+      groupMsg({
+        type: 'image',
+        hasMedia: true,
+        author: '5511922222222@c.us',
+        _data: { size: 1234, mimetype: 'image/jpeg', filename: 'a.jpg' },
+        downloadMediaStream,
+      }),
+    );
+    expect(downloadMediaStream).not.toHaveBeenCalled();
+    expect(stored).toHaveLength(0);
+    expect(events[0].payload).toMatchObject({
+      chatJid: GROUP,
+      senderJid: '5511922222222@c.us',
+      mimetype: 'image/jpeg',
+      fileName: 'a.jpg',
+      fileSize: 1234,
+    });
+    expect(events[0].payload.mediaKey).toBeUndefined();
   });
 
   it('backfill (toHistoryMessage): mesmo remetente do ao vivo — @lid pelo cache, aparelho removido, sem evaluate', async () => {
