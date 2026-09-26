@@ -1,0 +1,62 @@
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js b/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js
+index 5534efc..f98d7d3 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Utils/crypto.js
+@@ -22,8 +22,7 @@ export const Curve = {
+     sign: (privateKey, buf) => curve.calculateSignature(privateKey, buf),
+     verify: (pubKey, message, signature) => {
+         try {
+-            curve.verifySignature(generateSignalPubKey(pubKey), message, signature);
+-            return true;
++            return curve.verifySignature(generateSignalPubKey(pubKey), message, signature);
+         }
+         catch (error) {
+             return false;
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/messages-media.js b/node_modules/@whiskeysockets/baileys/lib/Utils/messages-media.js
+index a3d2fa6..27c76cd 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Utils/messages-media.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Utils/messages-media.js
+@@ -5,7 +5,7 @@ import { once } from 'events';
+ import { createReadStream, createWriteStream, promises as fs, WriteStream } from 'fs';
+ import { tmpdir } from 'os';
+ import { join } from 'path';
+-import { Readable, Transform } from 'stream';
++import { pipeline, Readable, Transform } from 'stream';
+ import { URL } from 'url';
+ import { proto } from '../../WAProto/index.js';
+ import { DEFAULT_ORIGIN, MEDIA_HKDF_KEY_MAPPING, MEDIA_PATH_MAP } from '../Defaults/index.js';
+@@ -512,7 +512,12 @@ export const downloadEncryptedContent = async (downloadUrl, { cipherKey, iv }, {
+             }
+         }
+     });
+-    return fetched.pipe(output, { end: true });
++    pipeline(fetched, output, error => {
++        if (error && !output.destroyed) {
++            output.destroy(error);
++        }
++    });
++    return output;
+ };
+ export function extensionForMediaMessage(message) {
+     const getExtension = (mimetype) => mimetype.split(';')[0]?.split('/')[1];
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/signal.js b/node_modules/@whiskeysockets/baileys/lib/Utils/signal.js
+index 3cb615c..6e10a58 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Utils/signal.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Utils/signal.js
+@@ -141,7 +141,7 @@ export const extractDeviceJids = (result, myJid, myLid, excludeZeroDevices) => {
+     for (const userResult of result) {
+         const { devices, id } = userResult;
+         const decoded = jidDecode(id), { user, server } = decoded;
+-        let { domainType } = decoded;
++        const { domainType: userDomainType } = decoded;
+         const deviceList = devices?.deviceList;
+         if (!Array.isArray(deviceList))
+             continue;
+@@ -150,6 +150,7 @@ export const extractDeviceJids = (result, myJid, myLid, excludeZeroDevices) => {
+                 ((myUser !== user && myLid !== user) || myDevice !== device) && // either different user or if me user, not this device
+                 (device === 0 || !!keyIndex) // ensure that "key-index" is specified for "non-zero" devices, produces a bad req otherwise
+             ) {
++                let domainType = userDomainType;
+                 if (isHosted) {
+                     domainType = domainType === WAJIDDomains.LID ? WAJIDDomains.HOSTED_LID : WAJIDDomains.HOSTED;
+                 }

@@ -6,6 +6,10 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido — validação e stream do Baileys rc14 (26/09 — E11/P-051; novo PR, sem deploy)
+
+- Patch-package mínimo no JS compilado da rc14 faz `Curve.verify` rejeitar assinaturas inválidas de 64 bytes e calcula o domínio hosted por device, conforme o PR oficial #2751. O download cifrado usa `pipeline` para levar erro do corpo HTTP ao consumidor e encerrar a fonte em cancelamento; o #2815 foi fechado como duplicado do #2716. Testes usam a biblioteca real e stream sintético. Postinstall e guardas exigem os dois patches no gateway; o painel continua sem engines. Nenhuma rota, payload ou migration mudou. O listener de reupload da P-087 continua aberto; canário/merge/deploy B ficam para depois da E12.
+
 ### Integrado — branches históricas M2 e observador WWEBJS (26/09 — D-035/P-088; sem deploy)
 
 - As branches `coleta-mac` e `feature/m2-guardrail-ativo` foram reconciliadas nesta integração; o JSONL histórico reúne 12 coletas de 10–19/07, sem duplicar a coleta do Mac. DONE/DECISOES/how-to corrigem a premissa anterior de 6 coletas e preservam a sessão M2 encerrada.

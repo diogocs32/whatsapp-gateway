@@ -8,14 +8,22 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                | Início      | Objetivo                                                                                                      | Escopo                                               | Branch                        |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------- |
+| e11-baileys-patch | 26/09 20:22 | E11/P-051: patch mínimo da rc14 para assinatura e stream de mídia, com provas sintéticas e PR novo            | Baileys `lib/` via `patches/`, specs, guardas e docs | feature/onda2-baileys-e11-e12 |
+| lid-envio-wwebjs  | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs     | fix/lid-envio-wwebjs          |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **26/09 · e11-baileys-patch (E11/P-051, branch `feature/onda2-baileys-e11-e12`; sem merge/deploy):**
+  a rc14 agora recebe patch-package para `Curve.verify`, domínio hosted por device e stream HTTP
+  cifrado com `pipeline` (#2751/#2716; #2815 foi fechado como duplicado). Quem fizer E12 deve
+  manter o patch e `guardas-build.sh patches`; o Dockerfile do painel exclui patches porque não
+  instala as engines. Não confundir o cancelamento do stream com o listener interno do reupload,
+  ainda P-087. P-052, canário com chip, merge e deploy B continuam para a etapa/janela seguinte.
 
 - **26/09 · integracao-branches (D-035/P-088, PR #13 mergeado em `2f02f02`; sem deploy):** a branch local antiga do
   detector foi adaptada para observação WWEBJS opt-in (`UNDELIVERED_SWEEP_MIN=0` por padrão). Se
@@ -26,7 +34,7 @@
 
 - **26/09 · reconciliação dos merges #10/#11 (sem Deploy):** `origin/main` contém E6/P-060
   pelo merge `d577b05` do PR #10 e E7–E10 pelo merge `8291c17` do PR #11. E11/P-051 e
-  E12/P-052 seguem pendentes em nova branch/PR a partir da `main`. Os avisos anteriores
+  E12/P-052 ficaram pendentes naquele merge; o aviso E11 acima traz o estado atual. Os avisos anteriores
   descrevem regras de código já mergeadas; nenhum canário ou Deploy W/B foi executado por esses
   merges. Produção segue no último SHA **documentado** `768fb26`, sem verificação ao vivo.
 

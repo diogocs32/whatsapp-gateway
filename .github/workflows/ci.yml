@@ -3,8 +3,8 @@
 #
 # P-055 (25/09/2026) — guardas de build, pré-requisito do stop-first (B-004): o job `imagens`
 # constrói as MESMAS imagens que o Dokploy constrói (apps/dashboard/Dockerfile e
-# apps/gateway/Dockerfile, contexto = raiz), com as guardas do Dockerfile do gateway (patch do wwebjs
-# aplicado, dist/main.js, todo pacote do dist carregando no node_modules FINAL, Prisma CLI + config)
+# apps/gateway/Dockerfile, contexto = raiz), com as guardas do Dockerfile do gateway (patches
+# wwebjs e Baileys aplicados, dist/main.js, pacotes do dist no node_modules FINAL, Prisma CLI + config)
 # e sobe o container do gateway contra Postgres/Redis/MinIO até o /health responder ok com banco,
 # Redis e storage. Imagem que quebraria no boot (ex.: `Cannot find module 'zod'` de 16/08) quebra
 # aqui, não em produção.
@@ -46,8 +46,8 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      # O postinstall roda `patch-package --error-on-fail`; a guarda confere o resultado (P-055).
-      - name: Guarda — patch do whatsapp-web.js aplicado
+      # O postinstall roda `patch-package --error-on-fail`; a guarda confere ambos os patches.
+      - name: Guarda — patches do wwebjs e Baileys aplicados
         run: sh scripts/guardas-build.sh patches
 
       - name: Env de teste

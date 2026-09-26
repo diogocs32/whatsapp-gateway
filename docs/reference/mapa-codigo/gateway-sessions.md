@@ -22,6 +22,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/infrastructure/baileys/baileys.forward.spec.ts` | 1354 |
 | `modules/sessions/infrastructure/baileys/baileys.inbound.spec.ts` | 812 |
 | `modules/sessions/infrastructure/baileys/baileys.media.spec.ts` | 335 |
+| `modules/sessions/infrastructure/baileys/baileys.patch.spec.ts` | 129 |
 | `modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts` | 228 |
 | `modules/sessions/infrastructure/baileys/baileys.shutdown.spec.ts` | 92 |
 | `modules/sessions/infrastructure/baileys/browser-fingerprint.ts` | 44 |
@@ -1053,6 +1054,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “falha sem reupload para erro da CDN diferente de 404/410” · L199
   - it “limita a espera do reupload, ignora rejeição tardia e não tenta um segundo fetch” · L262
   - it “o segundo download usa o saldo do teto total de 90 s” · L294
+
+## `modules/sessions/infrastructure/baileys/baileys.patch.spec.ts`
+
+129 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/baileys/baileys.patch.spec.ts`
+
+- describe “patch Baileys rc14 — assinatura e domínio de device” · L12
+  - it “aceita assinatura válida e rejeita assinatura de 64 bytes alterada” · L13
+  - it “não propaga o domínio hosted para o device seguinte” · L28
+- describe “patch Baileys rc14 — stream cifrado sintético” · L55
+  - it “decifra a resposta íntegra” · L61
+  - it “propaga erro do corpo HTTP após os headers ao consumidor” · L78
+  - it “encerra a fonte quando o consumidor cancela o stream” · L108
 
 ## `modules/sessions/infrastructure/baileys/baileys.restriction.spec.ts`
 

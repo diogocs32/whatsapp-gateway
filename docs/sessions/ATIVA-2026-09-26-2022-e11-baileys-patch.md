@@ -1,0 +1,25 @@
+# Sessão: e11-baileys-patch
+
+- **Status:** 🟢 ATIVA — E11/P-051, sem merge/deploy.
+- **Início:** 26/09/2026 20:22 BRT.
+- **Objetivo:** corrigir na rc14 instalada a validação de assinatura e o erro de stream de mídia, com patch-package mínimo e provas sintéticas.
+- **Escopo:** `patches/@whiskeysockets+baileys+7.0.0-rc14.patch`, spec da biblioteca real em `apps/gateway/src/modules/sessions/infrastructure/baileys/`, guardas de build e workflow CI, Dockerfiles do gateway e painel, docs da Onda 2 (`MAPA-CODIGO`, referência gerada, roteiro, runbook, PENDENCIAS, DECISOES, ESTADO, SESSOES, changelog) e PR novo. Pontos globais: `patches/`, `scripts/guardas-build.sh`, `.github/workflows/ci.yml`. `packages/contracts` não muda sem payload novo.
+- **Fora do escopo:** E12/P-052, P-087 (avaliada separadamente), PRs #2789/#2765/#2781 sem reprodução, conta, QR em aparelho, mídia/mensagem real, merge e deploy.
+- **Branch:** `feature/onda2-baileys-e11-e12`, criada de `origin/main` atualizado em `960471e`; PR novo para `main`.
+
+## ECO DE LEITURA (R9 v4.3)
+
+- **ESTADO:** PR #11 (E7–E10) e #13 estão na `main`; código e produção divergem. Último SHA de produção documentado `768fb26`, sem verificação ao vivo; deploy B e canário só após E12/integração/ordem do dono.
+- **SESSOES:** única sessão ativa alheia `lid-envio-wwebjs`, escopo disjunto. Avisos E7–E10 exigem preservar dedupe e `raw`/remetente/reação, pausa 423 confirmada apenas pelo RPC direto, matriz de close e guardas `stopped`/`connectGeneration`, teto de mídia 90 s, proxy escolhido uma vez e fallback sem binário.
+- **PENDENCIAS:** P-051 assumida; P-087 fica aberta em revisão separada, sem atribuir cancelamento ao patch. B-004/B-005/B-007, P-034/P-056 e os canários seguem pendentes.
+- **ROTEIRO:** um chat para E11, nova branch/PR da `main`; patch no JS compilado, lib real para Curve, fixture sintética para stream, postinstall/guardas/dois Dockerfiles/CI; próxima mensagem pronta é E12.
+- **E10 DONE/diário:** P-050/P-075 entregues com dispatcher Undici da mesma escolha de proxy, 90 s totais e reupload 20 s; `ptvMessage` preserva `raw`. P-087 é listener interno sem cancelamento; produção não recebeu E10.
+- **MAPA-CODIGO §5.1 e runbook:** Curve.verify da rc14 ignora o booleano; usado no Noise e no pareamento. O canário B com chip e saída real pelo proxy pertence à janela do dono após E12/merge/deploy.
+- **Fontes oficiais verificadas antes da edição:** PR [#2751](https://github.com/WhiskeySockets/Baileys/pull/2751) foi mergeado em `develop` e prova o retorno de `verifySignature` e o vazamento de `domainType` entre devices. PR [#2815](https://github.com/WhiskeySockets/Baileys/pull/2815) foi fechado em 26/09 como duplicado do [#2716](https://github.com/WhiskeySockets/Baileys/pull/2716), que usa `pipeline` para propagar erros e encerrar a fonte. `npm ls` confirmou `@whiskeysockets/baileys@7.0.0-rc14`; `lib/Utils/{crypto,signal,messages-media}.js` instalados mostram os três ramos afetados. Context7 devolveu `master` e não substitui a rc14 instalada.
+
+## Progresso
+
+- 20:22 — abertura R9, `origin/main=960471e`, branch própria; arquivos não rastreados preexistentes preservados.
+- 20:24 — rc14 sem patch reproduziu `Curve.verify(invalid)=true` e contaminação de domínio hosted; PRs oficiais #2751/#2815/#2716 e os três JS instalados conferidos antes da edição.
+- 20:25 — patch-package de 62 linhas só nos três JS compilados; cinco testes focados com a rc14 real passaram. `npm ci` reaplicou os dois patches pelo postinstall `--error-on-fail`.
+- 20:30 — 567 unit gateway, 853 gateway no total e 180 painel locais; typechecks dos três projetos, fronteiras e mapa gerado verdes. Lint/formato globais falham só nos `seed-mock` não rastreados e preexistentes; lint sem eles e formato dos arquivos tocados passaram. Builds dos dois Dockerfiles passaram, inclusive postinstall e guardas na imagem final do gateway. `Curve.verify` válido/inválido passou dentro da imagem final. Sem conta, QR, mídia ou mensagem real.
