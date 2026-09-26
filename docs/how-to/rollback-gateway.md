@@ -63,6 +63,14 @@ Fonte oficial: [docs.dokploy.com — Rollbacks](https://docs.dokploy.com/docs/co
 - ⚠️ **Migrations são forward-only:** se o deploy quebrado aplicou migration nova, a imagem antiga
   roda sobre o schema novo. As migrations deste projeto são aditivas (colunas/tabelas novas), então a
   imagem antiga costuma funcionar; **nunca** reverter migration à mão (correção = migration nova).
+- ⚠️ **Rollback do deploy G (Onda 8 — E22, D-028) com `GUARDRAIL_ENFORCE=true`:** as reações
+  recebidas entre o deploy e o rollback ficam só em `wa_message_reactions`, que a imagem antiga não
+  lê — o reply-rate de 7 dias fica SUBESTIMADO até essa janela sair dos 7 dias (as reações que
+  chegarem depois do rollback voltam a ser gravadas como `other` e contam). Nessa janela: (a) **não
+  chamar `GET /api/guardrail/{sessao}`** — ele APLICA a transição com enforce ligado; para olhar sem
+  efeito use `GET /api/sessions/{sessao}/health` ou `GET /api/observability/reply-rate/{sessao}?window=7`;
+  (b) se alguma sessão estiver perto do corte, baixar `quarantineMult`/`throttleMult` com
+  `PATCH /api/guardrail/config` (sem redeploy) ou pôr `GUARDRAIL_ENFORCE=false` por 7 dias.
 
 ## 3. Rollback — opção B (sem registry): `git revert` + deploy
 

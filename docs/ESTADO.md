@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR #6 da Onda 1, sem merge; E3 ✅ 25/09: patches P-054 + checagem diária de advisories de repositório — mesmo PR; E4 ✅ 25/09: borda HTTP pela rota resolvida P-053 + egress `net.BlockList` P-065 + fotos por URL P-070 + alvo ambíguo P-071 — **Onda 1 FECHADA, PR #6 pronto para o merge do dono = deploy A** (checklist + B-004 em [how-to/deploy-a-onda1.md](how-to/deploy-a-onda1.md)); **próxima = E22**, a **Onda 8** — conversas fiéis ao WhatsApp Web, P-066..P-069, pedido do dono em 25/09: [diagnóstico](analise-conversas-whatsapp-web-2026-09.md)). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
+- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1 ✅ 25/09: mapa do código + reconciliação P-063 — PR #5; E2 ✅ 25/09: guardas de build P-055 — PR #6 da Onda 1, sem merge; E3 ✅ 25/09: patches P-054 + checagem diária de advisories de repositório — mesmo PR; E4 ✅ 25/09: borda HTTP pela rota resolvida P-053 + egress `net.BlockList` P-065 + fotos por URL P-070 + alvo ambíguo P-071 — **Onda 1 FECHADA e mergeada em 25/09 (PR #5 `59d6c5e`, PR #6 `4b1f696`) — **deploy A ainda não feito** (checklist + B-004 em [how-to/deploy-a-onda1.md](how-to/deploy-a-onda1.md)); E22 ✅ 25/09: **abre a Onda 8** — conversas fiéis ao WhatsApp Web, parte gateway (P-066 + P-072 gateway, D-028), branch `feature/onda8-conversas`, PR da Onda 8 sem merge; **próxima = E23** (painel: balões, mídia e tiques — P-067/P-072) — [diagnóstico](analise-conversas-whatsapp-web-2026-09.md)). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). Regra de merge: o chat abre o PR da onda com CI verde, **o dono mergeia** (merge na main = deploy).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,15 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **25/09/2026 (sessão `e22-conversas-gateway`, código na branch da Onda 8 — sem deploy):** conteúdo
+> fiel das mensagens nas duas engines (tipos `location`/`contact`/`poll`/`event`/`group_invite`/
+> `poll_vote` no lugar do "…"), **reação fora do evento `message`** (só `message.reaction`) em tabela
+> própria `wa_message_reactions` e **contando no reply-rate no mesmo deploy** (D-028 —
+> `GUARDRAIL_ENFORCE=true` em produção), selo "Encaminhada", `status` no feed da caixa única.
+> Migration aditiva `20260925203458_reacoes_encaminhada`. Muda o que o n8n recebe (INTEGRACAO §3.2 —
+> lista do que conferir nos fluxos). 477/477. **Produção segue em `768fb26`**; a `main` já está à
+> frente (Onda 1 mergeada, deploy A pendente).
 
 > **25/09/2026 — deploy MANUAL nos dois apps (D-027):** o dono desligou todo auto-deploy do
 > Dokploy ("por enquanto"); merge na `main` não publica nada — gateway e dashboard sobem no

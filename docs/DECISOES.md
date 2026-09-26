@@ -548,3 +548,72 @@ req.routeOptions.url === '/api/auth/login' ? 10 : 600`) — rejeitada: carrega o
 - **Ajustados:** `CLAUDE.md` (stack/deploy), roteiro (decisão 1), `how-to/deploy-a-onda1.md` (passo
   0 = Deploy manual), `how-to/rollback-gateway.md` (opção B), `how-to/dokploy-watch-paths.md`.
 - **Não verificado pelo chat:** o estado do toggle no painel (ação e leitura do dono — R0).
+
+## D-028 — 2026-09-25 — Reação não é mensagem: sai do evento `message`, mora em `wa_message_reactions` e conta no reply-rate no mesmo deploy (P-066)
+
+- **Decisão (do dono — recomendação do roteiro aceita na mensagem da E22):** a reação deixa de ser
+  gravada/emitida como mensagem (`message` tipo `other`, texto null) e passa a existir **só** como o
+  evento `message.reaction` (que já existia desde a W6), gravada numa tabela própria
+  `wa_message_reactions` (uma linha por sessão + mensagem-alvo + quem reagiu; trocar o emoji
+  substitui; remover vira **lápide** `emoji = ''`, que guarda o horário para uma reação antiga
+  reprocessada fora de ordem não ressuscitar). O reply-rate (G4) conta a reação do contato como
+  resposta **no mesmo deploy** — com `GUARDRAIL_ENFORCE=true` em produção, tirar a reação das
+  mensagens sem isso derrubaria o reply-rate e poderia pôr sessão em quarentena falsa (antes ela
+  contava justamente por ser gravada como `other`).
+- **Reply-rate (casamentos, sempre em até 72 h do cold):** (a) reação ao PRÓPRIO cold, pelo keyId
+  (imune a `@lid` × telefone e ao relógio de quem reagiu); (b) reação no mesmo chat depois do cold;
+  (c) reação a outra mensagem daquele chat enviada depois do cold (pega o `@lid` não resolvido).
+  Teto: se a linha nasceu depois do cold, `LEAST(timestamp, createdAt)` (reação feita nas 72 h e
+  removida depois continua contando); se nasceu antes (reação a mensagem antiga, ramo b), o horário
+  da última mudança (mexer numa reação velha semanas depois não conta). Resíduo aceito: reação
+  antiga trocada dentro das 72 h e de novo fora delas não conta (a linha guarda só criação e última
+  mudança).
+  Lápide conta (o contato viu e interagiu — era assim com `other`). PoC com Postgres 18 local:
+  todos os ramos usam índice (sem índice novo).
+- **Escolhas técnicas da etapa (sem pergunta ao dono, registradas aqui):**
+  - **Tipos novos no lugar de `other`** (as duas engines, mesmo texto): `location` (nome — endereço
+    - link do mapa com as coordenadas), `contact` (nome — telefones do vCard), `poll` (pergunta +
+      "• opção"), `event` (nome + descrição), `group_invite` (grupo + legenda). Produto, pedido,
+      pagamento, chamada agendada e convite de canal seguem `other`, agora com um resumo legível em
+      `text` quando houver. Respostas de botão/lista/fluxo viram `text` (o que o contato tocou). Vídeo
+      redondo = `video`; figurinha animada (lottie) = `sticker`. `other` com texto null fica só para
+      tipo visível ainda desconhecido.
+  - **Ignorados (não são mensagem no chat do WhatsApp Web):** reação (inclusive cifrada), resposta a
+    evento, fixar/manter, álbum-mãe (cada foto chega como mensagem própria), protocolo/chaves,
+    menções de status, editadas/apagadas (continuam fora — P-069); no wwebjs também notificações de
+    sistema, ligação (`call_log`) e apagada (`revoked`).
+  - **Voto em enquete (Baileys):** o do CONTATO continua sendo mensagem, com tipo próprio
+    `poll_vote` (texto null — o voto é cifrado e a rc14 não decifra), para seguir contando no
+    reply-rate como hoje (ignorá-lo derrubaria o reply-rate de campanha com enquete); o NOSSO voto
+    pelo celular é ignorado (não é handoff). No wwebjs o voto nunca foi mensagem (`vote_update`).
+    Alternativa descartada por ora: ignorar o voto e contá-lo por outra via (exige guardar o voto).
+  - **Selo "Encaminhada":** `wa_messages.isForwarded` + `forwardingScore` (Baileys:
+    `<tipo>.contextInfo`; wwebjs: `msg.isForwarded/forwardingScore`), limitado ao `integer`.
+    "Encaminhada com frequência" = `forwardingScore ≥ 5` — **inferência**: a FAQ oficial
+    (faq.whatsapp.com/1053543185312573) diz "forwarded through a chain of five or more chats" e que
+    há um contador; não nomeia o campo.
+  - **Remetente da reação em grupo (Baileys) corrigido:** vinha do autor da mensagem-ALVO
+    (`key.participant`); agora é quem reagiu (`reaction.key.participant`, com o telefone do
+    `participantAlt` quando vier). Em 1:1 saía `""`. `chatJid` da reação passa pela mesma
+    normalização `@lid` → telefone das mensagens, e o merge LID→telefone também reescreve as reações.
+- **Deixam de contar como resposta** (antes eram gravados como `other`; raros, achado da revisão
+  adversarial): fixar/manter, resposta a evento, pedido de telefone, placeholder (Baileys) e ligação
+  `call_log` (wwebjs). Menção em status e notificações de sistema do wwebjs, que contavam por
+  engano, também saem. Não há queda brusca no deploy: as linhas `other` antigas seguem na janela de
+  7 dias. **Rollback do deploy G** com enforce: as reações da janela deixam de contar na imagem
+  antiga — cuidados em `how-to/rollback-gateway.md` §2.
+- **Remetente da reação (Baileys) — `*Alt` nos dois sentidos:** o `participantAlt`/`remoteJidAlt` é
+  o mesmo endereço no OUTRO formato (telefone quando a mensagem veio por LID; `@lid` quando veio por
+  telefone — `Utils/decode-wa-message.js:73-92`); vence o lado que for telefone, e o par vindo numa
+  reação alheia é aprendido (a mesma pessoa não vira duas linhas em grupo). Resíduo: grupo endereçado
+  por LID sem telefone no stanza e par ainda desconhecido → o `senderKey` pode trocar de `@lid` para
+  telefone depois (a mesma pessoa vira 2 linhas até a retenção).
+- **Efeitos para o integrador (n8n) — ver INTEGRACAO §3:** quem assina só `message` deixa de
+  receber reação (assinar `message.reaction` ou `*`; o painel agora oferece os dois); reação do dono
+  pelo celular **não pausa mais a IA** (não sai como `message` `source=phone`); reação não devolve a
+  conversa para 🔴 na caixa única; fluxos que filtram `type === 'other'` ou `text == null` param de
+  ver reação/localização/contato/enquete como "outro"; a IA passa a receber texto em
+  localização/contato/enquete.
+- **Não verificado:** quanto do `other` em produção é reação (SQL do diagnóstico §3); se o wwebjs
+  emite `message_reaction` com emoji vazio na remoção; formato real da chave-alvo da reação no
+  wwebjs na build de produção (o mapeamento novo aceita `_serialized`, `$1` e `remote` como Wid).

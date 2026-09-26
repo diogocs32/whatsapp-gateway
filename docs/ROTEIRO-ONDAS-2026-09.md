@@ -58,7 +58,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`            | merge (só CI/dev)                                                                   | ⬜       |
 | E20   | 7    | Métricas e regras de produto que reduzem risco: destinatários novos sem resposta em 30 dias, cota em `/contacts/check`, inventário pessoal × Business, A/B de leads Baileys × wwebjs (P-064 parte código + P-061)                    | `feature/onda7-metricas-produto`    | decisão sobre canal oficial (P-064) fica com o dono                                 | ⬜       |
 | E21   | —    | Backlog anterior: triagem e execução do que ainda vale (P-001 resto, P-018, P-022, P-023, P-013, P-005, P-036, P-044..P-046 …) — pode virar mais de um chat                                                                          | definir no chat                     | —                                                                                   | ⬜       |
-| E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`           | **antes:** decidir reação fora do evento `message` + contando no reply-rate         | ⬜       |
+| E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`           | **antes:** decidir reação fora do evento `message` + contando no reply-rate         | ✅ 25/09 |
 | E23   | 8    | Conversas fiéis — painel: balões e mídia (imagem/áudio/vídeo por blob, sem link que muda a cada 2,5 s) no Inbox e no Atendimento (P-067) + tiques ✓/✓✓ (P-072)                                                                       | `feature/onda8-conversas`           | —                                                                                   | ⬜       |
 | E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`           | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão) | ⬜       |
 | E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`           | **merge = deploy G**                                                                | ⬜       |
@@ -187,6 +187,18 @@ Itens: describeBaileysMessage/describeWwebjsMessage puros com fixtures dos ~20 t
 No fim: atualize o roteiro e me dê a mensagem da E23 e a lista do que eu preciso fazer.
 ```
 
+### E23 — conversas fiéis: painel (P-067 + P-072 parte painel)
+
+```text
+Etapa E23 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-067 — balões e mídia no painel (Inbox e Atendimento) fiéis ao WhatsApp Web + P-072 parte painel (tiques ✓/✓✓, só exibição — o painel NÃO manda recibo de leitura).
+Siga as "Regras de toda etapa". Branch: feature/onda8-conversas (continuar da E22 — mesmo PR da Onda 8, sem merge).
+LEIA ANTES: docs/analise-conversas-whatsapp-web-2026-09.md (§2 S2–S5, §5 C2, §7); docs/INTEGRACAO.md §3.2 (tipos novos: location/contact/poll/event/group_invite/poll_vote/other com resumo), §12 (reactions[], isForwarded, forwardingScore) e §13 (status do feed = ACK); em docs/PENDENCIAS.md a P-067, os 7 achados da E22 na P-072 e a P-074; o Diário da E22 no roteiro; MAPA-CODIGO §4.5 (dashboard).
+Itens: components/chat/MessageBubble.tsx + MediaView.tsx compartilhados por Inbox e Atendimento; lib/message-format.ts (rótulo/ícone por type, prévia da lista sem "…", fallback "Mensagem não suportada — veja no celular", link do mapa clicável); mídia baixada pelo gateway como blob (fetch com cookie + refresh de login → object URL em cache por mensagem, liberado ao desmontar; imagem ao aparecer na tela, áudio/vídeo no clique) — resolve o helmet CORP same-origin, a falta de Range e a URL pré-assinada que muda a cada 2,5 s; "Baixar" quando o navegador não toca Ogg/Opus; selos de reação (reactions[]) e "↪ Encaminhada"/"↪↪ Encaminhada com frequência" (forwardingScore ≥ 5); tiques só em fromMe (null = sem confirmação; grupo sem tique — o Baileys não grava ACK de grupo); Atendimento passa a ouvir message.ack e message.reaction no SSE (casar por keyId, nunca por chatJid).
+Decisão do dono na abertura: P-074 (remetente de mensagem de grupo = jid do grupo nas 2 engines) entra nesta etapa (muda o valor de senderJid no webhook em grupo) ou fica para depois.
+Testes: vitest em ambiente node para lib/*; validação manual no Chrome e no Safari com seed local (mensagens + objetos no MinIO de dev) — nada em produção.
+No fim: atualize o roteiro, o PR da Onda 8, e me dê a mensagem da E24 (ou da E5, se já for 08/10 — prazo da build do wwebjs: 13/10) e a lista do que eu preciso fazer.
+```
+
 ### E7 a E21
 
 As mensagens das etapas seguintes seguem o mesmo molde (Etapa, pendência, "Siga as Regras de toda
@@ -216,6 +228,20 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                              | P-064              |
 
 ## Diário de execução
+
+- **25/09 — E22 (sessão `e22-conversas-gateway`):** P-066 + P-072 (parte gateway) entregues na
+  branch `feature/onda8-conversas` (PR da Onda 8 — sem merge; D-028). O que a E23 e as seguintes
+  precisam saber: (1) domínio de `type` e texto de cada cartão em `message-content.ts` (fonte única;
+  INTEGRACAO §3.2) — o painel rotula por `type`; `other` pode trazer resumo; `poll_vote` (Baileys) é
+  voto do contato, texto null; (2) reações: `reactions[]` no `GET /messages`/`/search`, evento
+  `message.reaction` no SSE (o Atendimento hoje só ouve `message` — `Atendimento.tsx:218`); casar por
+  `keyId`; (3) tiques: `status` no feed e no `GET /messages`; **grupo no Baileys fica null**; `read`
+  em mensagem recebida = lida no celular → tique só em `fromMe`; detalhes na P-072; (4) selo:
+  `forwardingScore ≥ 5` = "com frequência" (inferência da FAQ oficial); (5) P-074 (remetente de
+  mensagem de GRUPO = jid do grupo nas 2 engines) é decisão do dono na abertura da E23; (6) a E7
+  (P-047, `append`) deve passar pelo `describeBaileysMessage` e cuidar do eco da nossa reação; (7)
+  P-075 (reupload de mídia nunca dispara) vai junto da E10; (8) armadilha de teste: `proto.Message`
+  tem todos os campos no protótipo (`null`) — `toHaveProperty` sempre passa, compare o valor.
 
 - **25/09 — E4 (sessão `e4-rotas-egress`):** P-053 + P-065 entregues e **Onda 1 fechada** na branch
   `feature/onda1-guardas-seguranca` (PR #6 — merge do dono = deploy A; checklist e B-004 em
