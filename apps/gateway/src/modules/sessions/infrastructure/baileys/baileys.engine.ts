@@ -68,6 +68,7 @@ import {
   forwardableContent,
   toNum,
 } from './baileys-content';
+import { shouldAcceptUpsert } from './upsert-decision';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -402,6 +403,7 @@ function toContactJid(jid: string): string {
 
 const MAX_RECONNECT = 5;
 const SENT_CACHE_MAX = 1000;
+const UPSERT_CACHE_MAX = 2000;
 // WA-12 (auditoria 09/2026): cache de metadata de grupo. A doc do Baileys recomenda
 // `cachedGroupMetadata` para envios a grupo não consultarem os participantes a CADA mensagem
 // (consulta repetida é associada por eles a rate-limit). TTL curto + invalidação por evento.
@@ -423,6 +425,9 @@ export class BaileysEngine implements IEngine {
   private lifecycle: Promise<unknown> = Promise.resolve();
   // cache de mensagens enviadas — usado pelo getMessage (retry de descriptografia, blueprint §8.6)
   private readonly sentMessages = new Map<string, proto.IMessage>();
+  // Dedup antes do onEvent: impede webhook/SSE duplicado enquanto o persister grava em paralelo.
+  // O banco cobre restarts; o cache cobre repetições e corridas na mesma instância.
+  private readonly seenUpserts = new Set<string>();
   // cache LID→número (PN) aprendido das mensagens, para resolver conversas 1:1 (§23.1)
   private readonly lidToPn = new Map<string, string>();
   // Revisão E23: telefone de participante de grupo → último pushName gravado no diretório (evita um
@@ -846,18 +851,18 @@ export class BaileysEngine implements IEngine {
     }
   }
 
-  private onMessagesUpsert(upsert: {
+  private async onMessagesUpsert(upsert: {
     messages: WAMessage[];
     type: MessageUpsertType;
-  }): void {
-    if (upsert.type !== 'notify') return;
+  }): Promise<void> {
+    const nowSeconds = Math.floor(Date.now() / 1000);
     for (const m of upsert.messages) {
+      if (!shouldAcceptUpsert(m, upsert.type, nowSeconds)) continue;
       const keyId = m.key.id ?? '';
       // Já emitida pelo sendText (envio via gateway) → não duplica.
       if (keyId && this.sentMessages.has(keyId)) continue;
 
       let chatJid = m.key.remoteJid ?? '';
-      if (!chatJid || chatJid === 'status@broadcast') continue;
 
       // Aprende LID→número a partir do JID alternativo. Baileys 7.x: quando o remoteJid vem em
       // formato @lid, o número (PN) fica em `remoteJidAlt` (antes era `senderPn`).
@@ -905,6 +910,26 @@ export class BaileysEngine implements IEngine {
       // álbum-mãe… Fica DEPOIS do aprendizado de LID/contato acima (uma reação também ensina o par).
       const d = describeBaileysMessage(m.message, !!m.key.fromMe);
       if (d.kind === 'ignore') continue;
+
+      if (this.seenUpserts.has(keyId)) continue;
+      this.seenUpserts.add(keyId);
+      try {
+        // A consulta por sessão+keyId também reconhece uma mensagem salva antes do restart
+        // (inclusive eco da API com sentMessages vazio). O índice existente suporta a busca.
+        const previous = await this.deps.prisma.waMessage.findFirst({
+          where: { sessionId: this.deps.sessionId, keyId },
+          select: { id: true },
+        });
+        if (previous) continue;
+      } catch (err) {
+        this.seenUpserts.delete(keyId);
+        this.deps.logger.error({ err, keyId }, 'dedup de upsert falhou');
+        continue;
+      }
+      if (this.seenUpserts.size > UPSERT_CACHE_MAX) {
+        const oldest = this.seenUpserts.values().next().value;
+        if (oldest) this.seenUpserts.delete(oldest);
+      }
 
       const ts = m.messageTimestamp;
       const base = {
@@ -1097,7 +1122,8 @@ export class BaileysEngine implements IEngine {
     });
     const keyId = sent?.key?.id ?? '';
     if (keyId && sent?.message) this.cacheSent(keyId, sent.message);
-    // O Baileys não emite messages.upsert para o que enviamos — emitimos aqui.
+    // A rc14 também reemite o envio como append; a E7 filtra o eco (fromMe) no upsert.
+    // Emitimos aqui com source=api e a chave/intent originais.
     this.deps.onEvent('message', {
       keyId,
       chatJid: jid,

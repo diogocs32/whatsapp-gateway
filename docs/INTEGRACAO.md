@@ -134,6 +134,15 @@ filename*=UTF-8''<nome percent-encoded>` (RFC 5987; quem entende `filename*` usa
 
 ### 3.2 Conteúdo das mensagens — `type`, `text` e reação (E22 · P-066 · D-028)
 
+**Fila offline Baileys (E7 · P-047, após o deploy B):** mensagens de terceiros recebidas durante
+queda/reconexão/deploy, emitidas pela rc14 como `messages.upsert` `append`, passam pelo mesmo evento
+`message` das recebidas ao vivo. O `payload.timestamp` conserva o horário original do WhatsApp;
+o `timestamp` do envelope é o horário de publicação pelo gateway. Só entram mensagens com até 48 h
+(tolerância de 5 min para relógio adiantado), uma vez por `sessionId` + `keyId`. Eco dos envios da
+API/celular no `append`, status e newsletter não viram `message`. O formato público é o mesmo, sem
+campo novo; um fluxo que não queira responder a uma entrada antiga pode comparar os dois horários.
+Reações continuam exclusivamente em `message.reaction`.
+
 Desde a etapa E22 (25/09/2026, sobe no deploy da Onda 8) o evento `message` e o `GET /messages`
 trazem o conteúdo como o WhatsApp Web mostra — nas **duas engines**, com o mesmo texto:
 

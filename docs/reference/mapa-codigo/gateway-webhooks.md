@@ -19,7 +19,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 87 linhas · caminho: `apps/gateway/src/modules/webhooks/application/webhook-dispatcher.service.ts`
 - importa (interno): `shared-kernel/domain-event.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`, `modules/webhooks/domain/webhook.entity.ts`, `modules/webhooks/domain/webhook.repository.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`
-- importado por: `modules/webhooks/interface/webhooks.controller.ts`, `modules/webhooks/webhooks.module.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `modules/webhooks/interface/webhooks.controller.ts`, `modules/webhooks/webhooks.module.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **class `WebhookDispatcher`** L20 · @Injectable · `implements OnModuleInit`
 - injeta (construtor): `repo: @Inject(WEBHOOK_REPOSITORY) WebhookRepository` · `eventBus: EventBus` · `queue: WebhookQueue`
@@ -123,7 +123,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 293 linhas · caminho: `apps/gateway/src/modules/webhooks/infrastructure/webhook-queue.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `shared-kernel/safe-fetch.ts`, `shared-kernel/ulid.ts`
-- importado por: `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `modules/webhooks/webhooks.module.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `modules/webhooks/webhooks.module.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **class `WebhookQueue`** L66 · @Injectable · `implements OnModuleInit`, `implements OnModuleDestroy`
 - injeta (construtor): `config: ConfigService<Env, true>` · `prisma: PrismaService`

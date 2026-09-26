@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                 | Início      | Objetivo                                                                                                      | Escopo                                                                                                                  | Branch                |
+| ------------------ | ----------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| e7-baileys-offline | 26/09 11:51 | Recuperar inbound Baileys `append` (P-047), com dedupe e testes de efeito, sem deploy                         | `sessions/infrastructure/baileys`, persistência de mensagens, testes + docs; globais possíveis: schema, contracts, mapa | feature/onda2-baileys |
+| lid-envio-wwebjs   | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs                                                                        | fix/lid-envio-wwebjs  |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
