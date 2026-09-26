@@ -46,6 +46,11 @@ export interface InboxFeedRow {
   source: string | null;
   type: string;
   text: string | null;
+  // P-072 (E22): ACK da mensagem enviada (sent|delivered|read) — tiques no painel; null em entrada
+  // e em enviada ainda sem recibo. P-066: selo "Encaminhada".
+  status: string | null;
+  isForwarded: boolean;
+  forwardingScore: number | null;
   timestamp: Date;
 }
 

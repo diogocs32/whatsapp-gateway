@@ -2,9 +2,7 @@ import makeWASocket, {
   BufferJSON,
   DisconnectReason,
   downloadMediaMessage,
-  extractMessageContent,
   fetchLatestBaileysVersion,
-  getContentType,
   jidNormalizedUser,
   makeCacheableSignalKeyStore,
   proto,
@@ -13,6 +11,7 @@ import makeWASocket, {
   type GroupMetadata,
   type MessageUpsertType,
   type WAMessage,
+  type WAMessageKey,
   type WAMessageUpdate,
   type WASocket,
 } from '@whiskeysockets/baileys';
@@ -52,6 +51,8 @@ import { UnsupportedEngineOperationError } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 import { usePostgresAuthState } from './postgres-auth-state';
 import { browserFingerprint } from './browser-fingerprint';
+import type { ContentMedia } from '../message-content';
+import { describeBaileysMessage, toNum } from './baileys-content';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -162,16 +163,15 @@ function decodeProto(value: unknown): proto.IMessage {
   ) as proto.IMessage;
 }
 
-interface MediaInfo {
-  mediaType: string;
-  mimetype: string | null;
-  fileName: string | null;
-  caption: string | null;
-  fileSize: number | null;
-}
-
 // W6 — mapeia uma reação recebida (key da msg-alvo + proto.IReaction) para o payload público.
 // `text` vazio = reação REMOVIDA; `reaction.key.fromMe` = a reação é nossa. Pura/testável.
+// Na rc14 o evento `messages.reaction` traz `key` = mensagem-ALVO e `reaction.key` = a chave da
+// mensagem de REAÇÃO (Utils/process-message.js:411-419): quem reagiu é `reaction.key.participant`
+// (grupo) ou `reaction.key.remoteJid` (1:1). E22: até aqui o remetente saía de `key.participant`,
+// que é o AUTOR DA MENSAGEM-ALVO — em grupo, duas pessoas reagindo pareciam a mesma (e em 1:1 saía
+// `""`: o cleanMessage deixa participant vazio). O `*Alt` (Types/Message.d.ts:19-21) é o MESMO
+// endereço no OUTRO formato — telefone quando a mensagem veio endereçada por LID, e @lid quando veio
+// por telefone (Utils/decode-wa-message.js:73-92, :178-187) —, então vence o lado que for telefone.
 export function mapBaileysReaction(
   key: proto.IMessageKey,
   reaction: proto.IReaction,
@@ -180,79 +180,27 @@ export function mapBaileysReaction(
   const keyId = key.id ?? '';
   const chatJid = key.remoteJid ?? '';
   if (!keyId || !chatJid || chatJid === 'status@broadcast') return null;
-  const fromMe = !!reaction.key?.fromMe;
+  const rk = (reaction.key ?? null) as WAMessageKey | null;
+  const fromMe = !!rk?.fromMe;
+  const reactor = chatJid.endsWith('@g.us')
+    ? phoneFirst(rk?.participant, rk?.participantAlt) ||
+      key.participant ||
+      chatJid
+    : phoneFirst(rk?.remoteJid, rk?.remoteJidAlt) || chatJid;
   const ts = toNum(reaction.senderTimestampMs);
   return {
     keyId,
     chatJid,
-    senderJid: fromMe ? ourJid : (key.participant ?? chatJid),
+    senderJid: fromMe ? ourJid : reactor,
     emoji: reaction.text ?? '',
     fromMe,
     timestamp: ts ? Math.floor(ts / 1000) : Math.floor(Date.now() / 1000),
   };
 }
 
-// Converte Long (protobufjs) | number | null em number | null.
-function toNum(v: unknown): number | null {
-  if (typeof v === 'number') return v;
-  if (v && typeof (v as { toNumber?: () => number }).toNumber === 'function') {
-    return (v as { toNumber: () => number }).toNumber();
-  }
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-// Identifica e extrai metadados de mensagens de mídia recebidas (§ F4).
-function mediaInfoOf(msg: proto.IMessage | null | undefined): MediaInfo | null {
-  if (!msg) return null;
-  const im = msg.imageMessage;
-  if (im)
-    return {
-      mediaType: 'image',
-      mimetype: im.mimetype ?? null,
-      fileName: null,
-      caption: im.caption ?? null,
-      fileSize: toNum(im.fileLength),
-    };
-  const vm = msg.videoMessage;
-  if (vm)
-    return {
-      mediaType: 'video',
-      mimetype: vm.mimetype ?? null,
-      fileName: null,
-      caption: vm.caption ?? null,
-      fileSize: toNum(vm.fileLength),
-    };
-  const am = msg.audioMessage;
-  if (am)
-    return {
-      mediaType: 'audio',
-      mimetype: am.mimetype ?? null,
-      fileName: null,
-      caption: null,
-      fileSize: toNum(am.fileLength),
-    };
-  const dm =
-    msg.documentMessage ??
-    msg.documentWithCaptionMessage?.message?.documentMessage;
-  if (dm)
-    return {
-      mediaType: 'document',
-      mimetype: dm.mimetype ?? null,
-      fileName: dm.fileName ?? dm.title ?? null,
-      caption: dm.caption ?? null,
-      fileSize: toNum(dm.fileLength),
-    };
-  const sm = msg.stickerMessage;
-  if (sm)
-    return {
-      mediaType: 'sticker',
-      mimetype: sm.mimetype ?? null,
-      fileName: null,
-      caption: null,
-      fileSize: toNum(sm.fileLength),
-    };
-  return null;
+// Do par (endereço, *Alt), o lado que for telefone; sem telefone, o que houver.
+function phoneFirst(a?: string | null, b?: string | null): string | null {
+  return [a, b].find((j) => j?.endsWith('@s.whatsapp.net')) ?? (a || b || null);
 }
 
 // Extensão do arquivo: do fileName se houver, senão do subtipo do mimetype.
@@ -656,8 +604,47 @@ export class BaileysEngine implements IEngine {
     const ourJid = this.sock?.user?.id ?? null;
     for (const { key, reaction } of reactions) {
       const payload = mapBaileysReaction(key, reaction, ourJid);
-      if (payload) this.deps.onEvent('message.reaction', payload);
+      if (!payload) continue;
+      // E22: mesma normalização do upsert — @lid → telefone quando o par é conhecido. O par que vem
+      // na própria chave da reação (endereço + *Alt, nos dois sentidos) é aprendido antes — só de
+      // reação ALHEIA: na nossa o *Alt pode ser o NOSSO LID. Sem isto a reação de um contato @lid
+      // ficava num chat diferente do das mensagens dele (e fora do reply-rate por chat).
+      const rk = reaction.key as WAMessageKey | null | undefined;
+      if (rk && !rk.fromMe) {
+        this.learnPair(rk.remoteJid, rk.remoteJidAlt);
+        this.learnPair(rk.participant, rk.participantAlt);
+      }
+      payload.chatJid = this.resolveChatJid(payload.chatJid);
+      if (!payload.fromMe) {
+        // 1:1: quem reagiu só pode ser o contato → mesmo formato do chatJid das mensagens.
+        payload.senderJid = payload.chatJid.endsWith('@g.us')
+          ? payload.senderJid && this.resolveChatJid(payload.senderJid)
+          : payload.chatJid;
+      }
+      this.deps.onEvent('message.reaction', payload);
     }
+  }
+
+  // @lid → telefone pelo cache aprendido e @s.whatsapp.net canônico (sem aparelho). Grupo e demais
+  // sufixos passam intactos. Mesma regra do upsert.
+  private resolveChatJid(jid: string): string {
+    if (jid.endsWith('@lid')) return this.lidToPn.get(jid) ?? jid;
+    if (jid.endsWith('@s.whatsapp.net')) return jidNormalizedUser(jid);
+    return jid;
+  }
+
+  // Um endereço e o seu *Alt da MESMA mensagem: se um for @lid e o outro telefone, é um par.
+  private learnPair(a?: string | null, b?: string | null): void {
+    const lid = [a, b].find((j) => j?.endsWith('@lid'));
+    const pn = [a, b].find((j) => j?.endsWith('@s.whatsapp.net'));
+    if (lid && pn) this.learnLid(jidNormalizedUser(lid), jidNormalizedUser(pn));
+  }
+
+  // Par LID↔telefone NOVO → cache + merge retroativo da conversa que ficou dividida em @lid no banco.
+  private learnLid(lid: string, pn: string): void {
+    if (this.lidToPn.get(lid) === pn) return;
+    this.lidToPn.set(lid, pn);
+    void this.mergeLidMessages(lid, pn);
   }
 
   private async onConnectionUpdate(
@@ -796,10 +783,7 @@ export class BaileysEngine implements IEngine {
         // Mapeamento NOVO → funde retroativamente a conversa que ficou dividida em @lid no banco
         // (mensagens gravadas ANTES de o par LID↔PN ser aprendido "somem" do Inbox — ficam num
         // chat @lid separado). Paridade com o merge da engine wwebjs.
-        if (this.lidToPn.get(chatJid) !== pn) {
-          this.lidToPn.set(chatJid, pn);
-          void this.mergeLidMessages(chatJid, pn);
-        }
+        this.learnLid(chatJid, pn);
         this.deps.contacts?.record({
           waId: pn,
           jid: pn,
@@ -825,6 +809,14 @@ export class BaileysEngine implements IEngine {
         }
       }
 
+      // P-066 (E22): o que é mensagem visível e com que tipo/texto — função pura (baileys-content.ts).
+      // Desembrulha invólucros (deviceSent, ephemeral, viewOnce, lottie…) e IGNORA o que não é
+      // mensagem no chat: protocolo/chaves, REAÇÃO (sai só como `message.reaction` — antes virava
+      // `other` com texto null → "…" no painel, 🔴 na triagem e handoff falso; D-028), fixar,
+      // álbum-mãe… Fica DEPOIS do aprendizado de LID/contato acima (uma reação também ensina o par).
+      const d = describeBaileysMessage(m.message, !!m.key.fromMe);
+      if (d.kind === 'ignore') continue;
+
       const ts = m.messageTimestamp;
       const base = {
         keyId,
@@ -835,39 +827,19 @@ export class BaileysEngine implements IEngine {
         // foi digitado em outro device = celular. Inbound (fromMe=false) não tem origem nossa.
         source: (m.key.fromMe ? 'phone' : null) as MessageSource | null,
         timestamp: typeof ts === 'number' ? ts : Number(ts ?? 0),
+        isForwarded: d.isForwarded,
+        forwardingScore: d.forwardingScore,
       };
 
-      // Desembrulha invólucros (deviceSentMessage de msgs enviadas do próprio aparelho, ephemeral,
-      // viewOnce, editado…) e IGNORA mensagens de protocolo/sistema (setup de sessão, sync, distribuição
-      // de chave). Elas acompanham o pareamento e o envio pelo celular e poluiriam o inbox como [other].
-      // (Baileys: extractMessageContent + getContentType.)
-      let content = extractMessageContent(m.message ?? undefined);
-      if (content?.deviceSentMessage?.message) {
-        content = extractMessageContent(content.deviceSentMessage.message);
-      }
-      const ctype = content ? getContentType(content) : undefined;
-      if (
-        !ctype ||
-        ctype === 'protocolMessage' ||
-        ctype === 'senderKeyDistributionMessage'
-      ) {
+      if (d.media) {
+        // download + upload S3 são assíncronos — não travam o handler de eventos. Invólucro que a
+        // lib não abre (figurinha lottie) → baixa do conteúdo já desembrulhado.
+        const source = d.mediaMessage ? { ...m, message: d.mediaMessage } : m;
+        void this.handleIncomingMedia(source, base, d.media);
         continue;
       }
 
-      const media = mediaInfoOf(content);
-      if (media) {
-        // download + upload S3 são assíncronos — não travam o handler de eventos.
-        void this.handleIncomingMedia(m, base, media);
-        continue;
-      }
-
-      const text =
-        content?.conversation ?? content?.extendedTextMessage?.text ?? null;
-      this.deps.onEvent('message', {
-        ...base,
-        type: text != null ? 'text' : 'other',
-        text,
-      });
+      this.deps.onEvent('message', { ...base, type: d.type, text: d.text });
     }
   }
 
@@ -909,8 +881,10 @@ export class BaileysEngine implements IEngine {
       fromMe: boolean;
       source: MessageSource | null;
       timestamp: number;
+      isForwarded: boolean;
+      forwardingScore: number | null;
     },
-    media: MediaInfo,
+    media: ContentMedia,
   ): Promise<void> {
     if (!this.sock) return;
     try {
@@ -1306,9 +1280,14 @@ export class BaileysEngine implements IEngine {
         where: { sessionId: this.deps.sessionId, chatJid: lid },
         data: { chatJid: phoneJid },
       });
-      if (r.count > 0) {
+      // E22: as reações da conversa acompanham (reply-rate casa reação pelo chat do cold).
+      const rx = await this.deps.prisma.messageReaction.updateMany({
+        where: { sessionId: this.deps.sessionId, chatJid: lid },
+        data: { chatJid: phoneJid },
+      });
+      if (r.count > 0 || rx.count > 0) {
         this.deps.logger.info(
-          { lid, phoneJid, count: r.count },
+          { lid, phoneJid, count: r.count, reactions: rx.count },
           'merge LID->telefone (retroativo)',
         );
       }

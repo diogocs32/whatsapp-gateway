@@ -32,6 +32,18 @@ export class RetentionService implements OnApplicationBootstrap {
     await this.purge('wa_messages', 'RETENTION_MESSAGES_DAYS', 90, (cut) =>
       this.prisma.waMessage.deleteMany({ where: { createdAt: { lt: cut } } }),
     );
+    // P-066 (E22): as reações vivem o mesmo tanto que as mensagens (mesma env, por createdAt). A
+    // reação é criada depois do alvo e pode sobreviver a ele por essa diferença — órfã inofensiva:
+    // o GET /messages só lê reações das mensagens que devolve e o reply-rate olha no máximo 30 dias.
+    await this.purge(
+      'wa_message_reactions',
+      'RETENTION_MESSAGES_DAYS',
+      90,
+      (cut) =>
+        this.prisma.messageReaction.deleteMany({
+          where: { createdAt: { lt: cut } },
+        }),
+    );
     await this.purge('wa_session_events', 'RETENTION_EVENTS_DAYS', 30, (cut) =>
       this.prisma.waSessionEvent.deleteMany({
         where: { createdAt: { lt: cut } },

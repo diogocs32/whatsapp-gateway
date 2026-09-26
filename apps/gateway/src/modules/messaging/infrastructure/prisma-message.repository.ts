@@ -34,6 +34,8 @@ export class PrismaMessageRepository implements MessageRepository {
           fileName: input.fileName ?? null,
           mediaKey: input.mediaKey ?? null,
           fileSize: input.fileSize ?? null,
+          isForwarded: input.isForwarded ?? false,
+          forwardingScore: input.forwardingScore ?? null,
           raw:
             input.raw != null
               ? (input.raw as Prisma.InputJsonValue)
@@ -87,6 +89,8 @@ export class PrismaMessageRepository implements MessageRepository {
         fileName: i.fileName ?? null,
         mediaKey: i.mediaKey ?? null,
         fileSize: i.fileSize ?? null,
+        isForwarded: i.isForwarded ?? false,
+        forwardingScore: i.forwardingScore ?? null,
       });
     }
     if (!rows.length) return 0;
@@ -175,6 +179,8 @@ export class PrismaMessageRepository implements MessageRepository {
     fileName: string | null;
     mediaKey: string | null;
     fileSize: number | null;
+    isForwarded: boolean;
+    forwardingScore: number | null;
   }): StoredMessage {
     return {
       id: r.id,
@@ -194,6 +200,8 @@ export class PrismaMessageRepository implements MessageRepository {
       fileName: r.fileName,
       mediaKey: r.mediaKey,
       fileSize: r.fileSize,
+      isForwarded: r.isForwarded,
+      forwardingScore: r.forwardingScore,
     };
   }
 

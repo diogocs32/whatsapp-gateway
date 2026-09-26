@@ -114,6 +114,20 @@ export interface PairingCodeResponse {
 }
 
 // ---- Mensagens (F2) ----
+// `type` da mensagem: text | image | video | audio | document | sticker | location | contact | poll |
+// event | group_invite | poll_vote (só Baileys: voto do contato, cifrado → text null; conta no
+// reply-rate) | other (mensagem visível sem cartão próprio — `text` traz um resumo legível quando
+// houver, senão null). Fonte única: apps/gateway/src/modules/sessions/infrastructure/
+// message-content.ts. Reação NÃO é mensagem — vem em `reactions` da mensagem-alvo (INTEGRACAO §3.2).
+
+// P-066 (E22): reação a uma mensagem, como o WhatsApp mostra no balão (uma por pessoa).
+export interface MessageReactionDto {
+  emoji: string;
+  senderJid: string | null; // quem reagiu (best-effort; em grupo, o participante)
+  fromMe: boolean; // a reação é nossa (API ou celular)
+  timestamp: string;
+}
+
 export interface MessageDto {
   id: string;
   sessionId: string;
@@ -136,6 +150,11 @@ export interface MessageDto {
   fileName?: string | null;
   fileSize?: number | null;
   mediaUrl?: string | null; // URL pré-assinada temporária para exibir/baixar
+  // P-066 (E22, aditivo): selo "Encaminhada" (forwardingScore = quantas vezes já foi encaminhada;
+  // o WhatsApp mostra "Encaminhada com frequência" a partir de 5) e reações vivas da mensagem.
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
+  reactions?: MessageReactionDto[];
 }
 
 // Resumo de conversa p/ a lista da inbox (1 por chatJid). Derivado das mensagens,
@@ -145,7 +164,7 @@ export interface ConversationDto {
   name: string | null; // nome do contato (agenda/verificado/pushName) ou null
   imgUrl: string | null;
   lastText: string | null; // texto da última msg; null em mídia (use lastType p/ rótulo)
-  lastType: string; // text | image | video | audio | document | sticker
+  lastType: string; // mesmo domínio do MessageDto.type
   lastFromMe: boolean;
   lastTimestamp: string;
 }
@@ -203,6 +222,12 @@ export interface InboxFeedItemDto {
   type: string;
   text: string | null;
   timestamp: string;
+  // Aditivos (E22): `status` = último ACK (sent|delivered|read; null sem recibo — e sempre null em
+  // GRUPO no Baileys). Em ENTRADA (fromMe:false) pode vir `read` = lida no celular do operador →
+  // tique ✓/✓✓ só em fromMe:true (P-072, só exibição). Selo "Encaminhada" (P-066).
+  status?: string | null;
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
 }
 
 // Triagem manual. `ignored` = amarelo (ancorado em `keyId`, quando informado: se chegou entrada
@@ -252,8 +277,18 @@ export interface CreateWebhookRequest {
   maxAttempts?: number;
 }
 
-// Eventos disponíveis para assinar (use '*' para todos).
-export const WEBHOOK_EVENTS = ['*', 'message', 'session.status'] as const;
+// Eventos disponíveis para assinar (use '*' para todos). E22: `message.ack` e `message.reaction`
+// entram na lista do painel — desde a E22 a reação sai SÓ como `message.reaction` (não mais como
+// `message` tipo `other`). O painel não edita eventos: para incluir, remova e recrie o webhook — NÃO
+// crie um 2º webhook com `message` para a mesma URL (entrega em dobro). Webhook do Trigger n8n 0.4.1:
+// troque o Events do nó para "All Events (*)" (INTEGRACAO §3.2).
+export const WEBHOOK_EVENTS = [
+  '*',
+  'message',
+  'message.ack',
+  'message.reaction',
+  'session.status',
+] as const;
 
 // ---- API keys (F9.1) ----
 export interface ApiKeyDto {

@@ -13,7 +13,7 @@ export interface ReplyRateResult {
   windowDays: number;
   coldTotal: number; // cold-sends na janela
   coldMature: number; // cold-sends já maduros (>72h) — denominador do replyRate (C2)
-  responded: number; // cold maduros respondidos (inbound em até 72h)
+  responded: number; // cold maduros respondidos (entrada OU reação do contato em até 72h — D-028)
   replyRate: number; // 0..1
   sample: number; // = coldMature
   reliable: boolean; // sample >= Nmin
@@ -97,9 +97,25 @@ export class ReplyRateService {
     // ⚠️ C2: `mature` exclui cold-sends com menos de 72h (imaturos) — senão todo número novo cai
     // em falso-positivo de quarentena. `responded` casa um inbound (fromMe=false) no MESMO chat
     // dentro de 72h após o cold. count(*)::int evita BigInt no driver.
+    // D-028 (E22): REAÇÃO do contato também é resposta. Desde a E22 a reação não é gravada como
+    // mensagem (mora em wa_message_reactions) — sem estes ramos, quem só reage viraria "não
+    // respondeu" e, com GUARDRAIL_ENFORCE=true, empurraria a sessão para quarentena falsa (antes a
+    // reação contava por ser gravada como `other`). Três casamentos, sempre em até 72h do cold:
+    //   (a) reação AO PRÓPRIO cold, pelo keyId — imune a chatJid @lid × telefone e ao relógio de
+    //       quem reagiu (sem limite inferior: a reação ao cold é necessariamente posterior);
+    //   (b) reação no MESMO chat depois do cold;
+    //   (c) reação (mesmo com chatJid @lid não resolvido) a OUTRA mensagem daquele chat enviada
+    //       depois do cold, casada pelo keyId do alvo.
+    // Limite superior: trocar/remover o emoji reescreve o timestamp, não o createdAt. Se a linha
+    // NASCEU depois do cold, vale LEAST(timestamp, createdAt) — reação feita nas 72h e removida
+    // depois continua contando; se nasceu ANTES (reação a mensagem antiga, ramo b), vale o horário
+    // da última mudança — senão mexer numa reação velha semanas depois contaria como resposta.
+    // Resíduo aceito: reação antiga trocada dentro das 72h e de novo fora delas não conta (a linha
+    // única guarda só criação e última mudança).
+    // Reação removida (lápide, emoji '') conta: o contato viu e interagiu (era assim com `other`).
     const rows = await this.prisma.$queryRaw<RawRow[]>`
       WITH cold AS (
-        SELECT m."chatJid", m."timestamp", m."status"
+        SELECT m."keyId", m."chatJid", m."timestamp", m."status"
         FROM "wa_messages" m
         WHERE m."sessionId" = ${sessionId}
           AND m."fromMe" = true
@@ -119,6 +135,26 @@ export class ReplyRateService {
               AND r."chatJid" = c."chatJid"
               AND r."timestamp" >  c."timestamp"
               AND r."timestamp" <= c."timestamp" + interval '72 hours'
+        ) OR EXISTS (
+            SELECT 1 FROM "wa_message_reactions" x
+            WHERE x."sessionId" = ${sessionId}
+              AND x."fromMe" = false
+              AND (x."targetKeyId" = c."keyId"
+                   OR (x."chatJid" = c."chatJid" AND x."timestamp" > c."timestamp"))
+              AND (CASE WHEN x."createdAt" > c."timestamp"
+                        THEN LEAST(x."timestamp", x."createdAt")
+                        ELSE x."timestamp"
+                   END) <= c."timestamp" + interval '72 hours'
+        ) OR EXISTS (
+            SELECT 1 FROM "wa_messages" t
+            JOIN "wa_message_reactions" x
+              ON x."sessionId" = t."sessionId" AND x."targetKeyId" = t."keyId"
+            WHERE t."sessionId" = ${sessionId}
+              AND t."chatJid" = c."chatJid"
+              AND t."timestamp" >  c."timestamp"
+              AND t."timestamp" <= c."timestamp" + interval '72 hours'
+              AND x."fromMe" = false
+              AND LEAST(x."timestamp", x."createdAt") <= c."timestamp" + interval '72 hours'
         )) AS "responded",
         (SELECT count(*)::int FROM cold WHERE "status" IN ('delivered','read')) AS "delivered",
         (SELECT count(*)::int FROM cold WHERE "status" = 'read') AS "readCnt"

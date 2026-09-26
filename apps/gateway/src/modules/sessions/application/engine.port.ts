@@ -33,6 +33,10 @@ export interface MessagePayload {
   fileSize?: number | null;
   mediaKey?: string | null; // chave do objeto no S3 (persistida)
   mediaUrl?: string | null; // URL pré-assinada (preenchida pelo SessionManager; NÃO persistida)
+  // P-066 (E22): selo "Encaminhada" (inbound e celular). forwardingScore = quantas vezes a mensagem já
+  // foi encaminhada — o WhatsApp mostra "Encaminhada com frequência" a partir de um limiar (ver D-028).
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
   // proto.IMessage codificado via BufferJSON (texto E mídia). Só preenchido em fromMe; persistido em
   // wa_messages.raw e usado pelo getMessage para reenviar fielmente no retry de descriptografia
   // (evita "Aguardando mensagem" também em mídia, que { conversation } não cobre).
@@ -204,13 +208,15 @@ export interface HistoryMessage {
   chatJid: string; // já resolvido (@lid→telefone quando possível), p/ fundir com a inbox ao vivo
   senderJid: string | null;
   fromMe: boolean;
-  type: string; // text | image | video | audio | document | sticker
+  type: string; // mesmo domínio do MessagePayload.type (message-content.ts)
   text: string | null;
   timestamp: number; // unix seconds
   mediaType?: string | null;
   mimetype?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
+  isForwarded?: boolean; // P-066 (E22): selo "Encaminhada"
+  forwardingScore?: number | null;
 }
 
 // G8 — estados de presença. composing/recording/paused são por chat; available/unavailable globais.

@@ -23,6 +23,11 @@ import {
   pageResolvePnToLid,
   withLidFallback as runLidFallback,
 } from './wwebjs.lid-outbound';
+import {
+  describeWwebjsMessage,
+  mapWwebjsReaction,
+  type WwebjsMessageLike,
+} from './wwebjs-content';
 import type {
   ChannelInfo,
   ChatFlag,
@@ -1600,6 +1605,11 @@ export class WWebJSEngine implements IEngine {
   private async onMessageCreate(msg: Message): Promise<void> {
     try {
       const keyId = msg.id?._serialized ?? '';
+      // P-066 (E22): tipo/texto fiéis (função pura). Sistema, ligação, apagada e reação não são
+      // mensagem no chat — saem ANTES da espera abaixo (um tipo de sistema `fromMe` não pode virar
+      // "digitado no celular" e pausar a IA à toa).
+      const d = describeWwebjsMessage(msg as unknown as WwebjsMessageLike);
+      if (d.kind === 'ignore') return;
       if (msg.fromMe) {
         // Caminho rápido: sendMessage já resolveu → keyId já está em sentByPanel, sem esperar.
         if (this.sentByPanel.has(keyId)) return; // enviada pelo painel: já emitida
@@ -1625,18 +1635,42 @@ export class WWebJSEngine implements IEngine {
           typeof msg.timestamp === 'number'
             ? msg.timestamp
             : Math.floor(Date.now() / 1000),
+        isForwarded: d.isForwarded,
+        forwardingScore: d.forwardingScore,
       };
       // Mídia recebida: baixa o binário, sobe ao S3 e emite com a chave (antes virava type:'other'
-      // sem download → GET /:msgId/media respondia 404 para toda mídia WWEBJS).
-      if (msg.hasMedia) {
-        await this.handleIncomingMedia(msg, base);
+      // sem download → GET /:msgId/media respondia 404 para toda mídia WWEBJS). O tipo vem do
+      // `type` da mensagem; sem `directPath` (hasMedia false) não há o que baixar — só metadados.
+      if (d.media) {
+        if (msg.hasMedia) {
+          await this.handleIncomingMedia(msg, base, d.media.mediaType, d.text);
+        } else {
+          this.deps.onEvent('message', {
+            ...base,
+            type: d.type,
+            text: d.text,
+            mediaType: d.media.mediaType,
+            mimetype: null,
+            fileName: null,
+            fileSize: null,
+          });
+        }
         return;
       }
-      this.deps.onEvent('message', {
-        ...base,
-        type: 'text',
-        text: msg.body || null,
-      });
+      // Tipo sem cartão de mídia (produto, modelo de empresa, desconhecido…) mas COM arquivo
+      // (`directPath`): baixa como documento — o binário fica em GET /:msgId/media, como antes da
+      // E22 —, mantendo o `type` fiel do describe.
+      if (msg.hasMedia) {
+        await this.handleIncomingMedia(
+          msg,
+          base,
+          mapInboundMediaType(msg.type),
+          d.text,
+          d.type,
+        );
+        return;
+      }
+      this.deps.onEvent('message', { ...base, type: d.type, text: d.text });
     } catch (e) {
       this.deps.logger.error({ err: e }, 'wwebjs: onMessageCreate falhou');
     }
@@ -1654,10 +1688,15 @@ export class WWebJSEngine implements IEngine {
       fromMe: boolean;
       source: MessageSource | null;
       timestamp: number;
+      isForwarded?: boolean;
+      forwardingScore?: number | null;
     },
+    // E22: tipo e legenda vêm do describeWwebjsMessage; o padrão (pelo msg.type/body) é o de antes.
+    // `type` = o `type` do evento (igual ao mediaType, salvo tipo sem cartão de mídia com arquivo).
+    mediaType: string = mapInboundMediaType(msg.type),
+    caption: string | null = msg.body || null,
+    type: string = mediaType,
   ): Promise<void> {
-    const mediaType = mapInboundMediaType(msg.type);
-    const caption = msg.body || null;
     // P-017 — checa o tamanho DECLARADO antes de baixar (o download roda no renderer; ver
     // WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES). Sem size declarado, segue o fluxo normal.
     const declaredSize =
@@ -1677,7 +1716,7 @@ export class WWebJSEngine implements IEngine {
       );
       this.deps.onEvent('message', {
         ...base,
-        type: mediaType,
+        type,
         text: caption,
         mediaType,
         mimetype: null,
@@ -1703,7 +1742,7 @@ export class WWebJSEngine implements IEngine {
       await this.deps.storeMedia?.(key, buffer, mimetype);
       this.deps.onEvent('message', {
         ...base,
-        type: mediaType,
+        type,
         text: caption,
         mediaType,
         mimetype,
@@ -1724,7 +1763,7 @@ export class WWebJSEngine implements IEngine {
       }
       this.deps.onEvent('message', {
         ...base,
-        type: mediaType,
+        type,
         text: caption,
         mediaType,
         mimetype: null,
@@ -1772,24 +1811,16 @@ export class WWebJSEngine implements IEngine {
 
   // W6 — reação recebida. `msgId` (MessageId) é a mensagem-alvo; `reaction` é o emoji ('' = removida);
   // `id.fromMe` diz se a reação é NOSSA. O chat vem do `msgId.remote` (com merge @lid→telefone).
+  // E22: mapeamento puro e defensivo (mapWwebjsReaction) — com a chave-alvo em `$1` (builds
+  // ≥ 2.3000.104x) ou `remote` como Wid, o handler antigo descartava a reação em silêncio ou lançava.
   private async onReaction(r: Reaction): Promise<void> {
     try {
-      const keyId = r.msgId?._serialized ?? '';
-      if (!keyId) return;
-      const rawChat = r.msgId?.remote ?? '';
-      if (!rawChat || rawChat === 'status@broadcast') return;
-      const chatJid = await this.resolveNumberJid(rawChat);
-      this.deps.onEvent('message.reaction', {
-        keyId,
-        chatJid,
-        senderJid: r.senderId ?? null,
-        emoji: r.reaction ?? '',
-        fromMe: !!r.id?.fromMe,
-        timestamp:
-          typeof r.timestamp === 'number'
-            ? r.timestamp
-            : Math.floor(Date.now() / 1000),
-      });
+      const payload = mapWwebjsReaction(
+        r as unknown as Parameters<typeof mapWwebjsReaction>[0],
+      );
+      if (!payload) return;
+      payload.chatJid = await this.resolveNumberJid(payload.chatJid);
+      this.deps.onEvent('message.reaction', payload);
     } catch (e) {
       this.deps.logger.error({ err: e }, 'wwebjs: onReaction falhou');
     }
@@ -1969,9 +2000,14 @@ export class WWebJSEngine implements IEngine {
         where: { sessionId: this.deps.sessionId, chatJid: lid },
         data: { chatJid: phoneJid },
       });
-      if (r.count > 0) {
+      // E22: as reações da conversa acompanham (paridade com o Baileys).
+      const rx = await this.deps.prisma.messageReaction.updateMany({
+        where: { sessionId: this.deps.sessionId, chatJid: lid },
+        data: { chatJid: phoneJid },
+      });
+      if (r.count > 0 || rx.count > 0) {
         this.deps.logger.info(
-          { lid, phoneJid, count: r.count },
+          { lid, phoneJid, count: r.count, reactions: rx.count },
           'wwebjs: merge LID->telefone (retroativo)',
         );
       }
@@ -2236,9 +2272,10 @@ export class WWebJSEngine implements IEngine {
     if (!keyId) return null;
     const raw = (msg.fromMe ? msg.to : msg.from) ?? '';
     if (!raw || raw === 'status@broadcast') return null;
+    // E22: mesma descrição do ao vivo — sistema/ligação/apagada ficam fora do backfill.
+    const d = describeWwebjsMessage(msg as unknown as WwebjsMessageLike);
+    if (d.kind === 'ignore') return null;
     const chatJid = await this.resolveNumberJid(raw);
-    const isMedia = !!msg.hasMedia;
-    const type = isMedia ? mapInboundMediaType(msg.type) : 'text';
     // author = participante real numa mensagem de grupo; em 1:1 é ausente.
     const author = (msg as unknown as { author?: string }).author;
     return {
@@ -2248,16 +2285,20 @@ export class WWebJSEngine implements IEngine {
         ? (this.client?.info?.wid?._serialized ?? null)
         : (author ?? chatJid),
       fromMe: !!msg.fromMe,
-      type,
-      text: msg.body || null,
+      type: d.type,
+      text: d.text,
       timestamp:
         typeof msg.timestamp === 'number'
           ? msg.timestamp
           : Math.floor(Date.now() / 1000),
-      mediaType: isMedia ? type : null,
+      mediaType:
+        d.media?.mediaType ??
+        (msg.hasMedia ? mapInboundMediaType(msg.type) : null),
       mimetype: null,
       fileName: null,
       fileSize: null,
+      isForwarded: d.isForwarded,
+      forwardingScore: d.forwardingScore,
     };
   }
 

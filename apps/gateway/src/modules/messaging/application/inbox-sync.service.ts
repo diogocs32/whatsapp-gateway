@@ -82,6 +82,8 @@ export class InboxSyncService {
       // Backfill não baixa binário → sem mediaKey (GET /media responde 404 p/ mídia histórica).
       mediaKey: null,
       fileSize: h.fileSize ?? null,
+      isForwarded: h.isForwarded ?? false,
+      forwardingScore: h.forwardingScore ?? null,
     };
   }
 }

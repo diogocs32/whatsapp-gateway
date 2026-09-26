@@ -47,6 +47,11 @@ import {
   type MessageRepository,
   type StoredMessage,
 } from '../domain/message.repository';
+import {
+  REACTION_REPOSITORY,
+  type ReactionRepository,
+  type StoredReaction,
+} from '../domain/reaction.repository';
 
 // G1: `cold` marca o 1º contato permissionado; `idempotencyKey` dá dedup forte (retry do n8n
 // não duplica). Comuns a texto e mídia.
@@ -160,7 +165,22 @@ function toConversationDto(c: ConversationSummary) {
   };
 }
 
-function toDto(m: StoredMessage, mediaUrl: string | null) {
+// P-066 (E22): reação como o WhatsApp mostra no balão — emoji + quem reagiu. Só as vivas (a removida
+// não aparece); em ordem de horário.
+function toReactionDto(r: StoredReaction) {
+  return {
+    emoji: r.emoji,
+    senderJid: r.senderJid,
+    fromMe: r.fromMe,
+    timestamp: r.timestamp.toISOString(),
+  };
+}
+
+function toDto(
+  m: StoredMessage,
+  mediaUrl: string | null,
+  reactions: StoredReaction[] = [],
+) {
   return {
     id: m.id,
     // keyId = chave real do WhatsApp (CP-149): é o id que markRead e o download de mídia aceitam;
@@ -181,6 +201,10 @@ function toDto(m: StoredMessage, mediaUrl: string | null) {
     fileName: m.fileName,
     fileSize: m.fileSize,
     mediaUrl,
+    // P-066 (E22, aditivo): selo "Encaminhada" e reações da mensagem (tabela própria).
+    isForwarded: m.isForwarded,
+    forwardingScore: m.forwardingScore,
+    reactions: reactions.map(toReactionDto),
   };
 }
 
@@ -191,6 +215,8 @@ export class MessagesController {
 
   constructor(
     @Inject(MESSAGE_REPOSITORY) private readonly repo: MessageRepository,
+    @Inject(REACTION_REPOSITORY)
+    private readonly reactions: ReactionRepository,
     private readonly manager: SessionManager,
     private readonly mediaStorage: MediaStorage,
     private readonly guardrail: GuardrailService,
@@ -231,6 +257,19 @@ export class MessagesController {
     if (!chatId) throw new BadRequestException('chatId é obrigatório');
     const take = clampInt(limit, 50, 1, 200);
     const msgs = await this.repo.listByChat(id, candidateJids(chatId), take);
+    return this.toDtos(id, msgs);
+  }
+
+  // Página do GET /messages e do /search → DTO: reações da página inteira numa consulta só (por
+  // keyId — imune ao chatJid @lid × telefone) + URL pré-assinada de cada mídia.
+  private async toDtos(sessionId: string, msgs: StoredMessage[]) {
+    const byKey = new Map<string, StoredReaction[]>();
+    const keyIds = [...new Set(msgs.map((m) => m.keyId).filter(Boolean))];
+    for (const r of await this.reactions.listForMessages(sessionId, keyIds)) {
+      const list = byKey.get(r.targetKeyId);
+      if (list) list.push(r);
+      else byKey.set(r.targetKeyId, [r]);
+    }
     return Promise.all(
       msgs.map(async (m) =>
         toDto(
@@ -243,6 +282,7 @@ export class MessagesController {
                 return null;
               })
             : null,
+          byKey.get(m.keyId),
         ),
       ),
     );
@@ -265,21 +305,7 @@ export class MessagesController {
     const take = clampInt(limit, 50, 1, 200);
     const chatJids = chatId ? candidateJids(chatId) : [];
     const msgs = await this.repo.searchMessages(id, term, chatJids, take);
-    return Promise.all(
-      msgs.map(async (m) =>
-        toDto(
-          m,
-          m.mediaKey
-            ? await this.mediaStorage.presignedGetUrl(m.mediaKey).catch((e) => {
-                this.logger.warn(
-                  `mediaUrl indisponível para ${m.mediaKey}: ${(e as Error).message}`,
-                );
-                return null;
-              })
-            : null,
-        ),
-      ),
-    );
+    return this.toDtos(id, msgs);
   }
 
   // W7 — backfill do inbox: puxa o histórico da engine e grava no banco, populando GET

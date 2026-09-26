@@ -150,6 +150,7 @@ model WaSession {
   campaigns Campaign[]
   sendIntents SendIntent[]
   triage    ConversationTriage[]
+  reactions MessageReaction[]
   events    WaSessionEvent[]
   metrics   SessionMetric[]
   guardrail SessionGuardrail?
@@ -295,6 +296,11 @@ model WaMessage {
   fileName  String?
   mediaKey  String?
   fileSize  Int?
+  // P-066 (E22): selo "Encaminhada" do WhatsApp — `contextInfo.isForwarded`/`forwardingScore` (Baileys)
+  // ou `msg.isForwarded`/`forwardingScore` (wwebjs). forwardingScore = quantas vezes a mensagem já
+  // foi encaminhada (null quando a mensagem não é encaminhada ou a engine não informa).
+  isForwarded     Boolean @default(false)
+  forwardingScore Int?
   timestamp DateTime
   createdAt DateTime @default(now())
 
@@ -309,6 +315,37 @@ model WaMessage {
   // trocar por índice parcial (WHERE idempotencyKey IS NOT NULL) via migration custom.
   @@unique([sessionId, idempotencyKey])
   @@map("wa_messages")
+}
+
+// P-066 (E22) — reações às mensagens, UMA linha por (sessão, mensagem-alvo, quem reagiu): no
+// WhatsApp cada pessoa tem no máximo uma reação por mensagem (trocar o emoji substitui). A reação
+// NÃO é mensagem: não entra em wa_messages (antes virava `type:'other'` com texto vazio → "…" no
+// painel, 🔴 na triagem e handoff falso). `senderKey` é a identidade estável de quem reagiu, usada no
+// unique: 'me' = nós (API ou celular) · 'peer' = o contato numa conversa 1:1 (imune a LID×telefone)
+// · jid normalizado do participante em grupo. Reação removida vira `emoji = ''` (lápide): guarda o
+// horário para uma reação ANTIGA reprocessada fora de ordem não ressuscitar; as leituras filtram
+// `emoji <> ''`. O reply-rate (G4) conta reação do contato como resposta (D-028).
+model MessageReaction {
+  id          String   @id
+  sessionId   String
+  chatJid     String // conversa, normalizada como em wa_messages quando o LID é conhecido
+  targetKeyId String // keyId da mensagem que recebeu a reação
+  senderKey   String // 'me' | 'peer' | jid do participante (grupo)
+  senderJid   String? // quem reagiu, como a engine informou (best-effort)
+  fromMe      Boolean  @default(false)
+  emoji       String // '' = reação removida (lápide)
+  timestamp   DateTime // quando a reação foi feita (relógio de quem reagiu)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, targetKeyId, senderKey])
+  // reply-rate: reação do contato no MESMO chat dentro da janela de 72h.
+  @@index([sessionId, chatJid, timestamp])
+  // Retenção (RETENTION_MESSAGES_DAYS): purge por idade varre createdAt.
+  @@index([createdAt])
+  @@map("wa_message_reactions")
 }
 
 // ABE-03 (auditoria 09/2026) — intenção de envio DURÁVEL, reservada ANTES do transporte.

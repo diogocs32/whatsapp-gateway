@@ -11,6 +11,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
+| `gateway/test/conversas-reacoes.e2e-spec.ts` | 544 |
 | `gateway/test/f5.e2e-spec.ts` | 253 |
 | `gateway/test/f6.e2e-spec.ts` | 99 |
 | `gateway/test/g4.e2e-spec.ts` | 107 |
@@ -95,6 +96,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “"true"/"1"/"on" LIGAM, aceitando maiúsculas e espaços” · L38
   - it “string vazia cai no default (equivale a não definir)” · L50
   - it “valor não reconhecido derruba o boot citando a variável (fail-fast)” · L55
+
+## `gateway/test/conversas-reacoes.e2e-spec.ts`
+
+544 linhas · caminho: `apps/gateway/test/conversas-reacoes.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/observability/retention.service.ts`, `modules/messaging/domain/reaction.repository.ts`, `modules/sessions/application/engine.port.ts`, `gateway/test/setup-app.ts`
+
+- describe “Conversas fiéis — reações, encaminhada, reply-rate e feed (e2e)” · L22
+  - describe “reação grava, troca e remove” · L123
+    - it “reação do contato grava UMA linha e aparece no GET /messages da mensagem-alvo” · L124
+    - it “trocar o emoji substitui (não duplica); a nossa reação convive com a do contato” · L150
+    - it “emoji vazio REMOVE: some do GET /messages (lápide guarda o horário)” · L174
+    - it “reação ANTIGA reprocessada fora de ordem não ressuscita a removida” · L186
+    - it “mesmo contato como @lid e como telefone numa conversa 1:1 → uma linha só (senderKey peer)” · L199
+    - it “telefone NÃO volta para @lid quando uma reação @lid mais nova chega depois do merge” · L224
+    - it “grupo: cada participante tem a sua; aparelho (:NN) não duplica” · L251
+    - it “evento sem mensagem-alvo não grava nada” · L289
+  - it “selo "Encaminhada": o evento message grava isForwarded/forwardingScore e o GET /messages devolve” · L300
+  - describe “reply-rate conta reação do contato (D-028)” · L328
+    - it “responded = A + B + C + G + H + I (ao cold, no chat, lápide, @lid a follow-up, removida depois, via EventBus)” · L461
+  - it “retenção: reação mais velha que RETENTION_MESSAGES_DAYS (90) é purgada; a recente fica” · L475
+  - it “feed da caixa única traz o status (ACK) das enviadas — P-072” · L500
 
 ## `gateway/test/f5.e2e-spec.ts`
 
@@ -324,7 +346,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 169 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12

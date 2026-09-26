@@ -130,7 +130,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `apply` L316, `canSendCold` L406, `recordHardSignal` L427
 - `canSendCold(sessionId)` · L406 · async
   - chama: `emit` L177, `emitFailed` L396, `getState` L203
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `MessagesController.assertColdAllowed` (messages.controller.ts:206)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:138), `MessagesController.assertColdAllowed` (messages.controller.ts:232)
 - `recordHardSignal(sessionId, signal)` · L427 · async
   - chama: `apply` L316, `emit` L177, `emitFailed` L396, `newId` (ulid.ts:4)
   - banco: `sessionGuardrail.upsert`
@@ -166,4 +166,4 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **class `SessionQuarantinedException`** L5 · `extends HttpException`
 - injeta (construtor): `state: string (param)` · `reason: string | null (param)`
 - `constructor(state, reason)` · L6
-  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:206)
+  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:232)

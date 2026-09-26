@@ -17,6 +17,9 @@ export interface SaveMessageInput {
   fileName?: string | null;
   mediaKey?: string | null;
   fileSize?: number | null;
+  // P-066 (E22): selo "Encaminhada".
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
   // proto.IMessage codificado via BufferJSON (texto E mídia) → wa_messages.raw; usado no retry.
   raw?: unknown;
 }
@@ -41,6 +44,8 @@ export interface StoredMessage {
   fileName: string | null;
   mediaKey: string | null;
   fileSize: number | null;
+  isForwarded: boolean;
+  forwardingScore: number | null;
 }
 
 // Resumo de uma conversa (1 por chatJid distinto) para a lista da inbox.
