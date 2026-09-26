@@ -6,7 +6,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Adicionado — wwebjs pronto para canário isolado (26/09 — sessão `e5-wwebjs-pronto`, etapa E5, P-059/P-073 — **branch da Onda 6, sem merge/deploy**; D-032)
+### Adicionado — wwebjs pronto para canário isolado (26/09 — sessão `e5-wwebjs-pronto`, etapa E5, P-059/P-073 — **PR #8 mergeado na `main`, deploy W pendente; E6 ainda aberta**; D-032)
 
 - Patch da `whatsapp-web.js@1.34.7` cobre a colisão `__x_id` da mídia, fallback WID/MsgKey, contador de chats descartados e validação da versão no cache local. O default continua na última build validada; a candidata `2.3000.1046934385-alpha` fica disponível por sessão para canário no próximo start.
 - `PATCH/GET /api/sessions/:id/config` expõe `wwebjsWebVersion` nullable (migration aditiva); logs informam build pedida/efetiva e Chromium. LOGOUT/UNPAIRED/CONFLICT param sem novo QR automático; bloqueios TOS falham com código; pairing e recargas automáticas têm teto.

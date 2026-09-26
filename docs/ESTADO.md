@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** ondas da análise de 23/09 em **1 etapa = 1 chat** — fio condutor em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md) (E1–E4 ✅ 25/09, Onda 1 mergeada, **deploy A pendente**; E22–E25 ✅ 25–26/09, Onda 8 no PR #7 sem merge/deploy; E5 ✅ 26/09, P-059/P-073 na branch `feature/onda6-wwebjs`, sem merge/deploy; **próxima = E6**, perfil leve do wwebjs, antes do canário com chip e do deploy W). Pedidos futuros do dono: P-084 (sugerir proxy ao recriar sessão) e P-086 (link público temporário para pareamento por QR). Mapa de relações do código: [MAPA-CODIGO.md](MAPA-CODIGO.md). **O dono faz o merge e escolhe a janela de deploy; nenhum deploy enquanto a equipe estiver trabalhando.**
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 mergeada no PR #8 (deploy W pendente). **Próxima: E6/P-060**, ainda não implementada. P-084 e P-086 são pedidos futuros. Em 26/09 o dono autorizou que o assistente integrasse os PRs #7 e #8 à `main`; **não autorizou deploy** enquanto a equipe trabalha. O Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,14 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **26/09/2026 — integração autorizada pelo dono, sem Deploy manual:** PR #7 (Onda 8) mergeado em
+> `ddca44a`; PR #8 (E5 da Onda 6) mergeado em `6567112`. O código está na `main`, mas as mudanças
+> de gateway e painel só chegam à produção após Deploy manual no Dokploy (D-027). A E6/P-060 continua
+> pendente; o canário com chip da build wwebjs também. Nenhum Deploy foi executado nesta conversa.
+> Às 13:16 UTC, `/health` nos domínios `.cloud` e `.com` respondeu `ok`, com uptime de 947.341 s
+> (boot aproximado em 15/09 14:06 UTC): o gateway não reiniciou após os merges. Último SHA de
+> produção **documentado**: `768fb26`; o toggle do Dokploy não foi inspecionado ao vivo.
 
 > **26/09/2026 (sessão `e5-wwebjs-pronto`, código na branch da Onda 6 — sem deploy):** patch
 > wwebjs estendido para mídia `__x_id`, WID/MsgKey e cache de versão; override de build por sessão
