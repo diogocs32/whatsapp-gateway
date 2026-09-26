@@ -23,7 +23,7 @@
 - 13:36 — leitura R9, E7, P-048, D-022, mapa e roteiro; branch e PR #11 confirmados; arquivos locais não versionados preservados.
 - 13:45 — migration aditiva de restrição temporária aplicada apenas no Postgres local, client Prisma gerado; `BaileysEngine` liga os três sinais via callback local, consulta RPC com timeout e limite, conta 479; `GuardrailService` grava o prazo e publica `session.restricted` sem marcar `banida`.
 - 13:55 — gate de todo envio de mensagem no `SessionManager`, 423 HTTP preservado, campanha re-agenda sem `PAUSED`, ACK ERROR persiste `error`; contracts, INTEGRACAO e testes unit/e2e atualizados. Revisão cética corrigiu precedência do prazo confirmado, limpeza dos listeners, gate 423 do encaminhar antes do preparo e a ordem de checagem de sessão desconectada.
-- 14:03 — `npm run test:unit`: 501 gateway + 180 painel; `npm run test`: 785 gateway (61 arquivos) + 180 painel; sem conexão/envio real. Typecheck, depcruise e builds gateway/painel passaram. O lint/formato globais apontaram só os arquivos locais preexistentes não versionados `seed-mock.js` e `apps/gateway/prisma/seed-mock.ts`; validação dos arquivos da E8 e CI ainda serão conferidos.
+- 14:03 — `npm run test:unit`: 501 gateway + 180 painel; `npm run test`: 785 gateway (61 arquivos) + 180 painel; sem conexão/envio real. Typecheck, depcruise e builds gateway/painel passaram. O lint/formato globais apontaram só os arquivos locais preexistentes não versionados `seed-mock.js` e `apps/gateway/prisma/seed-mock.ts`; ESLint e Prettier dos arquivos da E8, Prisma validate e `mapa-codigo --check` passaram. O CI do PR é conferido sobre o HEAD final após o push deste checkpoint.
 
 ## Checkpoint R9
 
