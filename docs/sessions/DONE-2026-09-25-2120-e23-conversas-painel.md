@@ -177,6 +177,12 @@ gateway:build` · `npm run dashboard:build` · guardas de build (`patches`, `dis
   — e2e falha com a linha antiga; painel — 17 mutantes manuais mortos (10 + 7 da revisão).
 - `tsc --listFilesOnly -p apps/dashboard` → 0 arquivos do gateway (import dinâmico nos specs).
 
+- **CI do PR #7 (run 36210990440, `5fb93a2`+`5f2d8fa`, amd64):** `ci` 2m57s ✅ (format, depcruise,
+  tsc dos 3 projetos, **testes do painel no passo novo**, suíte do gateway com coverage contra
+  Postgres/Redis/MinIO) · `imagens` 2m30s ✅ (build das 2 imagens — o painel com a devDependency nova
+  — + boot do gateway até o `/health` + smoke do login) · `advisories` 15s ✅ (rodou porque o
+  lockfile mudou; run 36210990388).
+
 ### Reconciliação documental — R3/R9
 
 - Contrato e comportamento mudaram → INTEGRACAO (§3 `senderJid` na tabela; §3.1 `Content-Disposition`
