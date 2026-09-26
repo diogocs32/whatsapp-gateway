@@ -643,8 +643,8 @@ describe('BaileysEngine.prepareForward/send (P-068)', () => {
     const prepared = await t.engine.prepareForward(src());
     await prepared.send(DEST, {});
     const sent = await t.sentAt(0);
-    t.upsert([sent], 'append');
-    t.upsert([sent], 'notify');
+    await t.upsert([sent], 'append');
+    await t.upsert([sent], 'notify');
     expect(t.msgEvents()).toHaveLength(1);
   });
 
@@ -671,7 +671,7 @@ describe('BaileysEngine.prepareForward/send (P-068)', () => {
         'handleIncomingMedia',
       )
       .mockResolvedValue(undefined);
-    t.upsert([received('G1', GROUP, GROUP_IMAGE, { participant: PEER })]);
+    await t.upsert([received('G1', GROUP, GROUP_IMAGE, { participant: PEER })]);
     const base = spy.mock.calls[0][1] as { raw: unknown };
     t.prisma.waMessage.findMany.mockResolvedValueOnce([
       { raw: jsonb(base.raw) },
@@ -991,9 +991,9 @@ describe('BaileysEngine.loadMessageForRetry — decodeProto com fromObject (E24)
 });
 
 describe('BaileysEngine.onMessagesUpsert — raw das RECEBIDAS (E24)', () => {
-  it('texto recebido (notify): o evento leva raw JSON puro (jsonb) que volta ao proto', () => {
+  it('texto recebido (notify): o evento leva raw JSON puro (jsonb) que volta ao proto', async () => {
     const t = makeEngine();
-    t.upsert([received('IN1', PEER, { conversation: 'olá 👋' })]);
+    await t.upsert([received('IN1', PEER, { conversation: 'olá 👋' })]);
     expect(t.msgEvents()).toHaveLength(1);
     const p = t.msgEvents()[0].payload;
     expect(p).toMatchObject({ keyId: 'IN1', type: 'text', fromMe: false });
@@ -1002,7 +1002,7 @@ describe('BaileysEngine.onMessagesUpsert — raw das RECEBIDAS (E24)', () => {
     expect(readRaw(jsonb(p.raw)).conversation).toBe('olá 👋');
   });
 
-  it('imagem recebida: o base entregue ao download já tem o raw com a mídia', () => {
+  it('imagem recebida: o base entregue ao download já tem o raw com a mídia', async () => {
     const t = makeEngine();
     const spy = vi
       .spyOn(
@@ -1012,7 +1012,7 @@ describe('BaileysEngine.onMessagesUpsert — raw das RECEBIDAS (E24)', () => {
         'handleIncomingMedia',
       )
       .mockResolvedValue(undefined);
-    t.upsert([
+    await t.upsert([
       received('IM1', PEER, {
         imageMessage: media({ mimetype: 'image/jpeg', caption: 'foto' }),
       }),
@@ -1088,7 +1088,7 @@ describe('BaileysEngine.onMessagesUpsert — raw das RECEBIDAS (E24)', () => {
         sendMessage: t.sendMessage,
         updateMediaMessage: vi.fn(),
       });
-      t.upsert([
+      await t.upsert([
         received('IM2', PEER, {
           imageMessage: { mimetype: 'image/jpeg', mediaKey: B64 },
         }),
@@ -1135,7 +1135,7 @@ describe('BaileysEngine.onMessagesUpsert — raw das RECEBIDAS (E24)', () => {
           'handleIncomingMedia',
         )
         .mockResolvedValue(undefined);
-      t.upsert([received('W1', PEER, obj)]);
+      await t.upsert([received('W1', PEER, obj)]);
       const base = spy.mock.calls[0][1] as { raw: unknown };
       t.prisma.waMessage.findMany.mockResolvedValueOnce([
         { raw: jsonb(base.raw) },

@@ -1,7 +1,8 @@
 import makeWASocket, {
   BufferJSON,
-  DisconnectReason,
+  DEFAULT_CONNECTION_CONFIG,
   downloadMediaMessage,
+  extractMessageContent,
   fetchLatestBaileysVersion,
   jidNormalizedUser,
   makeCacheableSignalKeyStore,
@@ -11,16 +12,17 @@ import makeWASocket, {
   type Contact,
   type GroupMetadata,
   type MessageUpsertType,
+  type NewChatMessageCapInfo,
   type WAMessage,
   type WAMessageKey,
   type WAMessageUpdate,
   type WASocket,
 } from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
 import * as QRCode from 'qrcode';
 import type { Agent } from 'node:http';
 import type { Agent as HttpsAgent } from 'node:https';
 import type { Logger } from 'pino';
+import { Agent as UndiciAgent, type Dispatcher } from 'undici';
 import { PrismaService, Prisma } from '../../../../infra/prisma/prisma.service';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
@@ -43,6 +45,7 @@ import type {
   PreparedForward,
   PresenceState,
   ReactionPayload,
+  ReachoutRestrictionSignal,
   SaveContactInput,
   SendLocationInput,
   SendMediaInput,
@@ -68,6 +71,11 @@ import {
   forwardableContent,
   toNum,
 } from './baileys-content';
+import { shouldAcceptUpsert } from './upsert-decision';
+import { recordProcessError } from '../../../../shared-kernel/process-errors';
+import { recordDisconnect } from '../../../../shared-kernel/disconnect-stats';
+import type { SessionErrorDetails } from '../../domain/session.entity';
+import { classifyDisconnect, disconnectDetails } from './disconnect-policy';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -75,11 +83,24 @@ export interface BaileysEngineDeps {
   prisma: PrismaService;
   logger: Logger;
   onEvent: EngineEventHandler;
+  // E8: sinal LOCAL para o SessionManager gravar a pausa no guardrail; não usa EventBus remoto.
+  onRestrictionSignal?: (signal: ReachoutRestrictionSignal) => Promise<void>;
+  // Persiste o último código/motivo sem publicar `session.status` em cada queda transitória.
+  onDisconnect?: (details: SessionErrorDetails) => Promise<void>;
+  baileysProtocolVersion?: string;
+  baileysProtocolCanarySessionId?: string;
+  onProtocolVersion?: (version: string, source: string) => void;
   // Guard anti-vazamento (WA_REQUIRE_PROXY): quando true, a engine RECUSA conectar se resolveAgent
   // não devolver proxy — evita expor o IP do servidor (datacenter) ao WhatsApp. Default false.
   requireProxy?: boolean;
   // Resolve o proxy (agent) a cada conexão. null/ausente => conexão direta, sem proxy (§7.4).
   resolveAgent?: () => Promise<Agent | null>;
+  // A mesma escolha de proxy alimenta WebSocket/upload e o fetch da CDN. null na factory com
+  // Agent presente (SOCKS) = mídia apenas com metadados, sem saída direta pelo IP do servidor.
+  resolveBaileysTransport?: () => Promise<{
+    agent: Agent | null;
+    createMediaDispatcher: (() => Dispatcher) | null;
+  }>;
   // Dados crus do proxy (server + auth) para engines que aplicam proxy no browser (wwebjs:
   // --proxy-server + proxyAuthentication). null => conexão direta.
   resolveProxyConfig?: () => Promise<{
@@ -113,40 +134,87 @@ export interface BaileysEngineDeps {
   };
 }
 
-// Cache de processo da versão do WhatsApp Web usada pelo Baileys (item 7 da auditoria 07/2026):
-// fetchLatestBaileysVersion é uma chamada HTTP externa que ficava no hot path de TODO connect e
-// de CADA tentativa de reconexão (numa tempestade de reconexão, N chamadas em paralelo). TTL de
-// 12h; em falha, reusa a última versão conhecida (stale) ou deixa o makeWASocket usar a default
-// embutida do Baileys (retorno undefined).
+// A consulta da rc14 usa fetch sem repassar AbortSignal. Limitamos a espera e o número de
+// consultas; só `isLatest:true` atualiza o cache. Um retorno tardio após o teto é ignorado.
 type BaileysVersion = Awaited<
   ReturnType<typeof fetchLatestBaileysVersion>
 >['version'];
+type VersionSelection = {
+  version: BaileysVersion | undefined;
+  source: 'latest' | 'cache' | 'stale-cache' | 'bundled';
+};
 let baileysVersionCache: {
   version: BaileysVersion;
   fetchedAt: number;
 } | null = null;
 const BAILEYS_VERSION_TTL_MS = 12 * 60 * 60 * 1000;
+const BAILEYS_VERSION_FETCH_TIMEOUT_MS = 3_000;
+const BAILEYS_VERSION_RETRY_MS = 30_000;
+const MEDIA_DOWNLOAD_WAIT_MS = 90_000;
+const MEDIA_REUPLOAD_WAIT_MS = 20_000;
+let baileysVersionFetch: Promise<VersionSelection> | null = null;
+let lastVersionFetchAt: number | null = null;
 
-async function latestBaileysVersion(
-  logger: Logger,
-): Promise<BaileysVersion | undefined> {
+function staleVersion(): VersionSelection {
+  return baileysVersionCache
+    ? { version: baileysVersionCache.version, source: 'stale-cache' }
+    : { version: undefined, source: 'bundled' };
+}
+
+async function latestBaileysVersion(logger: Logger): Promise<VersionSelection> {
   if (
     baileysVersionCache &&
     Date.now() - baileysVersionCache.fetchedAt < BAILEYS_VERSION_TTL_MS
   ) {
-    return baileysVersionCache.version;
+    return { version: baileysVersionCache.version, source: 'cache' };
   }
-  try {
-    const { version } = await fetchLatestBaileysVersion();
-    baileysVersionCache = { version, fetchedAt: Date.now() };
-    return version;
-  } catch (e) {
-    logger.warn(
-      { err: (e as Error).message },
-      'fetchLatestBaileysVersion falhou — usando versão em cache/default',
-    );
-    return baileysVersionCache?.version;
-  }
+  if (baileysVersionFetch) return baileysVersionFetch;
+  if (
+    lastVersionFetchAt !== null &&
+    Date.now() - lastVersionFetchAt < BAILEYS_VERSION_RETRY_MS
+  )
+    return staleVersion();
+  lastVersionFetchAt = Date.now();
+  baileysVersionFetch = (async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const result = await Promise.race([
+        fetchLatestBaileysVersion(),
+        new Promise<undefined>((resolve) => {
+          timer = setTimeout(
+            () => resolve(undefined),
+            BAILEYS_VERSION_FETCH_TIMEOUT_MS,
+          );
+          timer.unref?.();
+        }),
+      ]);
+      if (result?.isLatest) {
+        baileysVersionCache = {
+          version: result.version,
+          fetchedAt: Date.now(),
+        };
+        return {
+          version: result.version,
+          source: 'latest',
+        } as VersionSelection;
+      }
+      logger.warn(
+        { timedOut: !result, err: result?.error },
+        'versão Baileys não confirmada; usando cache/default embutido',
+      );
+    } catch (e) {
+      logger.warn(
+        { err: e },
+        'consulta de versão Baileys falhou; usando cache/default embutido',
+      );
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    return staleVersion();
+  })().finally(() => {
+    baileysVersionFetch = null;
+  });
+  return baileysVersionFetch;
 }
 
 // Converte um Contact do Baileys (contacts.upsert/update) em ContactRecord do diretório.
@@ -241,7 +309,7 @@ function extOf(mimetype: string | null, fileName: string | null): string {
 }
 
 // G3: mapeia o enum de status do WhatsApp (proto.WebMessageInfo.Status) para o ACK público.
-// PENDING/ERROR não viram evento; PLAYED (áudio ouvido) conta como leitura.
+// PENDING não vira evento; ERROR vira `error` sem tique. PLAYED conta como leitura.
 function mapAckStatus(
   status: proto.WebMessageInfo.Status | null | undefined,
 ): AckStatus | null {
@@ -254,6 +322,8 @@ function mapAckStatus(
     case S.READ:
     case S.PLAYED:
       return 'read';
+    case S.ERROR:
+      return 'error';
     default:
       return null;
   }
@@ -401,20 +471,53 @@ function toContactJid(jid: string): string {
 }
 
 const MAX_RECONNECT = 5;
+const MAX_RESTART_REQUIRED_STREAK = 3;
 const SENT_CACHE_MAX = 1000;
+const UPSERT_CACHE_MAX = 2000;
 // WA-12 (auditoria 09/2026): cache de metadata de grupo. A doc do Baileys recomenda
 // `cachedGroupMetadata` para envios a grupo não consultarem os participantes a CADA mensagem
 // (consulta repetida é associada por eles a rate-limit). TTL curto + invalidação por evento.
 const GROUP_META_TTL_MS = 10 * 60_000;
 const GROUP_META_MAX = 500;
+const SOCKET_EVENTS = [
+  'connection.update',
+  'creds.update',
+  'messages.upsert',
+  'messages.update',
+  'message-capping.update',
+  'messages.reaction',
+  'contacts.upsert',
+  'contacts.update',
+  'groups.update',
+  'group-participants.update',
+] as const;
+const TIMELOCK_FETCH_TIMEOUT_MS = 3_000;
+const TIMELOCK_FETCH_MIN_INTERVAL_MS = 30_000;
+
+function cappingCycleEnd(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const raw = Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) return undefined;
+  const date = new Date(raw < 1e12 ? raw * 1000 : raw);
+  return Number.isFinite(date.getTime()) && date.getTime() > Date.now()
+    ? date
+    : undefined;
+}
 
 export class BaileysEngine implements IEngine {
   readonly engineName = 'baileys' as const;
   private sock: WASocket | null = null;
+  // Um Dispatcher por mídia permite destruir só a requisição pendurada, sem afetar outros
+  // downloads da sessão. O fetch da rc14 ignora AbortSignal; Promise.race sozinho não o cancela.
+  private createMediaDispatcher: (() => Dispatcher) | null = () =>
+    new UndiciAgent();
   private status: SessionStatus = 'STOPPED';
   private qrBase64: string | null = null;
   private stopped = false;
   private reconnectAttempts = 0;
+  private replacedRetryUsed = false;
+  private replacedRetryAttempted = false;
+  private restartRequiredStreak = 0;
   // Mutex de ciclo de vida (espelha o da WwebjsEngine): serializa start/stop/logout/reconexão da
   // MESMA sessão. Sem isto, dois start() próximos (duplo clique, restart sobre start, create +
   // autostart) passam ambos pelo `if (this.sock)` de connect() com sock=null e criam DOIS
@@ -423,6 +526,9 @@ export class BaileysEngine implements IEngine {
   private lifecycle: Promise<unknown> = Promise.resolve();
   // cache de mensagens enviadas — usado pelo getMessage (retry de descriptografia, blueprint §8.6)
   private readonly sentMessages = new Map<string, proto.IMessage>();
+  // Dedup antes do onEvent: impede webhook/SSE duplicado enquanto o persister grava em paralelo.
+  // O banco cobre restarts; o cache cobre repetições e corridas na mesma instância.
+  private readonly seenUpserts = new Set<string>();
   // cache LID→número (PN) aprendido das mensagens, para resolver conversas 1:1 (§23.1)
   private readonly lidToPn = new Map<string, string>();
   // Revisão E23: telefone de participante de grupo → último pushName gravado no diretório (evita um
@@ -433,6 +539,8 @@ export class BaileysEngine implements IEngine {
   // para "reconectar". Agora: start/stop/logout cancelam o timer e o callback checa a geração.
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private connectGeneration = 0;
+  private timelockFetch: Promise<void> | null = null;
+  private lastTimelockFetchAt = 0;
   // WA-12: metadata de grupo (jid → metadata + instante) servida ao `cachedGroupMetadata`.
   private readonly groupMetaCache = new Map<
     string,
@@ -486,24 +594,19 @@ export class BaileysEngine implements IEngine {
     return this.serialize(() => {
       this.stopped = false;
       this.reconnectAttempts = 0;
+      this.replacedRetryUsed = false;
+      this.replacedRetryAttempted = false;
+      this.restartRequiredStreak = 0;
       this.clearReconnectTimer(); // WA-11: reconexão pendente de um ciclo anterior não vale mais
       this.connectGeneration += 1;
       return this.connect();
     });
   }
 
-  private async connect(): Promise<void> {
+  private async connect(persistStartingStatus = true): Promise<void> {
+    if (this.stopped) return;
     if (this.sock) {
-      const ev = this.sock.ev as unknown as {
-        removeAllListeners?: (event?: string) => void;
-      };
-      try {
-        ev.removeAllListeners?.('connection.update');
-        ev.removeAllListeners?.('creds.update');
-        ev.removeAllListeners?.('messages.upsert');
-      } catch {
-        /* noop */
-      }
+      this.detachSocketListeners();
       try {
         this.sock.end(undefined);
       } catch {
@@ -516,11 +619,44 @@ export class BaileysEngine implements IEngine {
       this.deps.prisma,
       this.deps.sessionId,
     );
-    // Item 7 — versão com cache de processo (TTL 12h) em vez de HTTP a cada connect/reconnect.
-    const version = await latestBaileysVersion(this.deps.logger);
+    if (this.stopped) return;
+    const canaryOverride =
+      this.deps.baileysProtocolCanarySessionId === this.deps.sessionId &&
+      this.deps.baileysProtocolVersion;
+    const selected = canaryOverride
+      ? {
+          version: canaryOverride.split('.').map(Number) as BaileysVersion,
+          source: 'canary-override' as const,
+        }
+      : await latestBaileysVersion(this.deps.logger);
+    if (this.stopped) return;
+    const { version } = selected;
+    this.deps.logger.info(
+      {
+        sessionId: this.deps.sessionId,
+        version: (version ?? DEFAULT_CONNECTION_CONFIG.version).join('.'),
+        source: selected.source,
+      },
+      'versão do protocolo Baileys nesta conexão',
+    );
+    this.deps.onProtocolVersion?.(
+      (version ?? DEFAULT_CONNECTION_CONFIG.version).join('.'),
+      selected.source,
+    );
 
-    // Proxy (§7.4): o mesmo Agent serve para o WebSocket (`agent`) e para o download de mídia (`fetchAgent`).
-    const agent = (await this.deps.resolveAgent?.()) ?? undefined;
+    // Proxy (§7.4): uma única resolução decide o Agent Node do WebSocket/upload (`fetchAgent`)
+    // e o Dispatcher undici do download. Uma segunda resolução avançaria o cursor rotativo.
+    const transport = await this.deps.resolveBaileysTransport?.();
+    const agent = transport
+      ? (transport.agent ?? undefined)
+      : ((await this.deps.resolveAgent?.()) ?? undefined);
+    this.createMediaDispatcher = transport
+      ? (transport.createMediaDispatcher ??
+        (agent ? null : () => new UndiciAgent()))
+      : agent
+        ? null
+        : () => new UndiciAgent();
+    if (this.stopped) return;
 
     // Guard anti-vazamento (opcional, WA_REQUIRE_PROXY): sem proxy resolvido, o WhatsApp seria
     // acessado DIRETO pelo IP do servidor (datacenter) — gatilho nº 1 de flag de automação na
@@ -586,7 +722,8 @@ export class BaileysEngine implements IEngine {
     });
     this.sock = sock;
     this.groupMetaCache.clear(); // socket novo: participantes podem ter mudado offline
-    this.setStatus('STARTING');
+    if (persistStartingStatus) this.setStatus('STARTING');
+    else this.status = 'STARTING'; // 440: não pisar no WORKING de outra réplica antes do open
 
     // F7.2 — cada handler roda dentro de `safe()`: um erro processando evento de UMA sessão é
     // logado e isolado (não vira uncaughtException nem derruba as outras sessões).
@@ -594,7 +731,10 @@ export class BaileysEngine implements IEngine {
       this.safe(() => saveCreds(), 'creds.update'),
     );
     sock.ev.on('connection.update', (u) =>
-      this.safe(() => this.onConnectionUpdate(u), 'connection.update'),
+      this.safe(
+        () => this.serialize(() => this.onConnectionUpdate(u, sock)),
+        'connection.update',
+      ),
     );
     sock.ev.on('messages.upsert', (u) =>
       this.safe(() => this.onMessagesUpsert(u), 'messages.upsert'),
@@ -602,6 +742,9 @@ export class BaileysEngine implements IEngine {
     // G3 — ACK de entrega/leitura (receipts das mensagens que enviamos).
     sock.ev.on('messages.update', (u) =>
       this.safe(() => this.onMessagesUpdate(u), 'messages.update'),
+    );
+    sock.ev.on('message-capping.update', (info) =>
+      this.safe(() => this.onMessageCapping(info), 'message-capping.update'),
     );
     // Sync de contatos do WhatsApp → diretório persistente (a fonte mais rica de LID↔telefone).
     sock.ev.on('contacts.upsert', (cs) =>
@@ -732,12 +875,54 @@ export class BaileysEngine implements IEngine {
 
   private async onConnectionUpdate(
     update: Partial<ConnectionState>,
+    eventSock?: WASocket,
   ): Promise<void> {
+    if (this.stopped || (eventSock && eventSock !== this.sock)) return;
+    const generation = this.connectGeneration;
     const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
+    // rc14: notificação MEX e fetchAccountReachoutTimelock chegam aqui com o MESMO shape.
+    // A notificação fabrica now+60s quando o servidor omite o prazo; só a resposta direta
+    // do RPC permite confirmar `timeEnforcementEnds`. `isActive:false` não apaga a pausa:
+    // o prazo gravado expira por relógio e evita liberação prematura por capping concorrente.
+    const lock = update.reachoutTimeLock;
+    if (lock?.isActive) {
       try {
-        this.qrBase64 = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
+        await this.deps.onRestrictionSignal?.({
+          signal: 'reachoutTimeLock',
+          until: lock.timeEnforcementEnds,
+          source: 'temporary',
+          enforcementType: lock.enforcementType,
+        });
+      } catch (err) {
+        recordProcessError('baileys_restriction_record');
+        this.deps.logger.error({ err }, 'falha ao gravar restrição nativa');
+      }
+      // A consulta tem single-flight, intervalo mínimo de 30 s e teto de 3 s. Não atrasa
+      // status/QR/open da conexão; a própria função captura falha e conserva a pausa.
+      void this.fetchReachoutTimelock();
+    }
+
+    // `onRestrictionSignal` pode esperar I/O. Um start/stop durante esse await invalida QR,
+    // open e close do socket anterior; a pausa E8 já usa o próprio guard do RPC.
+    if (
+      this.stopped ||
+      generation !== this.connectGeneration ||
+      (eventSock && eventSock !== this.sock)
+    )
+      return;
+
+    if (qr) {
+      if (this.replacedRetryUsed) return; // réplica substituída não publica QR na tentativa quieta
+      try {
+        const qrBase64 = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
+        if (
+          this.stopped ||
+          generation !== this.connectGeneration ||
+          (eventSock && eventSock !== this.sock)
+        )
+          return;
+        this.qrBase64 = qrBase64;
         this.setStatus('SCAN_QR_CODE');
       } catch (e) {
         this.deps.logger.error({ err: e }, 'falha ao gerar QR');
@@ -747,20 +932,56 @@ export class BaileysEngine implements IEngine {
     if (connection === 'open') {
       this.qrBase64 = null;
       this.reconnectAttempts = 0;
+      this.replacedRetryUsed = false;
+      this.replacedRetryAttempted = false;
+      this.restartRequiredStreak = 0;
       const me = this.sock?.user;
       this.setStatus('WORKING', {
         meJid: me?.id ?? null,
         mePushName: me?.name ?? null,
         error: null,
+        lastErrorDetails: null,
       });
       void this.warmLidCache(); // aquece o cache LID↔telefone do diretório persistido
     }
 
     if (connection === 'close') {
-      const statusCode = (lastDisconnect?.error as Boom | undefined)?.output
-        ?.statusCode;
+      const details = disconnectDetails(lastDisconnect?.error);
+      const decision = classifyDisconnect(details.code, details.reason);
+      recordDisconnect('baileys', details.code);
+      if (this.stopped) return;
+      if (this.replacedRetryUsed) {
+        // Após 440, esta réplica perdeu ownership. Nenhum código da tentativa quieta pode
+        // limpar credenciais, persistir terminal ou publicar alerta. Um close duplicado antes
+        // do timer mantém a única tentativa agendada; depois dela, a réplica fica quiescente.
+        if (this.replacedRetryAttempted) {
+          this.stopped = true;
+          this.clearReconnectTimer();
+          this.status = 'DEGRADED';
+        }
+        return;
+      }
+      if (decision.action !== 'restart') this.restartRequiredStreak = 0;
+      // Não oferecer envio por um socket já fechado durante backoff. Este estado é apenas local;
+      // um processo antigo que recebeu 440 não sobrescreve o status compartilhado do novo.
+      this.status = 'DEGRADED';
+      try {
+        await this.deps.onDisconnect?.(details);
+      } catch (err) {
+        this.deps.logger.error(
+          { err },
+          'falha ao persistir motivo da desconexão',
+        );
+      }
 
-      if (statusCode === DisconnectReason.loggedOut) {
+      if (
+        this.stopped ||
+        generation !== this.connectGeneration ||
+        (eventSock && eventSock !== this.sock)
+      )
+        return;
+
+      if (decision.action === 'logged_out') {
         // Deslogado pelo celular: as credenciais persistidas estão MORTAS — qualquer
         // reconexão/restart com elas volta a falhar sem nunca gerar QR. Limpa tudo e para em
         // STOPPED: o próximo start (botão Conectar / POST /new-qr) gera QR novo direto.
@@ -778,13 +999,46 @@ export class BaileysEngine implements IEngine {
         this.setStatus('STOPPED', {
           meJid: null,
           mePushName: null,
-          error:
-            'Desconectada pelo celular (loggedOut) — credenciais limpas; gere um novo QR para reconectar',
+          error: decision.error,
+          lastErrorDetails: details,
         });
         return;
       }
-      if (this.stopped) {
-        this.setStatus('STOPPED', { error: null });
+      if (
+        decision.action === 'terminal' ||
+        decision.action === 'client_too_old'
+      ) {
+        this.stopped = true;
+        this.clearReconnectTimer();
+        this.setStatus('FAILED', {
+          error: decision.error,
+          lastErrorDetails: details,
+        });
+        if (decision.action === 'client_too_old') {
+          this.deps.onEvent('session.client_too_old', details);
+        }
+        return;
+      }
+
+      if (decision.action === 'replaced') {
+        this.replacedRetryUsed = true;
+        this.scheduleReconnect(60_000, details, false, true);
+        return;
+      }
+
+      if (decision.action === 'restart') {
+        // 515 após pair-success é parte do handshake; não consome orçamento de falhas.
+        this.restartRequiredStreak += 1;
+        if (this.restartRequiredStreak > MAX_RESTART_REQUIRED_STREAK) {
+          this.stopped = true;
+          this.setStatus('DEGRADED', {
+            error:
+              'Reinício 515 repetido sem conexão aberta — verifique a sessão',
+            lastErrorDetails: details,
+          });
+          return;
+        }
+        this.scheduleReconnect(1_000, details, true);
         return;
       }
 
@@ -812,52 +1066,89 @@ export class BaileysEngine implements IEngine {
       }
 
       this.reconnectAttempts += 1;
-      if (this.reconnectAttempts > MAX_RECONNECT) {
-        this.setStatus('DEGRADED', {
-          error: `Falha ao reconectar após ${MAX_RECONNECT} tentativas`,
-        });
-        return;
-      }
-      const delay =
-        Math.min(30_000, 1_000 * 2 ** this.reconnectAttempts) +
-        Math.floor(Math.random() * 1_000);
-      this.deps.logger.warn(
-        { statusCode, attempt: this.reconnectAttempts, delay },
-        'reconectando sessão',
-      );
-      // WA-11: timer ÚNICO por geração — start()/stop()/logout() cancelam; se um start manual
-      // trocou a geração no meio-tempo, o callback não derruba o socket novo.
-      this.clearReconnectTimer();
-      const gen = this.connectGeneration;
-      this.reconnectTimer = setTimeout(() => {
-        this.reconnectTimer = undefined;
-        if (this.stopped || gen !== this.connectGeneration) return;
-        // Serializada e re-checando `stopped` DENTRO da fila: um stop()/logout() que entrou
-        // entre o agendamento e a execução cancela a reconexão em vez de ressuscitar o socket.
-        void this.serialize(() =>
-          this.stopped || gen !== this.connectGeneration
-            ? Promise.resolve()
-            : this.connect(),
-        ).catch((e) =>
-          this.deps.logger.error({ err: e }, 'erro ao reconectar'),
-        );
-      }, delay);
-      this.reconnectTimer.unref?.();
+      this.scheduleBudgetedReconnect(details);
     }
   }
 
-  private onMessagesUpsert(upsert: {
+  private scheduleBudgetedReconnect(details: SessionErrorDetails): void {
+    if (this.reconnectAttempts > MAX_RECONNECT) {
+      this.clearReconnectTimer();
+      this.setStatus('DEGRADED', {
+        error: `Falha ao reconectar após ${MAX_RECONNECT} tentativas (${details.code ?? 'sem código'})`,
+        lastErrorDetails: details,
+      });
+      return;
+    }
+    const delay =
+      Math.min(30_000, 1_000 * 2 ** this.reconnectAttempts) +
+      Math.floor(Math.random() * 1_000);
+    this.scheduleReconnect(delay, details, true);
+  }
+
+  private scheduleReconnect(
+    delay: number,
+    details: SessionErrorDetails,
+    retryAfterConnectFailure: boolean,
+    quietStart = false,
+  ): void {
+    this.deps.logger.warn(
+      {
+        code: details.code,
+        reason: details.reason,
+        attempt: this.reconnectAttempts,
+        delay,
+      },
+      'reconectando sessão',
+    );
+    // WA-11: um timer por geração; stop/start/logoff invalidam a intenção antiga.
+    this.clearReconnectTimer();
+    const gen = this.connectGeneration;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (this.stopped || gen !== this.connectGeneration) return;
+      if (quietStart) this.replacedRetryAttempted = true;
+      void this.serialize(() =>
+        this.stopped || gen !== this.connectGeneration
+          ? Promise.resolve()
+          : this.connect(!quietStart),
+      ).catch((err) => {
+        this.deps.logger.error(
+          { err, code: details.code },
+          'erro ao reconectar',
+        );
+        if (quietStart && gen === this.connectGeneration) {
+          this.stopped = true;
+          this.status = 'DEGRADED';
+        }
+        if (
+          !retryAfterConnectFailure ||
+          this.stopped ||
+          gen !== this.connectGeneration
+        )
+          return;
+        this.reconnectAttempts += 1;
+        this.scheduleBudgetedReconnect({
+          code: details.code,
+          reason:
+            err instanceof Error ? err.message.slice(0, 500) : details.reason,
+        });
+      });
+    }, delay);
+    this.reconnectTimer.unref?.();
+  }
+
+  private async onMessagesUpsert(upsert: {
     messages: WAMessage[];
     type: MessageUpsertType;
-  }): void {
-    if (upsert.type !== 'notify') return;
+  }): Promise<void> {
+    const nowSeconds = Math.floor(Date.now() / 1000);
     for (const m of upsert.messages) {
+      if (!shouldAcceptUpsert(m, upsert.type, nowSeconds)) continue;
       const keyId = m.key.id ?? '';
       // Já emitida pelo sendText (envio via gateway) → não duplica.
       if (keyId && this.sentMessages.has(keyId)) continue;
 
       let chatJid = m.key.remoteJid ?? '';
-      if (!chatJid || chatJid === 'status@broadcast') continue;
 
       // Aprende LID→número a partir do JID alternativo. Baileys 7.x: quando o remoteJid vem em
       // formato @lid, o número (PN) fica em `remoteJidAlt` (antes era `senderPn`).
@@ -906,6 +1197,26 @@ export class BaileysEngine implements IEngine {
       const d = describeBaileysMessage(m.message, !!m.key.fromMe);
       if (d.kind === 'ignore') continue;
 
+      if (this.seenUpserts.has(keyId)) continue;
+      this.seenUpserts.add(keyId);
+      try {
+        // A consulta por sessão+keyId também reconhece uma mensagem salva antes do restart
+        // (inclusive eco da API com sentMessages vazio). O índice existente suporta a busca.
+        const previous = await this.deps.prisma.waMessage.findFirst({
+          where: { sessionId: this.deps.sessionId, keyId },
+          select: { id: true },
+        });
+        if (previous) continue;
+      } catch (err) {
+        this.seenUpserts.delete(keyId);
+        this.deps.logger.error({ err, keyId }, 'dedup de upsert falhou');
+        continue;
+      }
+      if (this.seenUpserts.size > UPSERT_CACHE_MAX) {
+        const oldest = this.seenUpserts.values().next().value;
+        if (oldest) this.seenUpserts.delete(oldest);
+      }
+
       const ts = m.messageTimestamp;
       const base = {
         keyId,
@@ -940,7 +1251,7 @@ export class BaileysEngine implements IEngine {
 
   // G3 — receipts: o Baileys emite messages.update com `update.status` quando uma mensagem que
   // enviamos é entregue/lida. Traduzimos para um evento `message.ack` first-class.
-  private onMessagesUpdate(updates: WAMessageUpdate[]): void {
+  private async onMessagesUpdate(updates: WAMessageUpdate[]): Promise<void> {
     for (const { key, update } of updates) {
       // P-068 (E24): apagada para todos (REVOKE: `message:null` + stub) e editada (MESSAGE_EDIT:
       // `message.editedMessage`) — Utils/process-message.js:298-307, :364-380. Só MARCAM a linha: o
@@ -956,6 +1267,26 @@ export class BaileysEngine implements IEngine {
           this.markMessage(key.id, !!key.fromMe, 'revokedAt');
         } else if (update.message?.editedMessage) {
           this.markMessage(key.id, !!key.fromMe, 'editedAt');
+        }
+      }
+      if (update.status === proto.WebMessageInfo.Status.ERROR) {
+        const code = String(update.messageStubParameters?.[0] ?? '');
+        if (code === '463' && key.fromMe) {
+          // No rc14 o ramo `MessageAccountRestriction` consome o 463 antes do ramo que consulta
+          // o timelock (messages-recv.js:1513-1552). Trava provisória antes do RPC, com teto.
+          try {
+            await this.deps.onRestrictionSignal?.({ signal: '463' });
+          } catch (err) {
+            recordProcessError('baileys_restriction_record');
+            this.deps.logger.error({ err }, 'falha ao gravar ACK 463');
+          }
+          await this.fetchReachoutTimelock();
+        } else if (code === '479') {
+          recordProcessError('baileys_ack_479');
+          this.deps.logger.warn(
+            { sessionId: this.deps.sessionId, keyId: key.id },
+            'ACK 479: stanza rejeitada; não é prova de restrição',
+          );
         }
       }
       const status = mapAckStatus(update.status);
@@ -980,6 +1311,104 @@ export class BaileysEngine implements IEngine {
         timestamp: Math.floor(Date.now() / 1000),
       });
     }
+  }
+
+  private async onMessageCapping(info: NewChatMessageCapInfo): Promise<void> {
+    if (info.capping_status !== 'CAPPED') {
+      this.deps.logger.info(
+        {
+          status: info.capping_status,
+          used: info.used_quota,
+          total: info.total_quota,
+        },
+        'atualização do limite de novos chats (sem pausa)',
+      );
+      return;
+    }
+    const until = cappingCycleEnd(info.cycle_end_timestamp);
+    try {
+      await this.deps.onRestrictionSignal?.({
+        signal: 'message-capping',
+        until,
+        source: until ? 'cycle_end_timestamp' : undefined,
+      });
+    } catch (err) {
+      recordProcessError('baileys_restriction_record');
+      this.deps.logger.error({ err }, 'falha ao gravar message-capping');
+    }
+    await this.fetchReachoutTimelock();
+  }
+
+  private fetchReachoutTimelock(): Promise<void> {
+    if (this.timelockFetch) return this.timelockFetch;
+    if (
+      Date.now() - this.lastTimelockFetchAt <
+      TIMELOCK_FETCH_MIN_INTERVAL_MS
+    ) {
+      return Promise.resolve();
+    }
+    const sock = this.sock;
+    if (!sock) return Promise.resolve();
+    const startedAt = Date.now();
+    this.lastTimelockFetchAt = startedAt;
+    this.timelockFetch = (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let deadlinePassed = false;
+      // `Promise.race` limita quem aguarda a consulta, mas não cancela o RPC. A rc14 pode
+      // responder depois de 3 s; nesse caso ainda promovemos o prazo confirmado, desde
+      // que o socket e a consulta continuem atuais.
+      const confirmed = Promise.resolve()
+        .then(() => sock.fetchAccountReachoutTimelock())
+        .then(async (state) => {
+          if (
+            this.sock === sock &&
+            this.lastTimelockFetchAt === startedAt &&
+            state.isActive
+          ) {
+            await this.deps.onRestrictionSignal?.({
+              signal: 'reachoutTimeLock',
+              until: state.timeEnforcementEnds,
+              source: state.timeEnforcementEnds
+                ? 'timeEnforcementEnds'
+                : 'temporary',
+              enforcementType: state.enforcementType,
+            });
+          }
+        })
+        .catch((err: unknown) => {
+          if (deadlinePassed) {
+            recordProcessError('baileys_timelock_fetch');
+            this.deps.logger.warn(
+              { err, sessionId: this.deps.sessionId },
+              'consulta tardia do timelock falhou',
+            );
+          }
+          throw err;
+        });
+      try {
+        await Promise.race([
+          confirmed,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error('consulta do timelock excedeu 3 s')),
+              TIMELOCK_FETCH_TIMEOUT_MS,
+            );
+            timer.unref?.();
+          }),
+        ]);
+      } catch (err) {
+        deadlinePassed = true;
+        recordProcessError('baileys_timelock_fetch');
+        this.deps.logger.warn(
+          { err, sessionId: this.deps.sessionId },
+          'falha ao consultar prazo da restrição; pausa provisória expira sozinha',
+        );
+      } finally {
+        if (timer) clearTimeout(timer);
+        this.timelockFetch = null;
+      }
+    })();
+    return this.timelockFetch;
   }
 
   // P-068 (E24): marca apagada/editada nas linhas do keyId NESTA sessão (o mesmo keyId aparece nas
@@ -1026,17 +1455,81 @@ export class BaileysEngine implements IEngine {
     original?: proto.IMessage | null,
   ): Promise<void> {
     const rawNow = () => (original ? encodeProto(original) : base.raw);
-    if (!this.sock) return;
+    const sock = this.sock;
+    if (!sock) return;
+    let dispatcher: Dispatcher | undefined;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    let active = true;
+    let dispatcherDestroyed = false;
+    const destroyDispatcher = () => {
+      if (dispatcher && !dispatcherDestroyed) {
+        dispatcherDestroyed = true;
+        // destroy(), ao contrário de close(), interrompe um fetch/stream que nunca terminou.
+        try {
+          void Promise.resolve(dispatcher.destroy()).catch(() => undefined);
+        } catch {
+          /* a falha do cleanup não impede o fallback da mensagem */
+        }
+      }
+    };
     try {
-      const buffer = (await downloadMediaMessage(
-        m,
-        'buffer',
-        {},
-        {
-          reuploadRequest: this.sock.updateMediaMessage,
-          logger: this.deps.logger as never,
-        },
-      )) as Buffer;
+      const createDispatcher = this.createMediaDispatcher;
+      if (!createDispatcher) {
+        throw new Error(
+          'download de mídia via SOCKS não validado; somente metadados',
+        );
+      }
+      dispatcher = createDispatcher();
+      const options = { options: { dispatcher } };
+      // A rc14 não repassa signal ao fetch. O teto cobre download, pedido de reupload e segunda
+      // tentativa JUNTOS. O dispatcher é privado desta mensagem e destruído no timeout.
+      const download = async () => {
+        try {
+          return await downloadMediaMessage(m, 'buffer', options);
+        } catch (error) {
+          const code = (error as { output?: { statusCode?: number } })?.output
+            ?.statusCode;
+          if (!active || (code !== 404 && code !== 410)) throw error;
+          // Não passamos ctx.reuploadRequest à lib: seu ramo usa error.status e não tem teto.
+          // Para ptv, assertMediaContent da rc14 aceita videoMessage mas não ptvMessage;
+          // a referência do nó é compartilhada para preservar url/directPath no raw original.
+          const content = extractMessageContent(m.message);
+          const reuploadMessage = content?.ptvMessage
+            ? { ...m, message: { videoMessage: content.ptvMessage } }
+            : m;
+          let reuploadDeadline: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([
+              sock.updateMediaMessage(reuploadMessage),
+              new Promise<never>((_, reject) => {
+                reuploadDeadline = setTimeout(
+                  () => reject(new Error('reupload de mídia excedeu 20 s')),
+                  MEDIA_REUPLOAD_WAIT_MS,
+                );
+                reuploadDeadline.unref?.();
+              }),
+            ]);
+          } finally {
+            if (reuploadDeadline) clearTimeout(reuploadDeadline);
+          }
+          if (!active)
+            throw new Error('download de mídia expirou após reupload');
+          return downloadMediaMessage(m, 'buffer', options);
+        }
+      };
+      const buffer = await Promise.race([
+        download(),
+        new Promise<never>((_, reject) => {
+          deadline = setTimeout(() => {
+            active = false;
+            destroyDispatcher();
+            reject(new Error('download de mídia excedeu 90 s'));
+          }, MEDIA_DOWNLOAD_WAIT_MS);
+          deadline.unref?.();
+        }),
+      ]);
+      if (deadline) clearTimeout(deadline);
+      deadline = undefined;
 
       const ext = extOf(media.mimetype, media.fileName);
       const safeId = (base.keyId || String(base.timestamp)).replace(
@@ -1079,6 +1572,10 @@ export class BaileysEngine implements IEngine {
         fileName: media.fileName,
         fileSize: media.fileSize,
       });
+    } finally {
+      active = false;
+      if (deadline) clearTimeout(deadline);
+      destroyDispatcher();
     }
   }
 
@@ -1097,7 +1594,8 @@ export class BaileysEngine implements IEngine {
     });
     const keyId = sent?.key?.id ?? '';
     if (keyId && sent?.message) this.cacheSent(keyId, sent.message);
-    // O Baileys não emite messages.upsert para o que enviamos — emitimos aqui.
+    // A rc14 também reemite o envio como append; a E7 filtra o eco (fromMe) no upsert.
+    // Emitimos aqui com source=api e a chave/intent originais.
     this.deps.onEvent('message', {
       keyId,
       chatJid: jid,
@@ -1858,9 +2356,7 @@ export class BaileysEngine implements IEngine {
       const ev = this.sock?.ev as unknown as {
         removeAllListeners?: (event?: string) => void;
       };
-      ev?.removeAllListeners?.('connection.update');
-      ev?.removeAllListeners?.('creds.update');
-      ev?.removeAllListeners?.('messages.upsert');
+      for (const event of SOCKET_EVENTS) ev?.removeAllListeners?.(event);
     } catch {
       /* noop */
     }

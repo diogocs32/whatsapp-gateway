@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 mergeada no PR #8 (deploy W pendente). **E6/P-060 concluída em código no PR #10 com CI verde; merge, deploy W manual e canário pendentes. Próxima: E7/P-047.** P-084 e P-086 são pedidos futuros. Em 26/09 o dono autorizou que o assistente integrasse os PRs #7 e #8 à `main`; **não autorizou deploy** enquanto a equipe trabalha. O Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 mergeada no PR #8 (deploy W pendente). **E6/P-060 concluída em código no PR #10, ainda aberto; E7/P-047, E8/P-048, E9/P-049 e E10/P-050/P-075 concluídas em código no PR #11, também aberto e dependente do #10. Próxima: E11/P-051 na mesma branch da Onda 2.** Merge/deploy W e B/canários pendentes. P-084 e P-086 são pedidos futuros; P-087 registra o listener interno do reupload sem cancelamento na rc14. Em 26/09 o dono autorizou que o assistente integrasse os PRs #7 e #8 à `main`; **não autorizou deploy** enquanto a equipe trabalha. O Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,61 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **26/09/2026 (sessão `e10-baileys-midia`, E10/P-050/P-075 no PR #11 — sem merge/deploy):**
+> código `b489b21` limita o download recebido a 90 s no total, incluindo reupload de até 20 s
+> em Boom 404/410 e uma segunda tentativa; `ptvMessage` preserva o `raw`. O `fetch` da rc14
+> recebe dispatcher Undici 8.10.2 privado pela escolha única do proxy HTTP/HTTPS da sessão;
+> SOCKS publica só metadados até prova do download por esse proxy. O contrato público mantém
+> `mediaKey` opcional. 558 unit gateway, 843 gateway no total e 180 painel passaram localmente;
+> typecheck, fronteiras, mapa e builds verdes; jobs
+> [`ci`](https://github.com/diogocs32/whatsapp-gateway/actions/runs/36272852120/job/108489971382)
+> e [`imagens`](https://github.com/diogocs32/whatsapp-gateway/actions/runs/36272852120/job/108489971419)
+> verdes no commit de código. O listener interno sem cancelamento da rc14 é
+> P-087. Nenhuma conta, mídia/mensagem real ou ação no Dokploy; canário só após E12 e ordem de
+> merge/deploy B. Produção segue no último SHA **documentado** `768fb26`, sem verificação ao vivo.
+
+> **26/09/2026 (sessão `e9-baileys-desconexao`, E9/P-049 no PR #11 — sem merge/deploy):**
+> código `7c0441c` classifica 401/403/405/408/411/428/440/500/503/515, alerta 405 e
+> limita 440 a uma tentativa tardia quieta; `lastErrorDetails {code,reason}` é aditivo,
+> persistido por migration aplicada só no Postgres local, com métrica de closes por código.
+> Consulta de versão limitada, cache renovado só por `isLatest:true`, log por conexão e override
+> canário por par de envs. A pausa E8 e a confirmação do prazo apenas pelo RPC direto foram
+> preservadas. 546 unit gateway, 831 gateway no total e 180 painel passaram localmente; jobs
+> [`ci`](https://github.com/diogocs32/whatsapp-gateway/actions/runs/36262065637/job/108459668186)
+> e [`imagens`](https://github.com/diogocs32/whatsapp-gateway/actions/runs/36262065637/job/108459668027)
+> verdes no commit de código. Sem conta, QR em aparelho, mensagem real ou Dokploy. Produção segue
+> no último SHA **documentado** `768fb26`; E10–E12, merge/deploy B e canário ainda pendentes.
+
+> **26/09/2026 (revisão `e8-baileys-fonte-prazo`, PR #11 — sem merge/deploy):** a notificação de
+> timelock da rc14 pode fabricar agora + 60 s; o prazo é provisório até confirmação pela resposta
+> direta do RPC. Capping menor não reduz a pausa provisória e resposta tardia pode confirmar.
+> Commit `8b513c5` com 507 unit gateway, 791 gateway no total e 180 painel locais; jobs `ci` e
+> `imagens` verdes (run `36259684192`). Produção permanece no último SHA **documentado**
+> `768fb26`; canário da Onda 2 só após E12 e ordem de merge/deploy B.
+
+> **26/09/2026 (sessão `e8-baileys-restricao`, E8/P-048 no PR #11 — sem merge/deploy):**
+> ERROR 463, `reachoutTimeLock` e capping CAPPED pausam envios de mensagem com 423 até o prazo
+> persistido; `session.restricted` alerta e a pausa vence automaticamente. ERROR 479 é contado,
+> ACK ERROR persiste `error`; o estado G5 não vira `banida`. Migration aditiva aplicada apenas no
+> banco local de testes. Unit/e2e com socket falso, sem conta ou mensagem real; a produção segue
+> no último SHA **documentado** `768fb26`. Merge/deploy B e canário após E12 pendentes; sem prazo
+> confirmado pela resposta direta do RPC, a pausa é provisória: a notificação rc14 conserva seu
+> `Date` (que pode ser fabricado como agora + 60 s ou superar 60 s) com `source=temporary`;
+> capping mais curto não encurta essa pausa. Sem prazo válido, o fallback é 60 s. O limite de 3 s
+> encerra só a espera do RPC: resposta tardia ainda confirma se socket/consulta forem atuais;
+> o alerta provisório pode ser seguido de outro confirmado. O vencimento local não demonstra o fim
+> remoto da restrição.
+
+> **26/09/2026 (sessão `e7-baileys-offline`, E7/P-047 no PR #11 — sem merge/deploy):** `append`
+> Baileys de terceiros até 48 h passa ao mesmo fluxo de banco/webhook/Inbox/reply-rate do `notify`;
+> eco próprio, status e newsletter são filtrados por mensagem. Cache + consulta ao banco por
+> `(sessionId,keyId)` evitam replay sequencial, inclusive após restart. Sem migration/campo público.
+> 493 unit gateway, 776 testes gateway no total e 180 painel passaram localmente; E2E comprovou
+> o efeito. Jobs `ci` e `imagens` do PR #11 verdes (run `36250883011`); o PR depende do #10 aberto.
+> A janela de duas instâncias (P-056/B-004) e a ausência de
+> outbox (P-034) permanecem. Produção segue no último SHA **documentado** `768fb26`; nenhuma
+> conta conectada, mensagem real enviada, restart ou Deploy nesta sessão. Canário após E12.
 
 > **26/09/2026 (sessão `e6-wwebjs-leve`, E6/P-060 na branch — sem deploy):** download WWEBJS
 > por stream de 2 MB e fila por sessão; mídia de grupo não baixa por padrão (opt-in por env), teto

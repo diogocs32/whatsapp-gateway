@@ -8,13 +8,14 @@
 // teriam o mesmo keyId).
 import type { InboxFeedItemDto, MessageReactionDto } from '@contracts';
 
-export type AckStatus = 'sent' | 'delivered' | 'read';
+export type AckStatus = 'sent' | 'delivered' | 'read' | 'error';
 
 // Espelho de ACK_RANK do gateway (prisma-message.repository.ts). 0 = null/desconhecido.
 const ACK_RANK: Readonly<Record<string, number>> = {
   sent: 1,
   delivered: 2,
   read: 3,
+  error: 4,
 };
 
 export function ackRank(status: string | null | undefined): number {

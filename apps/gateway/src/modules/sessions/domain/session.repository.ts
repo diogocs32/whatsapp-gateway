@@ -1,5 +1,5 @@
 import type { Engine, SessionStatus } from './session-status';
-import type { Session } from './session.entity';
+import type { Session, SessionErrorDetails } from './session.entity';
 
 export interface CreateSessionInput {
   id: string;
@@ -13,6 +13,7 @@ export interface StatusPatch {
   meJid?: string | null;
   mePushName?: string | null;
   lastError?: string | null;
+  lastErrorDetails?: SessionErrorDetails | null;
 }
 
 export interface SessionRepository {
@@ -26,6 +27,11 @@ export interface SessionRepository {
     id: string,
     status: SessionStatus,
     patch?: StatusPatch,
+  ): Promise<boolean>;
+  // Guarda o último close sem criar um `session.status` público por queda transitória.
+  updateLastErrorDetails(
+    id: string,
+    details: SessionErrorDetails,
   ): Promise<boolean>;
   delete(id: string): Promise<void>;
   findAutostart(): Promise<Session[]>;

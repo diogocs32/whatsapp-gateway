@@ -1,5 +1,10 @@
 import type { Engine, SessionStatus } from './session-status';
 
+export interface SessionErrorDetails {
+  code: number | null;
+  reason: string | null;
+}
+
 export class Session {
   constructor(
     public readonly id: string,
@@ -13,5 +18,6 @@ export class Session {
     public lastError: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public lastErrorDetails: SessionErrorDetails | null = null,
   ) {}
 }

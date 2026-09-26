@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import type { Engine, SessionStatus } from '../domain/session-status';
-import { Session } from '../domain/session.entity';
+import { Session, type SessionErrorDetails } from '../domain/session.entity';
 import type {
   CreateSessionInput,
   SessionRepository,
@@ -18,8 +18,17 @@ interface Row {
   phoneNumber: string | null;
   autostart: boolean;
   lastError: string | null;
+  lastErrorDetails: unknown;
   createdAt: Date;
   updatedAt: Date;
+}
+
+function parseErrorDetails(value: unknown): SessionErrorDetails | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (v.code !== null && typeof v.code !== 'number') return null;
+  if (v.reason !== null && typeof v.reason !== 'string') return null;
+  return { code: v.code, reason: v.reason } as SessionErrorDetails;
 }
 
 @Injectable()
@@ -39,6 +48,7 @@ export class PrismaSessionRepository implements SessionRepository {
       r.lastError,
       r.createdAt,
       r.updatedAt,
+      parseErrorDetails(r.lastErrorDetails),
     );
   }
 
@@ -93,6 +103,30 @@ export class PrismaSessionRepository implements SessionRepository {
         ...(patch.lastError !== undefined
           ? { lastError: patch.lastError }
           : {}),
+        ...(patch.lastErrorDetails !== undefined
+          ? {
+              lastErrorDetails:
+                patch.lastErrorDetails === null
+                  ? Prisma.DbNull
+                  : {
+                      code: patch.lastErrorDetails.code,
+                      reason: patch.lastErrorDetails.reason,
+                    },
+            }
+          : {}),
+      },
+    });
+    return count > 0;
+  }
+
+  async updateLastErrorDetails(
+    id: string,
+    details: SessionErrorDetails,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.waSession.updateMany({
+      where: { id },
+      data: {
+        lastErrorDetails: { code: details.code, reason: details.reason },
       },
     });
     return count > 0;

@@ -36,34 +36,34 @@ método, arquivo:linha) em [MAPA-CODIGO.md](MAPA-CODIGO.md) § "Onde mexer por p
 
 Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver coluna Dono).
 
-| Etapa | Onda | Tema (pendências)                                                                                                                                                                                                                    | Branch da onda                      | Dono antes/depois                                                                   | Status   |
-| ----- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------- | -------- |
-| E1    | 0B   | Mapa do código + roteiro + reconciliação documental (P-063) + decisões D-020..D-022                                                                                                                                                  | `feature/onda0b-mapa-roteiro`       | mergear o PR (só docs, não deploya)                                                 | ✅ 25/09 |
-| E2    | 1    | Guardas de build: patch que falha quebra o build, `dist/main.js` conferido, imagem no CI (P-055)                                                                                                                                     | `feature/onda1-guardas-seguranca`   | —                                                                                   | ✅ 25/09 |
-| E3    | 1    | Patches de segurança/estabilidade sem major: Nest 11.2.6, multipart 10.1.2, bullmq 5.81.5, protobufjs 7.6.6 + checagem de advisories de repositório (P-054)                                                                          | `feature/onda1-guardas-seguranca`   | —                                                                                   | ✅ 25/09 |
-| E4    | 1    | Rate-limit/log/auditoria por rota real em vez de `req.url` (P-053) + bypass do egress por IPv6 v4-mapeado em hex (P-065) → fecha a Onda 1                                                                                            | `feature/onda1-guardas-seguranca`   | **merge = deploy A**; depois **B-004** (stop-first)                                 | ✅ 25/09 |
-| E5    | 6    | wwebjs pronto para canário: build candidata + patch estendido (`__x_id`, WID), build efetiva no log, override por sessão, LOGOUT/TOS sem QR automático, tetos (P-059) — **prazo 13/10**                                              | `feature/onda6-wwebjs`              | PR #8 mergeado; canário por sessão após deploy W + **B-001**                        | ✅ 26/09 |
-| E6    | 6    | wwebjs leve: mídia por stream, sem auto-download de grupo, fila de mídia, teto de envio, flags do Chromium (P-060) → fecha a Onda 6                                                                                                  | `feature/onda6-wwebjs`              | PR #10 com CI verde; **merge/deploy W manual** depois (1 chip antes da frota)       | ✅ 26/09 |
-| E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
-| E8    | 2    | Baileys: sinais nativos de restrição → pausa até o fim + alerta + evento aditivo (P-048)                                                                                                                                             | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
-| E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
-| E10   | 2    | Baileys: download de mídia com timeout e pelo proxy (P-050)                                                                                                                                                                          | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
-| E11   | 2    | Baileys: patch-package mínimo (#2751 Curve.verify, #2815 stream de mídia) (P-051)                                                                                                                                                    | `feature/onda2-baileys`             | teste de pareamento com chip (B-007)                                                | ⬜       |
-| E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys`             | **merge = deploy B**                                                                | ⬜       |
-| E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-exclusividade-ritmo` | —                                                                                   | ⬜       |
-| E14   | 3    | Campanhas: sem rajada ao retomar, sem FAILED no boot (P-057)                                                                                                                                                                         | `feature/onda3-exclusividade-ritmo` | —                                                                                   | ⬜       |
-| E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-exclusividade-ritmo` | **merge = deploy C**; depois `WA_REQUIRE_PROXY=true` (B-001)                        | ⬜       |
-| E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`         | **merge = deploy D**                                                                | ⬜       |
-| E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`            | **merge = deploy E**                                                                | ⬜       |
-| E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`             | **merge = deploy F**                                                                | ⬜       |
-| E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`            | merge (só CI/dev)                                                                   | ⬜       |
-| E20   | 7    | Métricas e regras de produto que reduzem risco: destinatários novos sem resposta em 30 dias, cota em `/contacts/check`, inventário pessoal × Business, A/B de leads Baileys × wwebjs (P-064 parte código + P-061)                    | `feature/onda7-metricas-produto`    | decisão sobre canal oficial (P-064) fica com o dono                                 | ⬜       |
-| E21   | —    | Backlog anterior: triagem e execução do que ainda vale (P-001 resto, P-018, P-022, P-023, P-013, P-005, P-036, P-044..P-046 …) — pode virar mais de um chat                                                                          | definir no chat                     | —                                                                                   | ⬜       |
-| E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`           | **antes:** decidir reação fora do evento `message` + contando no reply-rate         | ✅ 25/09 |
-| E23   | 8    | Conversas fiéis — painel: balões e mídia (imagem/áudio/vídeo por blob, sem link que muda a cada 2,5 s) no Inbox e no Atendimento (P-067) + tiques ✓/✓✓ (P-072)                                                                       | `feature/onda8-conversas`           | **antes:** decidir P-074 (decidido: entra)                                          | ✅ 25/09 |
-| E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`           | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão) | ✅ 26/09 |
-| E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`           | PR #7 mergeado; **deploy G manual pendente**                                        | ✅ 26/09 |
-| E26   | 9    | Sugerir o proxy da sessão apagada ao recriar uma sessão com o mesmo nome — sugere, não bloqueia (P-084, pedido do dono em 26/09)                                                                                                     | `feature/onda9-proxy-sugestao`      | merge = deploy (migration aditiva pequena)                                          | ⬜       |
+| Etapa | Onda | Tema (pendências)                                                                                                                                                                                                                    | Branch da onda                      | Dono antes/depois                                                                   | Status             |
+| ----- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------- | ------------------ |
+| E1    | 0B   | Mapa do código + roteiro + reconciliação documental (P-063) + decisões D-020..D-022                                                                                                                                                  | `feature/onda0b-mapa-roteiro`       | mergear o PR (só docs, não deploya)                                                 | ✅ 25/09           |
+| E2    | 1    | Guardas de build: patch que falha quebra o build, `dist/main.js` conferido, imagem no CI (P-055)                                                                                                                                     | `feature/onda1-guardas-seguranca`   | —                                                                                   | ✅ 25/09           |
+| E3    | 1    | Patches de segurança/estabilidade sem major: Nest 11.2.6, multipart 10.1.2, bullmq 5.81.5, protobufjs 7.6.6 + checagem de advisories de repositório (P-054)                                                                          | `feature/onda1-guardas-seguranca`   | —                                                                                   | ✅ 25/09           |
+| E4    | 1    | Rate-limit/log/auditoria por rota real em vez de `req.url` (P-053) + bypass do egress por IPv6 v4-mapeado em hex (P-065) → fecha a Onda 1                                                                                            | `feature/onda1-guardas-seguranca`   | **merge = deploy A**; depois **B-004** (stop-first)                                 | ✅ 25/09           |
+| E5    | 6    | wwebjs pronto para canário: build candidata + patch estendido (`__x_id`, WID), build efetiva no log, override por sessão, LOGOUT/TOS sem QR automático, tetos (P-059) — **prazo 13/10**                                              | `feature/onda6-wwebjs`              | PR #8 mergeado; canário por sessão após deploy W + **B-001**                        | ✅ 26/09           |
+| E6    | 6    | wwebjs leve: mídia por stream, sem auto-download de grupo, fila de mídia, teto de envio, flags do Chromium (P-060) → fecha a Onda 6                                                                                                  | `feature/onda6-wwebjs`              | PR #10 com CI verde; **merge/deploy W manual** depois (1 chip antes da frota)       | ✅ 26/09           |
+| E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | PR #11 aberto para a main; sem merge/deploy                                         | ✅ 26/09           |
+| E8    | 2    | Baileys: sinais nativos de restrição → pausa até o fim + alerta + evento aditivo (P-048)                                                                                                                                             | `feature/onda2-baileys`             | —                                                                                   | ✅ 26/09 · 8b513c5 |
+| E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | PR #11 aberto; sem merge/deploy; canário após E12                                   | ✅ 26/09 · 7c0441c |
+| E10   | 2    | Baileys: download de mídia com timeout, proxy e reupload (P-050/P-075)                                                                                                                                                               | `feature/onda2-baileys`             | PR #11; sem merge/deploy; canário após E12                                          | ✅ 26/09 · b489b21 |
+| E11   | 2    | Baileys: patch-package mínimo (#2751 Curve.verify, #2815 stream de mídia) (P-051)                                                                                                                                                    | `feature/onda2-baileys`             | teste de pareamento com chip (B-007)                                                | ⬜                 |
+| E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys`             | **merge = deploy B**                                                                | ⬜                 |
+| E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-exclusividade-ritmo` | —                                                                                   | ⬜                 |
+| E14   | 3    | Campanhas: sem rajada ao retomar, sem FAILED no boot (P-057)                                                                                                                                                                         | `feature/onda3-exclusividade-ritmo` | —                                                                                   | ⬜                 |
+| E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-exclusividade-ritmo` | **merge = deploy C**; depois `WA_REQUIRE_PROXY=true` (B-001)                        | ⬜                 |
+| E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`         | **merge = deploy D**                                                                | ⬜                 |
+| E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`            | **merge = deploy E**                                                                | ⬜                 |
+| E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`             | **merge = deploy F**                                                                | ⬜                 |
+| E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`            | merge (só CI/dev)                                                                   | ⬜                 |
+| E20   | 7    | Métricas e regras de produto que reduzem risco: destinatários novos sem resposta em 30 dias, cota em `/contacts/check`, inventário pessoal × Business, A/B de leads Baileys × wwebjs (P-064 parte código + P-061)                    | `feature/onda7-metricas-produto`    | decisão sobre canal oficial (P-064) fica com o dono                                 | ⬜                 |
+| E21   | —    | Backlog anterior: triagem e execução do que ainda vale (P-001 resto, P-018, P-022, P-023, P-013, P-005, P-036, P-044..P-046 …) — pode virar mais de um chat                                                                          | definir no chat                     | —                                                                                   | ⬜                 |
+| E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`           | **antes:** decidir reação fora do evento `message` + contando no reply-rate         | ✅ 25/09           |
+| E23   | 8    | Conversas fiéis — painel: balões e mídia (imagem/áudio/vídeo por blob, sem link que muda a cada 2,5 s) no Inbox e no Atendimento (P-067) + tiques ✓/✓✓ (P-072)                                                                       | `feature/onda8-conversas`           | **antes:** decidir P-074 (decidido: entra)                                          | ✅ 25/09           |
+| E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`           | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão) | ✅ 26/09           |
+| E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`           | PR #7 mergeado; **deploy G manual pendente**                                        | ✅ 26/09           |
+| E26   | 9    | Sugerir o proxy da sessão apagada ao recriar uma sessão com o mesmo nome — sugere, não bloqueia (P-084, pedido do dono em 26/09)                                                                                                     | `feature/onda9-proxy-sugestao`      | merge = deploy (migration aditiva pequena)                                          | ⬜                 |
 
 **Ordem e porquê:** a Onda 1 vem antes de tudo porque o stop-first (B-004) só é seguro depois das
 guardas de build (P-055) e porque o Nest de produção tem advisory high (P-054). A Onda 6 (wwebjs)
@@ -193,6 +193,42 @@ Corrija o descarte de messages.upsert type=append com decisão por mensagem: jan
 Entregue código, testes, documentação e PR da Onda 2 para a main com CI verde. No fim, atualize o roteiro e o runbook do próximo canário, informe o que ficou pendente e a mensagem pronta da E8. O merge e o deploy ficam para outra ordem/janela.
 ```
 
+### E8 — Baileys: sinais nativos de restrição (P-048)
+
+```text
+Execute a E8 do ConexoZenvo (P-048): sinais nativos de restrição do Baileys devem pausar os envios da sessão até `timeEnforcementEnds` e alertar, voltando sozinhos ao fim (D-022). Continue em feature/onda2-baileys, branch do PR da Onda 2; não faça merge nem deploy. Siga AGENTS.md/R9 e as Regras de toda etapa em docs/ROTEIRO-ONDAS-2026-09.md.
+
+Leia a sessão DONE da E7, docs/PENDENCIAS.md P-048, docs/MAPA-CODIGO.md §5.1 P-048, os avisos da E22–E24 e docs/INTEGRACAO.md. Confira primeiro o Baileys rc14 instalado e a documentação oficial; veja se saiu versão nova. Preserve o gate por mensagem de `messages.upsert` da E7, a reação fora de `message`, o remetente de grupo e o raw inbound do encaminhar.
+
+Ligue `reachoutTimeLock`, `message-capping.update` e `messages.update` ERROR 463 ao `recordHardSignal`; consulte `fetchAccountReachoutTimelock()` com limite/timeout para obter `timeEnforcementEnds`, conte 479 e publique evento aditivo. A pausa deve cobrir os envios da sessão no `SessionManager` sem ciclo de módulos; o node n8n atual só trata 423. Contrato/payload novo exige packages/contracts e INTEGRACAO no mesmo commit. Prove com unit e e2e de efeito a pausa, alerta, retomada automática, ausência de bloqueio permanente e não regressão dos envios normais. Sem conta, envio real ou deploy. Atualize roteiro, mapa, runbook e PR com CI verde; entregue a mensagem da E9.
+```
+
+### E9 — Baileys: desconexão e versão do protocolo (P-049)
+
+```text
+Execute a E9 do ConexoZenvo (P-049) na branch feature/onda2-baileys e no PR #11, sem merge nem deploy. Siga AGENTS.md/R9 e as Regras de toda etapa do roteiro. Leia a sessão DONE da E8, P-049 em PENDENCIAS e MAPA-CODIGO §5.1, D-022 e INTEGRACAO. Confirme as versões instaladas e a documentação oficial do Baileys antes de mudar APIs.
+
+Trate os códigos de desconexão 401/403/405/408/411/428/440/500/503/515 conforme a matriz P-049: 515 não gasta tentativa, 405 alerta client_too_old, 403/411 ficam terminais, 440 tem no máximo uma retentativa tardia até P-056. Preserve stopped/connectGeneration e a pausa E8/P-048, inclusive `connection.update` provisório (`source=temporary`) e a confirmação do prazo só pela resposta direta do RPC. Exponha lastError {code,reason} de forma aditiva e métrica wa_disconnects_total{engine,code}. Na política de versão, limite a consulta, não cacheie isLatest:false como versão fresca, registre a versão por conexão e permita override por env para canário. Cubra classificação, retentativas, alerta, métrica e regressão com unit/e2e sem conta, mensagem real ou deploy. Contratos e INTEGRACAO no mesmo commit se mudar payload; atualize mapa, roteiro, runbook, PR e entregue a mensagem da E10 com CI verde.
+```
+
+### E10 — Baileys: mídia recebida com teto, proxy e reupload (P-050/P-075)
+
+```text
+Execute a E10 do ConexoZenvo (P-050 e P-075) na branch feature/onda2-baileys e no PR #11, sem merge nem deploy. Siga AGENTS.md/R9 e as Regras de toda etapa do roteiro. Leia os DONE da E8 e E9, P-050/P-075 em PENDENCIAS, MAPA-CODIGO §5.1, INTEGRACAO e o runbook do canário. Confirme as versões instaladas e a documentação oficial da rc14 e do undici da versão do Node antes de mudar APIs.
+
+No download de mídia recebida, limite a espera a 60–120 s e preserve o fallback sem binário. A rc14 não usa `fetchAgent` no download: passe um `dispatcher` undici pelo proxy HTTP/HTTPS da sessão, sem prometer SOCKS antes de prova. Em 404/410 da CDN, use `sock.updateMediaMessage` com teto para pedir reupload e tente baixar de novo; cubra vídeo redondo `ptvMessage`. Corrija o comentário de `fetchAgent` e teste stream pendurado, proxy, falha e reupload com socket/fetch falsos. Preserve a dedupe E7, a pausa E8 e a matriz/versão E9. Sem conta, mídia ou mensagem real. Atualize contratos/INTEGRACAO se payload mudar, mapa, roteiro, runbook e PR; entregue a mensagem da E11 com CI verde.
+```
+
+### E11 — Baileys: patch mínimo da rc14 (P-051)
+
+```text
+Execute a E11 do ConexoZenvo (P-051) na branch feature/onda2-baileys e no PR #11, sem merge nem deploy. Siga AGENTS.md/R9 e as Regras de toda etapa do roteiro. Leia o DONE da E10, P-051/P-087 em PENDENCIAS, MAPA-CODIGO §5.1 (P-051), o diário da E10 e o runbook do canário. Confirme a versão instalada da rc14, as fontes oficiais dos PRs #2751/#2815 e o código instalado ANTES de aplicar patch-package.
+
+Faça o patch mínimo no JS compilado para Curve.verify rejeitar assinatura inválida de 64 bytes e para a falha de stream de mídia coberta pelo #2815, sem copiar mudanças extras. Só inclua domainType hosted se a fonte oficial e o caso instalado confirmarem a necessidade. #2789, #2765 e #2781 dependem de reprodução concreta; não aplique por precaução. Prove Curve.verify com a lib real, sem mock, com assinatura inválida e válida; teste o stream com fixture sintética. Confirme postinstall --error-on-fail, guardas de patch e ambos os Dockerfiles/builds. Preserve E7–E10 e o contrato público; avalie P-087 separadamente, sem declarar que o patch cancelou o listener se não houver prova.
+
+Sem conta, QR em aparelho, mídia ou mensagem real. Pareamento/reconexão e saída real por proxy permanecem no canário do dono após E12/merge/deploy B. Atualize mapa, roteiro, runbook, PR e docs pelo R3; entregue a mensagem da E12 com CI verde.
+```
+
 ### E22 — conversas fiéis: gateway (P-066) — abre a Onda 8
 
 ```text
@@ -286,6 +322,75 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064              |
 
 ## Diário de execução
+
+- **26/09 — E10 (sessão `e10-baileys-midia`, PR #11, sem merge/deploy):** P-050/P-075 em código:
+  prazo total de 90 s para o download recebido, com até 20 s de reupload dentro dele; dispatcher
+  Undici 8.10.2 privado por mídia, destruído ao encerrar, passa ao `fetch` da rc14. Uma única
+  escolha de proxy alimenta socket/upload e CDN HTTP/HTTPS; SOCKS entrega apenas metadados até
+  prova, sem fetch direto. Boom 404/410 chama `sock.updateMediaMessage` uma vez e tenta baixar de
+  novo; `ptvMessage` usa alias de `videoMessage` no reupload, sem perder o `raw` original. Sem campo
+  público novo. Testes com rc14/fetch/socket falsos e proxy HTTP local passaram; 843 gateway no
+  total e 180 painel, typecheck, fronteiras e ambos os builds locais verdes. A espera interna de
+  `updateMediaMessage` sem cancelamento ficou registrada na P-087. Commit `b489b21` com CI `ci`/
+  `imagens` verde no run `36272852120`; canário com chip e prova do IP de saída só após E12,
+  merge e deploy B do dono.
+  **Para E11:** patch mínimo P-051, conferir fontes dos PRs e código instalado antes de editar;
+  não presumir que #2815 resolve P-087.
+
+- **26/09 — E9 (sessão `e9-baileys-desconexao`, commit `7c0441c`, PR #11):** P-049 entregue
+  em código: matriz 401/403/405/408/411/428/440/500/503/515, alerta `session.client_too_old`
+  no 405, uma tentativa quieta aos 60 s no 440 e 515 sem orçamento comum (teto próprio). O
+  diagnóstico bruto `lastErrorDetails {code,reason}` é aditivo e persistido em migration aplicada
+  só no Postgres local; `lastError` texto permanece. Métrica `wa_disconnects_total{engine,code}`
+  desde o boot. Consulta de versão com espera 3 s/single-flight/intervalo 30 s, cache renovado só
+  por `isLatest:true`, log por conexão e override por par de envs de uma sessão canário. A pausa E8
+  segue provisória no `connection.update` e só o retorno direto do RPC confirma o prazo. Revisão
+  adversarial detectou e corrigiu a corrida entre status WORKING pendente e detalhe do close.
+  Provas: 546 unit gateway, 831 gateway no total e 180 painel, e2e com socket falso/HTTP/banco/
+  webhook/métrica; typecheck, fronteiras, builds e mapa; CI `ci`/`imagens` verde no run
+  `36262065637`. Sem conta, envio real, merge ou deploy. **Para E10:** preservar E7/E8/E9,
+  sobretudo dedupe `append`, pausa provisória e matriz/versão; a rc14 ignora `fetchAgent` no
+  download e a próxima etapa precisa provar `dispatcher` undici, timeout e reupload 404/410.
+
+- **26/09 — revisão E8 (sessão `e8-baileys-fonte-prazo`, commit `8b513c5`, PR #11):** a rc14
+  fabrica agora + 60 s quando a notificação de timelock omite o prazo. `connection.update`
+  passa a registrar a data como provisória; só a resposta direta do RPC confirma
+  `timeEnforcementEnds`, inclusive se chegar após os 3 s de espera. Capping mais curto não
+  encurta pausa provisória maior. Testes adicionais provam origem do alerta, precedência e
+  retomada por relógio sem alterar o prazo persistido. 507 unit gateway + 180 painel; 791
+  gateway + 180 painel no total; typecheck, fronteiras, builds e mapa passaram. Lint/formato
+  globais locais apontam apenas os `seed-mock` não versionados. CI `ci` e `imagens` verdes no
+  run `36259684192`; sem conta, envio real, merge ou deploy. **Para E9:** preservar essa
+  distinção ao alterar `onConnectionUpdate` e a política de versão.
+
+- **26/09 — E8 (sessão `e8-baileys-restricao`, commit `d2577c5`, PR #11):** P-048 entregue
+  em código, sem merge/deploy/conta/envio real. Baileys rc14 liga 463, `reachoutTimeLock` e
+  capping CAPPED; RPC com timeout de 3 s, single-flight e intervalo mínimo de 30 s; 479 só conta.
+  Prazo persistido libera por relógio, sem `banida`; o `SessionManager` barra com 423 todos os
+  envios de mensagem (inclusive chat aberto e cada destino do encaminhar), e a campanha re-agenda
+  sem `PAUSED`. Evento `session.restricted`, ACK `error` e `health.restriction_until` são aditivos;
+  contracts e INTEGRACAO no mesmo commit. Migration aplicada só no banco local. Provas: 501 unit
+  gateway + 180 painel; 785 gateway na suíte completa + 180 painel; e2e com socket falso para
+  pausa, webhook, ACK e retomada; typecheck, fronteiras, builds, Prisma, mapa e lint/formato dos
+  arquivos da E8. Os comandos globais de lint/formato no workspace local esbarram só em
+  `seed-mock.js` e `apps/gateway/prisma/seed-mock.ts`, arquivos não versionados anteriores.
+  **Para E9:** preservar o callback de restrição em `onConnectionUpdate` e o gate do
+  `SessionManager`; P-049 trata DisconnectReason e versão. O prazo da notificação é provisório
+  (`source=temporary`) até a resposta direta do RPC; sem qualquer prazo válido, são 60 s.
+  O vencimento provisório não prova fim da restrição no WhatsApp. Canário após E12 e
+  merge/deploy B; B-004/B-005/B-007, P-034 e P-056 seguem pendentes.
+
+- **26/09 — E7 (sessão `e7-baileys-offline`, commit `1f8cb2b`, PR #11):** P-047 entregue em código
+  sem conta, envio ou deploy: `append` inbound de até 48 h entra no fluxo existente; eco próprio,
+  status e newsletter são filtrados por mensagem. Cache + consulta por `(sessionId,keyId)` barram
+  replay sequencial antes do EventBus, inclusive após restart; `describeBaileysMessage`, reação
+  separada, participante de grupo e `raw` inbound foram preservados. E2E do efeito: banco, job do
+  webhook, Inbox e reply-rate; 493 unit gateway + 776 testes gateway + 180 painel. Nenhuma migration
+  nem campo público novo. PR #11 depende do #10 aberto; E8/E9 foram concluídas depois na mesma
+  branch e PR. Limites:
+  concorrência de duas instâncias = P-056/B-004; falta de outbox = P-034. Canário após E12 no
+  `how-to/canario-baileys-onda2.md`. O `onMessagesUpsert` agora é async; tests privados devem
+  aguardar sua Promise. CI dos jobs `ci` e `imagens` verde no PR #11 (run `36250883011`).
 
 - **26/09 — E6 (sessão `e6-wwebjs-leve`, branch `feature/onda6-wwebjs`, PR #10, D-033):** P-060
   implementada sem deploy/conta real: stream de 2 MB no download, grupo sem auto-download por

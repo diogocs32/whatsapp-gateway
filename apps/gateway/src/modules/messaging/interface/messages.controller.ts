@@ -517,6 +517,7 @@ export class MessagesController {
       );
       return { ok: true };
     } catch (e) {
+      if (e instanceof SessionQuarantinedException) throw e;
       throw new BadRequestException((e as Error).message);
     }
   }
@@ -607,6 +608,7 @@ export class MessagesController {
         throw new BadRequestException(e.message);
       }
       if (intentId) await this.intents.fail(intentId, (e as Error).message);
+      if (e instanceof SessionQuarantinedException) throw e;
       throw new BadRequestException((e as Error).message);
     }
   }

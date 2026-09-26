@@ -6,6 +6,29 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido — mídia recebida no Baileys (26/09 — E10/P-050/P-075; PR #11, sem deploy)
+
+- Download recebido tem espera total de 90 s, inclusive reupload e segunda tentativa; falha publica o evento com metadados sem `mediaKey`. Um dispatcher Undici 8.10.2 por mídia usa o mesmo proxy HTTP/HTTPS escolhido para o socket e é destruído ao concluir/expirar. Em SOCKS, a CDN não é buscada diretamente e o evento fica só com metadados até prova do caminho pelo proxy.
+- HTTP 404/410 da CDN aciona `sock.updateMediaMessage` com espera de até 20 s e um novo download. Vídeo redondo `ptvMessage` é adaptado para o reupload sem perder o `raw` original. `fetchAgent` permanece no upload. Testes locais usam rc14, fetch/socket falsos e proxy HTTP local; canário real aguarda E12 e ordem do dono. A espera interna sem cancelamento da rc14 está na P-087.
+
+### Alterado — desconexões e versão do Baileys (26/09 — E9/P-049; PR #11, sem deploy)
+
+- Desconexões 401/403/405/408/411/428/440/500/503/515 agora seguem uma matriz explícita: 403/411/405 param em FAILED, 405 publica `session.client_too_old`, 515 reinicia sem consumir o orçamento comum (com teto separado para repetição) e 440 faz uma tentativa após 60 s sem gravar estado terminal. Quedas transitórias não deixam a engine local aceitar envios no socket fechado.
+- `GET /sessions` e `GET /sessions/:id` acrescentam `lastErrorDetails: {code,reason}` persistido; `lastError` textual permanece. `session.status` terminal acrescenta o detalhe e `/metrics` oferece `wa_disconnects_total{engine,code}` desde o boot.
+- A consulta de versão tem espera de 3 s, single-flight e intervalo mínimo de 30 s; só resposta `isLatest:true` renova o cache de 12 h. Cada conexão registra a versão efetiva. Um par de envs permite sobrepor a versão apenas para o ID de uma sessão canário. Migration aditiva aplicada apenas no banco local de testes. Testes usam socket falso e preservam a pausa provisória da E8.
+
+### Adicionado — pausa temporária por restrição nativa do Baileys (26/09 — E8/P-048; PR #11, sem deploy)
+
+- `reachoutTimeLock`, `message-capping.update` CAPPED e ACK ERROR 463 agora gravam o sinal e pausam todos os envios da sessão pelo prazo disponível; `fetchAccountReachoutTimelock()` tem espera limitada a 3 s e intervalo mínimo de 30 s. A espera não cancela o RPC: uma resposta tardia ainda confirma o prazo se o socket e a consulta forem atuais. ERROR 479 é contado sem classificar a sessão como banida.
+- A trava sobrevive a restart por migration aditiva em `session_guardrail`, responde HTTP 423 no contrato já usado pelo n8n e libera o próximo envio após o prazo, sem ação manual. Campanhas aguardam e re-agendam; ACK ERROR passa a persistir como `error`.
+- Evento aditivo `session.restricted` com prazo, fonte e tipo de enforcement em `packages/contracts` e `INTEGRACAO`. A notificação rc14 não distingue prazo enviado pelo servidor de `Date` fabricado como agora + 60 s: seu prazo válido é preservado como `source: temporary`, inclusive se superar 60 s; capping mais curto não o reduz. Só a resposta direta do RPC confirma `timeEnforcementEnds`; sem prazo válido, o fallback é 60 s. Um alerta provisório pode ser seguido de atualização confirmada e do eco provisório do RPC. Testes unit e e2e com socket falso cobrem pausa, alerta, retomada e envios normais; canário fica para a janela posterior à E12.
+
+### Alterado — Baileys recupera mensagens recebidas na fila offline (26/09 — E7/P-047; PR #11, sem deploy)
+
+- `messages.upsert` `append` recebido durante queda/reconexão/deploy entra no mesmo fluxo de banco, webhook, Inbox e reply-rate do `notify`, limitado a 48 h. Eco de envio próprio, status e newsletter são filtrados por mensagem.
+- Dedupe por `sessionId` + `keyId` antes do evento, em cache e por consulta ao banco após restart. `describeBaileysMessage`, reação separada, autor de grupo e `raw` inbound foram preservados. Sem migration ou campo público novo; `INTEGRACAO` §3.2 documenta o horário original da mensagem.
+- Testes de efeito e runbook do canário da Onda 2; duas instâncias simultâneas e outbox seguem P-056/B-004 e P-034. PR #11 depende do PR #10 ainda aberto. Nenhum merge/deploy da Onda 2 nesta etapa.
+
 ### Alterado — wwebjs com perfil de mídia e memória leve (26/09 — E6/P-060, D-033; sem deploy)
 
 - Download recebido por stream de 2 MB, fila por sessão e 24 MB de teto de envio WWEBJS; mídia de grupo só baixa automaticamente com opt-in explícito. Sem opt-in, webhook mantém metadados e não inclui `mediaKey`.

@@ -14,6 +14,8 @@ import { newId } from '../../../shared-kernel/ulid';
 import { ContactDirectory } from '../../../infra/directory/contact-directory.service';
 import { MediaStorage } from '../../../infra/storage/media-storage.service';
 import { ProxyResolver } from '../../proxies/application/proxy-resolver.service';
+import { GuardrailService } from '../../guardrail/guardrail.service';
+import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import {
   SESSION_REPOSITORY,
   type SessionRepository,
@@ -56,6 +58,9 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   // (ver handleEngineEvent). Limpa junto com todo engines.delete para não vazar nem reter chave
   // velha quando uma engine nova assume a mesma sessão.
   private readonly lastStatusKey = new Map<string, string>();
+  // Um close pode correr com o UPDATE de WORKING anterior ou com start manual/open posterior.
+  // Ordena status e diagnóstico da mesma sessão para a última transição vencer no banco.
+  private readonly statusWrites = new Map<string, Promise<void>>();
 
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly repo: SessionRepository,
@@ -66,6 +71,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly mediaStorage: MediaStorage,
     private readonly contactDirectory: ContactDirectory,
     private readonly engineFactory: EngineFactory,
+    private readonly guardrail: GuardrailService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -145,6 +151,17 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       deviceName: 'WhatsApp Gateway',
       // Guard anti-vazamento: recusa conectar sem proxy vivo quando ligado (ver config WA_REQUIRE_PROXY).
       requireProxy: this.config.get('WA_REQUIRE_PROXY', { infer: true }),
+      baileysProtocolVersion: this.config.get('BAILEYS_PROTOCOL_VERSION', {
+        infer: true,
+      }),
+      baileysProtocolCanarySessionId: this.config.get(
+        'BAILEYS_PROTOCOL_CANARY_SESSION_ID',
+        { infer: true },
+      ),
+      onProtocolVersion: (version, source) =>
+        this.logger.log(
+          `Baileys protocolo ${sessionId}: versão ${version} (${source})`,
+        ),
       prisma: this.prisma,
       logger: pino({
         level: this.config.get('WA_LOG_LEVEL', { infer: true }),
@@ -155,9 +172,43 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       // de P2025 no update + violação de FK no insert da timeline).
       onEvent: (name, payload) => {
         if (this.engines.get(sessionId) !== created) return;
-        void this.handleEngineEvent(sessionId, name, payload);
+        if (name === 'session.status' || name === 'session.client_too_old') {
+          void this.enqueueStatusWrite(
+            sessionId,
+            created,
+            `evento ${name}`,
+            () => this.handleEngineEvent(sessionId, name, payload),
+          );
+        } else {
+          void this.handleEngineEvent(sessionId, name, payload);
+        }
+      },
+      onRestrictionSignal: async (signal) => {
+        if (this.engines.get(sessionId) !== created) return;
+        await this.guardrail.recordReachoutRestriction(
+          sessionId,
+          signal.signal,
+          {
+            until: signal.until,
+            source: signal.source,
+            enforcementType: signal.enforcementType,
+          },
+        );
+      },
+      onDisconnect: async (details) => {
+        if (this.engines.get(sessionId) !== created) return;
+        await this.enqueueStatusWrite(
+          sessionId,
+          created,
+          'diagnóstico de desconexão',
+          async () => {
+            await this.repo.updateLastErrorDetails(sessionId, details);
+          },
+        );
       },
       resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
+      resolveBaileysTransport: () =>
+        this.proxyResolver.resolveBaileysTransport(sessionId),
       resolveProxyConfig: () =>
         this.proxyResolver.resolveProxyConfig(sessionId),
       resolveWwebjsWebVersion: async () =>
@@ -194,6 +245,30 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     });
     this.engines.set(sessionId, created);
     return created;
+  }
+
+  private enqueueStatusWrite(
+    sessionId: string,
+    engine: IEngine,
+    operation: string,
+    write: () => Promise<void>,
+  ): Promise<void> {
+    const prior = this.statusWrites.get(sessionId) ?? Promise.resolve();
+    const next = prior
+      .then(() =>
+        this.engines.get(sessionId) === engine ? write() : undefined,
+      )
+      .catch((err) =>
+        this.logger.error(
+          `${operation} (${sessionId}): ${(err as Error).message}`,
+        ),
+      );
+    this.statusWrites.set(sessionId, next);
+    void next.finally(() => {
+      if (this.statusWrites.get(sessionId) === next)
+        this.statusWrites.delete(sessionId);
+    });
+    return next;
   }
 
   private async handleEngineEvent(
@@ -260,6 +335,12 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
         meJid: p.meJid,
         mePushName: p.mePushName,
         lastError: p.error,
+        lastErrorDetails:
+          p.lastErrorDetails !== undefined
+            ? p.lastErrorDetails
+            : p.error === null
+              ? null
+              : undefined,
       });
       // A sessão não existe mais no banco, mas a engine seguiu viva emitindo status (órfã de um
       // ciclo anterior, ou exclusão feita por fora). Encerra e descarta a engine — corta o loop
@@ -478,11 +559,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     text: string,
     opts?: SendOptions,
   ): Promise<{ keyId: string; jid: string }> {
-    const engine = this.engines.get(sessionId);
-    if (!engine) throw new Error('Sessão não iniciada');
-    if (engine.getStatus() !== 'WORKING') {
-      throw new Error('Sessão não está conectada');
-    }
+    const engine = await this.sending(sessionId);
     return engine.sendText(to, text, opts);
   }
 
@@ -491,23 +568,23 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     to: string,
     input: SendMediaInput,
   ): Promise<{ keyId: string; jid: string }> {
-    return this.working(sessionId).sendMedia(to, input);
+    return (await this.sending(sessionId)).sendMedia(to, input);
   }
 
-  sendLocation(
+  async sendLocation(
     sessionId: string,
     to: string,
     input: SendLocationInput,
   ): Promise<{ keyId: string; jid: string }> {
-    return this.working(sessionId).sendLocation(to, input);
+    return (await this.sending(sessionId)).sendLocation(to, input);
   }
 
-  sendPoll(
+  async sendPoll(
     sessionId: string,
     to: string,
     input: SendPollInput,
   ): Promise<{ keyId: string; jid: string }> {
-    return this.working(sessionId).sendPoll(to, input);
+    return (await this.sending(sessionId)).sendPoll(to, input);
   }
 
   sendPresence(
@@ -556,24 +633,51 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return this.working(sessionId).setChatFlag(chatJid, flag, enabled);
   }
 
-  sendReaction(
+  async sendReaction(
     sessionId: string,
     chatJid: string,
     msgId: string,
     fromMe: boolean,
     emoji: string,
   ): Promise<void> {
-    return this.working(sessionId).sendReaction(chatJid, msgId, fromMe, emoji);
+    return (await this.sending(sessionId)).sendReaction(
+      chatJid,
+      msgId,
+      fromMe,
+      emoji,
+    );
   }
 
   // P-068 (E24) — encaminhar: a engine carrega e confere a original UMA vez e devolve quem envia
   // para UM destino. O laço (um destino por vez, intervalo, idempotência, gate cold) é do
   // messaging (ForwardService) — o SessionManager só transporta.
-  prepareForward(
+  async prepareForward(
     sessionId: string,
     src: ForwardSource,
   ): Promise<PreparedForward> {
-    return this.working(sessionId).prepareForward(src);
+    const engine = this.working(sessionId);
+    const prepared = await engine.prepareForward(src);
+    return {
+      ...prepared,
+      // O laço do ForwardService espaça cada destino. A restrição pode começar DURANTE esse
+      // intervalo: conferir no momento de cada envio, não só ao preparar a original.
+      send: async (to, opts) => {
+        if ((await this.sending(sessionId)) !== engine) {
+          throw new Error(
+            'Sessão reconectou durante o encaminhamento; repita o pedido',
+          );
+        }
+        return prepared.send(to, opts);
+      },
+    };
+  }
+
+  private async sending(sessionId: string): Promise<IEngine> {
+    const gate = await this.guardrail.canSendMessage(sessionId);
+    if (!gate.allowed) {
+      throw new SessionQuarantinedException(gate.state, gate.reason);
+    }
+    return this.working(sessionId);
   }
 
   // Retorna a engine só se a sessão estiver conectada (WORKING) — usado pelas operações F5.

@@ -141,6 +141,7 @@ model WaSession {
   creds       Json?
   metadata    Json?
   lastError   String?
+  lastErrorDetails Json?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -182,17 +183,22 @@ model SessionConfig {
 
 // G5 (guard-rail) — estado por sessão da máquina de saúde. Em modo OBSERVAÇÃO
 // (GUARDRAIL_ENFORCE=false) o estado é calculado/registrado mas NÃO bloqueia envios; o hard-gate
-// HTTP 423 só atua com enforce=true. `eventTs` dá idempotência das transições (C10).
+// HTTP 423 do G5 só atua com enforce=true; a restrição nativa P-048 atua sempre.
+// `eventTs` dá idempotência das transições (C10).
 model SessionGuardrail {
-  id              String         @id
-  sessionId       String         @unique
-  state           GuardrailState @default(ativa)
-  reason          String? // motivo da última transição
-  quarentenaDesde DateTime?
-  cooldownAte     DateTime?
-  ultimoSinal     String? // último sinal duro (463, close não-recuperável, restrição)
-  eventTs         DateTime       @default(now()) // C10: só aplica transição se eventTs < novo evento
-  updatedAt       DateTime       @updatedAt
+  id                String         @id
+  sessionId         String         @unique
+  state             GuardrailState @default(ativa)
+  reason            String? // motivo da última transição
+  quarentenaDesde   DateTime?
+  cooldownAte       DateTime?
+  ultimoSinal       String? // último sinal duro (463, close não-recuperável, restrição)
+  restrictionUntil  DateTime? // P-048: trava temporária de TODO envio; expira sem override manual
+  restrictionSignal String?   // sinal que fixou o prazo (463, reachoutTimeLock, message-capping)
+  restrictionSource String?   // timeEnforcementEnds, cycle_end_timestamp ou temporary
+  restrictionType   String?   // enforcementType informado pelo WhatsApp, quando houver
+  eventTs           DateTime       @default(now()) // C10: só aplica transição se eventTs < novo evento
+  updatedAt         DateTime       @updatedAt
 
   session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

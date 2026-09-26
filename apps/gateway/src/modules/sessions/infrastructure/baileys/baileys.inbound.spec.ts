@@ -21,6 +21,7 @@ function makeEngine(warm: Array<{ lid: string; jid: string }> = []) {
     waMessage: {
       updateMany: vi.fn(async () => ({ count: 0 })),
       findMany: vi.fn(async () => []),
+      findFirst: vi.fn(async () => null),
     },
     messageReaction: { updateMany: vi.fn(async () => ({ count: 0 })) },
   };
@@ -43,12 +44,15 @@ function makeEngine(warm: Array<{ lid: string; jid: string }> = []) {
   (engine as unknown as { sock: unknown }).sock = {
     user: { id: OUR, name: 'Diogo' },
   };
-  const upsert = (messages: Partial<WAMessage>[]) =>
+  const upsert = (messages: Partial<WAMessage>[], type = 'notify') =>
     (
       engine as unknown as {
-        onMessagesUpsert: (u: { messages: WAMessage[]; type: string }) => void;
+        onMessagesUpsert: (u: {
+          messages: WAMessage[];
+          type: string;
+        }) => Promise<void>;
       }
-    ).onMessagesUpsert({ messages: messages as WAMessage[], type: 'notify' });
+    ).onMessagesUpsert({ messages: messages as WAMessage[], type });
   const reactions = (
     rs: { key: proto.IMessageKey; reaction: proto.IReaction }[],
   ) =>
@@ -71,10 +75,92 @@ const msg = (
   messageTimestamp: 1_727_280_000,
 });
 
+describe('BaileysEngine.onMessagesUpsert (P-047)', () => {
+  it('lote misto decide por mensagem, preserva remetente de grupo e raw; repetições não emitem', async () => {
+    const { events, upsert, prisma } = makeEngine();
+    const now = Math.floor(Date.now() / 1000);
+    const offline = {
+      ...msg('OFF1', PEER, { conversation: 'cheguei offline' }),
+      messageTimestamp: now - 3600,
+    };
+    await upsert(
+      [
+        offline,
+        {
+          ...msg('ECO', PEER, { conversation: 'nosso' }, { fromMe: true }),
+          messageTimestamp: now,
+        },
+        {
+          ...msg('NEWS', '123@newsletter', { conversation: 'canal' }),
+          messageTimestamp: now,
+        },
+        {
+          ...msg('STATUS', 'status@broadcast', { conversation: 'status' }),
+          messageTimestamp: now,
+        },
+        {
+          ...msg('OLD', PEER, { conversation: 'antiga' }),
+          messageTimestamp: now - 49 * 3600,
+        },
+        {
+          ...msg('REA', PEER, {
+            reactionMessage: {
+              key: { id: 'ALVO', remoteJid: PEER },
+              text: '👍',
+            },
+          }),
+          messageTimestamp: now,
+        },
+        {
+          ...msg(
+            'GRUPO',
+            GROUP,
+            { conversation: 'grupo' },
+            { participant: PEER },
+          ),
+          messageTimestamp: now,
+        },
+        offline,
+      ],
+      'append',
+    );
+    await upsert([offline], 'notify');
+    const messages = events.filter((e) => e.name === 'message');
+    expect(messages.map((e) => e.payload.keyId)).toEqual(['OFF1', 'GRUPO']);
+    expect(messages[0].payload).toMatchObject({
+      text: 'cheguei offline',
+      timestamp: now - 3600,
+      fromMe: false,
+      source: null,
+      raw: { conversation: 'cheguei offline' },
+    });
+    expect(messages[1].payload).toMatchObject({
+      senderJid: PEER,
+      chatJid: GROUP,
+    });
+    expect(prisma.waMessage.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it('após restart, keyId já persistido é barrado antes do webhook', async () => {
+    const { events, upsert, prisma } = makeEngine();
+    prisma.waMessage.findFirst.mockResolvedValueOnce({ id: 'saved' } as never);
+    await upsert(
+      [
+        {
+          ...msg('REPLAY', PEER, { conversation: 'replay' }),
+          messageTimestamp: Math.floor(Date.now() / 1000),
+        },
+      ],
+      'append',
+    );
+    expect(events).toHaveLength(0);
+  });
+});
+
 describe('BaileysEngine.onMessagesUpsert (P-066)', () => {
-  it('reação do contato no upsert NÃO vira evento message', () => {
+  it('reação do contato no upsert NÃO vira evento message', async () => {
     const { events, upsert } = makeEngine();
-    upsert([
+    await upsert([
       msg('R1', PEER, {
         reactionMessage: {
           key: { remoteJid: PEER, fromMe: true, id: 'ALVO' },
@@ -85,9 +171,9 @@ describe('BaileysEngine.onMessagesUpsert (P-066)', () => {
     expect(events.filter((e) => e.name === 'message')).toHaveLength(0);
   });
 
-  it('reação NOSSA pelo celular (fromMe) também não — sem handoff falso', () => {
+  it('reação NOSSA pelo celular (fromMe) também não — sem handoff falso', async () => {
     const { events, upsert } = makeEngine();
-    upsert([
+    await upsert([
       msg(
         'R2',
         PEER,
@@ -103,9 +189,9 @@ describe('BaileysEngine.onMessagesUpsert (P-066)', () => {
     expect(events).toHaveLength(0);
   });
 
-  it('localização encaminhada sai como message type location com texto e selo', () => {
+  it('localização encaminhada sai como message type location com texto e selo', async () => {
     const { events, upsert } = makeEngine();
-    upsert([
+    await upsert([
       msg('L1', PEER, {
         locationMessage: {
           degreesLatitude: -23.5,
@@ -131,9 +217,11 @@ describe('BaileysEngine.onMessagesUpsert (P-066)', () => {
     ]);
   });
 
-  it('texto comum segue igual (fromMe do celular = source phone, não encaminhada)', () => {
+  it('texto comum segue igual (fromMe do celular = source phone, não encaminhada)', async () => {
     const { events, upsert } = makeEngine();
-    upsert([msg('T1', PEER, { conversation: 'oi 😀' }, { fromMe: true })]);
+    await upsert([
+      msg('T1', PEER, { conversation: 'oi 😀' }, { fromMe: true }),
+    ]);
     expect(events[0].payload).toMatchObject({
       type: 'text',
       text: 'oi 😀',
@@ -144,9 +232,9 @@ describe('BaileysEngine.onMessagesUpsert (P-066)', () => {
     });
   });
 
-  it('voto do contato numa enquete → message poll_vote (continua contando como resposta)', () => {
+  it('voto do contato numa enquete → message poll_vote (continua contando como resposta)', async () => {
     const { events, upsert } = makeEngine();
-    upsert([
+    await upsert([
       msg('V1', PEER, {
         pollUpdateMessage: {
           pollCreationMessageKey: { remoteJid: PEER, fromMe: true, id: 'P' },
@@ -159,7 +247,7 @@ describe('BaileysEngine.onMessagesUpsert (P-066)', () => {
 
   it('o par LID↔telefone de uma reação ignorada ainda é aprendido (e funde a conversa)', async () => {
     const { events, upsert, reactions, prisma } = makeEngine();
-    upsert([
+    await upsert([
       msg(
         'R3',
         PEER_LID,
@@ -209,7 +297,7 @@ describe('BaileysEngine.onMessagesUpsert (P-066)', () => {
 });
 
 describe('BaileysEngine.onReactions — grupo (E22)', () => {
-  it('remetente é QUEM REAGIU (reaction.key.participant), não o autor da mensagem-alvo', () => {
+  it('remetente é QUEM REAGIU (reaction.key.participant), não o autor da mensagem-alvo', async () => {
     const { events, reactions } = makeEngine();
     const alvo = {
       id: 'G-ALVO',
@@ -280,7 +368,7 @@ describe('BaileysEngine.onReactions — endereçamento por TELEFONE (modo PN: o 
     });
   });
 
-  it('grupo: participant telefone + participantAlt @lid → telefone; a mesma pessoa mantém o senderKey depois de o par ser aprendido', () => {
+  it('grupo: participant telefone + participantAlt @lid → telefone; a mesma pessoa mantém o senderKey depois de o par ser aprendido', async () => {
     const { events, reactions } = makeEngine();
     const alvo = { id: 'G2', remoteJid: GROUP, fromMe: true, participant: '' };
     const antes = {
@@ -345,7 +433,7 @@ describe('BaileysEngine.onMessagesUpsert — mídia em invólucro que a lib não
     directPath: '/v/x.enc',
     mimetype: 'application/was',
   };
-  it('figurinha lottie: o download recebe o conteúdo DESEMBRULHADO, com a key original (reupload)', () => {
+  it('figurinha lottie: o download recebe o conteúdo DESEMBRULHADO, com a key original (reupload)', async () => {
     const { engine, upsert } = makeEngine();
     const spy = vi
       .spyOn(
@@ -358,7 +446,7 @@ describe('BaileysEngine.onMessagesUpsert — mídia em invólucro que a lib não
     const m = msg('LT1', PEER, {
       lottieStickerMessage: { message: { stickerMessage: sticker } },
     });
-    upsert([m]);
+    await upsert([m]);
     const [arg, , media] = spy.mock.calls[0] as unknown as [
       WAMessage,
       unknown,
@@ -370,7 +458,7 @@ describe('BaileysEngine.onMessagesUpsert — mídia em invólucro que a lib não
     expect(arg.message?.lottieStickerMessage).toBeFalsy();
     expect(media).toMatchObject({ mediaType: 'sticker' });
   });
-  it('imagem comum: o download recebe a MESMA mensagem (identidade)', () => {
+  it('imagem comum: o download recebe a MESMA mensagem (identidade)', async () => {
     const { engine, upsert } = makeEngine();
     const spy = vi
       .spyOn(
@@ -383,7 +471,7 @@ describe('BaileysEngine.onMessagesUpsert — mídia em invólucro que a lib não
     const m = msg('IM1', PEER, {
       imageMessage: { ...sticker, mimetype: 'image/jpeg' },
     });
-    upsert([m]);
+    await upsert([m]);
     expect(spy.mock.calls[0][0]).toBe(m);
   });
 });
@@ -404,7 +492,7 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
 
   it('modo LID: senderJid = telefone do participant_pn; par aprendido (merge) e gravado no diretório 1× com o pushName', async () => {
     const { events, upsert, prisma, contacts } = makeEngine();
-    upsert([
+    await upsert([
       {
         ...msg('G1', GROUP, text, {
           participant: LID,
@@ -415,7 +503,7 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
       },
     ]);
     // 2ª mensagem da MESMA pessoa sem o Alt → telefone pelo cache, sem gravar o par de novo
-    upsert([
+    await upsert([
       {
         ...msg('G2', GROUP, text, { participant: LID, addressingMode: 'lid' }),
         pushName: 'Fulano',
@@ -440,9 +528,9 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
     });
   });
 
-  it('modo PN (participantAlt = @lid): senderJid = TELEFONE — trava a fórmula `participantAlt ?? participant`, que daria o @lid', () => {
+  it('modo PN (participantAlt = @lid): senderJid = TELEFONE — trava a fórmula `participantAlt ?? participant`, que daria o @lid', async () => {
     const { events, upsert, contacts } = makeEngine();
-    upsert([
+    await upsert([
       {
         ...msg('G3', GROUP, text, {
           participant: '5511922222222@s.whatsapp.net',
@@ -464,7 +552,7 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
 
   it('LID sem Alt e sem par conhecido (número oculto): fica o @lid, sem diretório nem merge', async () => {
     const { events, upsert, prisma, contacts } = makeEngine();
-    upsert([
+    await upsert([
       msg('G4', GROUP, text, {
         participant: '99990000@lid',
         addressingMode: 'lid',
@@ -476,9 +564,9 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
     expect(prisma.waMessage.updateMany).not.toHaveBeenCalled();
   });
 
-  it('aparelho (:NN) some do participant e do participantAlt', () => {
+  it('aparelho (:NN) some do participant e do participantAlt', async () => {
     const { events, upsert, contacts } = makeEngine();
-    upsert([
+    await upsert([
       msg('G5', GROUP, text, {
         participant: '44556677:3@lid',
         participantAlt: '5511933333333:5@s.whatsapp.net',
@@ -496,9 +584,9 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
     );
   });
 
-  it('1:1 inalterado (participant vazio do cleanMessage; @lid com remoteJidAlt)', () => {
+  it('1:1 inalterado (participant vazio do cleanMessage; @lid com remoteJidAlt)', async () => {
     const { events, upsert } = makeEngine();
-    upsert([
+    await upsert([
       msg('D1', PEER, text, { participant: '' }),
       msg('D2', PEER_LID, text, { remoteJidAlt: PEER }),
     ]);
@@ -510,7 +598,7 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
 
   it('fromMe em grupo (celular): senderJid = a conta, source phone; o *Alt (nosso LID) não é aprendido', async () => {
     const { events, upsert, prisma, contacts } = makeEngine();
-    upsert([
+    await upsert([
       msg('G7', GROUP, text, {
         fromMe: true,
         participant: '5511000000000@s.whatsapp.net',
@@ -528,15 +616,15 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
     expect(prisma.waMessage.updateMany).not.toHaveBeenCalled();
   });
 
-  it('grupo sem participant: mantém o jid do grupo (comportamento antigo)', () => {
+  it('grupo sem participant: mantém o jid do grupo (comportamento antigo)', async () => {
     const { events, upsert } = makeEngine();
-    upsert([msg('G8', GROUP, text)]);
+    await upsert([msg('G8', GROUP, text)]);
     expect(sent(events)).toEqual([[GROUP, GROUP]]);
   });
 
-  it('reação de grupo no upsert (ignorada) ainda ensina o par do participante', () => {
+  it('reação de grupo no upsert (ignorada) ainda ensina o par do participante', async () => {
     const { events, upsert, contacts } = makeEngine();
-    upsert([
+    await upsert([
       msg(
         'G9',
         GROUP,
@@ -554,7 +642,7 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
     expect(contacts.record).toHaveBeenCalledTimes(1);
   });
 
-  it('mídia em grupo: o download recebe o base com o senderJid do participante', () => {
+  it('mídia em grupo: o download recebe o base com o senderJid do participante', async () => {
     const { engine, upsert } = makeEngine();
     const spy = vi
       .spyOn(
@@ -564,7 +652,7 @@ describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)',
         'handleIncomingMedia',
       )
       .mockResolvedValue(undefined);
-    upsert([
+    await upsert([
       msg(
         'G11',
         GROUP,
@@ -614,11 +702,15 @@ describe('BaileysEngine.onMessagesUpsert — pushName do participante no diretó
       { lid: LID, jid: PN },
     ]);
     await warmLidCache();
-    upsert([gmsg('W1', 'Fulano', { participant: LID, participantAlt: PN })]);
-    upsert([gmsg('W2', 'Fulano', { participant: LID, participantAlt: PN })]);
+    await upsert([
+      gmsg('W1', 'Fulano', { participant: LID, participantAlt: PN }),
+    ]);
+    await upsert([
+      gmsg('W2', 'Fulano', { participant: LID, participantAlt: PN }),
+    ]);
     expect(contacts.record).toHaveBeenCalledTimes(1);
     expect(contacts.record).toHaveBeenLastCalledWith(rec('Fulano'));
-    upsert([
+    await upsert([
       gmsg('W3', 'Fulano Silva', { participant: LID, participantAlt: PN }),
     ]);
     expect(contacts.record).toHaveBeenCalledTimes(2);
@@ -630,7 +722,9 @@ describe('BaileysEngine.onMessagesUpsert — pushName do participante no diretó
       { lid: LID, jid: PN },
     ]);
     await warmLidCache();
-    upsert([gmsg('W4', 'Fulano', { participant: LID, addressingMode: 'lid' })]);
+    await upsert([
+      gmsg('W4', 'Fulano', { participant: LID, addressingMode: 'lid' }),
+    ]);
     expect(events[0].payload.senderJid).toBe(PN);
     expect(contacts.record).toHaveBeenCalledExactlyOnceWith(rec('Fulano'));
   });
@@ -640,20 +734,26 @@ describe('BaileysEngine.onMessagesUpsert — pushName do participante no diretó
       { lid: LID, jid: PN },
     ]);
     await warmLidCache();
-    upsert([gmsg('W5', undefined, { participant: LID, participantAlt: PN })]);
+    await upsert([
+      gmsg('W5', undefined, { participant: LID, participantAlt: PN }),
+    ]);
     expect(contacts.record).not.toHaveBeenCalled();
-    upsert([gmsg('W6', 'Fulano', { participant: LID, participantAlt: PN })]);
+    await upsert([
+      gmsg('W6', 'Fulano', { participant: LID, participantAlt: PN }),
+    ]);
     expect(contacts.record).toHaveBeenCalledExactlyOnceWith(rec('Fulano'));
   });
 
-  it('par NOVO sem pushName grava o par; o nome que chega depois também é gravado', () => {
+  it('par NOVO sem pushName grava o par; o nome que chega depois também é gravado', async () => {
     const { upsert, contacts } = makeEngine();
-    upsert([gmsg('W7', undefined, { participant: LID, participantAlt: PN })]);
-    upsert([gmsg('W8', 'Fulano', { participant: LID })]);
+    await upsert([
+      gmsg('W7', undefined, { participant: LID, participantAlt: PN }),
+    ]);
+    await upsert([gmsg('W8', 'Fulano', { participant: LID })]);
     expect(contacts.record.mock.calls).toEqual([[rec(null)], [rec('Fulano')]]);
   });
 
-  it('par aprendido por REAÇÃO (fica só no cache) → a mensagem seguinte grava o nome', () => {
+  it('par aprendido por REAÇÃO (fica só no cache) → a mensagem seguinte grava o nome', async () => {
     const { upsert, reactions, contacts } = makeEngine();
     reactions([
       {
@@ -670,36 +770,42 @@ describe('BaileysEngine.onMessagesUpsert — pushName do participante no diretó
         },
       },
     ]);
-    upsert([gmsg('W9', 'Fulano', { participant: LID, participantAlt: PN })]);
+    await upsert([
+      gmsg('W9', 'Fulano', { participant: LID, participantAlt: PN }),
+    ]);
     expect(contacts.record).toHaveBeenCalledExactlyOnceWith(rec('Fulano'));
   });
 
-  it('só telefone (sem @lid na chave) + pushName → grava 1× sem lid', () => {
+  it('só telefone (sem @lid na chave) + pushName → grava 1× sem lid', async () => {
     const { upsert, contacts } = makeEngine();
-    upsert([gmsg('W10', 'Fulano', { participant: PN, addressingMode: 'pn' })]);
-    upsert([gmsg('W11', 'Fulano', { participant: PN, addressingMode: 'pn' })]);
+    await upsert([
+      gmsg('W10', 'Fulano', { participant: PN, addressingMode: 'pn' }),
+    ]);
+    await upsert([
+      gmsg('W11', 'Fulano', { participant: PN, addressingMode: 'pn' }),
+    ]);
     expect(contacts.record).toHaveBeenCalledExactlyOnceWith(
       rec('Fulano', null),
     );
   });
 
-  it('@lid sem telefone conhecido → não grava (o contacts.update da lib já guarda o nome no @lid)', () => {
+  it('@lid sem telefone conhecido → não grava (o contacts.update da lib já guarda o nome no @lid)', async () => {
     const { upsert, contacts } = makeEngine();
-    upsert([gmsg('W12', 'Anon', { participant: '99990000@lid' })]);
+    await upsert([gmsg('W12', 'Anon', { participant: '99990000@lid' })]);
     expect(contacts.record).not.toHaveBeenCalled();
   });
 
-  it('memória do último nome gravado tem teto (FIFO de 5000): o mais antigo é esquecido', () => {
+  it('memória do último nome gravado tem teto (FIFO de 5000): o mais antigo é esquecido', async () => {
     const { engine, upsert, contacts } = makeEngine();
     const memo = (engine as unknown as { groupPushName: Map<string, string> })
       .groupPushName;
     for (let i = 0; i < 5000; i++) memo.set(`55119${i}@s.whatsapp.net`, 'x');
-    upsert([gmsg('W13', 'Fulano', { participant: PN })]);
+    await upsert([gmsg('W13', 'Fulano', { participant: PN })]);
     expect(memo.size).toBe(5000);
     expect(memo.has('551190@s.whatsapp.net')).toBe(false); // o mais antigo saiu
     expect(memo.get(PN)).toBe('Fulano');
     // o esquecido volta a ser gravado na próxima mensagem dele
-    upsert([gmsg('W14', 'x', { participant: '551190@s.whatsapp.net' })]);
+    await upsert([gmsg('W14', 'x', { participant: '551190@s.whatsapp.net' })]);
     expect(contacts.record).toHaveBeenCalledTimes(2);
   });
 });

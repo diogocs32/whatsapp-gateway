@@ -86,8 +86,20 @@ export interface SessionDto {
   phoneNumber: string | null;
   autostart: boolean;
   lastError: string | null;
+  // E9: diagnóstico estruturado aditivo. `lastError` textual permanece para clientes antigos.
+  lastErrorDetails: SessionErrorDetails | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SessionErrorDetails {
+  code: number | null; // código bruto de Boom.output.statusCode (405 inclusive)
+  reason: string | null; // motivo bruto do Baileys, limitado a 500 caracteres
+}
+
+// Webhook `session.client_too_old` (E9). O status público também vira FAILED.
+export interface SessionClientTooOldEventPayload extends SessionErrorDetails {
+  code: 405;
 }
 
 // GET/PATCH /api/sessions/:id/config. O override de build vale só para WWEBJS e é aplicado
@@ -348,6 +360,28 @@ export interface CreateWebhookRequest {
   maxAttempts?: number;
 }
 
+// E8/P-048: alerta aditivo `session.restricted`. `pausedUntil` é sempre o prazo efetivo do
+// gateway; `timeEnforcementEnds` só vem quando o RPC confirmou esse campo.
+// A notificação da rc14 pode fabricar +60 s, então seu prazo é `temporary` até o RPC.
+// O estado G5 da sessão não vira `banida` por este evento.
+export interface SessionRestrictedPayload {
+  signal: '463' | 'reachoutTimeLock' | 'message-capping';
+  pausedUntil: string;
+  timeEnforcementEnds: string | null;
+  source: 'timeEnforcementEnds' | 'cycle_end_timestamp' | 'temporary';
+  enforcementType: string | null;
+}
+
+// `message.ack` (E8): ERROR 463/479 passa a persistir como `error`; o painel não mostra tique.
+export type MessageAckStatus = 'sent' | 'delivered' | 'read' | 'error';
+export interface MessageAckEventPayload {
+  keyId: string;
+  chatJid: string;
+  fromMe: boolean;
+  status: MessageAckStatus;
+  timestamp: number; // Unix seconds
+}
+
 // Eventos disponíveis para assinar (use '*' para todos). E22: `message.ack` e `message.reaction`
 // entram na lista do painel — desde a E22 a reação sai SÓ como `message.reaction` (não mais como
 // `message` tipo `other`). O painel não edita eventos: para incluir, remova e recrie o webhook — NÃO
@@ -359,6 +393,8 @@ export const WEBHOOK_EVENTS = [
   'message.ack',
   'message.reaction',
   'session.status',
+  'session.restricted',
+  'session.client_too_old',
 ] as const;
 
 // ---- API keys (F9.1) ----

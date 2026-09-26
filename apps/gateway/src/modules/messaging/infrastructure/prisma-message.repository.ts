@@ -172,6 +172,7 @@ export class PrismaMessageRepository implements MessageRepository {
     sent: 1,
     delivered: 2,
     read: 3,
+    error: 4,
   };
 
   async updateStatusByKey(
@@ -199,6 +200,7 @@ export class PrismaMessageRepository implements MessageRepository {
              WHEN 'sent' THEN 1
              WHEN 'delivered' THEN 2
              WHEN 'read' THEN 3
+             WHEN 'error' THEN 4
              ELSE 0
            END) < ${rank}`;
   }

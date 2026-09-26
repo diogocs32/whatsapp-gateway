@@ -7,7 +7,10 @@ import {
   PROXY_REPOSITORY,
   type ProxyRepository,
 } from '../domain/proxy.repository';
-import { buildProxyAgent } from '../infrastructure/proxy-agent.factory';
+import {
+  buildMediaDispatcher,
+  buildProxyAgent,
+} from '../infrastructure/proxy-agent.factory';
 
 // Hash determinístico simples (FNV-1a 32-bit) — para STICKY mapear sessionId → índice estável sem Date/random.
 function hashString(s: string): number {
@@ -138,8 +141,9 @@ export class ProxyResolver {
     };
   }
 
-  // Resolve já como Agent pronto para o Baileys (agent + fetchAgent). null => conexão direta (sem proxy).
-  async resolveAgent(sessionId: string): Promise<Agent | null> {
+  // Escolhe uma vez: o WebSocket/upload e o download da CDN usam o MESMO proxy da conexão.
+  // Resolver duas vezes avançaria o cursor de ROUND_ROBIN/RANDOM e misturaria saídas.
+  async resolveBaileysTransport(sessionId: string) {
     const proxy = await this.resolve(sessionId);
     if (!proxy) {
       // Ponto cego ELIMINADO: antes, conectar sem proxy (IP direto do servidor = datacenter) era
@@ -155,11 +159,27 @@ export class ProxyResolver {
       this.logger.warn(
         `Sessão ${sessionId}: conectando SEM proxy — ${motivo}. Tráfego sai pelo IP do servidor (datacenter); risco de flag no WhatsApp. Atribua um proxy residencial (ou ligue WA_REQUIRE_PROXY para bloquear).`,
       );
-      return null;
+      return { agent: null, createMediaDispatcher: null };
     }
     this.logger.log(
       `Sessão ${sessionId} → proxy #${proxy.position} ${proxy.protocol}://${proxy.host}:${proxy.port}`,
     );
-    return buildProxyAgent(proxy);
+    if (proxy.protocol === 'SOCKS4' || proxy.protocol === 'SOCKS5') {
+      this.logger.warn(
+        `Sessão ${sessionId}: download de mídia via ${proxy.protocol} sem prova; emitindo só metadados para não acessar a CDN diretamente.`,
+      );
+    }
+    return {
+      agent: buildProxyAgent(proxy),
+      createMediaDispatcher:
+        proxy.protocol === 'SOCKS4' || proxy.protocol === 'SOCKS5'
+          ? null
+          : () => buildMediaDispatcher(proxy),
+    };
+  }
+
+  // Compatibilidade para callers que só precisam do Agent Node.
+  async resolveAgent(sessionId: string): Promise<Agent | null> {
+    return (await this.resolveBaileysTransport(sessionId)).agent;
   }
 }

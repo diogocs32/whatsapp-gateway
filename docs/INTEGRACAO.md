@@ -70,14 +70,33 @@ Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`,
 
 Catálogo:
 
-| Evento                                                       | Quando                   | Payload-chave                                                                                                                                                                        |
-| ------------------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular |
-| `message.ack`                                                | entrega/leitura          | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read, timestamp }` (casar por `keyId`)                                                                                           |
-| `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                            |
-| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                               |
-| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                                                                                                                                         |
-| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                                                                                                                                  |
+| Evento                                                       | Quando                 | Payload-chave                                                                                                                                                                                                 |
+| ------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message`                                                    | inbound/eco            | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular                          |
+| `message.ack`                                                | entrega/leitura/erro   | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read\|error, timestamp }` (casar por `sessionId` + `keyId`; `error` não mostra tique)                                                                     |
+| `message.reaction` (W6, aditivo)                             | o contato/você reagiu  | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                                                     |
+| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail   | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                                                        |
+| `signal.463` / `signal.restriction`                          | sinal duro             | `{ signal }`                                                                                                                                                                                                  |
+| `session.restricted` (E8, aditivo)                           | pausa nativa Baileys   | `{ signal: "463"\|"reachoutTimeLock"\|"message-capping", pausedUntil, timeEnforcementEnds, source, enforcementType }` — datas ISO UTC; `timeEnforcementEnds` só quando confirmado pela resposta direta do RPC |
+| `session.client_too_old` (E9, aditivo)                       | protocolo recusado 405 | `{ code: 405, reason }` — alerta de versão; a sessão fica `FAILED` sem tentar conectar cinco vezes                                                                                                            |
+| `session.status`                                             | estado da sessão       | `{ status, error?, lastErrorDetails? }` — `error` continua texto; em desconexão terminal do Baileys, `lastErrorDetails: { code, reason }` traz o código e motivo brutos                                       |
+| `send.blocked`                                               | hard-gate barrou envio | `{ state, motivo, restriction_until? }` (`restriction_until` só na pausa nativa)                                                                                                                              |
+
+> **Origem do prazo (E8):** `source: "temporary"` indica pausa provisória. A notificação
+> `reachoutTimeLock` da Baileys rc14 chega por `connection.update` com um `Date` que pode ter vindo
+> do servidor **ou ter sido criado pela própria biblioteca como agora + 60 s**; o evento não informa
+> qual dos dois ocorreu. O gateway preserva um prazo válido dessa notificação, inclusive se passar
+> de 60 s, mas publica `timeEnforcementEnds: null` até receber a **resposta direta** de
+> `fetchAccountReachoutTimelock()`. Só essa resposta usa `source: "timeEnforcementEnds"`.
+> O limite de 3 s encerra a espera, sem cancelar o RPC: uma resposta tardia ainda pode confirmar
+> o prazo se a consulta e o socket continuarem atuais. `source: "cycle_end_timestamp"` identifica
+> o prazo do capping, não o timelock confirmado; um ciclo mais curto não encurta uma pausa
+> `temporary` já persistida.
+>
+> Uma sessão pode gerar primeiro um `session.restricted` provisório e depois outro com prazo
+> confirmado. O `connection.update` emitido pela própria consulta também pode produzir um alerta
+> provisório adicional. Trate mudança de `source` ou `pausedUntil` como atualização da mesma
+> restrição e agrupe reentregas por `sessionId`, `source` e `pausedUntil`.
 
 > **Handoff (G2):** `source: "phone"` num `fromMe` = o humano respondeu pelo celular → pause a IA.
 > **Reação não é handoff (E22, D-028):** reagir pelo celular não gera mais `message` `source=phone`
@@ -89,6 +108,8 @@ Catálogo:
 > um status idêntico consecutivo (mesmo `status` + mesmo `error`) NÃO é reenviado. Uma reconexão
 > transitória que volta a `WORKING` não gera novo evento. **Trate a transição, não a repetição** —
 > não conte "quantos WORKING chegaram" para inferir reconexões (use `message.ack`/timeline p/ isso).
+> O motivo bruto em `lastErrorDetails` pode ser atualizado no cadastro da sessão sem novo
+> `session.status`; ele não entra na chave de deduplicação do evento.
 
 ### 3.1 Mídia recebida — obter os BYTES (voz/imagem/PDF) — contrato CP-149 (GAP 2)
 
@@ -102,6 +123,16 @@ público nem do TTL, e permite re-obter a mídia depois:
 de grupos, o operador define `WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA=true` no gateway e aplica na janela
 de deploy. Mídia 1:1 continua baixando, agora em blocos de 2 MB com teto de 24 MB e fila por sessão.
 O campo `mediaKey` já era opcional; consumidores devem testar sua presença antes de baixar.
+
+**Baileys após o deploy B da Onda 2 (E10):** a mídia recebida tem até 90 s para baixar, incluindo
+uma tentativa de reupload de até 20 s quando a CDN responde 404/410. Foto, áudio, documento,
+vídeo e vídeo redondo (`ptvMessage`) seguem o mesmo contrato. O download usa o proxy HTTP/HTTPS
+escolhido para a conexão daquela sessão; se a sessão usa SOCKS, o download automático ainda não
+foi validado e a mensagem sai somente com metadados, sem `mediaKey`/`mediaUrl`. O mesmo fallback
+vale se o download, reupload ou armazenamento falhar. Nesses casos, `GET .../media` responde 404.
+O limite de 90 s cobre o download e o reupload, não a gravação no S3. Não há campo, rota ou evento
+novo; o reupload depende de outro aparelho ainda ter a mídia. Esta mudança está apenas no PR da
+Onda 2 até merge e deploy manuais.
 
 ```
 GET /api/sessions/{sessao}/messages/{msgId}/media
@@ -133,6 +164,15 @@ filename*=UTF-8''<nome percent-encoded>` (RFC 5987; quem entende `filename*` usa
   Sem S3, a mensagem chega só com metadados e o download responde 404 explicando.
 
 ### 3.2 Conteúdo das mensagens — `type`, `text` e reação (E22 · P-066 · D-028)
+
+**Fila offline Baileys (E7 · P-047, após o deploy B):** mensagens de terceiros recebidas durante
+queda/reconexão/deploy, emitidas pela rc14 como `messages.upsert` `append`, passam pelo mesmo evento
+`message` das recebidas ao vivo. O `payload.timestamp` conserva o horário original do WhatsApp;
+o `timestamp` do envelope é o horário de publicação pelo gateway. Só entram mensagens com até 48 h
+(tolerância de 5 min para relógio adiantado), uma vez por `sessionId` + `keyId`. Eco dos envios da
+API/celular no `append`, status e newsletter não viram `message`. O formato público é o mesmo, sem
+campo novo; um fluxo que não queira responder a uma entrada antiga pode comparar os dois horários.
+Reações continuam exclusivamente em `message.reaction`.
 
 Desde a etapa E22 (25/09/2026, sobe no deploy da Onda 8) o evento `message` e o `GET /messages`
 trazem o conteúdo como o WhatsApp Web mostra — nas **duas engines**, com o mesmo texto:
@@ -225,10 +265,17 @@ trazem o conteúdo como o WhatsApp Web mostra — nas **duas engines**, com o me
 
 ```
 GET /api/sessions/{sessao}/health
-→ { state, reply_rate, amostra, score, cap_base, cap_atual, cooldown_ate, ultimos_sinais, enforce }
+→ { state, reply_rate, amostra, score, cap_base, cap_atual, cooldown_ate, restriction_until, ultimos_sinais, enforce }
 GET /api/observability/reply-rate/{sessao}?window=7   # ou 30; sem window = ambas
 GET /api/sessions?state=ativa,aquecimento             # filtra a listagem por estado guard-rail
 ```
+
+`GET /metrics` (fora de `/api`, com `Authorization: Bearer <METRICS_TOKEN>`) expõe
+`wa_disconnects_total{engine,code}`. É o total de eventos `connection.update` com `close` desde o
+boot deste processo, incluindo o 515 de reinício do pareamento; o rótulo `code` cobre
+401/403/405/408/411/428/440/500/503/515 e usa `other` para código ausente ou desconhecido.
+O valor zera quando o processo reinicia; para alertas de frequência, use `rate()` no Prometheus.
+O endpoint responde 401 se `METRICS_TOKEN` estiver ausente ou incorreto.
 
 `reply_rate` exclui cold-sends com menos de **72h** (imaturos) e só dá veredito com **amostra ≥ 20**.
 Resposta = **mensagem OU reação do contato** em até 72h do cold (E22, D-028 — antes a reação contava
@@ -241,18 +288,39 @@ notificações de sistema do wwebjs, que contavam por engano, também saem.
 
 Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
 
-- **Hard-gate:** um envio `cold: true` numa sessão bloqueada responde **HTTP 423 `SESSION_QUARANTINED`**.
-  Envio `cold: false` (chat aberto) sempre passa. → trate o 423 ramificando e re-enfileirando o lead.
+- **Hard-gate G5:** um envio `cold: true` numa sessão em quarentena/banida/pausa manual responde
+  **HTTP 423 `SESSION_QUARANTINED`**. Sem restrição nativa, `cold: false` (chat aberto) passa por
+  esses estados. Trate o 423 ramificando e re-enfileirando o lead.
+- **Restrição nativa Baileys (E8/P-048):** `463`, `reachoutTimeLock` ativo ou
+  `message-capping.update` com `capping_status=CAPPED` pausam **todos os envios de mensagem da
+  sessão** (inclusive `cold: false`, mídia, localização, enquete, reação, encaminhamento e campanha)
+  com o mesmo **423 `SESSION_QUARANTINED`** e `state: "quarentena"` no erro. O `state` persistido de
+  G5 não vira `banida` nem quarentena de 48 h por `463`. O prazo efetivo é
+  o campo `restriction_until` de `GET /sessions/:id/health`; ao vencer, o próximo envio passa automaticamente,
+  sem `/activate`, restart ou `/resume` da campanha. O `timeEnforcementEnds` confirmado na resposta
+  direta de `fetchAccountReachoutTimelock()` prevalece sobre o `cycle_end_timestamp` do capping.
+  A espera da consulta tem teto de 3 s e intervalo mínimo de 30 s; o teto não cancela o RPC, cuja
+  resposta tardia ainda pode confirmar o prazo se o socket e a consulta continuarem atuais.
+  Enquanto ela falhar ou não responder, o prazo válido da notificação `reachoutTimeLock` continua
+  provisório (`source: "temporary"`), mesmo acima de 60 s. Um `cycle_end_timestamp` mais curto não
+  reduz esse prazo; sem qualquer prazo válido, o fallback é de 60 s. O alerta provisório traz
+  `timeEnforcementEnds: null`, e seu vencimento local não confirma o fim remoto da restrição.
+  O node n8n 0.4.1 já trata 423; inscreva o webhook em `session.restricted` ou `*` para receber o
+  alerta.
 - **Campanhas (09/2026, ABE-02):** `POST /api/campaigns` aceita `firstContact` (default `true`).
   Campanha de 1º contato passa pelo MESMO hard-gate (sessão em quarentena/pausa manual → a
   campanha é **pausada**, não falha por destinatário), envia com `cold: true` (conta no reply-rate)
   e usa `idempotencyKey` determinística por destinatário (retry/stall da fila não duplica).
-  `firstContact: false` = campanha para contatos que já conversam com a sessão (sem gate).
+  `firstContact: false` = campanha para contatos que já conversam com a sessão (sem gate G5).
+  Sob restrição nativa, as duas modalidades re-agendam o job sem mudar a campanha para `PAUSED`;
+  a fila retoma após o prazo. Se o sinal chegar depois da reserva, o destinatário é liberado e
+  re-agendado.
   O `dailyCap` agora conta o **dia local** (fuso da `SessionConfig`), não o total acumulado.
 - **Quarentena/cooldown (09/2026, P-030):** uma sessão em quarentena só volta a `ativa` depois
   do `cooldown_ate` (mesmo que a taxa melhore antes) e uma quarentena aplicada por override
   manual só sai por outro override (`activate`/`warmup`). `401`/loggedOut da engine NÃO vira
-  `banida` (é credencial perdida); só `ban`/`restriction` viram `banida`, `463` vira quarentena.
+  `banida` (é credencial perdida); só `ban`/`restriction` sem prazo viram `banida`. `463` usa a
+  pausa temporária acima, independente de `GUARDRAIL_ENFORCE`.
 - **MODO OBSERVAÇÃO (padrão):** `GUARDRAIL_ENFORCE=false` → o gateway **mede e registra mas NÃO bloqueia**
   nem quarentena automaticamente. **Ligue (`true`) só depois de ter a mediana real da frota.**
 - **Override manual:** `POST /api/sessions/{sessao}/quarantine|warmup|activate|pause`.
@@ -387,6 +455,42 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
   caso a sessão NÃO é criada (sem sessão órfã).
 - A exclusividade vale para o fluxo `SINGLE`; os modos `RANGE`/`GLOBAL_ROUND_ROBIN` (configurados via
   `PUT /api/sessions/{sessao}/proxy`) seguem podendo usar qualquer proxy do pool em runtime.
+
+### Diagnóstico de desconexão Baileys (E9)
+
+`GET /api/sessions` e `GET /api/sessions/{sessao}` preservam `lastError` como texto ou `null` e
+acrescentam `lastErrorDetails: { code: number | null, reason: string | null } | null`. `code` é o
+`output.statusCode` do erro Baileys; `reason` conserva `data.reason` ou `message` (até 500
+caracteres). O detalhe pode mudar após um `close` sem alterar o estado ou publicar outro
+`session.status`. Quando a sessão volta a `WORKING`, ambos os campos voltam a `null`.
+
+401 indica logout: o gateway limpa as credenciais e fica `STOPPED`, exigindo novo QR. 403
+(`forbidden`) e 411 (`multideviceMismatch`) ficam `FAILED` e exigem diagnóstico/intervenção; 405
+fora da tentativa quieta do 440 também fica `FAILED`, emite `session.client_too_old` e pede o procedimento
+[405 no Baileys](how-to/canario-baileys-onda2.md#resposta-ao-405-protocolo-recusado).
+440 (`connectionReplaced`) aguarda 60 s e tenta uma única reconexão; se essa tentativa falhar
+com qualquer código, o processo antigo encerra as tentativas localmente, sem persistir estado
+terminal, limpar credenciais ou alertar pelo erro da tentativa, até existir exclusividade de
+sessão (P-056). Um segundo `close` antes dos 60 s não adia nem duplica o timer. Nesse intervalo,
+a engine local deixa de aceitar envio pelo socket fechado; o retry do 440 não publica QR nem
+grava `STARTING` por cima do estado de outra réplica. 515
+(`restartRequired`, inclusive após pareamento) reconecta após 1 s sem consumir o orçamento de
+falhas; mais de três 515 seguidos sem `open` deixam a sessão `DEGRADED` para evitar um loop.
+408/428/500/503 usam backoff limitado a cinco tentativas; 500 conserva o
+motivo bruto em `lastErrorDetails.reason`. Um `WORKING` novo limpa o erro. Estes estados são do
+transporte; a pausa temporária de envio da E8 continua independente deles (§5).
+
+**Versão do protocolo:** cada tentativa de conexão Baileys registra no log do gateway
+`Baileys protocolo <sessionId>: versão <versão> (<fonte>)`, visível no nível padrão da aplicação.
+A fonte é `latest`, `cache`, `stale-cache`, `bundled` ou `canary-override`. A consulta
+`fetchLatestBaileysVersion()` espera no máximo 3 s, com intervalo mínimo de 30 s; só
+`isLatest:true` renova o cache de 12 h. Se a consulta falhar ou devolver `isLatest:false`, usa a
+última versão confirmada ou a embutida da biblioteca, sem tratar o fallback como versão fresca.
+Para testar uma candidata em **uma** sessão de teste, defina juntas as envs
+`BAILEYS_PROTOCOL_VERSION=<major.minor.patch>` e
+`BAILEYS_PROTOCOL_CANARY_SESSION_ID=<ID da sessão>`; uma env isolada impede o boot. O override não
+altera as outras sessões. Aplicar/remover env no Dokploy exige Deploy manual em janela controlada,
+conforme o runbook; não muda a versão em conexões já abertas.
 
 ## 12. Inbox — conversas, mensagens e backfill de histórico (W7)
 

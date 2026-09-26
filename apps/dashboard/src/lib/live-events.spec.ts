@@ -66,7 +66,10 @@ describe('parseLiveEvent', () => {
       keyId: '3EB0AAA',
       status: 'delivered',
     });
-    for (const status of ['played', 'error', 'toString', null]) {
+    expect(
+      parseLiveEvent(env('message.ack', { keyId: 'K', status: 'error' })),
+    ).toMatchObject({ kind: 'ack', status: 'error' });
+    for (const status of ['played', 'toString', null]) {
       expect(
         parseLiveEvent(env('message.ack', { keyId: 'K', status })),
       ).toBeNull();
@@ -158,7 +161,7 @@ describe('ACK (P-072 — só exibição)', () => {
         'error',
         'toString',
       ].map(ackRank),
-    ).toEqual([0, 0, 0, 1, 2, 3, 0, 0, 0]);
+    ).toEqual([0, 0, 0, 1, 2, 3, 0, 4, 0]);
   });
   it('applyAck: sobe, nunca regride, casa por sessionId+keyId, mesma referência sem mudança', () => {
     const list = [

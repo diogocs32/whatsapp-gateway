@@ -108,6 +108,16 @@ const base = z.object({
   // atribuído (em vez de vazar o IP do servidor/datacenter ao WhatsApp — gatilho de flag na conexão).
   // Default false para não quebrar sessões existentes; ligue depois de atribuir proxy a todas.
   WA_REQUIRE_PROXY: envBool(false),
+  // E9: override do protocolo apenas na sessão canário indicada pelo ID. O par é obrigatório;
+  // uma versão global acidental alteraria toda a frota Baileys de uma vez.
+  BAILEYS_PROTOCOL_VERSION: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .regex(/^\d+\.\d+\.\d+$/)
+      .optional(),
+  ),
+  BAILEYS_PROTOCOL_CANARY_SESSION_ID: envStr(),
   // ---- Engine wwebjs (motor browser) ----
   // O motor lê estas chaves direto de process.env (escopo de módulo, antes do Nest subir); declará-las
   // aqui documenta o catálogo e valida a forma. Valor VAZIO = ausente (não derruba o boot — R0: um
@@ -148,6 +158,29 @@ const base = z.object({
 });
 
 export const envSchema = base.superRefine((env, ctx) => {
+  if (
+    env.BAILEYS_PROTOCOL_VERSION &&
+    !env.BAILEYS_PROTOCOL_VERSION.split('.')
+      .map(Number)
+      .every((part) => Number.isSafeInteger(part) && part >= 0)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['BAILEYS_PROTOCOL_VERSION'],
+      message: 'cada parte da versão deve ser um inteiro seguro não negativo',
+    });
+  }
+  if (
+    Boolean(env.BAILEYS_PROTOCOL_VERSION) !==
+    Boolean(env.BAILEYS_PROTOCOL_CANARY_SESSION_ID)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['BAILEYS_PROTOCOL_VERSION'],
+      message:
+        'defina BAILEYS_PROTOCOL_VERSION e BAILEYS_PROTOCOL_CANARY_SESSION_ID juntas',
+    });
+  }
   const hasDbParts = !!(env.DB_HOST && env.DB_USER && env.DB_NAME);
   if (!env.DATABASE_URL && !hasDbParts) {
     ctx.addIssue({

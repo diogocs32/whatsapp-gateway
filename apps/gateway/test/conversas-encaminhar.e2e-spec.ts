@@ -1119,7 +1119,10 @@ describe('Encaminhar mensagem — P-068 (e2e)', () => {
     const storeMedia = vi.fn(async () => undefined);
     const priv = () =>
       engine as unknown as {
-        onMessagesUpsert: (u: { messages: WAMessage[]; type: string }) => void;
+        onMessagesUpsert: (u: {
+          messages: WAMessage[];
+          type: string;
+        }) => Promise<void>;
         onMessagesUpdate: (u: WAMessageUpdate[]) => void;
       };
     const useEngine = () => {
@@ -1182,7 +1185,7 @@ describe('Encaminhar mensagem — P-068 (e2e)', () => {
     });
 
     it('recebida pelo engine grava o raw; a rota encaminha e o eco é gravado (source api, selo 1, cold, chave derivada); repetir não reenvia', async () => {
-      priv().onMessagesUpsert({
+      await priv().onMessagesUpsert({
         type: 'notify',
         messages: [
           {
@@ -1515,7 +1518,7 @@ describe('Encaminhar mensagem — P-068 (e2e)', () => {
         new Uint8Array([0x0a, 0x05, 0x61, 0xed, 0xa0, 0x80, 0x62]),
       );
       expect(message.conversation).toBe('a\ud800b');
-      priv().onMessagesUpsert({
+      await priv().onMessagesUpsert({
         type: 'notify',
         messages: [
           {

@@ -31,8 +31,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/forward.ts` | 730 |
 | `dashboard/lib/jid.spec.ts` | 102 |
 | `dashboard/lib/jid.ts` | 86 |
-| `dashboard/lib/live-events.spec.ts` | 507 |
-| `dashboard/lib/live-events.ts` | 471 |
+| `dashboard/lib/live-events.spec.ts` | 510 |
+| `dashboard/lib/live-events.ts` | 472 |
 | `dashboard/lib/media-cache.spec.ts` | 272 |
 | `dashboard/lib/media-cache.ts` | 302 |
 | `dashboard/lib/media.ts` | 32 |
@@ -243,7 +243,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `formatPhone` (jid.ts:42), `isPhoneJid` (jid.ts:16), `numberFromJid` (jid.ts:11)
   - chamado por: `Reactions` L15
 - `Reactions({ reactions, align, })` · L15
-  - chama: `who` L8, `reactionChips` (live-events.ts:336)
+  - chama: `who` L8, `reactionChips` (live-events.ts:337)
 
 ## `dashboard/components/chat/SelectionBar.tsx`
 
@@ -275,7 +275,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Ticks(props)` · L6
-  - chama: `tickFor` (live-events.ts:200)
+  - chama: `tickFor` (live-events.ts:201)
 
 ## `dashboard/components/chat/use-media.ts`
 
@@ -646,108 +646,108 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/lib/live-events.spec.ts`
 
-507 linhas · caminho: `apps/dashboard/src/lib/live-events.spec.ts`
+510 linhas · caminho: `apps/dashboard/src/lib/live-events.spec.ts`
 - importa (interno): `contracts/index.ts`, `dashboard/lib/live-events.ts`
 
 - describe “parseLiveEvent” · L51
   - it “ack válido; status desconhecido, sem keyId e eventos alheios → null” · L52
-  - it “reação (inclusive remoção com emoji "")” · L90
-  - it “message → item do fluxo com selo e sem status” · L113
-- describe “ACK (P-072 — só exibição)” · L147
-  - it “ackRank: sent<delivered<read; resto = 0” · L148
-  - it “applyAck: sobe, nunca regride, casa por sessionId+keyId, mesma referência sem mudança” · L163
-  - it “AckMemory: ACK antes da mensagem e GET sem o status (no-op no banco)” · L180
-  - it “tickFor: só fromMe; sem grupo/transmissão/canal; null/desconhecido = sem tique” · L203
-- describe “reações ao vivo” · L237
-  - it “reactionSenderKey é idêntico ao do gateway (48 combinações)” · L238
-  - it “1:1: uma por pessoa, troca, remoção, @lid × telefone, fora de ordem, outra sessão” · L277
-  - it “grupo: uma por participante (sem sufixo de aparelho), ordem por horário” · L308
-  - it “reação de OUTRA pessoa com horário anterior entra na posição do horário (não no fim)” · L345
-  - it “reactionChips: mais usado primeiro, empate = o que apareceu antes, "mine"” · L366
-  - it “replayReactions: GET que saiu antes do evento não apaga a reação; o banco mais novo vence” · L387
-  - it “replayReactions: margem de 2 s para o persister assíncrono do gateway (limite exato)” · L403
-  - it “replayReactions: não ressuscita reação removida enquanto o SSE esteve fora” · L418
-- describe “fluxo ao vivo e recarga estável” · L429
-  - it “upsertFeedItem: dedup por sessionId+keyId (não só keyId) e sem regredir status” · L430
-  - it “mergeFeed: GET que leu o banco antes do INSERT não apaga o item recebido pelo SSE” · L449
-  - it “stabilize: ignora a mediaUrl que muda a cada leitura; reaproveita objetos” · L481
+  - it “reação (inclusive remoção com emoji "")” · L93
+  - it “message → item do fluxo com selo e sem status” · L116
+- describe “ACK (P-072 — só exibição)” · L150
+  - it “ackRank: sent<delivered<read; resto = 0” · L151
+  - it “applyAck: sobe, nunca regride, casa por sessionId+keyId, mesma referência sem mudança” · L166
+  - it “AckMemory: ACK antes da mensagem e GET sem o status (no-op no banco)” · L183
+  - it “tickFor: só fromMe; sem grupo/transmissão/canal; null/desconhecido = sem tique” · L206
+- describe “reações ao vivo” · L240
+  - it “reactionSenderKey é idêntico ao do gateway (48 combinações)” · L241
+  - it “1:1: uma por pessoa, troca, remoção, @lid × telefone, fora de ordem, outra sessão” · L280
+  - it “grupo: uma por participante (sem sufixo de aparelho), ordem por horário” · L311
+  - it “reação de OUTRA pessoa com horário anterior entra na posição do horário (não no fim)” · L348
+  - it “reactionChips: mais usado primeiro, empate = o que apareceu antes, "mine"” · L369
+  - it “replayReactions: GET que saiu antes do evento não apaga a reação; o banco mais novo vence” · L390
+  - it “replayReactions: margem de 2 s para o persister assíncrono do gateway (limite exato)” · L406
+  - it “replayReactions: não ressuscita reação removida enquanto o SSE esteve fora” · L421
+- describe “fluxo ao vivo e recarga estável” · L432
+  - it “upsertFeedItem: dedup por sessionId+keyId (não só keyId) e sem regredir status” · L433
+  - it “mergeFeed: GET que leu o banco antes do INSERT não apaga o item recebido pelo SSE” · L452
+  - it “stabilize: ignora a mediaUrl que muda a cada leitura; reaproveita objetos” · L484
 
 ## `dashboard/lib/live-events.ts`
 
-471 linhas · caminho: `apps/dashboard/src/lib/live-events.ts`
+472 linhas · caminho: `apps/dashboard/src/lib/live-events.ts`
 - importa (interno): `contracts/index.ts`
 - importado por: `dashboard/components/chat/Reactions.tsx`, `dashboard/components/chat/Ticks.tsx`, `dashboard/lib/live-events.spec.ts`, `dashboard/lib/use-live-stream.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
-- `ackRank(status)` · L20
-  - chamado por: `applyAck` L141, `overlayAcks` L181, `parseLiveEvent` L69, `rememberAck` L165, `upsertFeedItem` L383
-- `str(v)` · L64
-  - chamado por: `parseLiveEvent` L69
-- `num(v)` · L66
-  - chamado por: `parseLiveEvent` L69
-- `parseLiveEvent(data, nowSec)` · L69
-  - chama: `ackRank` L20, `num` L66, `str` L64
+- `ackRank(status)` · L21
+  - chamado por: `applyAck` L142, `overlayAcks` L182, `parseLiveEvent` L70, `rememberAck` L166, `upsertFeedItem` L384
+- `str(v)` · L65
+  - chamado por: `parseLiveEvent` L70
+- `num(v)` · L67
+  - chamado por: `parseLiveEvent` L70
+- `parseLiveEvent(data, nowSec)` · L70
+  - chama: `ackRank` L21, `num` L67, `str` L65
   - chamado por: `useLiveStream` (use-live-stream.ts:11)
-- `applyAck(list, ev)` · L141
-  - chama: `ackRank` L20
+- `applyAck(list, ev)` · L142
+  - chama: `ackRank` L21
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `memKey(sessionId, keyId)` · L163
-  - chamado por: `overlayAcks` L181, `rememberAck` L165
-- `rememberAck(mem, ev, max)` · L165
-  - chama: `ackRank` L20, `memKey` L163
+- `memKey(sessionId, keyId)` · L164
+  - chamado por: `overlayAcks` L182, `rememberAck` L166
+- `rememberAck(mem, ev, max)` · L166
+  - chama: `ackRank` L21, `memKey` L164
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `overlayAcks(list, mem)` · L181
-  - chama: `ackRank` L20, `memKey` L163
+- `overlayAcks(list, mem)` · L182
+  - chama: `ackRank` L21, `memKey` L164
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `NO_TICK_CHAT` = `/@(g\.us|broadcast|newsletter)$/` · L198
-- `tickFor(m)` · L200
+- `NO_TICK_CHAT` = `/@(g\.us|broadcast|newsletter)$/` · L199
+- `tickFor(m)` · L201
   - chamado por: `Ticks` (Ticks.tsx:6)
-- `TICK_LABEL` = `{ sent: 'Enviada', delivered: 'Entregue', read: 'Lida', }` · L220
-- `reactionSenderKey(p)` · L237
-  - chamado por: `applyReaction` L252
-- `tsMs(iso)` · L247
-  - chamado por: `applyReaction` L252
-- `applyReaction(list, ev)` · L252
-  - chama: `reactionSenderKey` L237, `tsMs` L247
-  - chamado por: `replayReactions` L320, `Atendimento` (Atendimento.tsx:73)
-- `REACTION_REPLAY_MARGIN_MS` = `2000` · L308
-- `rememberReaction(mem, ev, receivedAt, max)` · L310
+- `TICK_LABEL` = `{ sent: 'Enviada', delivered: 'Entregue', read: 'Lida', }` · L221
+- `reactionSenderKey(p)` · L238
+  - chamado por: `applyReaction` L253
+- `tsMs(iso)` · L248
+  - chamado por: `applyReaction` L253
+- `applyReaction(list, ev)` · L253
+  - chama: `reactionSenderKey` L238, `tsMs` L248
+  - chamado por: `replayReactions` L321, `Atendimento` (Atendimento.tsx:73)
+- `REACTION_REPLAY_MARGIN_MS` = `2000` · L309
+- `rememberReaction(mem, ev, receivedAt, max)` · L311
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `replayReactions(list, mem, requestedAt)` · L320
-  - chama: `applyReaction` L252
+- `replayReactions(list, mem, requestedAt)` · L321
+  - chama: `applyReaction` L253
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `reactionChips(reactions)` · L336
+- `reactionChips(reactions)` · L337
   - chamado por: `Reactions` (Reactions.tsx:15)
-- `feedItemFromEvent(ev)` · L364
+- `feedItemFromEvent(ev)` · L365
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `upsertFeedItem(feed, item, max)` · L383
-  - chama: `ackRank` L20
+- `upsertFeedItem(feed, item, max)` · L384
+  - chama: `ackRank` L21
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `rememberFeedItem(mem, item, receivedAt, max)` · L406
+- `rememberFeedItem(mem, item, receivedAt, max)` · L407
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `mergeFeed(rows, mem, requestedAt, max)` · L418
+- `mergeFeed(rows, mem, requestedAt, max)` · L419
   - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `sameIgnoringMediaUrl(a, b)` · L446
-  - chamado por: `stabilize` L457
-- `stabilize(prev, next)` · L457
-  - chama: `sameIgnoringMediaUrl` L446
+- `sameIgnoringMediaUrl(a, b)` · L447
+  - chamado por: `stabilize` L458
+- `stabilize(prev, next)` · L458
+  - chama: `sameIgnoringMediaUrl` L447
   - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
 
 **Tipos**
 - type `AckStatus` L11
-- interface `LiveAck` L29 · 4 propriedade(s)
-- interface `LiveReaction` L36 · 8 propriedade(s)
-- interface `LiveMessage` L47 · 12 propriedade(s)
-- type `LiveEvent` L62
-- interface `Ackable` L133 · 3 propriedade(s)
-- type `AckMemory` L161
-- type `Tick` L196
-- interface `Reactable` L228 · 4 propriedade(s)
-- interface `ReactionMemoryItem` L302 · 2 propriedade(s)
-- type `ReactionMemory` L306
-- interface `FeedMemoryItem` L400 · 2 propriedade(s)
-- type `FeedMemory` L404
-- type `WithId` L444
+- interface `LiveAck` L30 · 4 propriedade(s)
+- interface `LiveReaction` L37 · 8 propriedade(s)
+- interface `LiveMessage` L48 · 12 propriedade(s)
+- type `LiveEvent` L63
+- interface `Ackable` L134 · 3 propriedade(s)
+- type `AckMemory` L162
+- type `Tick` L197
+- interface `Reactable` L229 · 4 propriedade(s)
+- interface `ReactionMemoryItem` L303 · 2 propriedade(s)
+- type `ReactionMemory` L307
+- interface `FeedMemoryItem` L401 · 2 propriedade(s)
+- type `FeedMemory` L405
+- type `WithId` L445
 
 ## `dashboard/lib/media-cache.spec.ts`
 
@@ -992,7 +992,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `useLiveStream(onEvent, onResync)` · L11
-  - chama: `parseLiveEvent` (live-events.ts:69)
+  - chama: `parseLiveEvent` (live-events.ts:70)
   - chamado por: `Atendimento` (Atendimento.tsx:73)
 
 ## `dashboard/main.tsx`
@@ -1023,7 +1023,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `convKey(c)` · L70
   - chamado por: `Atendimento` L73
 - `Atendimento()` · L73
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:141), `applyReaction` (live-events.ts:252), `feedItemFromEvent` (live-events.ts:364), `mergeFeed` (live-events.ts:418), `overlayAcks` (live-events.ts:181), `rememberAck` (live-events.ts:165), `rememberFeedItem` (live-events.ts:406), `rememberReaction` (live-events.ts:310), `replayReactions` (live-events.ts:320), `stabilize` (live-events.ts:457), `upsertFeedItem` (live-events.ts:383), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L70
+  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:142), `applyReaction` (live-events.ts:253), `feedItemFromEvent` (live-events.ts:365), `mergeFeed` (live-events.ts:419), `overlayAcks` (live-events.ts:182), `rememberAck` (live-events.ts:166), `rememberFeedItem` (live-events.ts:407), `rememberReaction` (live-events.ts:311), `replayReactions` (live-events.ts:321), `stabilize` (live-events.ts:458), `upsertFeedItem` (live-events.ts:384), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L70
 
 **Tipos**
 - type `StatusFilter` L53
@@ -1109,7 +1109,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Inbox()` · L19
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:457), `conversationPreview` (message-format.ts:141), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `listTime` (time-format.ts:24)
+  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:458), `conversationPreview` (message-format.ts:141), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `listTime` (time-format.ts:24)
 - `Avatar({ conv })` · L403
   - chama: `displayName` (jid.ts:27)
 

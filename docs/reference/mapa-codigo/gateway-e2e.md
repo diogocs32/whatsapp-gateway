@@ -8,10 +8,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `gateway/test/audit.e2e-spec.ts` | 98 |
 | `gateway/test/auth.e2e-spec.ts` | 335 |
+| `gateway/test/baileys-disconnect.e2e-spec.ts` | 155 |
+| `gateway/test/baileys-offline.e2e-spec.ts` | 250 |
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
+| `gateway/test/baileys-restriction.e2e-spec.ts` | 271 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
-| `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1537 |
+| `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1540 |
 | `gateway/test/conversas-grupo.e2e-spec.ts` | 214 |
 | `gateway/test/conversas-reacoes.e2e-spec.ts` | 544 |
 | `gateway/test/f5.e2e-spec.ts` | 253 |
@@ -27,9 +30,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
-| `gateway/test/session-status-dedup.e2e-spec.ts` | 130 |
+| `gateway/test/session-status-dedup.e2e-spec.ts` | 131 |
 | `gateway/test/sessions.e2e-spec.ts` | 111 |
-| `gateway/test/setup-app.ts` | 179 |
+| `gateway/test/setup-app.ts` | 181 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1020 |
 
@@ -65,6 +68,22 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “reset de senha pelo OWNER invalida o refresh do usuário” · L268
     - it “senha nova curta (<8) é rejeitada com 400” · L315
 
+## `gateway/test/baileys-disconnect.e2e-spec.ts`
+
+155 linhas · caminho: `apps/gateway/test/baileys-disconnect.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/observability/metrics.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
+
+- describe “E9 — 405 persiste diagnóstico, alerta integrador e conta métrica” · L21
+  - it “GET sessão mantém lastError string e acrescenta lastErrorDetails; webhook e métrica recebem 405” · L58
+
+## `gateway/test/baileys-offline.e2e-spec.ts`
+
+250 linhas · caminho: `apps/gateway/test/baileys-offline.e2e-spec.ts`
+- importa (interno): `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
+
+- describe “E7 — fila offline Baileys atravessa banco, webhook, Inbox e reply-rate” · L11
+  - it “lote misto e replay após restart geram uma resposta persistida e um webhook” · L108
+
 ## `gateway/test/baileys-reaction.e2e-spec.ts`
 
 59 linhas · caminho: `apps/gateway/test/baileys-reaction.e2e-spec.ts`
@@ -75,6 +94,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “nós reagimos (reaction.key.fromMe) → fromMe=true, sender=ourJid” · L27
   - it “emoji vazio = reação removida” · L37
   - it “status@broadcast e key sem id → null (ignorado)” · L46
+
+## `gateway/test/baileys-restriction.e2e-spec.ts`
+
+271 linhas · caminho: `apps/gateway/test/baileys-restriction.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
+
+- describe “E8 — restrição Baileys pausa, alerta e retoma sem envio real” · L23
+  - it “463 sai da engine, persiste prazo, enfileira alerta e devolve 423 até expirar” · L119
 
 ## `gateway/test/browser-fingerprint.e2e-spec.ts`
 
@@ -101,7 +128,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/conversas-encaminhar.e2e-spec.ts`
 
-1537 linhas · caminho: `apps/gateway/test/conversas-encaminhar.e2e-spec.ts`
+1540 linhas · caminho: `apps/gateway/test/conversas-encaminhar.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/ulid.ts`, `modules/guardrail/guardrail.service.ts`, `modules/messaging/application/forward.service.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `gateway/test/setup-app.ts`
 
 - describe “Encaminhar mensagem — P-068 (e2e)” · L144
@@ -159,17 +186,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “NUL (\u0000) no texto, nome/tipo do arquivo e dentro do raw → a linha é gravada sem o NUL” · L1038
     - it “controle: texto com surrogate solto e SEM raw é gravado (o driver troca por U+FFFD)” · L1082
   - describe “ponta a ponta com o BaileysEngine real (engine → EventBus → wa_messages)” · L1105
-    - it “recebida pelo engine grava o raw; a rota encaminha e o eco é gravado (source api, selo 1, cold, chave derivad…” · L1184
-    - it “grupo: SKDM, citação e menções da original NÃO vão para o destino; o selo cai no nó do texto” · L1245
-    - it “mídia: a mesma do WhatsApp (sem upload), o mediaKey S3 da original no eco e o enum do proto preservado” · L1285
-    - it “original NOSSA sai sem selo (isForwarded false), como no app” · L1331
-    - it “score vivo no raw (coluna null) ≥ 5 com 2 destinos → 400 FORWARD_LIMIT sem tocar o socket; com 1 → sai com sc…” · L1349
-    - it “sem raw: texto remonta fiel; mídia → 400 FORWARD_SOURCE_UNAVAILABLE” · L1369
-    - it “raw ilegível (não é um proto.Message) → 400 FORWARD_SOURCE_UNAVAILABLE, nada sai” · L1397
-    - it “visualização única (gravada como image) → 400 FORWARD_UNSUPPORTED pela engine” · L1407
-    - it “apagada/editada no WhatsApp (messages.update) marca SÓ esta sessão e o encaminhar recusa” · L1432
-    - it “P-077: eco de localização e enquete enviadas pela API grava o texto no formato da recebida” · L1486
-    - it “recebida com UTF-8 malformado (a lib decodifica em surrogate solto) continua sendo gravada com o raw da E24” · L1509
+    - it “recebida pelo engine grava o raw; a rota encaminha e o eco é gravado (source api, selo 1, cold, chave derivad…” · L1187
+    - it “grupo: SKDM, citação e menções da original NÃO vão para o destino; o selo cai no nó do texto” · L1248
+    - it “mídia: a mesma do WhatsApp (sem upload), o mediaKey S3 da original no eco e o enum do proto preservado” · L1288
+    - it “original NOSSA sai sem selo (isForwarded false), como no app” · L1334
+    - it “score vivo no raw (coluna null) ≥ 5 com 2 destinos → 400 FORWARD_LIMIT sem tocar o socket; com 1 → sai com sc…” · L1352
+    - it “sem raw: texto remonta fiel; mídia → 400 FORWARD_SOURCE_UNAVAILABLE” · L1372
+    - it “raw ilegível (não é um proto.Message) → 400 FORWARD_SOURCE_UNAVAILABLE, nada sai” · L1400
+    - it “visualização única (gravada como image) → 400 FORWARD_UNSUPPORTED pela engine” · L1410
+    - it “apagada/editada no WhatsApp (messages.update) marca SÓ esta sessão e o encaminhar recusa” · L1435
+    - it “P-077: eco de localização e enquete enviadas pela API grava o texto no formato da recebida” · L1489
+    - it “recebida com UTF-8 malformado (a lib decodifica em surrogate solto) continua sendo gravada com o raw da E24” · L1512
 
 ## `gateway/test/conversas-grupo.e2e-spec.ts`
 
@@ -413,15 +440,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/session-status-dedup.e2e-spec.ts`
 
-130 linhas · caminho: `apps/gateway/test/session-status-dedup.e2e-spec.ts`
+131 linhas · caminho: `apps/gateway/test/session-status-dedup.e2e-spec.ts`
 - importa (interno): `modules/sessions/application/session-manager.service.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/domain/session-status.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`
 
-- describe “SessionManager — dedup de session.status (alertas zap/telegram)” · L76
-  - it “não republica WORKING repetido (reconexão transitória que não muda nada)” · L77
-  - it “republica em transição real e volta a deduplicar no novo patamar” · L88
-  - it “mesmo status com erro diferente é informação nova — republica” · L97
-  - it “dedup é isolado por sessão — uma não silencia a outra” · L105
-  - it “não deduplica eventos que não são session.status (message.ack sempre passa)” · L114
+- describe “SessionManager — dedup de session.status (alertas zap/telegram)” · L77
+  - it “não republica WORKING repetido (reconexão transitória que não muda nada)” · L78
+  - it “republica em transição real e volta a deduplicar no novo patamar” · L89
+  - it “mesmo status com erro diferente é informação nova — republica” · L98
+  - it “dedup é isolado por sessão — uma não silencia a outra” · L106
+  - it “não deduplica eventos que não são session.status (message.ack sempre passa)” · L115
 
 ## `gateway/test/sessions.e2e-spec.ts`
 
@@ -439,27 +466,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/setup-app.ts`
 
-179 linhas · caminho: `apps/gateway/test/setup-app.ts`
+181 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
-- `createTestApp()` · L92 · async
+- `createTestApp(managerOverride)` · L92 · async
   - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts)
-- `inject(app, opts)` · L126
-  - chamado por: `login` L150
-- `readSetCookie(res, name)` · L138
-- `login(app)` · L150 · async
-  - chama: `inject` L126
-- `seedSession(app, name)` · L163 · async
+- `inject(app, opts)` · L128
+  - chamado por: `login` L152
+- `readSetCookie(res, name)` · L140
+- `login(app)` · L152 · async
+  - chama: `inject` L128
+- `seedSession(app, name)` · L165 · async
   - banco: `waSession.create`, `waSession.deleteMany`
-- `removeSession(app, name)` · L172 · async
+- `removeSession(app, name)` · L174 · async
   - banco: `waSession.deleteMany`
 
 **Tipos**
-- interface `InjectOpts` L112 · 4 propriedade(s)
-- interface `InjectResponse` L119 · 4 propriedade(s)
+- interface `InjectOpts` L114 · 4 propriedade(s)
+- interface `InjectResponse` L121 · 4 propriedade(s)
 
 ## `gateway/test/webhooks.e2e-spec.ts`
 
