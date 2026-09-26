@@ -11,6 +11,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
+| `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1537 |
 | `gateway/test/conversas-grupo.e2e-spec.ts` | 214 |
 | `gateway/test/conversas-reacoes.e2e-spec.ts` | 544 |
 | `gateway/test/f5.e2e-spec.ts` | 253 |
@@ -28,7 +29,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 130 |
 | `gateway/test/sessions.e2e-spec.ts` | 111 |
-| `gateway/test/setup-app.ts` | 169 |
+| `gateway/test/setup-app.ts` | 179 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1031 |
 
@@ -97,6 +98,78 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “"true"/"1"/"on" LIGAM, aceitando maiúsculas e espaços” · L38
   - it “string vazia cai no default (equivale a não definir)” · L50
   - it “valor não reconhecido derruba o boot citando a variável (fail-fast)” · L55
+
+## `gateway/test/conversas-encaminhar.e2e-spec.ts`
+
+1537 linhas · caminho: `apps/gateway/test/conversas-encaminhar.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/ulid.ts`, `modules/guardrail/guardrail.service.ts`, `modules/messaging/application/forward.service.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `gateway/test/setup-app.ts`
+
+- describe “Encaminhar mensagem — P-068 (e2e)” · L144
+  - describe “recusas sem efeito (F0) — nada é reservado nem enviado” · L303
+    - it “6 destinos → 400; nenhuma intenção, engine nem é chamada” · L304
+    - it “5 destinos (o teto) passa → 201 com 5 envios” · L319
+    - it “to vazio, ausente ou fora de lista → 400” · L327
+    - it “destinos repetidos (formatação e 9º dígito) → 400 sem reservar” · L341
+    - it “canal (@newsletter), status (@broadcast) e número inválido → 400” · L356
+    - it “msgId desconhecido → 404” · L370
+    - it “mensagem da OUTRA sessão → 404 (pelo keyId e pelo id interno)” · L376
+    - it “aceita o id interno (ULID) e o keyId — a engine recebe a mesma original” · L384
+    - it “"encaminhada com frequência" (score 5): 2 destinos → 400 FORWARD_LIMIT sem intenção; 1 destino → 201” · L395
+    - it “score 4 (abaixo do limiar) com 2 destinos → 201” · L409
+    - it “enquete → 400 FORWARD_UNSUPPORTED mesmo em quarentena com destino cold (não 423), sem intenção” · L416
+    - it “apagada e editada → 400 FORWARD_UNSUPPORTED (a original guardada é a versão velha)” · L433
+    - it “sem token → 401” · L445
+  - describe “cold, transporte e chave por destino” · L456
+    - it “[PEER, NEW] sem cold → cold só no destino sem conversa; sem chave → idempotencyKey null e nenhuma intenção” · L457
+    - it “cold:false não tira o cold de quem não tem conversa; cold:true sobe o de quem tem” · L481
+    - it “só mensagens NOSSAS no chat, ou conversa só em OUTRA sessão, não é conversa → cold à força” · L489
+    - it “transporte = o número pedido; conversa só no número EXATO (@c.us e grupo quentes; 9º dígito = cold)” · L498
+    - it “jid com aparelho vale como o número; @lid sem conversa vai como está e é cold” · L513
+    - it “com idempotencyKey: cada envio leva `<chave>:<destino>`, results também; intenções sent” · L524
+    - it “a engine recebe a original como gravada (tipo, mídia do S3, score)” · L544
+  - describe “revisão da E24 — replay antes da recusa e limpeza em erro inesperado” · L569
+    - it “repetir um lote já entregue depois que a original foi apagada → 201 deduped; pedido novo → 400” · L572
+    - it “erro inesperado depois da reserva → 500 e intenções failed; o retry envia (sem 409 falso)” · L603
+  - describe “idempotência do lote (reserva do lote + chave por destino)” · L628
+    - it “repetir o mesmo pedido (outra ordem, outra formatação) → 201 tudo deduped, na ordem do novo `to`, sem reenviar” · L629
+    - it “mesma chave com outro conjunto de destinos → 409 e nada sai” · L650
+    - it “mesma chave com outra original → 409 e nada sai” · L665
+    - it “replay DEPOIS de a sessão entrar em quarentena → 201 deduped (nada a enviar, não 423)” · L679
+    - it “falha parcial → 201 misto; repetir com a mesma chave retoma SÓ o destino que falhou” · L699
+    - it “dois pedidos simultâneos com a mesma chave → um envio por destino; o outro é replay” · L727
+    - it “chave derivada já usada com outro conteúdo (ex.: /text com `<chave>:<destino>`) → 409 no item; nenhum ok → 40…” · L740
+    - it “eco já gravado com a chave derivada (intenção expurgada) → deduped pelo wa_messages, sem reenviar” · L766
+  - describe “engine recusa ou falha (F2/F3)” · L787
+    - it “FORWARD_SOURCE_UNAVAILABLE → 400 com o code e intenções failed; depois a mesma chave envia (takeover)” · L788
+    - it “sessão desconectada (erro comum da engine) → 400 com a mensagem; nada sai” · L832
+    - it “todos os destinos falham no envio → 400 FORWARD_FAILED com results” · L841
+    - it “score VIVO ≥ 5 da engine (coluna null) com 2 destinos → 400 FORWARD_LIMIT, 0 envios, intenções failed” · L855
+  - describe “guard-rail: gate cold uma vez, 423 no lote inteiro” · L871
+    - it “quarentena + [NEW] → 423 SESSION_QUARANTINED com results, 0 envios” · L875
+    - it “quarentena + [PEER, NEW] → 423 no lote inteiro (nem quem tem conversa recebe)” · L894
+    - it “quarentena + [PEER] (só conversa aberta) → 201” · L904
+    - it “423 com chave não prende a chave: liberada a sessão, a mesma chave envia” · L910
+  - describe “ritmo anti-ban: um destino por vez, 1–3 s entre envios efetivos” · L931
+    - it “lote novo: pausa só ENTRE envios (to.length-1), com o intervalo sorteado de 1–3 s” · L936
+    - it “o intervalo vale entre pedidos da mesma sessão (o 1º envio do novo pedido também espera)” · L960
+    - it “envio que falhou não conta para o intervalo” · L966
+    - it “dois pedidos simultâneos na MESMA sessão → nunca dois envios ao mesmo tempo, sem intercalar” · L977
+  - describe “efeito pelo EventBus real (R6)” · L993
+    - it “eco do encaminhar → linha com source api, selo, score, cold, chave derivada e raw” · L994
+    - it “NUL (\u0000) no texto, nome/tipo do arquivo e dentro do raw → a linha é gravada sem o NUL” · L1038
+    - it “controle: texto com surrogate solto e SEM raw é gravado (o driver troca por U+FFFD)” · L1082
+  - describe “ponta a ponta com o BaileysEngine real (engine → EventBus → wa_messages)” · L1105
+    - it “recebida pelo engine grava o raw; a rota encaminha e o eco é gravado (source api, selo 1, cold, chave derivad…” · L1184
+    - it “grupo: SKDM, citação e menções da original NÃO vão para o destino; o selo cai no nó do texto” · L1245
+    - it “mídia: a mesma do WhatsApp (sem upload), o mediaKey S3 da original no eco e o enum do proto preservado” · L1285
+    - it “original NOSSA sai sem selo (isForwarded false), como no app” · L1331
+    - it “score vivo no raw (coluna null) ≥ 5 com 2 destinos → 400 FORWARD_LIMIT sem tocar o socket; com 1 → sai com sc…” · L1349
+    - it “sem raw: texto remonta fiel; mídia → 400 FORWARD_SOURCE_UNAVAILABLE” · L1369
+    - it “raw ilegível (não é um proto.Message) → 400 FORWARD_SOURCE_UNAVAILABLE, nada sai” · L1397
+    - it “visualização única (gravada como image) → 400 FORWARD_UNSUPPORTED pela engine” · L1407
+    - it “apagada/editada no WhatsApp (messages.update) marca SÓ esta sessão e o encaminhar recusa” · L1432
+    - it “P-077: eco de localização e enquete enviadas pela API grava o texto no formato da recebida” · L1486
+    - it “recebida com UTF-8 malformado (a lib decodifica em surrogate solto) continua sendo gravada com o raw da E24” · L1509
 
 ## `gateway/test/conversas-grupo.e2e-spec.ts`
 
@@ -364,27 +437,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/setup-app.ts`
 
-169 linhas · caminho: `apps/gateway/test/setup-app.ts`
+179 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
-- `createTestApp()` · L82 · async
+- `createTestApp()` · L92 · async
   - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts)
-- `inject(app, opts)` · L116
-  - chamado por: `login` L140
-- `readSetCookie(res, name)` · L128
-- `login(app)` · L140 · async
-  - chama: `inject` L116
-- `seedSession(app, name)` · L153 · async
+- `inject(app, opts)` · L126
+  - chamado por: `login` L150
+- `readSetCookie(res, name)` · L138
+- `login(app)` · L150 · async
+  - chama: `inject` L126
+- `seedSession(app, name)` · L163 · async
   - banco: `waSession.create`, `waSession.deleteMany`
-- `removeSession(app, name)` · L162 · async
+- `removeSession(app, name)` · L172 · async
   - banco: `waSession.deleteMany`
 
 **Tipos**
-- interface `InjectOpts` L102 · 4 propriedade(s)
-- interface `InjectResponse` L109 · 4 propriedade(s)
+- interface `InjectOpts` L112 · 4 propriedade(s)
+- interface `InjectResponse` L119 · 4 propriedade(s)
 
 ## `gateway/test/webhooks.e2e-spec.ts`
 

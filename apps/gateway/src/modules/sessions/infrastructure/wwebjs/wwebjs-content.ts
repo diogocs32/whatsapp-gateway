@@ -181,6 +181,68 @@ export function describeWwebjsMessage(
   }
 }
 
+// P-068 (E24) — o que o gateway encaminha pelo `Message.forward` (função nativa do WhatsApp Web).
+// A lib não filtra nada (src/util/Injected/Utils.js:113-129): apagada, editada e visualização única
+// são barradas aqui, ANTES de encaminhar. Editada fica fora até a P-069 (o painel ainda mostra a
+// versão velha — encaminhar a nova confundiria o operador; no Baileys a original guardada é a
+// velha). Enquete, evento, convite, produto/pedido e mensagens interativas: fora (paridade com o
+// Baileys, onde o `forward` perde o `<meta>` do stanza).
+const FORWARDABLE_TYPES = new Set([
+  'chat',
+  'image',
+  'video',
+  'ptv',
+  'audio',
+  'ptt',
+  'document',
+  'sticker',
+  'location',
+  'vcard',
+  'multi_vcard',
+]);
+
+export interface WwebjsForwardLike extends WwebjsMessageLike {
+  latestEditMsgKey?: unknown;
+  latestEditSenderTimestampMs?: number;
+}
+
+// Pura: motivo (pt-BR) de a mensagem viva NÃO poder ser encaminhada, ou null se pode.
+export function wwebjsForwardBlock(msg: WwebjsForwardLike): string | null {
+  const t = msg.type ?? 'chat';
+  const raw = msg.rawData ?? {};
+  if (t === 'revoked') return 'apagada';
+  if (msg.latestEditMsgKey || msg.latestEditSenderTimestampMs) return 'editada';
+  // isViewOnce: atributo do modelo do WhatsApp Web (o envio da lib o grava — Utils.js:171,
+  // :460-473); na RECEBIDA não verificado — best-effort.
+  if (raw.isViewOnce === true) return 'visualização única';
+  if (t === 'location' && raw.isLive === true)
+    return 'localização em tempo real';
+  if (FORWARDABLE_TYPES.has(t)) return null;
+  switch (t) {
+    case 'poll_creation':
+      return 'enquete';
+    case 'scheduled_event_creation':
+    case 'event_creation':
+      return 'evento';
+    case 'groups_v4_invite':
+      return 'convite de grupo';
+    case 'buttons_response':
+    case 'list_response':
+    case 'template_button_reply':
+    case 'list':
+    case 'interactive':
+    case 'native_flow':
+    case 'hsm':
+      return 'mensagem interativa (botões/lista)';
+    case 'product':
+    case 'order':
+    case 'payment':
+      return 'produto, pedido ou pagamento';
+    default:
+      return `tipo ${t}`;
+  }
+}
+
 // Chave de mensagem do WhatsApp Web: `_serialized`, ou `$1` nas builds ≥ 2.3000.104x (rename do WA
 // Web que o patch `$1` só corrige em `msg.id` — patches/whatsapp-web.js+1.34.7.patch).
 function serializedOf(k: unknown): string | null {

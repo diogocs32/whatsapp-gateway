@@ -28,6 +28,16 @@ export const fakeSessionManager = {
   }),
   sendPresence: async () => undefined,
   markRead: async () => undefined,
+  // P-068 (E24) — encaminhar: a engine confere a original e devolve quem envia por destino.
+  prepareForward: async () => ({
+    forwardingScore: null as number | null,
+    send: async (to: string) => ({
+      keyId: `fake-fwd-${to}`,
+      jid: `${to}@s.whatsapp.net`,
+      isForwarded: true,
+      forwardingScore: 1,
+    }),
+  }),
   // W7 — inbox/histórico (backfill) + gestão de chat
   listChats: async () => [],
   fetchChatHistory: async () => [],

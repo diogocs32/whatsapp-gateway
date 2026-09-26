@@ -46,6 +46,9 @@ export interface StoredMessage {
   fileSize: number | null;
   isForwarded: boolean;
   forwardingScore: number | null;
+  // P-068 (E24): apagada para todos / editada (hoje só o Baileys marca). Interno — não vai no DTO.
+  revokedAt: Date | null;
+  editedAt: Date | null;
 }
 
 // Resumo de uma conversa (1 por chatJid distinto) para a lista da inbox.
@@ -84,6 +87,12 @@ export interface MessageRepository {
     keyId: string,
     status: string,
   ): Promise<void>;
+  // P-068 (E24): chatJid da conversa existente com o destino (última RECEBIDA num dos candidatos);
+  // null = sem conversa (cold à força no encaminhar).
+  findInboundChat(
+    sessionId: string,
+    chatJids: string[],
+  ): Promise<string | null>;
   // G8: chatJid + fromMe da mensagem (por keyId) — key do read receipt (G8) e da reação (W5).
   findByKeyId(
     sessionId: string,

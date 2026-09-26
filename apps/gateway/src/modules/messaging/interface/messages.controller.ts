@@ -35,10 +35,15 @@ import { GuardrailService } from '../../guardrail/guardrail.service';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
-import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
+import {
+  MAX_FORWARD_TARGETS,
+  UnsupportedEngineOperationError,
+} from '../../sessions/application/engine.port';
 import type { MediaSendType } from '../../sessions/application/engine.port';
 import { SessionManager } from '../../sessions/application/session-manager.service';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
+import { candidateJids } from '../application/chat-jids';
+import { ForwardService } from '../application/forward.service';
 import { InboxSyncService } from '../application/inbox-sync.service';
 import { sendFingerprint } from '../application/send-intent.decision';
 import { SendIntentService } from '../application/send-intent.service';
@@ -101,6 +106,23 @@ const sendMediaUrlSchema = z.object({
 // W5: reação a uma mensagem. emoji vazio ('') REMOVE a reação.
 const reactionSchema = z.object({ emoji: z.string().max(20) });
 
+// P-068 (E24): encaminhar — 1 a 5 destinos (número, jid de contato, grupo ou @lid) da MESMA sessão.
+// `cold` só SOBE o cold (destino sem conversa já é cold); `idempotencyKey` vale para o lote.
+const forwardSchema = z.object({
+  to: z
+    .array(z.string().min(5).max(80), {
+      invalid_type_error: 'to: informe uma lista de destinos',
+      required_error: 'to é obrigatório (lista de 1 a 5 destinos)',
+    })
+    .min(1, 'to: informe ao menos 1 destino')
+    .max(
+      MAX_FORWARD_TARGETS,
+      `to: no máximo ${MAX_FORWARD_TARGETS} destinos por encaminhamento`,
+    ),
+  cold: coldField,
+  idempotencyKey: idempotencyKeyField,
+});
+
 // W5: localização.
 const sendLocationSchema = z.object({
   to: z.string().min(5).max(40),
@@ -128,31 +150,6 @@ function inferType(mimetype: string | undefined): MediaSendType {
   if (mimetype?.startsWith('video/')) return 'video';
   if (mimetype?.startsWith('audio/')) return 'audio';
   return 'document';
-}
-
-// JIDs candidatos para uma conversa. Cobre (a) as duas formas do 9º dígito BR (§23.11) — o
-// WhatsApp pode armazenar com ou sem o 9 — e (b) os dois sufixos de servidor: `@s.whatsapp.net`
-// (engine Baileys) e `@c.us` (engine whatsapp-web.js / WWEBJS). Sem o `@c.us`, o inbox de uma
-// sessão WWEBJS aparece vazio (as mensagens são persistidas com `<num>@c.us`).
-function candidateJids(chatId: string): string[] {
-  if (chatId.includes('@')) return [chatId];
-  const digits = chatId.replace(/[^0-9]/g, '');
-  const numbers = new Set<string>([digits]);
-  if (digits.startsWith('55') && digits.length >= 12) {
-    const ddd = digits.slice(2, 4);
-    const num = digits.slice(4);
-    if (num.length === 9 && num.startsWith('9')) {
-      numbers.add(`55${ddd}${num.slice(1)}`);
-    } else if (num.length === 8) {
-      numbers.add(`55${ddd}9${num}`);
-    }
-  }
-  const jids = new Set<string>();
-  for (const n of numbers) {
-    jids.add(`${n}@s.whatsapp.net`);
-    jids.add(`${n}@c.us`);
-  }
-  return [...jids];
 }
 
 function toConversationDto(c: ConversationSummary) {
@@ -249,6 +246,7 @@ export class MessagesController {
     private readonly intents: SendIntentService,
     private readonly config: ConfigService<Env, true>,
     private readonly directory: ContactDirectory,
+    private readonly forwarder: ForwardService,
   ) {}
 
   // G5 hard-gate: só envios COLD passam pelo guard-rail; cold=false (chat aberto) sempre passa.
@@ -520,6 +518,25 @@ export class MessagesController {
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
+  }
+
+  // P-068 (E24) — encaminha a mensagem `msgId` (id interno do GET /messages ou keyId do webhook) para
+  // 1..5 destinos da MESMA sessão, como o WhatsApp Web: selo "Encaminhada", mídia reaproveitada,
+  // um destino por vez com 1–3 s entre eles. 201 `{results[]}` (uma posição por destino); 400 /
+  // 404 / 409 / 423 antes de enviar — regras em ForwardService e INTEGRACAO §2.
+  @Post(':msgId/forward')
+  async forward(
+    @Param('id', SessionRefPipe) id: string,
+    @Param('msgId') msgId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = forwardSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    return this.forwarder.forward(id, msgId, parsed.data);
   }
 
   // G1: dedup forte. Se já houve um envio com a mesma idempotencyKey nesta sessão, devolve o

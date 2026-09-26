@@ -27,6 +27,7 @@ import type {
   ChatSummary,
   ContactCheck,
   EngineEventName,
+  ForwardSource,
   GroupInfo,
   GroupParticipantAction,
   GroupSettingKey,
@@ -35,6 +36,7 @@ import type {
   MembershipAction,
   MembershipRequest,
   MessagePayload,
+  PreparedForward,
   PresenceState,
   SaveContactInput,
   SendLocationInput,
@@ -555,6 +557,16 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     emoji: string,
   ): Promise<void> {
     return this.working(sessionId).sendReaction(chatJid, msgId, fromMe, emoji);
+  }
+
+  // P-068 (E24) — encaminhar: a engine carrega e confere a original UMA vez e devolve quem envia
+  // para UM destino. O laço (um destino por vez, intervalo, idempotência, gate cold) é do
+  // messaging (ForwardService) — o SessionManager só transporta.
+  prepareForward(
+    sessionId: string,
+    src: ForwardSource,
+  ): Promise<PreparedForward> {
+    return this.working(sessionId).prepareForward(src);
   }
 
   // Retorna a engine só se a sessão estiver conectada (WORKING) — usado pelas operações F5.

@@ -301,6 +301,11 @@ model WaMessage {
   // foi encaminhada (null quando a mensagem não é encaminhada ou a engine não informa).
   isForwarded     Boolean @default(false)
   forwardingScore Int?
+  // P-068 (E24): marcas de mensagem APAGADA para todos / EDITADA (Baileys `messages.update` REVOKE
+  // e MESSAGE_EDIT). Só o encaminhar lê (recusa: com a original guardada em `raw` ele mandaria o
+  // conteúdo apagado ou a versão velha). A exibição no painel fica para a P-069.
+  revokedAt DateTime?
+  editedAt  DateTime?
   timestamp DateTime
   createdAt DateTime @default(now())
 

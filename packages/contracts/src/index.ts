@@ -263,6 +263,41 @@ export interface SendTextResponse {
   to: string;
 }
 
+// ---- Encaminhar (P-068 · E24, aditivo) — POST /api/sessions/:s/messages/:msgId/forward ----
+// `msgId` = id interno (GET /messages) ou keyId (webhook) de uma mensagem DA MESMA sessão.
+// Até 5 destinos (só 1 se a original já é "encaminhada com frequência", forwardingScore ≥ 5).
+// Destino sem conversa na sessão (nenhuma mensagem recebida dele, no número exato) vira cold à
+// força (trava 423); `cold: true` só aumenta. `idempotencyKey` vale para o LOTE (a mesma chave com outra mensagem ou
+// outro conjunto de destinos → 409); cada destino usa `<idempotencyKey>:<destino>` (vem em
+// `results[i].idempotencyKey` e no webhook do eco).
+export interface ForwardMessageRequest {
+  to: string[]; // números (DDI+DDD+número), jid de contato, grupo (@g.us) ou @lid
+  cold?: boolean;
+  idempotencyKey?: string;
+}
+
+export interface ForwardResultDto {
+  target: string; // o destino como veio em `to[i]`
+  to: string | null; // jid usado no envio (null quando não saiu)
+  ok: boolean;
+  id: string | null; // keyId da cópia (null: não saiu, ou WWEBJS sem eco a tempo)
+  deduped: boolean; // repetição com a mesma idempotencyKey (nada reenviado)
+  cold: boolean; // cold efetivo (pedido ou destino sem conversa)
+  idempotencyKey: string | null; // chave POR DESTINO
+  // Selo que saiu: original de terceiro = score + 1; nossa = sem selo (ou o mesmo contador, se já era
+  // encaminhada — o app não soma). Ausentes em item `deduped` e quando `confirmed:false`.
+  isForwarded?: boolean;
+  forwardingScore?: number | null;
+  confirmed?: boolean; // false = WWEBJS encaminhou mas o id da cópia não chegou a tempo
+  status?: number; // erro do item: 400 | 409 | 423
+  code?: string; // FORWARD_UNSUPPORTED | FORWARD_SOURCE_UNAVAILABLE | FORWARD_LIMIT | SESSION_QUARANTINED
+  error?: string;
+}
+
+export interface ForwardMessageResponse {
+  results: ForwardResultDto[];
+}
+
 // ---- Webhooks (F2b) ----
 export interface WebhookDto {
   id: string;
