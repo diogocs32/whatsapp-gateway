@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   describeWwebjsMessage,
   mapWwebjsReaction,
+  wwebjsGroupSender,
   type WwebjsMessageLike,
 } from './wwebjs-content';
 
@@ -229,5 +230,48 @@ describe('mapWwebjsReaction (E22 — defensivo contra o rename `_serialized` →
         msgId: { _serialized: 'x', remote: 'status@broadcast' },
       }),
     ).toBeNull();
+  });
+});
+
+// E23 (P-074) — remetente de mensagem recebida em grupo = `msg.author` (Message.js:94-100). @lid só
+// vira telefone pelo cache em memória (nada de evaluate/rede por mensagem).
+describe('wwebjsGroupSender (E23 · P-074)', () => {
+  const GROUP = '120363000000000001@g.us';
+  const cache = new Map([['44556677@lid', '5511933333333@c.us']]);
+
+  it('author @c.us (string ou Wid) → o próprio author', () => {
+    expect(wwebjsGroupSender(GROUP, '5511922222222@c.us', cache)).toBe(
+      '5511922222222@c.us',
+    );
+    expect(
+      wwebjsGroupSender(GROUP, { _serialized: '5511922222222@c.us' }, cache),
+    ).toBe('5511922222222@c.us');
+  });
+
+  it('@lid com par no cache → telefone @c.us; sem par → fica o @lid', () => {
+    expect(wwebjsGroupSender(GROUP, '44556677@lid', cache)).toBe(
+      '5511933333333@c.us',
+    );
+    expect(wwebjsGroupSender(GROUP, '99990000@lid', cache)).toBe(
+      '99990000@lid',
+    );
+  });
+
+  it('sufixo de aparelho (:NN@) sai antes do cache', () => {
+    expect(wwebjsGroupSender(GROUP, '5511922222222:12@c.us', cache)).toBe(
+      '5511922222222@c.us',
+    );
+    expect(wwebjsGroupSender(GROUP, '44556677:3@lid', cache)).toBe(
+      '5511933333333@c.us',
+    );
+  });
+
+  it('fora de grupo ou sem author → null (o chamador mantém o chatJid)', () => {
+    expect(
+      wwebjsGroupSender('5511988887777@c.us', '5511922222222@c.us', cache),
+    ).toBeNull();
+    expect(wwebjsGroupSender(GROUP, undefined, cache)).toBeNull();
+    expect(wwebjsGroupSender(GROUP, '', cache)).toBeNull();
+    expect(wwebjsGroupSender(GROUP, null, cache)).toBeNull();
   });
 });

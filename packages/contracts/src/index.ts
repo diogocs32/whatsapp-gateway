@@ -132,12 +132,20 @@ export interface MessageDto {
   id: string;
   sessionId: string;
   chatJid: string;
+  // Quem mandou. 1:1 = o contato (= chatJid); fromMe = a conta da sessão. GRUPO (E23 · P-074):
+  // o PARTICIPANTE que escreveu — telefone quando conhecido (@s.whatsapp.net no Baileys, @c.us no
+  // WWEBJS), senão @lid. Linhas de grupo gravadas AO VIVO antes da E23 trazem o jid do GRUPO; as
+  // importadas pelo /sync do WWEBJS já traziam o autor cru (pode ser @lid) — a mesma pessoa pode
+  // aparecer com @lid nas linhas antigas e com telefone nas novas.
   senderJid: string | null;
   fromMe: boolean;
   type: string;
   text: string | null;
   status: string | null;
   timestamp: string;
+  // E23 (P-074, aditivo — só GET /messages e /search, não vai no webhook): nome de quem mandou uma
+  // mensagem RECEBIDA em GRUPO (agenda > pushName), null fora de grupo ou quando desconhecido.
+  senderName?: string | null;
   // Campos que o GET /messages JÁ devolve e o DTO não declarava (drift corrigido em 15/09/2026,
   // aditivo): `keyId` é a chave real do WhatsApp (CP-149 — markRead e download de mídia aceitam);
   // `source` diz se um fromMe saiu pela API ou pelo CELULAR ('phone'); `isCold` é a marca G1.
@@ -163,7 +171,7 @@ export interface ConversationDto {
   chatJid: string;
   name: string | null; // nome do contato (agenda/verificado/pushName) ou null
   imgUrl: string | null;
-  lastText: string | null; // texto da última msg; null em mídia (use lastType p/ rótulo)
+  lastText: string | null; // texto (ou legenda) da última msg; null sem texto — use lastType p/ rótulo
   lastType: string; // mesmo domínio do MessageDto.type
   lastFromMe: boolean;
   lastTimestamp: string;
@@ -186,7 +194,7 @@ export interface InboxConversationDto {
   name: string | null;
   phone: string | null;
   imgUrl: string | null;
-  lastText: string | null; // null em mídia — use lastType para o rótulo
+  lastText: string | null; // texto ou legenda; null sem texto — use lastType para o rótulo
   lastType: string;
   lastFromMe: boolean;
   lastSource: string | null; // 'phone' = respondi no aparelho · 'api' = pelo gateway/painel

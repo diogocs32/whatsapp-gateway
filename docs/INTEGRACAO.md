@@ -62,14 +62,14 @@ Cada entrega é `{ id, timestamp, event, sessionId, session, payload, engine }`,
 
 Catálogo:
 
-| Evento                                                       | Quando                   | Payload-chave                                                                                                                                             |
-| ------------------------------------------------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22) — base do handoff IA×celular                     |
-| `message.ack`                                                | entrega/leitura          | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read, timestamp }` (casar por `keyId`)                                                                |
-| `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação** |
-| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                    |
-| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                                                                                                              |
-| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                                                                                                       |
+| Evento                                                       | Quando                   | Payload-chave                                                                                                                                                                        |
+| ------------------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `message`                                                    | inbound/eco              | **`source` (api\|phone)**, **`isCold`**, `type`/`text` (ver §3.2), `isForwarded`/`forwardingScore` (E22), `senderJid` (em grupo = o participante — E23) — base do handoff IA×celular |
+| `message.ack`                                                | entrega/leitura          | `{ keyId, chatJid, fromMe, status: sent\|delivered\|read, timestamp }` (casar por `keyId`)                                                                                           |
+| `message.reaction` (W6, aditivo)                             | o contato/você reagiu    | `{ keyId (msg-alvo), chatJid, senderJid (quem reagiu), emoji ('' = removida), fromMe, timestamp }` — 2 engines; **desde a E22 é o ÚNICO canal da reação**                            |
+| `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail     | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                               |
+| `signal.463` / `signal.restriction`                          | sinal duro               | `{ signal }`                                                                                                                                                                         |
+| `send.blocked`                                               | hard-gate barrou um cold | `{ state, motivo }`                                                                                                                                                                  |
 
 > **Handoff (G2):** `source: "phone"` num `fromMe` = o humano respondeu pelo celular → pause a IA.
 > **Reação não é handoff (E22, D-028):** reagir pelo celular não gera mais `message` `source=phone`
@@ -94,7 +94,20 @@ GET /api/sessions/{sessao}/messages/{msgId}/media
 Header: X-Api-Key: <chave>          (ou Bearer do painel)
 → 200  Content-Type = mimetype original; body = bytes da mídia
 → 404  motivo claro (mensagem sem mídia / binário não armazenado / expirado)
+→ 503  "Armazenamento de mídia indisponível no momento" (S3/MinIO fora — tente de novo)
 ```
+
+- **Nome do arquivo e tipo (E23):** `Content-Disposition: inline; filename="<nome>"` quando o
+  `fileName` cabe no Latin-1 e não tem `%`, `\`, `;` nem `=` (igual a antes). Nome com travessão,
+  aspas curvas, reticências ou emoji — que até a E23 derrubava a rota com **500** — ou com um desses
+  quatro caracteres (que o parser do n8n lia errado: `%` solto lançava "URI malformed", `%41` virava
+  `A`, `a;b` virava `"a`) sai com o par `filename="<nome ASCII: o resto vira _>";
+filename*=UTF-8''<nome percent-encoded>` (RFC 5987; quem entende `filename*` usa ele — MDN; o n8n
+  1.x e 2.x leem). Limitação do n8n (não contornável daqui): nome fora do Latin-1 **com apóstrofo**
+  chega cortado no apóstrofo — o nome exato, em UTF-8, está sempre no `fileName` do `GET /messages`.
+  O `Content-Type` é o `mimetype` da mensagem; se ele não cabe num header (vem do remetente —
+  CR/LF, não-ASCII, tipo composto), vale o tipo do objeto no S3 ou `application/octet-stream`
+  (antes: 500).
 
 - `{msgId}` aceita **os dois** identificadores: o **`keyId` do WhatsApp** (o mesmo que vem no
   `payload` do webhook — ex.: `3AD5B95A7C36FE832C31`) **ou** o **`id` interno (ULID)** do
@@ -140,6 +153,16 @@ trazem o conteúdo como o WhatsApp Web mostra — nas **duas engines**, com o me
   vem no mesmo formato do `chatJid` das mensagens (telefone quando o `@lid` é conhecido).
 - Mensagens antigas (antes do deploy) continuam como estavam: reações antigas seguem gravadas como
   `other` (não se recuperam) e não aparecem em `reactions[]`.
+- **`senderJid` em GRUPO (E23 · P-074):** numa mensagem RECEBIDA em grupo (`chatJid` termina em
+  `@g.us`), `senderJid` passa a ser o **participante que escreveu** — telefone quando conhecido
+  (`@s.whatsapp.net` no Baileys, `@c.us` no WWEBJS), `@lid` quando o WhatsApp não revela o número.
+  Até a E23 vinha o jid do próprio grupo (= `chatJid`, sem utilidade). Não mudam: conversa 1:1,
+  mensagens nossas (`fromMe`), grupo sem participante na chave e as linhas já gravadas no banco
+  (as de grupo gravadas ao vivo seguem com o jid do grupo; as importadas pelo `/sync` do WWEBJS já
+  traziam o autor cru, às vezes `@lid` — a mesma pessoa pode aparecer com `@lid` nas antigas e com
+  telefone nas novas). No
+  WWEBJS o `@lid` só vira telefone pelo cache da sessão — nenhuma consulta ao WhatsApp é feita para
+  descobrir o número.
 
 **O que conferir nos seus fluxos n8n (mudança de comportamento — tipo `other`):**
 
@@ -172,6 +195,10 @@ trazem o conteúdo como o WhatsApp Web mostra — nas **duas engines**, com o me
 7. Fluxos com `["*"]` deixam de receber a reação em dobro (`message` + `message.reaction`) — remova
    qualquer dedup feito para isso.
 8. Números de saúde: reação do contato conta como resposta no reply-rate (§4).
+9. **Grupos (E23 · P-074):** para responder num grupo, mande SEMPRE para `payload.chatJid` (o
+   grupo). Um fluxo que usava `senderJid` como destino (`to`) numa mensagem de grupo passaria a
+   mandar **no privado do participante** — contato frio, fora do contexto e com risco para a
+   conta. Detecte grupo por `chatJid.endsWith('@g.us')`, nunca por `senderJid`.
 
 ## 4. Saúde e reply-rate (G4/G7)
 
@@ -351,6 +378,12 @@ GET  /api/sessions/{sessao}/messages/search?q=termo   # busca por termo (opciona
   `reactions: [{ emoji, senderJid, fromMe, timestamp }]` (reações vivas da mensagem, uma por pessoa,
   em ordem de horário; `[]` quando não há), `isForwarded` e `forwardingScore`. O `type`/`text` segue
   a tabela da §3.2.
+- **Remetente em grupo (E23, aditivo):** `senderName` — o nome de quem mandou uma mensagem
+  RECEBIDA em grupo: o da agenda, senão o pushName (nome que a pessoa pôs no WhatsApp), procurado no
+  diretório de contatos da sessão pelo `senderJid` (e, quando é telefone, também pelos dígitos).
+  `null` fora de grupo, em mensagem nossa, em linha antiga (gravada com o jid do grupo) ou quando o
+  remetente não é conhecido. Uma consulta por página; se o diretório falhar, a lista vem sem nomes
+  (não cai). Só no `GET /messages` e no `/search` — **não** vai no webhook.
 
 **Backfill (W7 — só engine WWEBJS):** ao conectar uma sessão, a inbox só tem o que chegou DEPOIS.
 Para trazer o histórico anterior, dispare o sync — ele puxa do WhatsApp Web e grava no banco, e aí os
@@ -421,7 +454,9 @@ POST /api/inbox/sessions/{sessao}/triage          # { "chatJid": "...@s.whatsapp
   conexão, rode antes o backfill da seção 12 (`POST …/messages/sync`, só WWEBJS).
 - **Tempo real:** não há long-poll aqui — use o SSE `GET /api/events/stream` (evento `message`,
   todas as sessões) e recarregue a lista; é o que o painel faz. Tiques ao vivo = evento
-  `message.ack` (casar por `keyId`); reação ao vivo = `message.reaction`.
+  `message.ack`; reação ao vivo = `message.reaction` — casar pelo `sessionId` do envelope + `keyId`
+  (nunca pelo `chatJid`, que pode trocar de @lid para telefone; e nunca só pelo `keyId`: no Baileys
+  duas sessões do gateway conversando entre si veem o mesmo id).
 - **`GET /api/inbox/messages` (E22, aditivo):** cada item traz também `status` — o ACK da mensagem
   ENVIADA (`sent` | `delivered` | `read`; null enquanto não chega recibo). ⚠️ Aqui `status` é o ACK;
   no `GET /conversations` o `status` é a triagem (🔴🟢🟡). Mostre tique só em `fromMe: true` (numa

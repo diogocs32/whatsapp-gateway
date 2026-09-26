@@ -401,6 +401,9 @@ export class BaileysEngine implements IEngine {
   private readonly sentMessages = new Map<string, proto.IMessage>();
   // cache LID→número (PN) aprendido das mensagens, para resolver conversas 1:1 (§23.1)
   private readonly lidToPn = new Map<string, string>();
+  // Revisão E23: telefone de participante de grupo → último pushName gravado no diretório (evita um
+  // upsert por mensagem). Teto FIFO, como o cacheLidPn do wwebjs.
+  private readonly groupPushName = new Map<string, string>();
   // WA-11: timer da reconexão agendada + geração do connect. Antes o timer não era guardado: um
   // stop()+start() rápido deixava o timer velho vivo e ele derrubava o socket NOVO (saudável)
   // para "reconectar". Agora: start/stop/logout cancelam o timer e o callback checa a geração.
@@ -647,6 +650,62 @@ export class BaileysEngine implements IEngine {
     void this.mergeLidMessages(lid, pn);
   }
 
+  // P-074 (E23) — remetente de mensagem ALHEIA em grupo = o PARTICIPANTE (antes saía o jid do
+  // grupo). Na rc14 `key.participant` já chega sem aparelho (cleanMessage, Utils/process-message.js:
+  // 73-78, roda antes do upsert — Socket/messages-recv.js:1431-1432) e `participantAlt` é o MESMO
+  // endereço no OUTRO formato: telefone no modo LID, @lid no modo PN (Utils/decode-wa-message.js:
+  // 73-86, :187) — vence o lado telefone (phoneFirst), como na reação (E22). `participantAlt ??
+  // participant` devolveria o @lid no modo PN. Sem par, @lid → telefone pelo cache. Par NOVO →
+  // cache + merge. Sem participante → null (fica o grupo).
+  // Diretório (revisão E23): grava {telefone, lid, pushName} quando o par é NOVO (volta no restart
+  // pelo warmLidCache) OU quando o pushName (decode-wa-message.js:177) difere do último gravado para
+  // aquele telefone — também sem o par NESTA mensagem (@lid resolvido pelo cache, ou só telefone):
+  // o contacts.update da lib grava o nome na linha do ENDEREÇO da chave (Socket/chats.js:917-924 —
+  // no modo LID, a linha @lid sem telefone), que o senderName por telefone não alcança; e o par pode
+  // ter vindo do warmLidCache ou de uma reação, que não gravam nome. No modo PN a linha do telefone
+  // já recebe o nome pela lib; a gravação aqui é redundante mas limitada a 1× por nome novo (Map).
+  private groupSenderOf(m: WAMessage): string | null {
+    const { participant, participantAlt } = m.key;
+    const lid = [participant, participantAlt].find((j) => j?.endsWith('@lid'));
+    const pn = [participant, participantAlt].find((j) =>
+      j?.endsWith('@s.whatsapp.net'),
+    );
+    const l = lid ? jidNormalizedUser(lid) : null;
+    let newPair = false;
+    if (l && pn) {
+      const p = jidNormalizedUser(pn);
+      newPair = this.lidToPn.get(l) !== p;
+      this.learnLid(l, p);
+    }
+    const who = phoneFirst(participant, participantAlt);
+    const sender = who ? this.resolveChatJid(jidNormalizedUser(who)) : null;
+    // Telefone desconhecido (@lid oculto): o nome já fica na linha @lid pela lib — nada a gravar.
+    if (sender?.endsWith('@s.whatsapp.net')) {
+      const pushName = m.pushName || null;
+      const nameChanged =
+        !!pushName && this.groupPushName.get(sender) !== pushName;
+      if (newPair || nameChanged) {
+        this.deps.contacts?.record({
+          waId: sender,
+          jid: sender,
+          lid: l,
+          pushName,
+          source: 'message',
+        });
+        if (pushName) this.rememberGroupPushName(sender, pushName);
+      }
+    }
+    return sender;
+  }
+
+  private rememberGroupPushName(pn: string, pushName: string): void {
+    if (!this.groupPushName.has(pn) && this.groupPushName.size >= 5000) {
+      const oldest = this.groupPushName.keys().next().value;
+      if (oldest !== undefined) this.groupPushName.delete(oldest);
+    }
+    this.groupPushName.set(pn, pushName);
+  }
+
   private async onConnectionUpdate(
     update: Partial<ConnectionState>,
   ): Promise<void> {
@@ -808,6 +867,12 @@ export class BaileysEngine implements IEngine {
           });
         }
       }
+      // P-074 (E23): em GRUPO o remetente é o participante — só de mensagem ALHEIA (na nossa o *Alt
+      // pode ser o NOSSO LID). Antes do describe: reação/protocolo ignorados também ensinam o par.
+      const groupSender =
+        chatJid.endsWith('@g.us') && !m.key.fromMe
+          ? this.groupSenderOf(m)
+          : null;
 
       // P-066 (E22): o que é mensagem visível e com que tipo/texto — função pura (baileys-content.ts).
       // Desembrulha invólucros (deviceSent, ephemeral, viewOnce, lottie…) e IGNORA o que não é
@@ -821,7 +886,9 @@ export class BaileysEngine implements IEngine {
       const base = {
         keyId,
         chatJid,
-        senderJid: m.key.fromMe ? (this.sock?.user?.id ?? null) : chatJid,
+        senderJid: m.key.fromMe
+          ? (this.sock?.user?.id ?? null)
+          : (groupSender ?? chatJid),
         fromMe: !!m.key.fromMe,
         // G2: já filtramos o que saiu pela API (sentMessages, acima). Um fromMe que chega aqui
         // foi digitado em outro device = celular. Inbound (fromMe=false) não tem origem nossa.

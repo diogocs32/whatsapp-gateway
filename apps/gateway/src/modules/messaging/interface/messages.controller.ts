@@ -19,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Env } from '../../../bootstrap/config';
+import { ContactDirectory } from '../../../infra/directory/contact-directory.service';
 import {
   MediaStorage,
   StorageUnavailableError,
@@ -52,6 +53,7 @@ import {
   type ReactionRepository,
   type StoredReaction,
 } from '../domain/reaction.repository';
+import { inlineDisposition, safeContentType } from './content-disposition';
 
 // G1: `cold` marca o 1º contato permissionado; `idempotencyKey` dá dedup forte (retry do n8n
 // não duplica). Comuns a texto e mídia.
@@ -176,10 +178,31 @@ function toReactionDto(r: StoredReaction) {
   };
 }
 
+// E23 (P-074): remetente de uma mensagem RECEBIDA em grupo, quando a linha o tem — as de grupo
+// gravadas antes da E23 trazem o jid do próprio grupo em senderJid (= chatJid).
+function groupSenderOf(m: StoredMessage): string | null {
+  return !m.fromMe &&
+    m.chatJid.endsWith('@g.us') &&
+    m.senderJid &&
+    m.senderJid !== m.chatJid
+    ? m.senderJid
+    : null;
+}
+
+// Chaves de diretório de um remetente (namesFor casa waId/lid/jid/phone): o jid e, quando é
+// telefone (@s.whatsapp.net no Baileys, @c.us no WWEBJS), os dígitos — acha o contato gravado no
+// outro formato pela coluna phone.
+function senderKeys(jid: string): string[] {
+  return /@(s\.whatsapp\.net|c\.us)$/.test(jid)
+    ? [jid, jid.split('@')[0]]
+    : [jid];
+}
+
 function toDto(
   m: StoredMessage,
   mediaUrl: string | null,
   reactions: StoredReaction[] = [],
+  senderName: string | null = null,
 ) {
   return {
     id: m.id,
@@ -189,6 +212,8 @@ function toDto(
     sessionId: m.sessionId,
     chatJid: m.chatJid,
     senderJid: m.senderJid,
+    // E23 (P-074, aditivo): nome de quem mandou a mensagem recebida em GRUPO; null fora disso.
+    senderName,
     fromMe: m.fromMe,
     type: m.type,
     text: m.text,
@@ -223,6 +248,7 @@ export class MessagesController {
     private readonly inboxSync: InboxSyncService,
     private readonly intents: SendIntentService,
     private readonly config: ConfigService<Env, true>,
+    private readonly directory: ContactDirectory,
   ) {}
 
   // G5 hard-gate: só envios COLD passam pelo guard-rail; cold=false (chat aberto) sempre passa.
@@ -261,18 +287,24 @@ export class MessagesController {
   }
 
   // Página do GET /messages e do /search → DTO: reações da página inteira numa consulta só (por
-  // keyId — imune ao chatJid @lid × telefone) + URL pré-assinada de cada mídia.
+  // keyId — imune ao chatJid @lid × telefone), nome do remetente de grupo (outra consulta só, em
+  // paralelo) + URL pré-assinada de cada mídia.
   private async toDtos(sessionId: string, msgs: StoredMessage[]) {
     const byKey = new Map<string, StoredReaction[]>();
     const keyIds = [...new Set(msgs.map((m) => m.keyId).filter(Boolean))];
-    for (const r of await this.reactions.listForMessages(sessionId, keyIds)) {
+    const [reactions, names] = await Promise.all([
+      this.reactions.listForMessages(sessionId, keyIds),
+      this.groupSenderNames(sessionId, msgs),
+    ]);
+    for (const r of reactions) {
       const list = byKey.get(r.targetKeyId);
       if (list) list.push(r);
       else byKey.set(r.targetKeyId, [r]);
     }
     return Promise.all(
-      msgs.map(async (m) =>
-        toDto(
+      msgs.map(async (m) => {
+        const sender = groupSenderOf(m);
+        return toDto(
           m,
           m.mediaKey
             ? await this.mediaStorage.presignedGetUrl(m.mediaKey).catch((e) => {
@@ -283,9 +315,43 @@ export class MessagesController {
               })
             : null,
           byKey.get(m.keyId),
-        ),
-      ),
+          sender ? (names.get(sender) ?? null) : null,
+        );
+      }),
     );
+  }
+
+  // E23 (P-074): remetente de grupo → nome, numa ÚNICA consulta ao diretório por página (nenhuma
+  // quando a página não tem mensagem de participante). Agenda > pushName, em qualquer das chaves.
+  // Falha do diretório → sem nome, com log: o nome é enfeite, o GET não pode cair por ele.
+  private async groupSenderNames(
+    sessionId: string,
+    msgs: StoredMessage[],
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    const senders = [
+      ...new Set(msgs.map(groupSenderOf).filter((s): s is string => !!s)),
+    ];
+    if (!senders.length) return out;
+    const found = await this.directory
+      .namesFor(sessionId, senders.flatMap(senderKeys))
+      .catch((e) => {
+        this.logger.warn(
+          `senderName indisponível (diretório de contatos): ${(e as Error).message}`,
+        );
+        return new Map<
+          string,
+          { name: string | null; pushName: string | null }
+        >();
+      });
+    for (const s of senders) {
+      const hits = senderKeys(s).flatMap((k) => found.get(k) ?? []);
+      const name =
+        hits.find((h) => h.name)?.name ??
+        hits.find((h) => h.pushName)?.pushName;
+      if (name) out.set(s, name);
+    }
+    return out;
   }
 
   // W7 — busca por termo (`q`) no texto das mensagens da sessão. `chatId` opcional restringe a uma
@@ -403,11 +469,15 @@ export class MessagesController {
         'Mídia expirada ou removida do armazenamento.',
       );
     }
-    const fileName = msg.fileName?.replace(/["\r\n]/g, '') || null;
     return new StreamableFile(obj.body, {
-      type: msg.mimetype ?? obj.contentType ?? 'application/octet-stream',
+      // E23: mimetype do remetente fora do que cabe num header também derrubava a rota (500).
+      type:
+        safeContentType(msg.mimetype) ??
+        safeContentType(obj.contentType) ??
+        'application/octet-stream',
       length: obj.contentLength ?? undefined,
-      disposition: fileName ? `inline; filename="${fileName}"` : undefined,
+      // E23: nome fora do Latin-1 derrubava a rota (500 ERR_INVALID_CHAR) — ver content-disposition.ts.
+      disposition: inlineDisposition(msg.fileName),
     });
   }
 

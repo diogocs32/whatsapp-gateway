@@ -197,6 +197,25 @@ function jidOf(v: unknown): string | null {
   return serializedOf(v);
 }
 
+// P-074 (E23) — remetente de mensagem RECEBIDA em grupo = `msg.author` ("If the message was sent to
+// a group, this field will contain the user that sent the message" — Message.js:94-100, Wid já
+// convertido em `_serialized`; index.d.ts:1185-1186 `author?: string`), sem aparelho (`:NN@`).
+// @lid → telefone SÓ pelo cache em memória da engine: resolver na hora seria page.evaluate +
+// enforceLidAndPnRetrieval → queryWidExists (Injected/Utils.js:1795-1823) — uma consulta de rede
+// por autor desconhecido, e o fracasso não é cacheado (padrão contact-check, proibido). Fora de
+// grupo ou sem author → null (o chamador mantém o chatJid). Pura.
+export function wwebjsGroupSender(
+  chatRaw: string,
+  author: unknown,
+  lidToPn: ReadonlyMap<string, string>,
+): string | null {
+  if (!chatRaw.endsWith('@g.us')) return null;
+  const a = jidOf(author);
+  if (!a) return null;
+  const jid = a.replace(/:\d+(?=@)/, '');
+  return jid.endsWith('@lid') ? (lidToPn.get(jid) ?? jid) : jid;
+}
+
 // P-066 (E22) — `message_reaction` (Reaction.js:16-63) → payload bruto do evento `message.reaction`
 // (o chat ainda passa pelo resolveNumberJid da engine). Pura. Defensiva: com a chave-alvo em `$1`
 // ou `remote` como Wid, o handler antigo descartava a reação em silêncio ou lançava. Timestamp

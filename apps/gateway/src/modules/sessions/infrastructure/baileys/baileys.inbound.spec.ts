@@ -14,11 +14,20 @@ const PEER = '5511988887777@s.whatsapp.net';
 const PEER_LID = '99887766554433@lid';
 const GROUP = '120363000000000001@g.us';
 
-function makeEngine() {
+// `warm` = pares LID↔telefone já persistidos no diretório (o que o warmLidCache carrega no open).
+function makeEngine(warm: Array<{ lid: string; jid: string }> = []) {
   const events: Ev[] = [];
   const prisma = {
-    waMessage: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    waMessage: {
+      updateMany: vi.fn(async () => ({ count: 0 })),
+      findMany: vi.fn(async () => []),
+    },
     messageReaction: { updateMany: vi.fn(async () => ({ count: 0 })) },
+  };
+  const contacts = {
+    record: vi.fn(),
+    recordMany: vi.fn(),
+    loadLidMap: vi.fn(async () => warm),
   };
   const engine = new BaileysEngine({
     sessionId: 'sess-e22',
@@ -29,7 +38,7 @@ function makeEngine() {
       events.push({ name, payload: payload as Record<string, unknown> }),
     resolveAgent: async () => null,
     resolveProxyConfig: async () => null,
-    contacts: { record: vi.fn(), recordMany: vi.fn() },
+    contacts,
   } as never);
   (engine as unknown as { sock: unknown }).sock = {
     user: { id: OUR, name: 'Diogo' },
@@ -46,7 +55,9 @@ function makeEngine() {
     (engine as unknown as { onReactions: (r: typeof rs) => void }).onReactions(
       rs,
     );
-  return { engine, events, prisma, upsert, reactions };
+  const warmLidCache = () =>
+    (engine as unknown as { warmLidCache: () => Promise<void> }).warmLidCache();
+  return { engine, events, prisma, contacts, upsert, reactions, warmLidCache };
 }
 
 const msg = (
@@ -374,5 +385,321 @@ describe('BaileysEngine.onMessagesUpsert — mídia em invólucro que a lib não
     });
     upsert([m]);
     expect(spy.mock.calls[0][0]).toBe(m);
+  });
+});
+
+// E23 (P-074) — remetente de mensagem RECEBIDA em grupo = o PARTICIPANTE (antes saía o jid do
+// grupo). Formas de key conferidas com as funções REAIS da rc14 (decodeMessageNode + cleanMessage):
+// modo LID → participant @lid + participantAlt telefone; modo PN → participant telefone +
+// participantAlt @lid (Utils/decode-wa-message.js:73-92, :187).
+describe('BaileysEngine.onMessagesUpsert — remetente em grupo (E23 · P-074)', () => {
+  const PN = '5511933333333@s.whatsapp.net';
+  const LID = '44556677@lid';
+  const text = { conversation: 'oi grupo' };
+  const tick = () => new Promise((r) => setTimeout(r, 0)); // merge é fire-and-forget
+  const sent = (events: Ev[]) =>
+    events
+      .filter((e) => e.name === 'message')
+      .map((e) => [e.payload.chatJid, e.payload.senderJid]);
+
+  it('modo LID: senderJid = telefone do participant_pn; par aprendido (merge) e gravado no diretório 1× com o pushName', async () => {
+    const { events, upsert, prisma, contacts } = makeEngine();
+    upsert([
+      {
+        ...msg('G1', GROUP, text, {
+          participant: LID,
+          participantAlt: PN,
+          addressingMode: 'lid',
+        }),
+        pushName: 'Fulano',
+      },
+    ]);
+    // 2ª mensagem da MESMA pessoa sem o Alt → telefone pelo cache, sem gravar o par de novo
+    upsert([
+      {
+        ...msg('G2', GROUP, text, { participant: LID, addressingMode: 'lid' }),
+        pushName: 'Fulano',
+      },
+    ]);
+    expect(sent(events)).toEqual([
+      [GROUP, PN],
+      [GROUP, PN],
+    ]);
+    expect(contacts.record).toHaveBeenCalledTimes(1);
+    expect(contacts.record).toHaveBeenCalledWith({
+      waId: PN,
+      jid: PN,
+      lid: LID,
+      pushName: 'Fulano',
+      source: 'message',
+    });
+    await tick();
+    expect(prisma.waMessage.updateMany).toHaveBeenCalledWith({
+      where: { sessionId: 'sess-e22', chatJid: LID },
+      data: { chatJid: PN },
+    });
+  });
+
+  it('modo PN (participantAlt = @lid): senderJid = TELEFONE — trava a fórmula `participantAlt ?? participant`, que daria o @lid', () => {
+    const { events, upsert, contacts } = makeEngine();
+    upsert([
+      {
+        ...msg('G3', GROUP, text, {
+          participant: '5511922222222@s.whatsapp.net',
+          participantAlt: '88776655@lid',
+          addressingMode: 'pn',
+        }),
+        pushName: 'Ciclano',
+      },
+    ]);
+    expect(sent(events)).toEqual([[GROUP, '5511922222222@s.whatsapp.net']]);
+    expect(contacts.record).toHaveBeenCalledWith({
+      waId: '5511922222222@s.whatsapp.net',
+      jid: '5511922222222@s.whatsapp.net',
+      lid: '88776655@lid',
+      pushName: 'Ciclano',
+      source: 'message',
+    });
+  });
+
+  it('LID sem Alt e sem par conhecido (número oculto): fica o @lid, sem diretório nem merge', async () => {
+    const { events, upsert, prisma, contacts } = makeEngine();
+    upsert([
+      msg('G4', GROUP, text, {
+        participant: '99990000@lid',
+        addressingMode: 'lid',
+      }),
+    ]);
+    expect(sent(events)).toEqual([[GROUP, '99990000@lid']]);
+    expect(contacts.record).not.toHaveBeenCalled();
+    await tick();
+    expect(prisma.waMessage.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('aparelho (:NN) some do participant e do participantAlt', () => {
+    const { events, upsert, contacts } = makeEngine();
+    upsert([
+      msg('G5', GROUP, text, {
+        participant: '44556677:3@lid',
+        participantAlt: '5511933333333:5@s.whatsapp.net',
+      }),
+      msg('G6', GROUP, text, {
+        participant: '5511944444444:12@s.whatsapp.net',
+      }),
+    ]);
+    expect(sent(events)).toEqual([
+      [GROUP, PN],
+      [GROUP, '5511944444444@s.whatsapp.net'],
+    ]);
+    expect(contacts.record).toHaveBeenCalledWith(
+      expect.objectContaining({ waId: PN, jid: PN, lid: LID }),
+    );
+  });
+
+  it('1:1 inalterado (participant vazio do cleanMessage; @lid com remoteJidAlt)', () => {
+    const { events, upsert } = makeEngine();
+    upsert([
+      msg('D1', PEER, text, { participant: '' }),
+      msg('D2', PEER_LID, text, { remoteJidAlt: PEER }),
+    ]);
+    expect(sent(events)).toEqual([
+      [PEER, PEER],
+      [PEER, PEER],
+    ]);
+  });
+
+  it('fromMe em grupo (celular): senderJid = a conta, source phone; o *Alt (nosso LID) não é aprendido', async () => {
+    const { events, upsert, prisma, contacts } = makeEngine();
+    upsert([
+      msg('G7', GROUP, text, {
+        fromMe: true,
+        participant: '5511000000000@s.whatsapp.net',
+        participantAlt: '11112222333344@lid',
+      }),
+    ]);
+    expect(events[0].payload).toMatchObject({
+      chatJid: GROUP,
+      senderJid: OUR,
+      fromMe: true,
+      source: 'phone',
+    });
+    expect(contacts.record).not.toHaveBeenCalled();
+    await tick();
+    expect(prisma.waMessage.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('grupo sem participant: mantém o jid do grupo (comportamento antigo)', () => {
+    const { events, upsert } = makeEngine();
+    upsert([msg('G8', GROUP, text)]);
+    expect(sent(events)).toEqual([[GROUP, GROUP]]);
+  });
+
+  it('reação de grupo no upsert (ignorada) ainda ensina o par do participante', () => {
+    const { events, upsert, contacts } = makeEngine();
+    upsert([
+      msg(
+        'G9',
+        GROUP,
+        {
+          reactionMessage: {
+            key: { remoteJid: GROUP, fromMe: true, id: 'ALVO' },
+            text: '👍',
+          },
+        },
+        { participant: LID, participantAlt: PN },
+      ),
+      msg('G10', GROUP, text, { participant: LID }),
+    ]);
+    expect(sent(events)).toEqual([[GROUP, PN]]);
+    expect(contacts.record).toHaveBeenCalledTimes(1);
+  });
+
+  it('mídia em grupo: o download recebe o base com o senderJid do participante', () => {
+    const { engine, upsert } = makeEngine();
+    const spy = vi
+      .spyOn(
+        engine as unknown as {
+          handleIncomingMedia: (...a: unknown[]) => Promise<void>;
+        },
+        'handleIncomingMedia',
+      )
+      .mockResolvedValue(undefined);
+    upsert([
+      msg(
+        'G11',
+        GROUP,
+        {
+          imageMessage: {
+            url: 'https://mmg.whatsapp.net/v/x.enc',
+            mediaKey: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
+            directPath: '/v/x.enc',
+            mimetype: 'image/jpeg',
+          },
+        },
+        { participant: LID, participantAlt: PN },
+      ),
+    ]);
+    const base = spy.mock.calls[0][1] as { chatJid: string; senderJid: string };
+    expect(base).toMatchObject({ chatJid: GROUP, senderJid: PN });
+  });
+});
+
+// Revisão E23 (E23-ENG-1): o pushName do participante ia ao diretório SÓ quando o par LID↔telefone
+// era NOVO — o nome congelava no 1º valor (ou ficava null), e depois de um restart (par vindo do
+// warmLidCache) ou de um par aprendido por reação nunca mais era gravado. O contacts.update da lib
+// grava o nome novo na linha do ENDEREÇO da chave (Socket/chats.js:917-924 — no modo LID, a linha
+// @lid sem telefone), que o senderName por telefone não alcança.
+describe('BaileysEngine.onMessagesUpsert — pushName do participante no diretório (revisão E23)', () => {
+  const PN = '5511933333333@s.whatsapp.net';
+  const LID = '44556677@lid';
+  const text = { conversation: 'oi grupo' };
+  const gmsg = (
+    id: string,
+    pushName: string | undefined,
+    extra: Record<string, unknown>,
+  ) => ({
+    ...msg(id, GROUP, text, extra),
+    ...(pushName === undefined ? {} : { pushName }),
+  });
+  const rec = (pushName: string | null, lid: string | null = LID) => ({
+    waId: PN,
+    jid: PN,
+    lid,
+    pushName,
+    source: 'message',
+  });
+
+  it('par vindo do diretório (restart) + pushName → grava 1×; repetido → 0×; nome novo → grava de novo', async () => {
+    const { upsert, contacts, warmLidCache } = makeEngine([
+      { lid: LID, jid: PN },
+    ]);
+    await warmLidCache();
+    upsert([gmsg('W1', 'Fulano', { participant: LID, participantAlt: PN })]);
+    upsert([gmsg('W2', 'Fulano', { participant: LID, participantAlt: PN })]);
+    expect(contacts.record).toHaveBeenCalledTimes(1);
+    expect(contacts.record).toHaveBeenLastCalledWith(rec('Fulano'));
+    upsert([
+      gmsg('W3', 'Fulano Silva', { participant: LID, participantAlt: PN }),
+    ]);
+    expect(contacts.record).toHaveBeenCalledTimes(2);
+    expect(contacts.record).toHaveBeenLastCalledWith(rec('Fulano Silva'));
+  });
+
+  it('sem par NESTA mensagem (só o @lid, telefone pelo cache) → grava o nome no telefone, com o @lid', async () => {
+    const { events, upsert, contacts, warmLidCache } = makeEngine([
+      { lid: LID, jid: PN },
+    ]);
+    await warmLidCache();
+    upsert([gmsg('W4', 'Fulano', { participant: LID, addressingMode: 'lid' })]);
+    expect(events[0].payload.senderJid).toBe(PN);
+    expect(contacts.record).toHaveBeenCalledExactlyOnceWith(rec('Fulano'));
+  });
+
+  it('1ª mensagem sem pushName e 2ª com → grava só na 2ª', async () => {
+    const { upsert, contacts, warmLidCache } = makeEngine([
+      { lid: LID, jid: PN },
+    ]);
+    await warmLidCache();
+    upsert([gmsg('W5', undefined, { participant: LID, participantAlt: PN })]);
+    expect(contacts.record).not.toHaveBeenCalled();
+    upsert([gmsg('W6', 'Fulano', { participant: LID, participantAlt: PN })]);
+    expect(contacts.record).toHaveBeenCalledExactlyOnceWith(rec('Fulano'));
+  });
+
+  it('par NOVO sem pushName grava o par; o nome que chega depois também é gravado', () => {
+    const { upsert, contacts } = makeEngine();
+    upsert([gmsg('W7', undefined, { participant: LID, participantAlt: PN })]);
+    upsert([gmsg('W8', 'Fulano', { participant: LID })]);
+    expect(contacts.record.mock.calls).toEqual([[rec(null)], [rec('Fulano')]]);
+  });
+
+  it('par aprendido por REAÇÃO (fica só no cache) → a mensagem seguinte grava o nome', () => {
+    const { upsert, reactions, contacts } = makeEngine();
+    reactions([
+      {
+        key: { id: 'ALVO', remoteJid: GROUP, fromMe: true, participant: '' },
+        reaction: {
+          text: '👍',
+          key: {
+            id: 'RX',
+            remoteJid: GROUP,
+            fromMe: false,
+            participant: LID,
+            participantAlt: PN,
+          } as proto.IMessageKey,
+        },
+      },
+    ]);
+    upsert([gmsg('W9', 'Fulano', { participant: LID, participantAlt: PN })]);
+    expect(contacts.record).toHaveBeenCalledExactlyOnceWith(rec('Fulano'));
+  });
+
+  it('só telefone (sem @lid na chave) + pushName → grava 1× sem lid', () => {
+    const { upsert, contacts } = makeEngine();
+    upsert([gmsg('W10', 'Fulano', { participant: PN, addressingMode: 'pn' })]);
+    upsert([gmsg('W11', 'Fulano', { participant: PN, addressingMode: 'pn' })]);
+    expect(contacts.record).toHaveBeenCalledExactlyOnceWith(
+      rec('Fulano', null),
+    );
+  });
+
+  it('@lid sem telefone conhecido → não grava (o contacts.update da lib já guarda o nome no @lid)', () => {
+    const { upsert, contacts } = makeEngine();
+    upsert([gmsg('W12', 'Anon', { participant: '99990000@lid' })]);
+    expect(contacts.record).not.toHaveBeenCalled();
+  });
+
+  it('memória do último nome gravado tem teto (FIFO de 5000): o mais antigo é esquecido', () => {
+    const { engine, upsert, contacts } = makeEngine();
+    const memo = (engine as unknown as { groupPushName: Map<string, string> })
+      .groupPushName;
+    for (let i = 0; i < 5000; i++) memo.set(`55119${i}@s.whatsapp.net`, 'x');
+    upsert([gmsg('W13', 'Fulano', { participant: PN })]);
+    expect(memo.size).toBe(5000);
+    expect(memo.has('551190@s.whatsapp.net')).toBe(false); // o mais antigo saiu
+    expect(memo.get(PN)).toBe('Fulano');
+    // o esquecido volta a ser gravado na próxima mensagem dele
+    upsert([gmsg('W14', 'x', { participant: '551190@s.whatsapp.net' })]);
+    expect(contacts.record).toHaveBeenCalledTimes(2);
   });
 });

@@ -7,8 +7,13 @@ import {
 } from 'react';
 import { Link } from 'react-router-dom';
 import type { ConversationDto, MessageDto, SessionDto } from '@contracts';
+import { ChatThread } from '../components/chat/ChatThread';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { displayName, isGroupJid, sendTarget } from '../lib/jid';
+import { stabilize } from '../lib/live-events';
+import { conversationPreview } from '../lib/message-format';
+import { listTime } from '../lib/time-format';
 
 export function Inbox() {
   const { signOut } = useAuth();
@@ -27,8 +32,13 @@ export function Inbox() {
   const intentRef = useRef<{ key: string; chat: string; text: string } | null>(
     null,
   );
-  const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Conversa aberta AGORA (E23): o envio termina segundos depois e o operador pode já estar noutra
+  // conversa — a releitura pós-envio só vale se ainda for a mesma (sessão + chat).
+  const openRef = useRef({ sessionId, chat });
+  openRef.current = { sessionId, chat };
+  // Envio do próprio operador → a conversa vai ao fim (ChatThread `stickKey`).
+  const [stickKey, setStickKey] = useState(0);
 
   function intentKey(kind: 'text' | 'media', payload: string): string {
     const cur = intentRef.current;
@@ -107,7 +117,9 @@ export function Inbox() {
       api.sessions
         .messages(sessionId, chat)
         .then((list) => {
-          if (alive) setMessages(list);
+          // A mediaUrl pré-assinada muda a cada leitura: `stabilize` mantém os objetos que não
+          // mudaram (balões memorizados não re-renderizam; a mídia vem do cache por mensagem).
+          if (alive) setMessages((prev) => stabilize(prev, list));
         })
         .catch(() => {})
         .finally(() => {
@@ -121,10 +133,6 @@ export function Inbox() {
       clearInterval(id);
     };
   }, [sessionId, chat]);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   function selectChat(jid: string) {
     if (jid === chat) return;
@@ -141,6 +149,18 @@ export function Inbox() {
     setChat(target);
   }
 
+  function reloadAfterSend(sid: string, jid: string) {
+    const same = () =>
+      openRef.current.sessionId === sid && openRef.current.chat === jid;
+    if (same()) setStickKey((k) => k + 1);
+    api.sessions
+      .messages(sid, jid)
+      .then((list) => {
+        if (same()) setMessages((prev) => stabilize(prev, list));
+      })
+      .catch(() => {});
+  }
+
   async function send(e: FormEvent) {
     e.preventDefault();
     const body = text.trim();
@@ -154,12 +174,10 @@ export function Inbox() {
         idempotencyKey: key,
       });
       intentRef.current = null; // intenção concluída — próximo envio ganha chave nova
-      setText('');
+      // Só limpa se o campo ainda tem o texto enviado (o operador pode ter começado outra mensagem).
+      setText((t) => (t.trim() === body ? '' : t));
       // Falha ao reler o histórico NÃO é falha do envio (UP-02).
-      api.sessions
-        .messages(sessionId, chat)
-        .then(setMessages)
-        .catch(() => {});
+      reloadAfterSend(sessionId, chat);
     } catch (e) {
       setError(
         `${(e as Error).message} — o texto foi mantido; tentar de novo reaproveita a mesma intenção (sem duplicar).`,
@@ -186,12 +204,9 @@ export function Inbox() {
         idempotencyKey: key,
       });
       intentRef.current = null;
-      setText('');
+      if (caption) setText((t) => (t.trim() === caption ? '' : t));
       if (fileRef.current) fileRef.current.value = '';
-      api.sessions
-        .messages(sessionId, chat)
-        .then(setMessages)
-        .catch(() => {});
+      reloadAfterSend(sessionId, chat);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -281,11 +296,11 @@ export function Inbox() {
                       {displayName(conv)}
                     </span>
                     <span className="shrink-0 text-[10px] text-zinc-500">
-                      {formatTime(conv.lastTimestamp)}
+                      {listTime(conv.lastTimestamp)}
                     </span>
                   </div>
                   <div className="truncate text-xs text-zinc-400">
-                    {previewText(conv)}
+                    {conversationPreview(conv)}
                   </div>
                 </div>
               </button>
@@ -293,54 +308,35 @@ export function Inbox() {
           </div>
         </aside>
 
-        <main className="flex flex-1 flex-col">
+        <main className="flex min-w-0 flex-1 flex-col">
           {chat && (
             <div className="border-b border-zinc-800 px-4 py-3 text-sm font-medium">
               {activeName}
+              {isGroupJid(chat) && (
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  grupo
+                </span>
+              )}
             </div>
           )}
-          <div className="flex-1 space-y-2 overflow-y-auto p-6">
-            {!chat && (
-              <p className="text-center text-sm text-zinc-500">
-                Escolha uma conversa à esquerda ou abra um novo contato.
-              </p>
-            )}
-            {chat &&
-              messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`flex ${m.fromMe ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${
-                      m.fromMe
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-zinc-800 text-zinc-100'
-                    }`}
-                  >
-                    {m.mediaType ? (
-                      <div className="space-y-1">
-                        <MediaBubble m={m} />
-                        {m.text && <div>{m.text}</div>}
-                      </div>
-                    ) : (
-                      <div>
-                        {m.text ?? <em className="opacity-60">[{m.type}]</em>}
-                      </div>
-                    )}
-                    <div className="mt-1 text-right text-[10px] opacity-60">
-                      {new Date(m.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            {chat && messages.length === 0 && (
-              <p className="text-center text-sm text-zinc-500">
-                Sem mensagens ainda. Envie a primeira.
-              </p>
-            )}
-            <div ref={endRef} />
-          </div>
+          {!chat && (
+            <p className="flex-1 p-6 text-center text-sm text-zinc-500">
+              Escolha uma conversa à esquerda ou abra um novo contato.
+            </p>
+          )}
+          {chat && (
+            <ChatThread
+              key={`${sessionId}|${chat}`}
+              messages={messages}
+              chatJid={chat}
+              stickKey={stickKey}
+              empty={
+                <p className="py-6 text-center text-sm text-zinc-500">
+                  Sem mensagens ainda. Envie a primeira.
+                </p>
+              }
+            />
+          )}
 
           {chat && (
             <form
@@ -387,57 +383,6 @@ export function Inbox() {
   );
 }
 
-// Número/identificador exibível a partir do JID (parte antes do @).
-function numberFromJid(jid: string): string {
-  return jid.split('@')[0] || jid;
-}
-
-// Para envio, usa o número quando o JID é de telefone (@s.whatsapp.net / @c.us);
-// caso contrário (lid/grupo) usa o id como veio.
-function sendTarget(chat: string): string {
-  if (chat.endsWith('@s.whatsapp.net') || chat.endsWith('@c.us')) {
-    return numberFromJid(chat);
-  }
-  return chat;
-}
-
-function displayName(conv: ConversationDto): string {
-  return conv.name?.trim() || numberFromJid(conv.chatJid);
-}
-
-// Rótulo do preview quando a última mensagem não tem texto (mídia).
-function mediaLabel(type: string): string {
-  switch (type) {
-    case 'image':
-      return '📷 Imagem';
-    case 'video':
-      return '🎥 Vídeo';
-    case 'audio':
-      return '🎵 Áudio';
-    case 'document':
-      return '📄 Documento';
-    case 'sticker':
-      return '🩷 Figurinha';
-    default:
-      return '';
-  }
-}
-
-function previewText(conv: ConversationDto): string {
-  const body = conv.lastText?.trim() || mediaLabel(conv.lastType) || '…';
-  return conv.lastFromMe ? `Você: ${body}` : body;
-}
-
-// Hora (se hoje) ou data curta da última mensagem.
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  return sameDay
-    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
-}
-
 function Avatar({ conv }: { conv: ConversationDto }) {
   if (conv.imgUrl) {
     return (
@@ -454,49 +399,4 @@ function Avatar({ conv }: { conv: ConversationDto }) {
       {initial || '?'}
     </div>
   );
-}
-
-// Renderiza a mídia conforme o tipo, usando a URL pré-assinada (mediaUrl) do gateway.
-function MediaBubble({ m }: { m: MessageDto }) {
-  const url = m.mediaUrl ?? undefined;
-  if (m.mediaType === 'image' || m.mediaType === 'sticker') {
-    return url ? (
-      <img
-        src={url}
-        alt={m.fileName ?? 'imagem'}
-        className="max-h-64 rounded-lg"
-      />
-    ) : (
-      <em className="opacity-60">[imagem]</em>
-    );
-  }
-  if (m.mediaType === 'video') {
-    return url ? (
-      <video src={url} controls className="max-h-64 rounded-lg" />
-    ) : (
-      <em className="opacity-60">[vídeo]</em>
-    );
-  }
-  if (m.mediaType === 'audio') {
-    return url ? (
-      <audio src={url} controls className="w-56" />
-    ) : (
-      <em className="opacity-60">[áudio]</em>
-    );
-  }
-  if (m.mediaType === 'document') {
-    return url ? (
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-2 underline"
-      >
-        📄 {m.fileName ?? 'documento'}
-      </a>
-    ) : (
-      <em className="opacity-60">[documento]</em>
-    );
-  }
-  return <em className="opacity-60">[{m.type}]</em>;
 }

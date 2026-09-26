@@ -7,6 +7,7 @@ import {
 } from 'react';
 import type { AuthUser } from '@contracts';
 import { api, setUnauthorizedHandler } from './api';
+import { mediaCache } from './media';
 
 interface AuthState {
   user: AuthUser | null;
@@ -34,6 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
     return () => setUnauthorizedHandler(null);
   }, []);
+
+  // E23: mídia de conversa em memória (object URLs) não sobrevive à saída — privacidade e memória.
+  useEffect(() => {
+    if (!user) mediaCache.clear();
+  }, [user]);
 
   const signIn = async (username: string, password: string) => {
     const res = await api.login(username, password); // o servidor seta o cookie httpOnly

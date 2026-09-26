@@ -316,5 +316,168 @@ describe('Mídia (e2e)', () => {
       expect(res.body).toContain('não tem mídia');
       await prisma.waMessage.deleteMany({ where: { id: 'e2e-msg-semmidia' } });
     });
+
+    // E23: fileName fora do Latin-1 (–, aspas curvas, …, emoji) derrubava a rota com 500
+    // ERR_INVALID_CHAR (o Node recusa o header). Agora: fallback ASCII + filename* (RFC 5987);
+    // nome Latin-1 segue com EXATAMENTE o header de antes.
+    describe('Content-Disposition com nome não-Latin-1 (E23)', () => {
+      const docs = [
+        ['e2e-msg-doc-dash', 'E2EDOCDASH', 'relatório – março.pdf'],
+        ['e2e-msg-doc-emoji', 'E2EDOCEMOJI', 'foto 😀.png'],
+        ['e2e-msg-doc-latin1', 'E2EDOCLATIN1', 'relatório março.pdf'],
+        // Revisão E23 (CD-1): Latin-1 que o n8n lia errado (decodeURIComponent + split por ;/=)
+        ['e2e-msg-doc-pct', 'E2EDOCPCT', '100% pago.pdf'],
+        ['e2e-msg-doc-semi', 'E2EDOCSEMI', 'a;b.pdf'],
+        ['e2e-msg-doc-eq', 'E2EDOCEQ', 'a=b.pdf'],
+        ['e2e-msg-doc-bsl', 'E2EDOCBSL', 'c:\\x\\y.pdf'],
+      ] as const;
+      const disposition = (res: { headers: Record<string, unknown> }) =>
+        res.headers['content-disposition'];
+
+      beforeAll(async () => {
+        const prisma = app.get(PrismaService);
+        await prisma.waMessage.deleteMany({
+          where: { id: { in: docs.map((d) => d[0]) } },
+        });
+        for (const [id, key, fileName] of docs) {
+          await prisma.waMessage.create({
+            data: {
+              id,
+              sessionId: 's1',
+              keyId: key,
+              chatJid: '5511999999999@s.whatsapp.net',
+              fromMe: false,
+              type: 'document',
+              mediaType: 'document',
+              mimetype: 'application/pdf',
+              fileName,
+              mediaKey,
+              fileSize: bytes.length,
+              timestamp: new Date(),
+            },
+          });
+        }
+      });
+      afterAll(async () => {
+        await app.get(PrismaService).waMessage.deleteMany({
+          where: { id: { in: docs.map((d) => d[0]) } },
+        });
+      });
+
+      it('nome com travessão → 200 + filename* UTF-8 (antes: 500 ERR_INVALID_CHAR)', async () => {
+        const res = await inject(app, {
+          method: 'GET',
+          url: '/api/sessions/s1/messages/E2EDOCDASH/media',
+          headers: auth(),
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toBe(bytes);
+        expect(disposition(res)).toBe(
+          `inline; filename="relat_rio _ mar_o.pdf"; filename*=UTF-8''relat%C3%B3rio%20%E2%80%93%20mar%C3%A7o.pdf`,
+        );
+      });
+
+      it('nome com emoji → 200 + filename*', async () => {
+        const res = await inject(app, {
+          method: 'GET',
+          url: '/api/sessions/s1/messages/E2EDOCEMOJI/media',
+          headers: auth(),
+        });
+        expect(res.statusCode).toBe(200);
+        expect(disposition(res)).toBe(
+          `inline; filename="foto _.png"; filename*=UTF-8''foto%20%F0%9F%98%80.png`,
+        );
+      });
+
+      it('nome Latin-1 e ASCII → header idêntico ao de antes (sem filename*)', async () => {
+        const latin = await inject(app, {
+          method: 'GET',
+          url: '/api/sessions/s1/messages/E2EDOCLATIN1/media',
+          headers: auth(),
+        });
+        expect(latin.statusCode).toBe(200);
+        expect(disposition(latin)).toBe(
+          'inline; filename="relatório março.pdf"',
+        );
+        const ascii = await inject(app, {
+          method: 'GET',
+          url: `/api/sessions/s1/messages/${keyId}/media`,
+          headers: auth(),
+        });
+        expect(disposition(ascii)).toBe('inline; filename="foto.png"');
+      });
+
+      // Revisão E23 (CD-1): esses nomes cabem no header, mas iam INALTERADOS e o n8n lançava "URI
+      // malformed" (%), renomeava ou cortava o nome (; = \). Agora: fallback com _ + filename*.
+      it('Latin-1 com % ; = \\ → 200 + fallback com _ e filename* (antes: header cru)', async () => {
+        const esperado: Record<string, string> = {
+          E2EDOCPCT: `inline; filename="100_ pago.pdf"; filename*=UTF-8''100%25%20pago.pdf`,
+          E2EDOCSEMI: `inline; filename="a_b.pdf"; filename*=UTF-8''a%3Bb.pdf`,
+          E2EDOCEQ: `inline; filename="a_b.pdf"; filename*=UTF-8''a%3Db.pdf`,
+          E2EDOCBSL: `inline; filename="c:_x_y.pdf"; filename*=UTF-8''c%3A%5Cx%5Cy.pdf`,
+        };
+        for (const [key, header] of Object.entries(esperado)) {
+          const res = await inject(app, {
+            method: 'GET',
+            url: `/api/sessions/s1/messages/${key}/media`,
+            headers: auth(),
+          });
+          expect(res.statusCode).toBe(200);
+          expect(res.body).toBe(bytes);
+          expect(disposition(res)).toBe(header);
+        }
+      });
+    });
+
+    // E23: o mimetype vem do remetente; fora do que cabe num header o Node recusava o Content-Type
+    // (500 ERR_INVALID_CHAR). Agora cai no tipo do objeto no S3 (image/png, gravado no upload).
+    describe('Content-Type com mimetype inválido (E23)', () => {
+      const bad = [
+        ['e2e-msg-ct-crlf', 'E2ECTCRLF', 'image/png\r\nX-Evil: 1'],
+        ['e2e-msg-ct-utf8', 'E2ECTUTF8', 'imagem/jpég'],
+      ] as const;
+      beforeAll(async () => {
+        const prisma = app.get(PrismaService);
+        await prisma.waMessage.deleteMany({
+          where: { id: { in: bad.map((d) => d[0]) } },
+        });
+        for (const [id, key, mimetype] of bad) {
+          await prisma.waMessage.create({
+            data: {
+              id,
+              sessionId: 's1',
+              keyId: key,
+              chatJid: '5511999999999@s.whatsapp.net',
+              fromMe: false,
+              type: 'image',
+              mediaType: 'image',
+              mimetype,
+              mediaKey,
+              fileSize: bytes.length,
+              timestamp: new Date(),
+            },
+          });
+        }
+      });
+      afterAll(async () => {
+        await app.get(PrismaService).waMessage.deleteMany({
+          where: { id: { in: bad.map((d) => d[0]) } },
+        });
+      });
+
+      it('mimetype com CR/LF ou não-Latin-1 → 200 com o tipo do S3 (antes: 500), sem header injetado', async () => {
+        for (const [, key] of bad) {
+          const res = await inject(app, {
+            method: 'GET',
+            url: `/api/sessions/s1/messages/${key}/media`,
+            headers: auth(),
+          });
+          expect(res.statusCode).toBe(200);
+          expect(res.body).toBe(bytes);
+          expect(res.headers['content-type']).toBe('image/png');
+          expect(res.headers['x-evil']).toBeUndefined();
+        }
+      });
+    });
   });
 });

@@ -13,6 +13,10 @@
 # (tag móvel `@v4` podia mudar por baixo), typecheck do dashboard e dos contracts (o Vite só
 # transpila — não verifica tipos) e `npm audit` INFORMATIVO (não bloqueia: a triagem de alcance
 # vive em docs/auditoria-melhorias-2026-09.md §7.5; bloquear exigiria downgrade perigoso).
+#
+# E23 (25/09/2026): o painel ganhou testes (apps/dashboard/src/lib/*.spec.ts, vitest em ambiente
+# node — funções puras de formato, tempo real e cache de mídia; inclui ida e volta com o
+# message-content.ts e o reaction-key.ts do gateway).
 name: CI
 
 on:
@@ -71,6 +75,9 @@ jobs:
 
       - name: Typecheck (contracts)
         run: npx tsc --noEmit -p packages/contracts/tsconfig.json
+
+      - name: Testes do painel (vitest, ambiente node — sem infra)
+        run: npm run test -w apps/dashboard
 
       - name: Auditoria npm (informativa — triagem em docs/auditoria-melhorias-2026-09.md §7.5)
         run: npm audit --audit-level=high --omit=dev || true

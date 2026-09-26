@@ -26,6 +26,7 @@ import {
 import {
   describeWwebjsMessage,
   mapWwebjsReaction,
+  wwebjsGroupSender,
   type WwebjsMessageLike,
 } from './wwebjs-content';
 import type {
@@ -1624,9 +1625,10 @@ export class WWebJSEngine implements IEngine {
       const base = {
         keyId,
         chatJid,
+        // P-074 (E23): recebida em grupo → o autor (@lid só pelo cache, sem consulta — wwebjs-content).
         senderJid: msg.fromMe
           ? (this.client?.info?.wid?._serialized ?? null)
-          : chatJid,
+          : (wwebjsGroupSender(raw, msg.author, this.lidToPnCache) ?? chatJid),
         fromMe: !!msg.fromMe,
         // G2: as enviadas pelo painel já saíram filtradas (sentByPanel, acima). Um fromMe aqui
         // foi digitado no celular = phone; recebida do contato = sem origem nossa (null).
@@ -2276,14 +2278,13 @@ export class WWebJSEngine implements IEngine {
     const d = describeWwebjsMessage(msg as unknown as WwebjsMessageLike);
     if (d.kind === 'ignore') return null;
     const chatJid = await this.resolveNumberJid(raw);
-    // author = participante real numa mensagem de grupo; em 1:1 é ausente.
-    const author = (msg as unknown as { author?: string }).author;
     return {
       keyId,
       chatJid,
+      // P-074 (E23): mesmo remetente do ao vivo — antes ia o author CRU (@lid e aparelho inclusos).
       senderJid: msg.fromMe
         ? (this.client?.info?.wid?._serialized ?? null)
-        : (author ?? chatJid),
+        : (wwebjsGroupSender(raw, msg.author, this.lidToPnCache) ?? chatJid),
       fromMe: !!msg.fromMe,
       type: d.type,
       text: d.text,

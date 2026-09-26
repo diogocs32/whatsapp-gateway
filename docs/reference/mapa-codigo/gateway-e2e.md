@@ -11,6 +11,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
+| `gateway/test/conversas-grupo.e2e-spec.ts` | 214 |
 | `gateway/test/conversas-reacoes.e2e-spec.ts` | 544 |
 | `gateway/test/f5.e2e-spec.ts` | 253 |
 | `gateway/test/f6.e2e-spec.ts` | 99 |
@@ -21,7 +22,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/g8.e2e-spec.ts` | 115 |
 | `gateway/test/health.e2e-spec.ts` | 24 |
 | `gateway/test/inbox-triage.e2e-spec.ts` | 375 |
-| `gateway/test/media.e2e-spec.ts` | 321 |
+| `gateway/test/media.e2e-spec.ts` | 484 |
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
@@ -96,6 +97,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “"true"/"1"/"on" LIGAM, aceitando maiúsculas e espaços” · L38
   - it “string vazia cai no default (equivale a não definir)” · L50
   - it “valor não reconhecido derruba o boot citando a variável (fail-fast)” · L55
+
+## `gateway/test/conversas-grupo.e2e-spec.ts`
+
+214 linhas · caminho: `apps/gateway/test/conversas-grupo.e2e-spec.ts`
+- importa (interno): `infra/directory/contact-directory.service.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`, `gateway/test/setup-app.ts`
+
+- describe “Conversas — remetente de grupo e senderName (e2e)” · L17
+  - it “a mensagem de grupo é gravada com o senderJid do participante” · L166
+  - it “GET /messages do grupo: senderName do diretório (agenda > pushName) por telefone, @lid e @c.us” · L173
+  - it “1:1: senderName null mesmo com o contato conhecido (o nome da conversa já vem da lista)” · L186
+  - it “/search traz o mesmo senderName” · L190
+  - it “falha na consulta ao diretório → 200 sem nome (não derruba o GET)” · L200
 
 ## `gateway/test/conversas-reacoes.e2e-spec.ts`
 
@@ -244,7 +257,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/media.e2e-spec.ts`
 
-321 linhas · caminho: `apps/gateway/test/media.e2e-spec.ts`
+484 linhas · caminho: `apps/gateway/test/media.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `infra/storage/media-storage.service.ts`, `gateway/test/setup-app.ts`
 
 - describe “Mídia (e2e)” · L17
@@ -259,6 +272,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “baixa os bytes pelo keyId do WhatsApp (o mesmo do webhook)” · L271
     - it “baixa os bytes pelo ULID interno (id do GET /messages)” · L286
     - it “mensagem sem mídia → 404 com motivo claro” · L296
+    - describe “Content-Disposition com nome não-Latin-1 (E23)” · L323
+      - it “nome com travessão → 200 + filename* UTF-8 (antes: 500 ERR_INVALID_CHAR)” · L367
+      - it “nome com emoji → 200 + filename*” · L380
+      - it “nome Latin-1 e ASCII → header idêntico ao de antes (sem filename*)” · L392
+      - it “Latin-1 com % ; = \ → 200 + fallback com _ e filename* (antes: header cru)” · L412
+    - describe “Content-Type com mimetype inválido (E23)” · L434
+      - it “mimetype com CR/LF ou não-Latin-1 → 200 com o tipo do S3 (antes: 500), sem header injetado” · L468
 
 ## `gateway/test/messaging.e2e-spec.ts`
 
@@ -346,7 +366,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 169 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12

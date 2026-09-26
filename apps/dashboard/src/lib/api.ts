@@ -142,6 +142,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
+// Download binário (E23 — mídia do chat): mesmo cookie + silent refresh do resto do painel, sem
+// header nenhum (GET simples não gera preflight) e sem Range (o /media não atende). O Content-Type
+// é legível cross-origin (safelisted); o Content-Disposition não — o nome vem do DTO.
+async function requestBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+  const res = await coreFetch(path, { method: 'GET', signal });
+  if (!res.ok) return parseError(res);
+  return res.blob();
+}
+
 // Upload multipart (mídia): NÃO definir Content-Type — o browser põe o boundary.
 async function requestForm<T>(path: string, form: FormData): Promise<T> {
   const res = await coreFetch(path, { method: 'POST', body: form });
@@ -251,6 +260,13 @@ export const api = {
     conversations: (id: string, limit = 100) =>
       request<ConversationDto[]>(
         `/api/sessions/${id}/messages/conversations?limit=${limit}`,
+      ),
+    // Bytes da mídia de uma mensagem (E23). `ref` = o `id` (ULID) do MessageDto — inequívoco e sem
+    // encode; o keyId também é aceito pelo gateway, mas não é único por sessão.
+    media: (id: string, ref: string, signal?: AbortSignal) =>
+      requestBlob(
+        `/api/sessions/${encodeURIComponent(id)}/messages/${encodeURIComponent(ref)}/media`,
+        signal,
       ),
     // UP-02: o painel manda idempotencyKey (o gateway reserva a intenção — retry não duplica).
     sendText: (

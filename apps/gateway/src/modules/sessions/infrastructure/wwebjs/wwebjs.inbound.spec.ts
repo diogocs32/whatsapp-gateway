@@ -37,6 +37,7 @@ function makeEngine() {
     onMessageCreate: (m: unknown) => Promise<void>;
     onReaction: (r: unknown) => Promise<void>;
     toHistoryMessage: (m: unknown) => Promise<Record<string, unknown> | null>;
+    lidToPnCache: Map<string, string>;
   };
   priv.client = { info: { wid: { _serialized: '5511000@c.us' } } };
   return { priv, events, stored };
@@ -186,5 +187,140 @@ describe('WWebJSEngine.toHistoryMessage (backfill com a mesma descrição)', () 
       isForwarded: false,
       forwardingScore: null,
     });
+  });
+});
+
+// E23 (P-074) — remetente de mensagem RECEBIDA em grupo = o autor (`msg.author`), com @lid → telefone
+// SÓ pelo cache em memória: resolver o autor na hora custaria um page.evaluate +
+// enforceLidAndPnRetrieval → queryWidExists (rede) por mensagem (Injected/Utils.js:1795-1823).
+describe('WWebJSEngine — remetente em grupo (E23 · P-074)', () => {
+  const GROUP = '120363000000000001@g.us';
+  const LID = '44556677@lid';
+  const groupMsg = (over: Record<string, unknown>) =>
+    msg({
+      id: {
+        _serialized: `false_${GROUP}_3EB0${Math.random().toString(16).slice(2, 8)}`,
+      },
+      from: GROUP,
+      type: 'chat',
+      body: 'oi grupo',
+      ...over,
+    });
+  // Página falsa: se alguém tentar resolver o autor pelo WhatsApp Web, o spy acusa.
+  const withPage = (priv: ReturnType<typeof makeEngine>['priv']) => {
+    const evaluate = vi.fn(async () => null);
+    priv.client = {
+      info: { wid: { _serialized: '5511000@c.us' } },
+      pupPage: { evaluate },
+    };
+    return evaluate;
+  };
+
+  it('author @c.us → senderJid = author; chatJid segue o grupo', async () => {
+    const { priv, events } = makeEngine();
+    await priv.onMessageCreate(groupMsg({ author: '5511922222222@c.us' }));
+    expect(events[0].payload).toMatchObject({
+      chatJid: GROUP,
+      senderJid: '5511922222222@c.us',
+      fromMe: false,
+      source: null,
+    });
+  });
+
+  it('author @lid com par no cache → telefone @c.us', async () => {
+    const { priv, events } = makeEngine();
+    priv.lidToPnCache.set(LID, '5511933333333@c.us');
+    await priv.onMessageCreate(groupMsg({ author: LID }));
+    expect(events[0].payload.senderJid).toBe('5511933333333@c.us');
+  });
+
+  it('author @lid SEM cache → fica o @lid e NÃO consulta o WhatsApp Web (zero evaluate/rede)', async () => {
+    const { priv, events } = makeEngine();
+    const evaluate = withPage(priv);
+    await priv.onMessageCreate(groupMsg({ author: '99990000:2@lid' }));
+    expect(events[0].payload.senderJid).toBe('99990000@lid');
+    expect(evaluate).not.toHaveBeenCalled();
+  });
+
+  it('1:1 inalterado, mesmo com author espúrio', async () => {
+    const { priv, events } = makeEngine();
+    await priv.onMessageCreate(
+      msg({ type: 'chat', body: 'oi', author: '5511922222222@c.us' }),
+    );
+    expect(events[0].payload).toMatchObject({ chatJid: PEER, senderJid: PEER });
+  });
+
+  it('grupo sem author → mantém o jid do grupo (comportamento antigo)', async () => {
+    const { priv, events } = makeEngine();
+    await priv.onMessageCreate(groupMsg({}));
+    expect(events[0].payload).toMatchObject({
+      chatJid: GROUP,
+      senderJid: GROUP,
+    });
+  });
+
+  it('fromMe em grupo (celular) → senderJid = a conta, source phone', async () => {
+    vi.useFakeTimers();
+    try {
+      const { priv, events } = makeEngine();
+      const p = priv.onMessageCreate(
+        groupMsg({
+          fromMe: true,
+          from: '5511000@c.us',
+          to: GROUP,
+          author: '5511000@c.us',
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(3000); // janela do eco de envio (wwebjs.engine.ts)
+      await p;
+      expect(events[0].payload).toMatchObject({
+        chatJid: GROUP,
+        senderJid: '5511000@c.us',
+        fromMe: true,
+        source: 'phone',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('mídia em grupo: o evento com o arquivo sai com o senderJid do autor', async () => {
+    const { priv, events, stored } = makeEngine();
+    priv.lidToPnCache.set(LID, '5511933333333@c.us');
+    await priv.onMessageCreate(
+      groupMsg({
+        type: 'image',
+        hasMedia: true,
+        author: LID,
+        downloadMedia: async () => ({
+          data: Buffer.from('x').toString('base64'),
+          mimetype: 'image/jpeg',
+          filename: null,
+        }),
+      }),
+    );
+    expect(stored).toHaveLength(1);
+    expect(events[0].payload).toMatchObject({
+      chatJid: GROUP,
+      senderJid: '5511933333333@c.us',
+      mediaKey: stored[0],
+    });
+  });
+
+  it('backfill (toHistoryMessage): mesmo remetente do ao vivo — @lid pelo cache, aparelho removido, sem evaluate', async () => {
+    const { priv } = makeEngine();
+    const evaluate = withPage(priv);
+    priv.lidToPnCache.set(LID, '5511933333333@c.us');
+    const h = (author: string) =>
+      priv.toHistoryMessage(groupMsg({ author })).then((r) => r?.senderJid);
+    expect(await h(LID)).toBe('5511933333333@c.us');
+    expect(await h('99990000@lid')).toBe('99990000@lid');
+    expect(await h('5511922222222:7@c.us')).toBe('5511922222222@c.us');
+    expect(evaluate).not.toHaveBeenCalled();
+    // 1:1 no backfill: o contato (author ausente na lib)
+    expect(
+      (await priv.toHistoryMessage(msg({ type: 'chat', body: 'oi' })))
+        ?.senderJid,
+    ).toBe(PEER);
   });
 });

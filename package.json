@@ -26,8 +26,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "depcruise": "depcruise apps/gateway/src",
-    "test": "npm run test -w apps/gateway",
-    "test:unit": "npm run test:unit -w apps/gateway",
+    "test": "npm run test -w apps/gateway && npm run test -w apps/dashboard",
+    "test:unit": "npm run test:unit -w apps/gateway && npm run test -w apps/dashboard",
     "postinstall": "patch-package --error-on-fail"
   },
   "devDependencies": {

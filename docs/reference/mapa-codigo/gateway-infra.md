@@ -21,7 +21,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 222 linhas · caminho: `apps/gateway/src/infra/directory/contact-directory.service.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`
-- importado por: `infra/directory/directory.module.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`
+- importado por: `infra/directory/directory.module.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`
 
 **class `ContactDirectory`** L29 · @Injectable
 - injeta (construtor): `prisma: PrismaService`
@@ -37,7 +37,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `newId` (ulid.ts:4)
   - chamado por: `recordMany` L69
 - `namesFor(sessionId, keys)` · L150 · async
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:136)
+  - chamado por: `MessagesController.groupSenderNames` (messages.controller.ts:327), `SessionManager.getOrCreateEngine` (session-manager.service.ts:136)
   - banco: `waContact.findMany`
 - `lidMap(sessionId)` · L190 · async
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:136)
@@ -81,7 +81,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 81 linhas · caminho: `apps/gateway/src/infra/prisma/prisma.service.ts`
 - importa (interno): `bootstrap/config.ts`, `generated/prisma/client.ts`
-- importado por: `infra/directory/contact-directory.service.ts`, `infra/prisma/prisma.module.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/health/health.service.ts`, `modules/iam/infrastructure/prisma-api-key.repository.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/iam/infrastructure/prisma-branding.repository.ts`, `modules/iam/infrastructure/prisma-license.repository.ts`, `modules/iam/infrastructure/prisma-refresh-token.repository.ts`, `modules/iam/infrastructure/prisma-user.repository.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/infrastructure/prisma-inbox.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/messaging/infrastructure/prisma-reaction.repository.ts`, `modules/observability/metrics.service.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/retention.service.ts`, `modules/observability/session-event.logger.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/baileys/postgres-auth-state.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/webhooks/infrastructure/prisma-webhook.repository.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/setup-app.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `infra/directory/contact-directory.service.ts`, `infra/prisma/prisma.module.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/health/health.service.ts`, `modules/iam/infrastructure/prisma-api-key.repository.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/iam/infrastructure/prisma-branding.repository.ts`, `modules/iam/infrastructure/prisma-license.repository.ts`, `modules/iam/infrastructure/prisma-refresh-token.repository.ts`, `modules/iam/infrastructure/prisma-user.repository.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/infrastructure/prisma-inbox.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/messaging/infrastructure/prisma-reaction.repository.ts`, `modules/observability/metrics.service.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/retention.service.ts`, `modules/observability/session-event.logger.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/baileys/postgres-auth-state.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/webhooks/infrastructure/prisma-webhook.repository.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/setup-app.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **class `PrismaService`** L35 · @Injectable · `extends PrismaClient`, `implements OnModuleInit`, `implements OnModuleDestroy`
 - injeta (construtor): `config: ConfigService<Env, true> (param)`
@@ -182,9 +182,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `probeWrite` L80, `SessionManager.getOrCreateEngine` (session-manager.service.ts:136)
 - `getObject(key)` · L118 · async
   - chama: `isNotFound` L25, `constructor` L18
-  - chamado por: `MessagesController.downloadMedia` (messages.controller.ts:377)
+  - chamado por: `MessagesController.downloadMedia` (messages.controller.ts:443)
 - `presignedGetUrl(key)` · L144
-  - chamado por: `MessagesController.toDtos` (messages.controller.ts:265), `SessionManager.handleEngineEvent` (session-manager.service.ts:190)
+  - chamado por: `MessagesController.toDtos` (messages.controller.ts:292), `SessionManager.handleEngineEvent` (session-manager.service.ts:190)
 
 **Funções e constantes de topo**
 - `isNotFound(e)` · L25

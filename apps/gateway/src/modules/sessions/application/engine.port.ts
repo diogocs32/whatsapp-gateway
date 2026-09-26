@@ -15,6 +15,9 @@ export type MessageSource = 'api' | 'phone';
 export interface MessagePayload {
   keyId: string;
   chatJid: string;
+  // Quem mandou. 1:1 = o contato (= chatJid); fromMe = a conta da sessão. GRUPO (E23 · P-074): o
+  // PARTICIPANTE — telefone quando conhecido (@s.whatsapp.net no Baileys, @c.us no WWEBJS), senão
+  // @lid; sem participante na chave, o jid do grupo (como antes da E23).
   senderJid: string | null;
   fromMe: boolean;
   type: string;
