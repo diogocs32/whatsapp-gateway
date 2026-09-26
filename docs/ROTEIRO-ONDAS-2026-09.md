@@ -329,6 +329,14 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 
 ## Diário de execução
 
+- **26/09 — integração das branches restantes (PR #13, merge `2f02f02`, sem Deploy):**
+  as pontas históricas `coleta-mac` e `feature/m2-guardrail-ativo` foram reconciliadas
+  com 12 coletas M2 de julho; o detector local entrou como observador WWEBJS
+  D-035/P-088 opt-in, desligado por padrão e somente WARN. Jobs `ci` e `imagens`
+  verdes no run `36278240407`. Nenhuma conta, mensagem real, coleta nova, ação no
+  Dokploy ou canário. E11/P-051 e E12/P-052 continuam ⬜; deploys A/G/W/B e
+  canários dependem da janela manual do dono.
+
 - **26/09 — reconciliação dos merges #10/#11 (sem Deploy):** `origin/main` contém E6/P-060
   pelo merge `d577b05` (PR #10, 19:16 BRT) e E7–E10 pelo merge `8291c17` (PR #11,
   19:19 BRT). E11/P-051 e E12/P-052 continuam ⬜, agora em nova branch/PR a partir da `main`.
