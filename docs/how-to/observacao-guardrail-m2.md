@@ -1,8 +1,11 @@
-# 🛡️ Janela de observação do guard-rail (M2) — como conduzir e quando ligar o enforce
+# 🛡️ Janela de observação do guard-rail (M2) — histórico e procedimento
 
-> Onda M2. Estado hoje: guard-rail G1–G8 EM PRODUÇÃO em modo observação (`GUARDRAIL_ENFORCE=false`) —
-> a avaliação calcula e registra o que FARIA (`targetState`), mas não muda estado nem bloqueia;
-> só override manual (G7) bloqueia. Fonte: `guardrail.service.ts` (`evaluate`, `canSendCold`).
+> **Revisado em 26/09/2026.** A M2 foi encerrada em 18/08 (D-017); o histórico recuperado registra
+> 12 coletas entre 10 e 19/07, com 8 anteriores ao flip e 4 posteriores. A env
+> `GUARDRAIL_ENFORCE=true` foi constatada em produção em 13/08; o estado atual do Dokploy não foi
+> verificado nesta reconciliação. Em modo observação (`false`), a avaliação calcula o que faria
+> (`targetState`), sem aplicar a transição; override manual (G7) ainda bloqueia. Fonte:
+> `guardrail.service.ts` (`evaluate`, `canSendCold`) e `docs/observacao/guardrail-m2.jsonl`.
 
 ## Como o veredito funciona (limiares efetivos: `GET /api/guardrail/config`)
 
@@ -19,18 +22,21 @@ Com `replyRate` da janela 7d (cold-sends maduros >72h — C2) e `baseline` = med
 
 Estados manuais (`pausa_manual`, `banida` e override) são sticky — a avaliação não sobrescreve.
 
-## Coleta (1×/dia, ~7 dias)
+## Coleta (procedimento reutilizável; a janela M2 está arquivada)
 
 ```bash
 # no WSL, na raiz do repo (terminal do usuário já tem Node 26):
-GATEWAY_API_KEY=<chave X-Api-Key> node scripts/guardrail-observe.mjs
+GATEWAY_API_KEY=<chave X-Api-Key> node scripts/guardrail-observe.mjs docs/observacao/guardrail-AAAA-MM-DD.jsonl
 ```
 
-- Acumula em `docs/observacao/guardrail-m2.jsonl` (1 linha de config + 1 por sessão, por coleta)
+- Acumula no arquivo novo informado (1 linha de config + 1 por sessão, por coleta)
   e imprime uma tabela-resumo com a coluna **divergente** (estado atual ≠ o que o enforce faria).
+- `scripts/coleta.sh <arquivo-novo.jsonl>` faz o mesmo usando
+  `scripts/coleta.secret.local` (gitignored) para a chave. Não acrescentar coletas atuais ao
+  `guardrail-m2.jsonl`, que é histórico de julho.
 - Alternativa: agendar no n8n (Schedule Trigger diário → HTTP Request nos mesmos endpoints).
 
-## Critérios de aceite para ligar `GUARDRAIL_ENFORCE=true` (todos obrigatórios)
+## Critérios usados para ligar `GUARDRAIL_ENFORCE=true`
 
 1. **≥ 7 dias** de janela com **≥ 5 coletas**.
 2. **Zero falso-positivo**: nenhuma sessão saudável/em uso normal com `targetState`
@@ -53,7 +59,7 @@ GATEWAY_API_KEY=<chave X-Api-Key> node scripts/guardrail-observe.mjs
    reversível em minutos. Semântica dos booleans corrigida no D-007: `true/1/yes/on` liga ·
    `false/0/no/off` desliga · valor inválido derruba o boot com erro claro.
 
-## Ligar o enforce (ação operacional — usuário, R0)
+## Procedimento de ligar o enforce (ação operacional — usuário, R0)
 
 1. Dokploy → aplicação do gateway → Environment → adicionar a linha `GUARDRAIL_ENFORCE=true` →
    Save → **Redeploy**

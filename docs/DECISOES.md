@@ -294,6 +294,12 @@
   remover a env (default `false`).
 - **Consequências:** ESTADO.md roadmap M2 ✅ · próxima onda = M3 (qualidade) · histerese
   DEGRADED↔WORKING e curadoria de quais status alertam seguem como backlog (P-001 + n8n).
+- **Adendo 26/09/2026 (evidência histórica recuperada, sem consulta à produção):** o ramo antigo
+  `feature/m2-guardrail-ativo` continha outras 6 coletas. O JSONL canônico reúne agora 12 coletas
+  entre 10 e 19/07: 8 anteriores ao flip (a 8ª em 17/07 completa 7 dias) e 4 posteriores; a 9ª,
+  de 18/07 02:11 UTC, já mostra `enforce:true`. Assim, a premissa acima de que as coletas pararam
+  em 14/07 e o critério temporal era parcial refletia somente o material disponível em 18/08.
+  A decisão de encerramento permanece; o adendo corrige sua base de evidência.
 
 ## D-018 — 2026-08-18 — Política de qualidade M3: fronteiras no CI, projetos de teste e cobertura sem piso inicial
 

@@ -45,16 +45,16 @@
 ## Encerramento — 18/08/2026 (sessão `fechamento-sessoes` — reconciliação R9)
 
 - **Fim:** 18/08/2026 · **Status final:** ✅ **ONDA M2 CONCLUÍDA** (fechada por reconciliação — D-017)
-- **Entregue:** coletor `scripts/guardrail-observe.mjs` + how-to · fix D-007 (`envBool` fail-fast,
-  em prod desde 10/07 `80b1670`) · janela de observação com **6 coletas em 5 dias** (10–14/07,
-  jsonl em `docs/observacao/guardrail-m2.jsonl`): **zero falso-positivo em todas** · **teste do
+- **Entregue (evidência disponível no fechamento de 18/08):** coletor `scripts/guardrail-observe.mjs` + how-to · fix D-007 (`envBool` fail-fast,
+  em prod desde 10/07 `80b1670`) · 6 coletas então disponíveis no ramo conciliado (10–14/07,
+  jsonl em `docs/observacao/guardrail-m2.jsonl`): zero falso-positivo nas amostras · **teste do
   423 no n8n APROVADO em definitivo (critério 4)** — override → 423 SESSION_QUARANTINED antes da
   engine → requeue N7 provado com `RETURNING id` (+ achado `continueOnQuarantine` opt-in corrigido
   no fluxo de envio) · **`GUARDRAIL_ENFORCE=true` ATIVO em produção** (constatado na env 13/08;
   > 1 mês de enforcement sem NENHUM incidente/falso-positivo registrado).
-- **Justificativa do fechamento:** critérios 2–5 cumpridos com evidência; critério 1 parcial
-  (janela de 5 dias, não 7 — coletas pararam em 14/07), SUPRIDO por >1 mês de enforcement real em
-  produção sem incidente — validação mais forte que o restante da janela formal. A divergência do
+- **Justificativa registrada em 18/08:** critérios 2–5 cumpridos com a evidência então disponível; critério 1 foi
+  tratado como parcial (6 coletas, 5 dias) e suprido pelo período de enforcement real em
+  produção sem incidente registrado. A reconciliação de 26/09 abaixo recuperou as coletas posteriores e corrigiu essa premissa. A divergência do
   aviso de 13/08 (docs diziam observação, prod tinha enforce ligado) reconciliada: o estado REAL
   (enforce ativo) vira o documentado (D-017).
 - **Commits:** docs da janela mergeados na main em 18/08 (`71d839f`); fix D-007 + coletor na main
@@ -67,3 +67,10 @@
 - **Pendências para próxima sessão:** rollback do enforce hoje é trivial (`GUARDRAIL_ENFORCE=false`
   FUNCIONA pós-D-007, ou remover a env) · histerese DEGRADED↔WORKING segue no P-001 · backlog do
   node n8n (`continueOnQuarantine` default true) segue anotado no how-to.
+
+## Adendo de reconciliação — 26/09/2026 (sem nova consulta à produção)
+
+- As branches antigas `coleta-mac` (`ac6a340`) e `feature/m2-guardrail-ativo` (`f850cba`) guardavam o histórico que não entrou no merge documental de 18/08. O JSONL canônico agora contém **12 coletas de 10 a 19/07**, sendo 8 antes do flip e 4 depois; a janela de observação alcançou 7 dias em 17/07. As 3 linhas de `coleta-mac` já constavam na main e não foram duplicadas. Os dados são amostras históricas, não prova do estado atual de produção.
+- A coleta de 14/07 registrou duas sessões com amostra abaixo de Nmin 20 e alvo `aquecimento`, sem quarentena. Na ocasião, a `X-Api-Key` válida era a chave `cz_…` do painel; a env `API_KEY` do Dokploy não servia para autenticar o coletor. A amostra baixa limitava o veredito sobre throttle/quarentena.
+- A coleta 8 (17/07 23:38 UTC) fechou a janela formal (8 coletas em 7 dias). O flip do enforce foi confirmado pela coleta 9 (18/07 02:11 UTC, `enforce:true`, `applied:true` em `ativa→aquecimento`); coletas 10–12 seguiram até 19/07. O ramo registrou correção do alvo `DIOGO_OWEN` no Notificador n8n em 19/07, mas a revalidação sugerida depois da correção não está comprovada pelo JSONL; não inferir estado atual do workflow.
+- A antiga sessão `ATIVA` continha um rascunho de encerramento para 20–21/07; o encerramento real ocorreu por reconciliação em 18/08. O texto operacional obsoleto permanece no histórico Git da branch integrada, sem reabrir a sessão.

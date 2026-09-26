@@ -18,4 +18,3 @@
 ## Progresso
 
 - 19:45 — abertura R9; inventário, divergências e conflitos revistos. Preferência sobre o detector solicitada ao dono enquanto o histórico M2 é reconciliado.
-
