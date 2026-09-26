@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { collectMediaStream, SessionMediaQueue } from './wwebjs-media';
 
 describe('fila e stream de mídia WWEBJS (P-060)', () => {
@@ -38,5 +38,25 @@ describe('fila e stream de mídia WWEBJS (P-060)', () => {
     const tooLarge = Readable.from([Buffer.from('abc'), Buffer.from('def')]);
     await expect(collectMediaStream(tooLarge, 5)).rejects.toThrow('teto');
     expect(tooLarge.destroyed).toBe(true);
+  });
+
+  it('não inicia download que expirou enquanto aguardava a fila', async () => {
+    const queue = new SessionMediaQueue();
+    let release!: () => void;
+    const first = queue.run(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const abort = new AbortController();
+    const download = vi.fn(async () => undefined);
+    const second = queue.run(download, abort.signal);
+    await Promise.resolve();
+    abort.abort();
+    release();
+    await first;
+    await expect(second).rejects.toThrow('expirada na fila');
+    expect(download).not.toHaveBeenCalled();
   });
 });

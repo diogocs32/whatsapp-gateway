@@ -8,12 +8,15 @@ export class SessionMediaQueue {
 
   constructor(private readonly maxPending = 32) {}
 
-  run<T>(task: () => Promise<T>): Promise<T> {
+  run<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
     if (this.pending >= this.maxPending) {
       return Promise.reject(new Error('Fila de mídia wwebjs cheia'));
     }
     this.pending += 1;
-    const work = this.tail.then(task);
+    const work = this.tail.then(() => {
+      if (signal?.aborted) throw new Error('Mídia expirada na fila wwebjs');
+      return task();
+    });
     this.tail = work.then(
       () => undefined,
       () => undefined,

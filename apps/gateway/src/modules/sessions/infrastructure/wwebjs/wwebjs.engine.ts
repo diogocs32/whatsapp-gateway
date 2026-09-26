@@ -2210,6 +2210,7 @@ export class WWebJSEngine implements IEngine {
       });
       return;
     }
+    const abort = new AbortController();
     try {
       const work = this.mediaQueue.run(async () => {
         // O pin 1780711 oferece downloadMediaStream; fallback só para instalação divergente.
@@ -2244,6 +2245,10 @@ export class WWebJSEngine implements IEngine {
           fileName = media.filename ?? null;
           fileSize = media.filesize ?? buffer.length;
         }
+        // Deadline do HTTP pode ter expirado enquanto a chamada CDP ainda baixava.
+        // Não criar objeto S3 sem um evento que entregue a respectiva mediaKey.
+        if (abort.signal.aborted)
+          throw new Error('Mídia expirada após download');
         const ext = extOf(mimetype, fileName);
         const safeId = (base.keyId || String(base.timestamp)).replace(
           /[^a-zA-Z0-9_-]/g,
@@ -2252,7 +2257,7 @@ export class WWebJSEngine implements IEngine {
         const key = `media/${this.deps.sessionId}/${safeId}.${ext}`;
         await this.deps.storeMedia?.(key, buffer, mimetype);
         return { mimetype, fileName, fileSize, key };
-      });
+      }, abort.signal);
       const media = await mediaDeadline(work, WWEBJS_MEDIA_TIMEOUT_MS);
       this.deps.onEvent('message', {
         ...base,
@@ -2265,6 +2270,7 @@ export class WWebJSEngine implements IEngine {
         mediaKey: media.key,
       });
     } catch (e) {
+      if (e instanceof MediaDeadlineError) abort.abort();
       const reason = (e as Error)?.message ?? '';
       this.deps.logger.error(
         { err: e, reason },
