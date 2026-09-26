@@ -4,6 +4,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RedisService } from '../../infra/redis/redis.service';
 import { memoryStats } from '../../shared-kernel/memory';
 import { processErrorTotals } from '../../shared-kernel/process-errors';
+import { disconnectTotals } from '../../shared-kernel/disconnect-stats';
 
 // Contadores caros (groupBy de sessões + counts full-table de wa_messages) compartilhados entre o
 // scrape do Prometheus e o summary da UI.
@@ -22,6 +23,7 @@ export class MetricsService implements OnModuleInit {
   private sessions!: Gauge<string>;
   private messages!: Gauge<string>;
   private processErrors!: Gauge<string>;
+  private disconnects!: Gauge<string>;
 
   // Item 16 (auditoria 07/2026): os counts de wa_messages são full-table e eram disparados a CADA
   // scrape do Prometheus e a CADA polling do dashboard (5s em 2 telas) — com a tabela crescendo,
@@ -58,6 +60,12 @@ export class MetricsService implements OnModuleInit {
       name: 'gateway_process_errors_total',
       help: 'Erros não-tratados/engolidos desde o boot, por tipo',
       labelNames: ['kind'],
+      registers: [this.registry],
+    });
+    this.disconnects = new Gauge({
+      name: 'wa_disconnects_total',
+      help: 'Desconexões WhatsApp desde o boot, por engine e código',
+      labelNames: ['engine', 'code'],
       registers: [this.registry],
     });
   }
@@ -111,6 +119,9 @@ export class MetricsService implements OnModuleInit {
     this.messages.set({ direction: 'in' }, c.inbound);
     for (const [kind, n] of Object.entries(processErrorTotals())) {
       this.processErrors.set({ kind }, n);
+    }
+    for (const { engine, code, total } of disconnectTotals()) {
+      this.disconnects.set({ engine, code }, total);
     }
   }
 

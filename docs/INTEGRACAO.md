@@ -78,6 +78,8 @@ Catálogo:
 | `session.throttled\|quarantined\|warming\|recovered\|banned` | transição guard-rail   | quarantined: `{ reply_rate, amostra, motivo, cooldown_ate, cap_novo }`                                                                                                                                        |
 | `signal.463` / `signal.restriction`                          | sinal duro             | `{ signal }`                                                                                                                                                                                                  |
 | `session.restricted` (E8, aditivo)                           | pausa nativa Baileys   | `{ signal: "463"\|"reachoutTimeLock"\|"message-capping", pausedUntil, timeEnforcementEnds, source, enforcementType }` — datas ISO UTC; `timeEnforcementEnds` só quando confirmado pela resposta direta do RPC |
+| `session.client_too_old` (E9, aditivo)                       | protocolo recusado 405 | `{ code: 405, reason }` — alerta de versão; a sessão fica `FAILED` sem tentar conectar cinco vezes                                                                                                            |
+| `session.status`                                             | estado da sessão       | `{ status, error?, lastErrorDetails? }` — `error` continua texto; em desconexão terminal do Baileys, `lastErrorDetails: { code, reason }` traz o código e motivo brutos                                       |
 | `send.blocked`                                               | hard-gate barrou envio | `{ state, motivo, restriction_until? }` (`restriction_until` só na pausa nativa)                                                                                                                              |
 
 > **Origem do prazo (E8):** `source: "temporary"` indica pausa provisória. A notificação
@@ -106,6 +108,8 @@ Catálogo:
 > um status idêntico consecutivo (mesmo `status` + mesmo `error`) NÃO é reenviado. Uma reconexão
 > transitória que volta a `WORKING` não gera novo evento. **Trate a transição, não a repetição** —
 > não conte "quantos WORKING chegaram" para inferir reconexões (use `message.ack`/timeline p/ isso).
+> O motivo bruto em `lastErrorDetails` pode ser atualizado no cadastro da sessão sem novo
+> `session.status`; ele não entra na chave de deduplicação do evento.
 
 ### 3.1 Mídia recebida — obter os BYTES (voz/imagem/PDF) — contrato CP-149 (GAP 2)
 
@@ -255,6 +259,13 @@ GET /api/sessions/{sessao}/health
 GET /api/observability/reply-rate/{sessao}?window=7   # ou 30; sem window = ambas
 GET /api/sessions?state=ativa,aquecimento             # filtra a listagem por estado guard-rail
 ```
+
+`GET /metrics` (fora de `/api`, com `Authorization: Bearer <METRICS_TOKEN>`) expõe
+`wa_disconnects_total{engine,code}`. É o total de eventos `connection.update` com `close` desde o
+boot deste processo, incluindo o 515 de reinício do pareamento; o rótulo `code` cobre
+401/403/405/408/411/428/440/500/503/515 e usa `other` para código ausente ou desconhecido.
+O valor zera quando o processo reinicia; para alertas de frequência, use `rate()` no Prometheus.
+O endpoint responde 401 se `METRICS_TOKEN` estiver ausente ou incorreto.
 
 `reply_rate` exclui cold-sends com menos de **72h** (imaturos) e só dá veredito com **amostra ≥ 20**.
 Resposta = **mensagem OU reação do contato** em até 72h do cold (E22, D-028 — antes a reação contava
@@ -434,6 +445,42 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
   caso a sessão NÃO é criada (sem sessão órfã).
 - A exclusividade vale para o fluxo `SINGLE`; os modos `RANGE`/`GLOBAL_ROUND_ROBIN` (configurados via
   `PUT /api/sessions/{sessao}/proxy`) seguem podendo usar qualquer proxy do pool em runtime.
+
+### Diagnóstico de desconexão Baileys (E9)
+
+`GET /api/sessions` e `GET /api/sessions/{sessao}` preservam `lastError` como texto ou `null` e
+acrescentam `lastErrorDetails: { code: number | null, reason: string | null } | null`. `code` é o
+`output.statusCode` do erro Baileys; `reason` conserva `data.reason` ou `message` (até 500
+caracteres). O detalhe pode mudar após um `close` sem alterar o estado ou publicar outro
+`session.status`. Quando a sessão volta a `WORKING`, ambos os campos voltam a `null`.
+
+401 indica logout: o gateway limpa as credenciais e fica `STOPPED`, exigindo novo QR. 403
+(`forbidden`) e 411 (`multideviceMismatch`) ficam `FAILED` e exigem diagnóstico/intervenção; 405
+fora da tentativa quieta do 440 também fica `FAILED`, emite `session.client_too_old` e pede o procedimento
+[405 no Baileys](how-to/canario-baileys-onda2.md#resposta-ao-405-protocolo-recusado).
+440 (`connectionReplaced`) aguarda 60 s e tenta uma única reconexão; se essa tentativa falhar
+com qualquer código, o processo antigo encerra as tentativas localmente, sem persistir estado
+terminal, limpar credenciais ou alertar pelo erro da tentativa, até existir exclusividade de
+sessão (P-056). Um segundo `close` antes dos 60 s não adia nem duplica o timer. Nesse intervalo,
+a engine local deixa de aceitar envio pelo socket fechado; o retry do 440 não publica QR nem
+grava `STARTING` por cima do estado de outra réplica. 515
+(`restartRequired`, inclusive após pareamento) reconecta após 1 s sem consumir o orçamento de
+falhas; mais de três 515 seguidos sem `open` deixam a sessão `DEGRADED` para evitar um loop.
+408/428/500/503 usam backoff limitado a cinco tentativas; 500 conserva o
+motivo bruto em `lastErrorDetails.reason`. Um `WORKING` novo limpa o erro. Estes estados são do
+transporte; a pausa temporária de envio da E8 continua independente deles (§5).
+
+**Versão do protocolo:** cada tentativa de conexão Baileys registra no log do gateway
+`Baileys protocolo <sessionId>: versão <versão> (<fonte>)`, visível no nível padrão da aplicação.
+A fonte é `latest`, `cache`, `stale-cache`, `bundled` ou `canary-override`. A consulta
+`fetchLatestBaileysVersion()` espera no máximo 3 s, com intervalo mínimo de 30 s; só
+`isLatest:true` renova o cache de 12 h. Se a consulta falhar ou devolver `isLatest:false`, usa a
+última versão confirmada ou a embutida da biblioteca, sem tratar o fallback como versão fresca.
+Para testar uma candidata em **uma** sessão de teste, defina juntas as envs
+`BAILEYS_PROTOCOL_VERSION=<major.minor.patch>` e
+`BAILEYS_PROTOCOL_CANARY_SESSION_ID=<ID da sessão>`; uma env isolada impede o boot. O override não
+altera as outras sessões. Aplicar/remover env no Dokploy exige Deploy manual em janela controlada,
+conforme o runbook; não muda a versão em conexões já abertas.
 
 ## 12. Inbox — conversas, mensagens e backfill de histórico (W7)
 

@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Alterado — desconexões e versão do Baileys (26/09 — E9/P-049; PR #11, sem deploy)
+
+- Desconexões 401/403/405/408/411/428/440/500/503/515 agora seguem uma matriz explícita: 403/411/405 param em FAILED, 405 publica `session.client_too_old`, 515 reinicia sem consumir o orçamento comum (com teto separado para repetição) e 440 faz uma tentativa após 60 s sem gravar estado terminal. Quedas transitórias não deixam a engine local aceitar envios no socket fechado.
+- `GET /sessions` e `GET /sessions/:id` acrescentam `lastErrorDetails: {code,reason}` persistido; `lastError` textual permanece. `session.status` terminal acrescenta o detalhe e `/metrics` oferece `wa_disconnects_total{engine,code}` desde o boot.
+- A consulta de versão tem espera de 3 s, single-flight e intervalo mínimo de 30 s; só resposta `isLatest:true` renova o cache de 12 h. Cada conexão registra a versão efetiva. Um par de envs permite sobrepor a versão apenas para o ID de uma sessão canário. Migration aditiva aplicada apenas no banco local de testes. Testes usam socket falso e preservam a pausa provisória da E8.
+
 ### Adicionado — pausa temporária por restrição nativa do Baileys (26/09 — E8/P-048; PR #11, sem deploy)
 
 - `reachoutTimeLock`, `message-capping.update` CAPPED e ACK ERROR 463 agora gravam o sinal e pausam todos os envios da sessão pelo prazo disponível; `fetchAccountReachoutTimelock()` tem espera limitada a 3 s e intervalo mínimo de 30 s. A espera não cancela o RPC: uma resposta tardia ainda confirma o prazo se o socket e a consulta forem atuais. ERROR 479 é contado sem classificar a sessão como banida.

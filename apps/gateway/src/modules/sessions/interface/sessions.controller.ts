@@ -53,6 +53,7 @@ function toDto(s: Session) {
     phoneNumber: s.phoneNumber,
     autostart: s.autostart,
     lastError: s.lastError,
+    lastErrorDetails: s.lastErrorDetails,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };

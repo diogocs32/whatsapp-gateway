@@ -34,13 +34,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `resolveAgent` L142, `resolveProxyConfig` L124
 - `reportFailure(sessionId, reason)` · L101 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.getAssignment` (proxy.repository.ts:55), `ProxyRepository.updateTest` (proxy.repository.ts:48)
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:141)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
 - `resolveProxyConfig(sessionId)` · L124 · async
   - chama: `resolve` L32
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:141)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
 - `resolveAgent(sessionId)` · L142 · async
   - chama: `resolve` L32, `ProxyRepository.getAssignment` (proxy.repository.ts:55), `buildProxyAgent` (proxy-agent.factory.ts:14)
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:141)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
 
 **Funções e constantes de topo**
 - `hashString(s)` · L13
@@ -88,10 +88,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `ProxiesController.listAvailable` (proxies.controller.ts:66)
 - `ensureAvailable(proxyId)` · L218 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.usedProxyIds` (proxy.repository.ts:60)
-  - chamado por: `assignExclusive` L232, `SessionsController.create` (sessions.controller.ts:98)
+  - chamado por: `assignExclusive` L232, `SessionsController.create` (sessions.controller.ts:99)
 - `assignExclusive(sessionId, proxyId)` · L232 · async
   - chama: `ensureAvailable` L218, `setAssignment` L246
-  - chamado por: `SessionsController.create` (sessions.controller.ts:98)
+  - chamado por: `SessionsController.create` (sessions.controller.ts:99)
 - `setAssignment(sessionId, data)` · L246 · async
   - chama: `ProxyRepository.setAssignment` (proxy.repository.ts:56), `ProxyRepository.setCurrent` (proxy.repository.ts:57)
   - chamado por: `assignExclusive` L232, `ProxiesController.setAssignment` (proxies.controller.ts:160)

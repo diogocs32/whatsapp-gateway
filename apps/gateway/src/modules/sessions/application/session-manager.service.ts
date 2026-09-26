@@ -58,6 +58,9 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   // (ver handleEngineEvent). Limpa junto com todo engines.delete para não vazar nem reter chave
   // velha quando uma engine nova assume a mesma sessão.
   private readonly lastStatusKey = new Map<string, string>();
+  // Um close pode correr com o UPDATE de WORKING anterior ou com start manual/open posterior.
+  // Ordena status e diagnóstico da mesma sessão para a última transição vencer no banco.
+  private readonly statusWrites = new Map<string, Promise<void>>();
 
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly repo: SessionRepository,
@@ -148,6 +151,17 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       deviceName: 'WhatsApp Gateway',
       // Guard anti-vazamento: recusa conectar sem proxy vivo quando ligado (ver config WA_REQUIRE_PROXY).
       requireProxy: this.config.get('WA_REQUIRE_PROXY', { infer: true }),
+      baileysProtocolVersion: this.config.get('BAILEYS_PROTOCOL_VERSION', {
+        infer: true,
+      }),
+      baileysProtocolCanarySessionId: this.config.get(
+        'BAILEYS_PROTOCOL_CANARY_SESSION_ID',
+        { infer: true },
+      ),
+      onProtocolVersion: (version, source) =>
+        this.logger.log(
+          `Baileys protocolo ${sessionId}: versão ${version} (${source})`,
+        ),
       prisma: this.prisma,
       logger: pino({
         level: this.config.get('WA_LOG_LEVEL', { infer: true }),
@@ -158,7 +172,16 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       // de P2025 no update + violação de FK no insert da timeline).
       onEvent: (name, payload) => {
         if (this.engines.get(sessionId) !== created) return;
-        void this.handleEngineEvent(sessionId, name, payload);
+        if (name === 'session.status' || name === 'session.client_too_old') {
+          void this.enqueueStatusWrite(
+            sessionId,
+            created,
+            `evento ${name}`,
+            () => this.handleEngineEvent(sessionId, name, payload),
+          );
+        } else {
+          void this.handleEngineEvent(sessionId, name, payload);
+        }
       },
       onRestrictionSignal: async (signal) => {
         if (this.engines.get(sessionId) !== created) return;
@@ -169,6 +192,17 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
             until: signal.until,
             source: signal.source,
             enforcementType: signal.enforcementType,
+          },
+        );
+      },
+      onDisconnect: async (details) => {
+        if (this.engines.get(sessionId) !== created) return;
+        await this.enqueueStatusWrite(
+          sessionId,
+          created,
+          'diagnóstico de desconexão',
+          async () => {
+            await this.repo.updateLastErrorDetails(sessionId, details);
           },
         );
       },
@@ -209,6 +243,30 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     });
     this.engines.set(sessionId, created);
     return created;
+  }
+
+  private enqueueStatusWrite(
+    sessionId: string,
+    engine: IEngine,
+    operation: string,
+    write: () => Promise<void>,
+  ): Promise<void> {
+    const prior = this.statusWrites.get(sessionId) ?? Promise.resolve();
+    const next = prior
+      .then(() =>
+        this.engines.get(sessionId) === engine ? write() : undefined,
+      )
+      .catch((err) =>
+        this.logger.error(
+          `${operation} (${sessionId}): ${(err as Error).message}`,
+        ),
+      );
+    this.statusWrites.set(sessionId, next);
+    void next.finally(() => {
+      if (this.statusWrites.get(sessionId) === next)
+        this.statusWrites.delete(sessionId);
+    });
+    return next;
   }
 
   private async handleEngineEvent(
@@ -275,6 +333,12 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
         meJid: p.meJid,
         mePushName: p.mePushName,
         lastError: p.error,
+        lastErrorDetails:
+          p.lastErrorDetails !== undefined
+            ? p.lastErrorDetails
+            : p.error === null
+              ? null
+              : undefined,
       });
       // A sessão não existe mais no banco, mas a engine seguiu viva emitindo status (órfã de um
       // ciclo anterior, ou exclusão feita por fora). Encerra e descarta a engine — corta o loop

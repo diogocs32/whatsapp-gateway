@@ -86,8 +86,20 @@ export interface SessionDto {
   phoneNumber: string | null;
   autostart: boolean;
   lastError: string | null;
+  // E9: diagnóstico estruturado aditivo. `lastError` textual permanece para clientes antigos.
+  lastErrorDetails: SessionErrorDetails | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SessionErrorDetails {
+  code: number | null; // código bruto de Boom.output.statusCode (405 inclusive)
+  reason: string | null; // motivo bruto do Baileys, limitado a 500 caracteres
+}
+
+// Webhook `session.client_too_old` (E9). O status público também vira FAILED.
+export interface SessionClientTooOldEventPayload extends SessionErrorDetails {
+  code: 405;
 }
 
 // GET/PATCH /api/sessions/:id/config. O override de build vale só para WWEBJS e é aplicado
@@ -382,6 +394,7 @@ export const WEBHOOK_EVENTS = [
   'message.reaction',
   'session.status',
   'session.restricted',
+  'session.client_too_old',
 ] as const;
 
 // ---- API keys (F9.1) ----

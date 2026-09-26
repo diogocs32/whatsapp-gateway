@@ -1,15 +1,25 @@
-# Canário da Onda 2 — fila offline e restrição Baileys (E7/E8)
+---
+tipo: runbook
+dono: Diogo Santos
+revisado_em: 2026-09-26
+validade: 2026-10-26
+status: preparado — não executado; aguardar E12, merge e deploy B por ordem do dono
+origem: E7/P-047, E8/P-048, E9/P-049
+---
 
-> Preparação para a janela de deploy B, depois das E8–E12 e do merge pelo dono. Não foi executado
-> na E7/E8. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
+# Canário da Onda 2 — fila offline, restrição e desconexão Baileys (E7–E9)
+
+> Preparação para a janela de deploy B, depois da E12 e do merge pelo dono. Não foi executado
+> na E7–E9. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
 > residencial dedicado. Não reiniciar contas da frota para simular queda.
 
 ## Antes da janela
 
 1. Concluir backup com restore testado (B-005) e acertar `stop-first` do gateway (B-004). Confirmar
    qual imagem/SHA está rodando e guardar o rollback; seguir `how-to/rollback-gateway.md`.
-2. Conferir que PR da Onda 2 está mergeado e CI verde, a migration aditiva da E8
-   (`20260926164000_restricao_temporaria`) e as posteriores aplicadas por `prisma migrate deploy`,
+2. Conferir que PR da Onda 2 está mergeado e CI verde, as migrations aditivas da E8
+   (`20260926164000_restricao_temporaria`) e E9
+   (`20260926175800_baileys_disconnect_details`) e as posteriores aplicadas por `prisma migrate deploy`,
    `/health` saudável e sessão canário `WORKING` após deploy manual. Antes de conectar o chip,
    consultar o banco e confirmar as quatro colunas `restrictionUntil`, `restrictionSignal`,
    `restrictionSource` e `restrictionType` em `session_guardrail`.
@@ -63,6 +73,60 @@
    As colunas são aditivas; a imagem antiga não lê a trava E8. Interromper envios da sessão canário
    e seguir `how-to/rollback-gateway.md`; não confiar no rollback para manter a pausa temporária.
 
+## Verificação da E9 na janela
+
+1. Antes de conectar o chip, conferir que a suíte local/CI cobriu 401/403/405/408/411/428/440/
+   500/503/515 com socket falso, incluindo o alerta 405, a única retentativa tardia do 440, o
+   reinício 515 sem consumir tentativa, o detalhe persistido e o contador em `/metrics`. **Não
+   provocar 403/405/440 nem deslogar uma conta real** para repetir estes testes.
+2. `GET /api/sessions/:id` da sessão de teste passa a conter `lastError` textual e o campo aditivo
+   `lastErrorDetails`, nulo após WORKING ou `{code,reason}` após uma desconexão. Se a queda acontecer
+   espontaneamente, anotar o código bruto, o motivo e a versão/fonte do log
+   `Baileys protocolo <sessionId>: versão <versão> (<fonte>)` da MESMA sessão (via Nest Logger,
+   visível no nível padrão da aplicação). 401 exige novo QR porque as credenciais são limpas;
+   403/411/405 ficam FAILED; 408/428/500/503 fazem backoff; 515 pós-pareamento tenta em 1 s sem
+   consumir tentativa comum, mas mais de três 515 seguidos levam a DEGRADED; 440 espera 60 s para
+   uma única tentativa quieta: não publica QR/STARTING nem, se falhar com qualquer código,
+   persiste estado terminal, limpa credenciais ou emite alerta. Um close duplicado antes do timer
+   não cria segunda tentativa.
+3. Com `METRICS_TOKEN` configurado, ler `GET /metrics` com `Authorization: Bearer <token>` e
+   conferir `wa_disconnects_total{engine="baileys",code="..."}` antes/depois de uma queda
+   espontânea. Os totais são desde o boot do processo e zeram no restart; códigos fora da matriz
+   aparecem como `other`. Não confundir número de eventos `session.status` com número de closes.
+4. Se ocorrer `reachoutTimeLock` durante uma reconexão, aplicar a verificação da E8 acima: o
+   `connection.update` continua provisório (`source=temporary`), e somente a resposta direta do
+   RPC confirma `timeEnforcementEnds`. Reconectar, cair ou vencer o prazo local provisório não
+   confirma que o WhatsApp removeu a restrição remota.
+
+## Resposta ao 405: protocolo recusado
+
+1. Confirmar o sinal certo: `session.client_too_old` com `{code:405,reason}`, sessão `FAILED` em
+   `GET /api/sessions/:id` e `lastErrorDetails.code=405`. Este é o **405 da conexão Baileys**;
+   o HTTP 405 do login do painel tem outra causa. Registrar horário, ID da sessão, motivo bruto,
+   `wa_disconnects_total{engine="baileys",code="405"}` e a linha de log
+   `Baileys protocolo <sessionId>: versão <versão> (<fonte>)`. Esse log registra a tentativa de
+   conexão, não prova que o socket abriu; confira `WORKING` separadamente. FAILED não se reidrata
+   nem deve ser iniciado em loop.
+2. Conferir o estado da conta no celular e a versão candidata na fonte oficial do Baileys/WhatsApp
+   antes da janela. A versão `latest` da consulta não prova aceitação pelo servidor. Preparar
+   backup restaurável (B-005), `stop-first` (B-004), rollback da imagem e **um** chip com proxy de
+   teste; não alterar toda a frota para testar a hipótese.
+3. Na janela **manual escolhida pelo dono, após E12/merge/deploy B**, usar o ID (não o nome) da
+   sessão de teste e definir JUNTAS no gateway do Dokploy
+   `BAILEYS_PROTOCOL_VERSION=<major.minor.patch>` e
+   `BAILEYS_PROTOCOL_CANARY_SESSION_ID=<id-da-sessao-de-teste>`. Salvar e fazer **Deploy manual**;
+   aplicar env reinicia o gateway, mesmo que o override de protocolo atinja só a sessão canário.
+   Iniciar manualmente só a sessão de teste se ela estava FAILED; conferir no log do novo processo
+   `(canary-override)` e a versão esperada. Sem essas duas envs juntas, o boot falha pela
+   validação do zod.
+4. Registrar WORKING/405, versão efetiva e estabilidade da conexão do chip de teste. Se o 405
+   persistir, remover **ambas** as envs e fazer Deploy manual na janela de rollback; deixar a
+   sessão FAILED e investigar a causa sem repetição de starts. Se a candidata funcionar, manter
+   apenas esse canário sob observação até a decisão sobre uma atualização da política de versão
+   em mudança própria, revisada/testada para a frota. Para encerrar o canário, remover ambas as
+   envs e fazer Deploy manual em janela; se a versão anterior continuar recusada, a sessão de
+   teste volta a FAILED. O override não promove a versão para outras sessões.
+
 ## Limites conhecidos
 
 - O dedupe entre instâncias simultâneas depende da exclusividade de sessão (P-056, E13); até B-004,
@@ -71,3 +135,6 @@
 - O EventBus não tem outbox (P-034): queda exatamente entre publicação e persistência/enfileiramento
   ainda exige inspeção do `keyId` e correção específica. Não declarar entrega garantida após crash
   nesse intervalo com base apenas no teste de reconexão.
+- O 440 pode ser disputa entre containers/réplicas. A retentativa única da E9 reduz a disputa,
+  mas não identifica o dono da sessão; somente lease/fencing da P-056 resolve isso. O canário não
+  deve induzir dois processos com as mesmas credenciais.

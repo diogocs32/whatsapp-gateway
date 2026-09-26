@@ -7,7 +7,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | Arquivo | Linhas |
 | --- | --- |
 | `modules/observability/metrics.controller.ts` | 41 |
-| `modules/observability/metrics.service.ts` | 154 |
+| `modules/observability/metrics.service.ts` | 165 |
 | `modules/observability/observability.controller.ts` | 45 |
 | `modules/observability/observability.module.ts` | 22 |
 | `modules/observability/reply-rate.service.ts` | 205 |
@@ -24,42 +24,42 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `metrics: MetricsService`
 - `constructor(metrics)` · L20
 - `scrape(req, token, reply)` · L22 · async · @Get
-  - chama: `MetricsService.collect` (metrics.service.ts:66)
+  - chama: `MetricsService.collect` (metrics.service.ts:74)
   - env: `METRICS_TOKEN`
 
 ## `modules/observability/metrics.service.ts`
 
-154 linhas · caminho: `apps/gateway/src/modules/observability/metrics.service.ts`
-- importa (interno): `infra/prisma/prisma.service.ts`, `infra/redis/redis.service.ts`, `shared-kernel/memory.ts`, `shared-kernel/process-errors.ts`
-- importado por: `modules/observability/metrics.controller.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`
+165 linhas · caminho: `apps/gateway/src/modules/observability/metrics.service.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `infra/redis/redis.service.ts`, `shared-kernel/memory.ts`, `shared-kernel/process-errors.ts`, `shared-kernel/disconnect-stats.ts`
+- importado por: `modules/observability/metrics.controller.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`
 
-**class `MetricsService`** L18 · @Injectable · `implements OnModuleInit`
+**class `MetricsService`** L19 · @Injectable · `implements OnModuleInit`
 - injeta (construtor): `prisma: PrismaService` · `redis: RedisService`
-- `registry` · L20 · campo
-- `logger` · L21 · private · campo
-- `COUNTERS_TTL_S` · L30 · private · static · campo
-- `COUNTERS_KEY` · L31 · private · static · campo
-- `countersInFlight` · L32 · private · campo
-- `constructor(prisma, redis)` · L34
-- `onModuleInit()` · L39
-- `collect()` · L66 · async
-  - chama: `refresh` L104
+- `registry` · L21 · campo
+- `logger` · L22 · private · campo
+- `COUNTERS_TTL_S` · L32 · private · static · campo
+- `COUNTERS_KEY` · L33 · private · static · campo
+- `countersInFlight` · L34 · private · campo
+- `constructor(prisma, redis)` · L36
+- `onModuleInit()` · L41
+- `collect()` · L74 · async
+  - chama: `refresh` L112
   - chamado por: `MetricsController.scrape` (metrics.controller.ts:22)
-- `summary()` · L72 · async
-  - chama: `counters` L117, `memoryStats` (memory.ts:93)
+- `summary()` · L80 · async
+  - chama: `counters` L128, `memoryStats` (memory.ts:93)
   - chamado por: `ObservabilityController.summary` (observability.controller.ts:17)
-- `timeline(sessionId, limit)` · L89 · async
+- `timeline(sessionId, limit)` · L97 · async
   - chamado por: `ObservabilityController.timeline` (observability.controller.ts:22)
   - banco: `waSessionEvent.findMany`
-- `refresh()` · L104 · private · async
-  - chama: `counters` L117, `processErrorTotals` (process-errors.ts:13)
-  - chamado por: `collect` L66
-- `counters()` · L117 · private · async
-  - chamado por: `refresh` L104, `summary` L72
+- `refresh()` · L112 · private · async
+  - chama: `counters` L128, `disconnectTotals` (disconnect-stats.ts:18), `processErrorTotals` (process-errors.ts:13)
+  - chamado por: `collect` L74
+- `counters()` · L128 · private · async
+  - chamado por: `refresh` L112, `summary` L80
   - banco: `waMessage.count`, `waSession.groupBy`
 
 **Tipos**
-- interface `Counters` L10 · 3 propriedade(s)
+- interface `Counters` L11 · 3 propriedade(s)
 
 ## `modules/observability/observability.controller.ts`
 
@@ -71,9 +71,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `metrics: MetricsService` · `replyRate: ReplyRateService`
 - `constructor(metrics, replyRate)` · L12
 - `summary()` · L17 · @Get('summary')
-  - chama: `MetricsService.summary` (metrics.service.ts:72)
+  - chama: `MetricsService.summary` (metrics.service.ts:80)
 - `timeline(sessionId, limit)` · L22 · @Get('timeline/:sessionId')
-  - chama: `MetricsService.timeline` (metrics.service.ts:89)
+  - chama: `MetricsService.timeline` (metrics.service.ts:97)
 - `replyRateMetrics(sessionId, window)` · L33 · @Get('reply-rate/:sessionId')
   - chama: `ReplyRateService.compute` (reply-rate.service.ts:80), `ReplyRateService.snapshot` (reply-rate.service.ts:85)
 

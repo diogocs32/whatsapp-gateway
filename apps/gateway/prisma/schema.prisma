@@ -141,6 +141,7 @@ model WaSession {
   creds       Json?
   metadata    Json?
   lastError   String?
+  lastErrorDetails Json?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 

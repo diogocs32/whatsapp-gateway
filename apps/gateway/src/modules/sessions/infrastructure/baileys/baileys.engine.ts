@@ -1,6 +1,6 @@
 import makeWASocket, {
   BufferJSON,
-  DisconnectReason,
+  DEFAULT_CONNECTION_CONFIG,
   downloadMediaMessage,
   fetchLatestBaileysVersion,
   jidNormalizedUser,
@@ -17,7 +17,6 @@ import makeWASocket, {
   type WAMessageUpdate,
   type WASocket,
 } from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
 import * as QRCode from 'qrcode';
 import type { Agent } from 'node:http';
 import type { Agent as HttpsAgent } from 'node:https';
@@ -72,6 +71,9 @@ import {
 } from './baileys-content';
 import { shouldAcceptUpsert } from './upsert-decision';
 import { recordProcessError } from '../../../../shared-kernel/process-errors';
+import { recordDisconnect } from '../../../../shared-kernel/disconnect-stats';
+import type { SessionErrorDetails } from '../../domain/session.entity';
+import { classifyDisconnect, disconnectDetails } from './disconnect-policy';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -81,6 +83,11 @@ export interface BaileysEngineDeps {
   onEvent: EngineEventHandler;
   // E8: sinal LOCAL para o SessionManager gravar a pausa no guardrail; não usa EventBus remoto.
   onRestrictionSignal?: (signal: ReachoutRestrictionSignal) => Promise<void>;
+  // Persiste o último código/motivo sem publicar `session.status` em cada queda transitória.
+  onDisconnect?: (details: SessionErrorDetails) => Promise<void>;
+  baileysProtocolVersion?: string;
+  baileysProtocolCanarySessionId?: string;
+  onProtocolVersion?: (version: string, source: string) => void;
   // Guard anti-vazamento (WA_REQUIRE_PROXY): quando true, a engine RECUSA conectar se resolveAgent
   // não devolver proxy — evita expor o IP do servidor (datacenter) ao WhatsApp. Default false.
   requireProxy?: boolean;
@@ -119,40 +126,85 @@ export interface BaileysEngineDeps {
   };
 }
 
-// Cache de processo da versão do WhatsApp Web usada pelo Baileys (item 7 da auditoria 07/2026):
-// fetchLatestBaileysVersion é uma chamada HTTP externa que ficava no hot path de TODO connect e
-// de CADA tentativa de reconexão (numa tempestade de reconexão, N chamadas em paralelo). TTL de
-// 12h; em falha, reusa a última versão conhecida (stale) ou deixa o makeWASocket usar a default
-// embutida do Baileys (retorno undefined).
+// A consulta da rc14 usa fetch sem repassar AbortSignal. Limitamos a espera e o número de
+// consultas; só `isLatest:true` atualiza o cache. Um retorno tardio após o teto é ignorado.
 type BaileysVersion = Awaited<
   ReturnType<typeof fetchLatestBaileysVersion>
 >['version'];
+type VersionSelection = {
+  version: BaileysVersion | undefined;
+  source: 'latest' | 'cache' | 'stale-cache' | 'bundled';
+};
 let baileysVersionCache: {
   version: BaileysVersion;
   fetchedAt: number;
 } | null = null;
 const BAILEYS_VERSION_TTL_MS = 12 * 60 * 60 * 1000;
+const BAILEYS_VERSION_FETCH_TIMEOUT_MS = 3_000;
+const BAILEYS_VERSION_RETRY_MS = 30_000;
+let baileysVersionFetch: Promise<VersionSelection> | null = null;
+let lastVersionFetchAt: number | null = null;
 
-async function latestBaileysVersion(
-  logger: Logger,
-): Promise<BaileysVersion | undefined> {
+function staleVersion(): VersionSelection {
+  return baileysVersionCache
+    ? { version: baileysVersionCache.version, source: 'stale-cache' }
+    : { version: undefined, source: 'bundled' };
+}
+
+async function latestBaileysVersion(logger: Logger): Promise<VersionSelection> {
   if (
     baileysVersionCache &&
     Date.now() - baileysVersionCache.fetchedAt < BAILEYS_VERSION_TTL_MS
   ) {
-    return baileysVersionCache.version;
+    return { version: baileysVersionCache.version, source: 'cache' };
   }
-  try {
-    const { version } = await fetchLatestBaileysVersion();
-    baileysVersionCache = { version, fetchedAt: Date.now() };
-    return version;
-  } catch (e) {
-    logger.warn(
-      { err: (e as Error).message },
-      'fetchLatestBaileysVersion falhou — usando versão em cache/default',
-    );
-    return baileysVersionCache?.version;
-  }
+  if (baileysVersionFetch) return baileysVersionFetch;
+  if (
+    lastVersionFetchAt !== null &&
+    Date.now() - lastVersionFetchAt < BAILEYS_VERSION_RETRY_MS
+  )
+    return staleVersion();
+  lastVersionFetchAt = Date.now();
+  baileysVersionFetch = (async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const result = await Promise.race([
+        fetchLatestBaileysVersion(),
+        new Promise<undefined>((resolve) => {
+          timer = setTimeout(
+            () => resolve(undefined),
+            BAILEYS_VERSION_FETCH_TIMEOUT_MS,
+          );
+          timer.unref?.();
+        }),
+      ]);
+      if (result?.isLatest) {
+        baileysVersionCache = {
+          version: result.version,
+          fetchedAt: Date.now(),
+        };
+        return {
+          version: result.version,
+          source: 'latest',
+        } as VersionSelection;
+      }
+      logger.warn(
+        { timedOut: !result, err: result?.error },
+        'versão Baileys não confirmada; usando cache/default embutido',
+      );
+    } catch (e) {
+      logger.warn(
+        { err: e },
+        'consulta de versão Baileys falhou; usando cache/default embutido',
+      );
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    return staleVersion();
+  })().finally(() => {
+    baileysVersionFetch = null;
+  });
+  return baileysVersionFetch;
 }
 
 // Converte um Contact do Baileys (contacts.upsert/update) em ContactRecord do diretório.
@@ -409,6 +461,7 @@ function toContactJid(jid: string): string {
 }
 
 const MAX_RECONNECT = 5;
+const MAX_RESTART_REQUIRED_STREAK = 3;
 const SENT_CACHE_MAX = 1000;
 const UPSERT_CACHE_MAX = 2000;
 // WA-12 (auditoria 09/2026): cache de metadata de grupo. A doc do Baileys recomenda
@@ -448,6 +501,9 @@ export class BaileysEngine implements IEngine {
   private qrBase64: string | null = null;
   private stopped = false;
   private reconnectAttempts = 0;
+  private replacedRetryUsed = false;
+  private replacedRetryAttempted = false;
+  private restartRequiredStreak = 0;
   // Mutex de ciclo de vida (espelha o da WwebjsEngine): serializa start/stop/logout/reconexão da
   // MESMA sessão. Sem isto, dois start() próximos (duplo clique, restart sobre start, create +
   // autostart) passam ambos pelo `if (this.sock)` de connect() com sock=null e criam DOIS
@@ -524,13 +580,17 @@ export class BaileysEngine implements IEngine {
     return this.serialize(() => {
       this.stopped = false;
       this.reconnectAttempts = 0;
+      this.replacedRetryUsed = false;
+      this.replacedRetryAttempted = false;
+      this.restartRequiredStreak = 0;
       this.clearReconnectTimer(); // WA-11: reconexão pendente de um ciclo anterior não vale mais
       this.connectGeneration += 1;
       return this.connect();
     });
   }
 
-  private async connect(): Promise<void> {
+  private async connect(persistStartingStatus = true): Promise<void> {
+    if (this.stopped) return;
     if (this.sock) {
       this.detachSocketListeners();
       try {
@@ -545,11 +605,34 @@ export class BaileysEngine implements IEngine {
       this.deps.prisma,
       this.deps.sessionId,
     );
-    // Item 7 — versão com cache de processo (TTL 12h) em vez de HTTP a cada connect/reconnect.
-    const version = await latestBaileysVersion(this.deps.logger);
+    if (this.stopped) return;
+    const canaryOverride =
+      this.deps.baileysProtocolCanarySessionId === this.deps.sessionId &&
+      this.deps.baileysProtocolVersion;
+    const selected = canaryOverride
+      ? {
+          version: canaryOverride.split('.').map(Number) as BaileysVersion,
+          source: 'canary-override' as const,
+        }
+      : await latestBaileysVersion(this.deps.logger);
+    if (this.stopped) return;
+    const { version } = selected;
+    this.deps.logger.info(
+      {
+        sessionId: this.deps.sessionId,
+        version: (version ?? DEFAULT_CONNECTION_CONFIG.version).join('.'),
+        source: selected.source,
+      },
+      'versão do protocolo Baileys nesta conexão',
+    );
+    this.deps.onProtocolVersion?.(
+      (version ?? DEFAULT_CONNECTION_CONFIG.version).join('.'),
+      selected.source,
+    );
 
     // Proxy (§7.4): o mesmo Agent serve para o WebSocket (`agent`) e para o download de mídia (`fetchAgent`).
     const agent = (await this.deps.resolveAgent?.()) ?? undefined;
+    if (this.stopped) return;
 
     // Guard anti-vazamento (opcional, WA_REQUIRE_PROXY): sem proxy resolvido, o WhatsApp seria
     // acessado DIRETO pelo IP do servidor (datacenter) — gatilho nº 1 de flag de automação na
@@ -615,7 +698,8 @@ export class BaileysEngine implements IEngine {
     });
     this.sock = sock;
     this.groupMetaCache.clear(); // socket novo: participantes podem ter mudado offline
-    this.setStatus('STARTING');
+    if (persistStartingStatus) this.setStatus('STARTING');
+    else this.status = 'STARTING'; // 440: não pisar no WORKING de outra réplica antes do open
 
     // F7.2 — cada handler roda dentro de `safe()`: um erro processando evento de UMA sessão é
     // logado e isolado (não vira uncaughtException nem derruba as outras sessões).
@@ -623,7 +707,10 @@ export class BaileysEngine implements IEngine {
       this.safe(() => saveCreds(), 'creds.update'),
     );
     sock.ev.on('connection.update', (u) =>
-      this.safe(() => this.onConnectionUpdate(u), 'connection.update'),
+      this.safe(
+        () => this.serialize(() => this.onConnectionUpdate(u, sock)),
+        'connection.update',
+      ),
     );
     sock.ev.on('messages.upsert', (u) =>
       this.safe(() => this.onMessagesUpsert(u), 'messages.upsert'),
@@ -764,7 +851,10 @@ export class BaileysEngine implements IEngine {
 
   private async onConnectionUpdate(
     update: Partial<ConnectionState>,
+    eventSock?: WASocket,
   ): Promise<void> {
+    if (this.stopped || (eventSock && eventSock !== this.sock)) return;
+    const generation = this.connectGeneration;
     const { connection, lastDisconnect, qr } = update;
 
     // rc14: notificação MEX e fetchAccountReachoutTimelock chegam aqui com o MESMO shape.
@@ -789,9 +879,26 @@ export class BaileysEngine implements IEngine {
       void this.fetchReachoutTimelock();
     }
 
+    // `onRestrictionSignal` pode esperar I/O. Um start/stop durante esse await invalida QR,
+    // open e close do socket anterior; a pausa E8 já usa o próprio guard do RPC.
+    if (
+      this.stopped ||
+      generation !== this.connectGeneration ||
+      (eventSock && eventSock !== this.sock)
+    )
+      return;
+
     if (qr) {
+      if (this.replacedRetryUsed) return; // réplica substituída não publica QR na tentativa quieta
       try {
-        this.qrBase64 = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
+        const qrBase64 = await QRCode.toDataURL(qr, { margin: 1, width: 320 });
+        if (
+          this.stopped ||
+          generation !== this.connectGeneration ||
+          (eventSock && eventSock !== this.sock)
+        )
+          return;
+        this.qrBase64 = qrBase64;
         this.setStatus('SCAN_QR_CODE');
       } catch (e) {
         this.deps.logger.error({ err: e }, 'falha ao gerar QR');
@@ -801,20 +908,56 @@ export class BaileysEngine implements IEngine {
     if (connection === 'open') {
       this.qrBase64 = null;
       this.reconnectAttempts = 0;
+      this.replacedRetryUsed = false;
+      this.replacedRetryAttempted = false;
+      this.restartRequiredStreak = 0;
       const me = this.sock?.user;
       this.setStatus('WORKING', {
         meJid: me?.id ?? null,
         mePushName: me?.name ?? null,
         error: null,
+        lastErrorDetails: null,
       });
       void this.warmLidCache(); // aquece o cache LID↔telefone do diretório persistido
     }
 
     if (connection === 'close') {
-      const statusCode = (lastDisconnect?.error as Boom | undefined)?.output
-        ?.statusCode;
+      const details = disconnectDetails(lastDisconnect?.error);
+      const decision = classifyDisconnect(details.code, details.reason);
+      recordDisconnect('baileys', details.code);
+      if (this.stopped) return;
+      if (this.replacedRetryUsed) {
+        // Após 440, esta réplica perdeu ownership. Nenhum código da tentativa quieta pode
+        // limpar credenciais, persistir terminal ou publicar alerta. Um close duplicado antes
+        // do timer mantém a única tentativa agendada; depois dela, a réplica fica quiescente.
+        if (this.replacedRetryAttempted) {
+          this.stopped = true;
+          this.clearReconnectTimer();
+          this.status = 'DEGRADED';
+        }
+        return;
+      }
+      if (decision.action !== 'restart') this.restartRequiredStreak = 0;
+      // Não oferecer envio por um socket já fechado durante backoff. Este estado é apenas local;
+      // um processo antigo que recebeu 440 não sobrescreve o status compartilhado do novo.
+      this.status = 'DEGRADED';
+      try {
+        await this.deps.onDisconnect?.(details);
+      } catch (err) {
+        this.deps.logger.error(
+          { err },
+          'falha ao persistir motivo da desconexão',
+        );
+      }
 
-      if (statusCode === DisconnectReason.loggedOut) {
+      if (
+        this.stopped ||
+        generation !== this.connectGeneration ||
+        (eventSock && eventSock !== this.sock)
+      )
+        return;
+
+      if (decision.action === 'logged_out') {
         // Deslogado pelo celular: as credenciais persistidas estão MORTAS — qualquer
         // reconexão/restart com elas volta a falhar sem nunca gerar QR. Limpa tudo e para em
         // STOPPED: o próximo start (botão Conectar / POST /new-qr) gera QR novo direto.
@@ -832,13 +975,46 @@ export class BaileysEngine implements IEngine {
         this.setStatus('STOPPED', {
           meJid: null,
           mePushName: null,
-          error:
-            'Desconectada pelo celular (loggedOut) — credenciais limpas; gere um novo QR para reconectar',
+          error: decision.error,
+          lastErrorDetails: details,
         });
         return;
       }
-      if (this.stopped) {
-        this.setStatus('STOPPED', { error: null });
+      if (
+        decision.action === 'terminal' ||
+        decision.action === 'client_too_old'
+      ) {
+        this.stopped = true;
+        this.clearReconnectTimer();
+        this.setStatus('FAILED', {
+          error: decision.error,
+          lastErrorDetails: details,
+        });
+        if (decision.action === 'client_too_old') {
+          this.deps.onEvent('session.client_too_old', details);
+        }
+        return;
+      }
+
+      if (decision.action === 'replaced') {
+        this.replacedRetryUsed = true;
+        this.scheduleReconnect(60_000, details, false, true);
+        return;
+      }
+
+      if (decision.action === 'restart') {
+        // 515 após pair-success é parte do handshake; não consome orçamento de falhas.
+        this.restartRequiredStreak += 1;
+        if (this.restartRequiredStreak > MAX_RESTART_REQUIRED_STREAK) {
+          this.stopped = true;
+          this.setStatus('DEGRADED', {
+            error:
+              'Reinício 515 repetido sem conexão aberta — verifique a sessão',
+            lastErrorDetails: details,
+          });
+          return;
+        }
+        this.scheduleReconnect(1_000, details, true);
         return;
       }
 
@@ -866,38 +1042,75 @@ export class BaileysEngine implements IEngine {
       }
 
       this.reconnectAttempts += 1;
-      if (this.reconnectAttempts > MAX_RECONNECT) {
-        this.setStatus('DEGRADED', {
-          error: `Falha ao reconectar após ${MAX_RECONNECT} tentativas`,
-        });
-        return;
-      }
-      const delay =
-        Math.min(30_000, 1_000 * 2 ** this.reconnectAttempts) +
-        Math.floor(Math.random() * 1_000);
-      this.deps.logger.warn(
-        { statusCode, attempt: this.reconnectAttempts, delay },
-        'reconectando sessão',
-      );
-      // WA-11: timer ÚNICO por geração — start()/stop()/logout() cancelam; se um start manual
-      // trocou a geração no meio-tempo, o callback não derruba o socket novo.
-      this.clearReconnectTimer();
-      const gen = this.connectGeneration;
-      this.reconnectTimer = setTimeout(() => {
-        this.reconnectTimer = undefined;
-        if (this.stopped || gen !== this.connectGeneration) return;
-        // Serializada e re-checando `stopped` DENTRO da fila: um stop()/logout() que entrou
-        // entre o agendamento e a execução cancela a reconexão em vez de ressuscitar o socket.
-        void this.serialize(() =>
-          this.stopped || gen !== this.connectGeneration
-            ? Promise.resolve()
-            : this.connect(),
-        ).catch((e) =>
-          this.deps.logger.error({ err: e }, 'erro ao reconectar'),
-        );
-      }, delay);
-      this.reconnectTimer.unref?.();
+      this.scheduleBudgetedReconnect(details);
     }
+  }
+
+  private scheduleBudgetedReconnect(details: SessionErrorDetails): void {
+    if (this.reconnectAttempts > MAX_RECONNECT) {
+      this.clearReconnectTimer();
+      this.setStatus('DEGRADED', {
+        error: `Falha ao reconectar após ${MAX_RECONNECT} tentativas (${details.code ?? 'sem código'})`,
+        lastErrorDetails: details,
+      });
+      return;
+    }
+    const delay =
+      Math.min(30_000, 1_000 * 2 ** this.reconnectAttempts) +
+      Math.floor(Math.random() * 1_000);
+    this.scheduleReconnect(delay, details, true);
+  }
+
+  private scheduleReconnect(
+    delay: number,
+    details: SessionErrorDetails,
+    retryAfterConnectFailure: boolean,
+    quietStart = false,
+  ): void {
+    this.deps.logger.warn(
+      {
+        code: details.code,
+        reason: details.reason,
+        attempt: this.reconnectAttempts,
+        delay,
+      },
+      'reconectando sessão',
+    );
+    // WA-11: um timer por geração; stop/start/logoff invalidam a intenção antiga.
+    this.clearReconnectTimer();
+    const gen = this.connectGeneration;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (this.stopped || gen !== this.connectGeneration) return;
+      if (quietStart) this.replacedRetryAttempted = true;
+      void this.serialize(() =>
+        this.stopped || gen !== this.connectGeneration
+          ? Promise.resolve()
+          : this.connect(!quietStart),
+      ).catch((err) => {
+        this.deps.logger.error(
+          { err, code: details.code },
+          'erro ao reconectar',
+        );
+        if (quietStart && gen === this.connectGeneration) {
+          this.stopped = true;
+          this.status = 'DEGRADED';
+        }
+        if (
+          !retryAfterConnectFailure ||
+          this.stopped ||
+          gen !== this.connectGeneration
+        )
+          return;
+        this.reconnectAttempts += 1;
+        this.scheduleBudgetedReconnect({
+          code: details.code,
+          reason:
+            err instanceof Error ? err.message.slice(0, 500) : details.reason,
+        });
+      });
+    }, delay);
+    this.reconnectTimer.unref?.();
   }
 
   private async onMessagesUpsert(upsert: {

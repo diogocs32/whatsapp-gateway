@@ -8,6 +8,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `gateway/test/audit.e2e-spec.ts` | 98 |
 | `gateway/test/auth.e2e-spec.ts` | 335 |
+| `gateway/test/baileys-disconnect.e2e-spec.ts` | 155 |
 | `gateway/test/baileys-offline.e2e-spec.ts` | 250 |
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/baileys-restriction.e2e-spec.ts` | 271 |
@@ -66,6 +67,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - describe “revogação de sessão” · L267
     - it “reset de senha pelo OWNER invalida o refresh do usuário” · L268
     - it “senha nova curta (<8) é rejeitada com 400” · L315
+
+## `gateway/test/baileys-disconnect.e2e-spec.ts`
+
+155 linhas · caminho: `apps/gateway/test/baileys-disconnect.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/observability/metrics.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
+
+- describe “E9 — 405 persiste diagnóstico, alerta integrador e conta métrica” · L21
+  - it “GET sessão mantém lastError string e acrescenta lastErrorDetails; webhook e métrica recebem 405” · L58
 
 ## `gateway/test/baileys-offline.e2e-spec.ts`
 
@@ -459,7 +468,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 181 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12

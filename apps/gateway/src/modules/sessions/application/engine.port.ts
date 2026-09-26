@@ -1,4 +1,5 @@
 import type { SessionStatus } from '../domain/session-status';
+import type { SessionErrorDetails } from '../domain/session.entity';
 import type {
   MessageAckEventPayload,
   MessageAckStatus,
@@ -9,6 +10,7 @@ export interface SessionStatePayload {
   meJid?: string | null;
   mePushName?: string | null;
   error?: string | null;
+  lastErrorDetails?: SessionErrorDetails | null;
 }
 
 // G2: origem de uma mensagem fromMe. `api` = saiu pela nossa API (engine.sendText/sendMedia);
@@ -79,7 +81,11 @@ export interface ReactionPayload {
 }
 
 export type EngineEventName =
-  'session.status' | 'message' | 'message.ack' | 'message.reaction';
+  | 'session.status'
+  | 'session.client_too_old'
+  | 'message'
+  | 'message.ack'
+  | 'message.reaction';
 export type EngineEventHandler = (
   name: EngineEventName,
   payload: unknown,

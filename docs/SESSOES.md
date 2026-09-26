@@ -8,14 +8,25 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                    | Início      | Objetivo                                                                                                      | Escopo                                                                     | Branch                |
+| --------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------- |
+| lid-envio-wwebjs      | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs                           | fix/lid-envio-wwebjs  |
+| e9-baileys-desconexao | 26/09 14:48 | E9/P-049: matriz de desconexão Baileys, versão, diagnóstico e métrica; PR #11 sem merge/deploy                | `sessions/infrastructure/baileys/` + config/métricas/contratos/testes/docs | feature/onda2-baileys |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **26/09 · e9-baileys-desconexao (E9/P-049, PR #11 — sem deploy):** `wa_sessions` ganhou
+  `lastErrorDetails` JSONB pela migration `20260926175800_baileys_disconnect_details`;
+  `SessionDto` expõe `{code,reason}` de forma aditiva e mantém `lastError` textual. O Baileys
+  publica `session.client_too_old` para 405 e `/metrics` soma
+  `wa_disconnects_total{engine,code}` por processo; a versão do protocolo é registrada por
+  conexão e um par de envs limita override à sessão canário. Para E10, preserve os guards
+  `stopped`/`connectGeneration`, a política de desconexão (especialmente 440 quieto) e a
+  pausa E8: `connection.update` é provisório, só o retorno direto do RPC confirma o prazo.
+  Migration aplicada apenas no Postgres local; merge/deploy/canário seguem pendentes.
 
 - **26/09 · e8-baileys-restricao (E8/P-048, PR #11 — sem deploy):** `SessionManager` consulta a
   pausa temporária de `session_guardrail` antes de cada envio de mensagem; texto, mídia,
