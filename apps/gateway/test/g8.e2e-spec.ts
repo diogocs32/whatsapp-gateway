@@ -46,6 +46,42 @@ describe('G8 config / presence / markRead (e2e)', () => {
     expect(c.modo).toBe('cold_ok');
     expect(c.cap_base).toBe(20);
     expect(c.cap_atual).toBe(20); // sessão ativa → cap_atual = cap_base
+    expect(c.wwebjsWebVersion).toBeNull();
+  });
+
+  it('override WWEBJS persiste por sessão e null devolve ao modo global', async () => {
+    const url = `/api/sessions/${sessionId}/config`;
+    const invalid = await inject(app, {
+      method: 'PATCH',
+      url,
+      headers: auth(),
+      payload: { wwebjsWebVersion: '../segredo' },
+    });
+    expect(invalid.statusCode).toBe(400);
+
+    const set = await inject(app, {
+      method: 'PATCH',
+      url,
+      headers: auth(),
+      payload: { wwebjsWebVersion: '2.3000.1046934385-alpha' },
+    });
+    expect(set.statusCode).toBe(200);
+    expect(set.json().wwebjsWebVersion).toBe('2.3000.1046934385-alpha');
+    const persisted = await inject(app, {
+      method: 'GET',
+      url,
+      headers: bearer(),
+    });
+    expect(persisted.json().wwebjsWebVersion).toBe('2.3000.1046934385-alpha');
+
+    const reset = await inject(app, {
+      method: 'PATCH',
+      url,
+      headers: auth(),
+      payload: { wwebjsWebVersion: null },
+    });
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json().wwebjsWebVersion).toBeNull();
   });
 
   it('PATCH /sessions/:id/config muda o cap SEM redeploy', async () => {

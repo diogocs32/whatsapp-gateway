@@ -5,19 +5,19 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 270 arquivos · 1481 símbolos (métodos/funções/assinaturas/constantes) · 1468 chamadas resolvidas · 757 testes (it/test)
+- 272 arquivos · 1484 símbolos (métodos/funções/assinaturas/constantes) · 1476 chamadas resolvidas · 763 testes (it/test)
 
 ## Áreas
 
 | Área | Arquivos | Linhas | Mapa |
 | --- | --- | --- | --- |
-| packages/contracts | 1 | 646 | [contracts.md](contracts.md) |
+| packages/contracts | 1 | 674 | [contracts.md](contracts.md) |
 | Dashboard (React) | 55 | 13776 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1684 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 5 | 855 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 26 | 6891 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 26 | 6910 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 5 | 1125 | [gateway-guardrail.md](gateway-guardrail.md) |
@@ -28,7 +28,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `observability` | 7 | 625 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 12 | 1277 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 153 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 31 | 12873 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 33 | 13162 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 16 | 1239 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
@@ -81,17 +81,17 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/proxies/test-all` | `ProxiesController.testAll` (proxies.controller.ts:107) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | GET | `/api/proxies/webshare/status` | `ProxiesController.webshareStatus` (proxies.controller.ts:71) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | POST | `/api/proxies/webshare/sync` | `ProxiesController.syncWebshare` (proxies.controller.ts:112) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/sessions` | `SessionsController.list` (sessions.controller.ts:153) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions` | `SessionsController.create` (sessions.controller.ts:96) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| DELETE | `/api/sessions/:id` | `SessionsController.remove` (sessions.controller.ts:348) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/sessions/:id` | `SessionsController.get` (sessions.controller.ts:173) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/activate` | `SessionsController.activate` (sessions.controller.ts:305) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions` | `SessionsController.list` (sessions.controller.ts:155) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions` | `SessionsController.create` (sessions.controller.ts:98) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| DELETE | `/api/sessions/:id` | `SessionsController.remove` (sessions.controller.ts:350) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| GET | `/api/sessions/:id` | `SessionsController.get` (sessions.controller.ts:175) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/activate` | `SessionsController.activate` (sessions.controller.ts:307) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/channels` | `ChannelsController.create` (channels.controller.ts:29) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/channels/:jid` | `ChannelsController.info` (channels.controller.ts:42) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/channels/:jid/follow` | `ChannelsController.follow` (channels.controller.ts:47) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/channels/:jid/unfollow` | `ChannelsController.unfollow` (channels.controller.ts:56) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/config` | `SessionsController.getConfig` (sessions.controller.ts:188) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| PATCH | `/api/sessions/:id/config` | `SessionsController.patchConfig` (sessions.controller.ts:195) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/config` | `SessionsController.getConfig` (sessions.controller.ts:190) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| PATCH | `/api/sessions/:id/config` | `SessionsController.patchConfig` (sessions.controller.ts:197) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/contacts/:jid/profile-picture` | `ContactsController.profilePicture` (contacts.controller.ts:106) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/contacts/block` | `ContactsController.block` (contacts.controller.ts:121) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/contacts/check` | `ContactsController.check` (contacts.controller.ts:89) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -112,8 +112,8 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/sessions/:id/groups/:groupId/photo` | `GroupsController.photo` (groups.controller.ts:213) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/groups/:groupId/settings` | `GroupsController.settings` (groups.controller.ts:192) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/groups/:groupId/subject` | `GroupsController.subject` (groups.controller.ts:122) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/health` | `SessionsController.health` (sessions.controller.ts:179) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/logout` | `SessionsController.logout` (sessions.controller.ts:341) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/health` | `SessionsController.health` (sessions.controller.ts:181) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/logout` | `SessionsController.logout` (sessions.controller.ts:343) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/messages` | `MessagesController.list` (messages.controller.ts:275) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/:chatId/flag` | `MessagesController.chatFlag` (messages.controller.ts:409) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/:msgId/forward` | `MessagesController.forward` (messages.controller.ts:527) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -128,21 +128,21 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | GET | `/api/sessions/:id/messages/search` | `MessagesController.search` (messages.controller.ts:358) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/sync` | `MessagesController.sync` (messages.controller.ts:380) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/messages/text` | `MessagesController.sendText` (messages.controller.ts:596) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/new-qr` | `SessionsController.newQr` (sessions.controller.ts:372) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/pairing-code` | `SessionsController.pairingCode` (sessions.controller.ts:379) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/pause` | `SessionsController.pause` (sessions.controller.ts:310) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/presence` | `SessionsController.presence` (sessions.controller.ts:212) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/profile/name` | `SessionsController.profileName` (sessions.controller.ts:247) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/profile/photo` | `SessionsController.profilePhoto` (sessions.controller.ts:267) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/profile/status` | `SessionsController.profileStatus` (sessions.controller.ts:228) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/new-qr` | `SessionsController.newQr` (sessions.controller.ts:374) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/pairing-code` | `SessionsController.pairingCode` (sessions.controller.ts:381) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/pause` | `SessionsController.pause` (sessions.controller.ts:312) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/presence` | `SessionsController.presence` (sessions.controller.ts:214) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/profile/name` | `SessionsController.profileName` (sessions.controller.ts:249) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/profile/photo` | `SessionsController.profilePhoto` (sessions.controller.ts:269) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/profile/status` | `SessionsController.profileStatus` (sessions.controller.ts:230) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/proxy` | `ProxiesController.getAssignment` (proxies.controller.ts:145) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | PUT | `/api/sessions/:id/proxy` | `ProxiesController.setAssignment` (proxies.controller.ts:160) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/sessions/:id/qr` | `SessionsController.qr` (sessions.controller.ts:356) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/quarantine` | `SessionsController.quarantine` (sessions.controller.ts:295) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/restart` | `SessionsController.restart` (sessions.controller.ts:334) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/start` | `SessionsController.start` (sessions.controller.ts:320) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/stop` | `SessionsController.stop` (sessions.controller.ts:327) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/warmup` | `SessionsController.warmup` (sessions.controller.ts:300) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/qr` | `SessionsController.qr` (sessions.controller.ts:358) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/quarantine` | `SessionsController.quarantine` (sessions.controller.ts:297) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/restart` | `SessionsController.restart` (sessions.controller.ts:336) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/start` | `SessionsController.start` (sessions.controller.ts:322) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/stop` | `SessionsController.stop` (sessions.controller.ts:329) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/warmup` | `SessionsController.warmup` (sessions.controller.ts:302) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/users` | `UsersController.list` (users.controller.ts:79) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | POST | `/api/users` | `UsersController.create` (users.controller.ts:92) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | DELETE | `/api/users/:id` | `UsersController.remove` (users.controller.ts:108) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
@@ -182,7 +182,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Evento (`name`) | Publicado por | Assinado por |
 | --- | --- | --- |
-| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:195), `SessionManager.handleEngineEvent` (session-manager.service.ts:240) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
+| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:195), `SessionManager.handleEngineEvent` (session-manager.service.ts:247) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
 | `'wa.event.remote'` | `EventFanout.onRemote` (event-fanout.ts:80) | `EventsController.stream` (events.controller.ts:39), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:38) |
 
 ## Banco (Prisma) — quem lê e quem escreve
@@ -197,7 +197,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `proxy` | `PrismaProxyRepository.create`, `PrismaProxyRepository.delete`, `PrismaProxyRepository.setEnabled`, `PrismaProxyRepository.updateConnection`, `PrismaProxyRepository.updateTest` | `PrismaProxyRepository.findById`, `PrismaProxyRepository.findByWebshareId`, `PrismaProxyRepository.listEnabledAlive`, `PrismaProxyRepository.listInRange`, `PrismaProxyRepository.list`, `PrismaProxyRepository.nextPosition` |
 | `refreshToken` | `PrismaRefreshTokenRepository.create`, `PrismaRefreshTokenRepository.revokeAllForUser`, `PrismaRefreshTokenRepository.revokeFamilyByToken`, `PrismaRefreshTokenRepository.rotate` | `PrismaRefreshTokenRepository.revokeFamilyByToken`, `PrismaRefreshTokenRepository.rotate` |
 | `sendIntent` | `RetentionService.sweep`, `SendIntentService.complete`, `SendIntentService.fail`, `SendIntentService.reserve` | `SendIntentService.reserve` |
-| `sessionConfig` | `SessionConfigService.get`, `SessionConfigService.update` | — |
+| `sessionConfig` | `SessionConfigService.get`, `SessionConfigService.update` | `SessionManager.getOrCreateEngine` |
 | `sessionGuardrail` | `GuardrailService.apply`, `GuardrailService.getState`, `GuardrailService.recordHardSignal` | `GuardrailService.apply`, `GuardrailService.statesFor` |
 | `sessionMetric` | `ReplyRateService.computeFor` | `GuardrailService.fleetMedianReplyRate` |
 | `sessionProxyAssignment` | `PrismaProxyRepository.setAssignment`, `PrismaProxyRepository.setCurrent` | `PrismaProxyRepository.getAssignment`, `PrismaProxyRepository.usedProxyIds` |

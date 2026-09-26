@@ -90,6 +90,34 @@ export interface SessionDto {
   updatedAt: string;
 }
 
+// GET/PATCH /api/sessions/:id/config. O override de build vale só para WWEBJS e é aplicado
+// no próximo start da sessão; null herda a env WWEBJS_WEB_VERSION (ou o default do gateway).
+export interface SessionConfigDto {
+  capBase: number;
+  warmupCurve: number[];
+  regiaoDdd: string | null;
+  modo: 'cold_ok' | 'inbound_only' | 'manual_first';
+  janelaInicio: number;
+  janelaFim: number;
+  timezone: string;
+  device: Record<string, unknown> | null;
+  wwebjsWebVersion: string | null;
+  cap_base: number;
+  cap_atual: number;
+}
+
+export interface UpdateSessionConfigRequest {
+  capBase?: number;
+  warmupCurve?: number[];
+  regiaoDdd?: string | null;
+  modo?: SessionConfigDto['modo'];
+  janelaInicio?: number;
+  janelaFim?: number;
+  timezone?: string;
+  device?: Record<string, unknown>;
+  wwebjsWebVersion?: string | null;
+}
+
 export interface CreateSessionRequest {
   name: string;
   engine?: Engine;

@@ -154,7 +154,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `runReserved` L169, `SendIntentService.fail` (send-intent.service.ts:105)
   - chamado por: `forward` L101
 - `runReserved(sessionId, orig, dests, input, reserved)` · L169 · private · async
-  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:406), `batchFingerprint` (forward.decision.ts:153), `batchStatus` (forward.decision.ts:176), `derivedKey` (forward.decision.ts:146), `destinationFingerprint` (forward.decision.ts:167), `exceedsFrequentLimit` (forward.decision.ts:135), `failAll` L414, `finishBatch` L433, `limitError` L474, `sendOne` L357, `toSource` L484, `SendIntentService.reserve` (send-intent.service.ts:26), `MessageRepository.findByIdempotencyKey` (message.repository.ts:80), `MessageRepository.findInboundChat` (message.repository.ts:92), `SessionManager.prepareForward` (session-manager.service.ts:565)
+  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:406), `batchFingerprint` (forward.decision.ts:153), `batchStatus` (forward.decision.ts:176), `derivedKey` (forward.decision.ts:146), `destinationFingerprint` (forward.decision.ts:167), `exceedsFrequentLimit` (forward.decision.ts:135), `failAll` L414, `finishBatch` L433, `limitError` L474, `sendOne` L357, `toSource` L484, `SendIntentService.reserve` (send-intent.service.ts:26), `MessageRepository.findByIdempotencyKey` (message.repository.ts:80), `MessageRepository.findInboundChat` (message.repository.ts:92), `SessionManager.prepareForward` (session-manager.service.ts:572)
   - chamado por: `run` L147
 - `sendOne(sessionId, prepared, p, results)` · L357 · private · async
   - chama: `pace` L399, `withTimeout` L501, `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `PreparedForward.send` (engine.port.ts:268)
@@ -202,10 +202,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `logger` · L17 · private · campo
 - `constructor(repo, manager)` · L19
 - `syncChat(sessionId, chatJid, limit)` · L25 · async
-  - chama: `toInput` L65, `MessageRepository.saveHistorical` (message.repository.ts:78), `SessionManager.fetchChatHistory` (session-manager.service.ts:536)
+  - chama: `toInput` L65, `MessageRepository.saveHistorical` (message.repository.ts:78), `SessionManager.fetchChatHistory` (session-manager.service.ts:543)
   - chamado por: `syncAll` L44, `MessagesController.sync` (messages.controller.ts:380)
 - `syncAll(sessionId, opts)` · L44 · async
-  - chama: `syncChat` L25, `SessionManager.listChats` (session-manager.service.ts:533)
+  - chama: `syncChat` L25, `SessionManager.listChats` (session-manager.service.ts:540)
   - chamado por: `MessagesController.sync` (messages.controller.ts:380)
 - `toInput(sessionId, h)` · L65 · private
   - chamado por: `syncChat` L25
@@ -640,13 +640,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `sync(id, body)` · L380 · async · @Post('sync')
   - chama: `InboxSyncService.syncAll` (inbox-sync.service.ts:44), `InboxSyncService.syncChat` (inbox-sync.service.ts:25)
 - `chatFlag(id, chatId, body)` · L409 · async · @Post(':chatId/flag')
-  - chama: `SessionManager.setChatFlag` (session-manager.service.ts:543)
+  - chama: `SessionManager.setChatFlag` (session-manager.service.ts:550)
 - `downloadMedia(id, msgId)` · L441 · async · @Get(':msgId/media')
   - chama: `MediaStorage.getObject` (media-storage.service.ts:118), `MessageRepository.findByRef` (message.repository.ts:108), `inlineDisposition` (content-disposition.ts:17), `safeContentType` (content-disposition.ts:54)
 - `markRead(id, msgId)` · L483 · async · @Post(':msgId/read')
-  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.markRead` (session-manager.service.ts:528)
+  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.markRead` (session-manager.service.ts:535)
 - `reaction(id, msgId, body)` · L495 · async · @Post(':msgId/reaction')
-  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.sendReaction` (session-manager.service.ts:552)
+  - chama: `MessageRepository.findByKeyId` (message.repository.ts:97), `SessionManager.sendReaction` (session-manager.service.ts:559)
 - `forward(id, msgId, body)` · L527 · async · @Post(':msgId/forward')
   - chama: `ForwardService.forward` (forward.service.ts:101)
 - `deduped(id, idempotencyKey)` · L545 · private · async
@@ -656,15 +656,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `sendFingerprint` (send-intent.decision.ts:53), `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `SendIntentService.reserve` (send-intent.service.ts:26), `assertColdAllowed` L256, `deduped` L545
   - chamado por: `sendLocation` L767, `sendMedia` L625, `sendMediaUrl` L695, `sendPoll` L806, `sendText` L596
 - `sendText(id, body)` · L596 · async · @Post('text')
-  - chama: `sendWithIntent` L560, `SessionManager.sendText` (session-manager.service.ts:468)
+  - chama: `sendWithIntent` L560, `SessionManager.sendText` (session-manager.service.ts:475)
 - `sendMedia(id, req)` · L625 · async · @Post('media')
-  - chama: `sendFingerprint` (send-intent.decision.ts:53), `inferType` L148, `sendWithIntent` L560, `SessionManager.sendMedia` (session-manager.service.ts:482)
+  - chama: `sendFingerprint` (send-intent.decision.ts:53), `inferType` L148, `sendWithIntent` L560, `SessionManager.sendMedia` (session-manager.service.ts:489)
 - `sendMediaUrl(id, body)` · L695 · async · @Post('media-url')
-  - chama: `inferType` L148, `sendWithIntent` L560, `SessionManager.sendMedia` (session-manager.service.ts:482), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
+  - chama: `inferType` L148, `sendWithIntent` L560, `SessionManager.sendMedia` (session-manager.service.ts:489), `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
 - `sendLocation(id, body)` · L767 · async · @Post('location')
-  - chama: `sendWithIntent` L560, `SessionManager.sendLocation` (session-manager.service.ts:490)
+  - chama: `sendWithIntent` L560, `SessionManager.sendLocation` (session-manager.service.ts:497)
 - `sendPoll(id, body)` · L806 · async · @Post('poll')
-  - chama: `sendWithIntent` L560, `SessionManager.sendPoll` (session-manager.service.ts:498)
+  - chama: `sendWithIntent` L560, `SessionManager.sendPoll` (session-manager.service.ts:505)
 
 **Funções e constantes de topo**
 - `coldField` = `z.boolean().optional()` · L65

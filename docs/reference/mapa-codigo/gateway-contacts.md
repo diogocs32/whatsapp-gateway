@@ -33,15 +33,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `listDirectory(id, search, limit, offset)` · L58 · async · @Get('directory')
   - chama: `ContactDirectory.list` (contact-directory.service.ts:202), `clampInt` (query-int.ts:4)
 - `check(id, body)` · L89 · async · @Post('check')
-  - chama: `SessionManager.checkNumbers` (session-manager.service.ts:667)
+  - chama: `SessionManager.checkNumbers` (session-manager.service.ts:674)
 - `profilePicture(id, jid)` · L106 · async · @Get(':jid/profile-picture')
-  - chama: `SessionManager.profilePicture` (session-manager.service.ts:670)
+  - chama: `SessionManager.profilePicture` (session-manager.service.ts:677)
 - `block(id, body)` · L121 · async · @Post('block')
-  - chama: `SessionManager.setBlock` (session-manager.service.ts:673)
+  - chama: `SessionManager.setBlock` (session-manager.service.ts:680)
 - `save(id, body)` · L140 · async · @Post('save')
-  - chama: `SessionManager.saveContact` (session-manager.service.ts:680)
+  - chama: `SessionManager.saveContact` (session-manager.service.ts:687)
 - `remove(id, body)` · L164 · async · @Post('remove')
-  - chama: `SessionManager.removeContact` (session-manager.service.ts:687)
+  - chama: `SessionManager.removeContact` (session-manager.service.ts:694)
 
 **Funções e constantes de topo**
 - `checkSchema` = `z.object({ numbers: z.array(z.string().min(5).max(40)).min(1).max(50)…` · L21

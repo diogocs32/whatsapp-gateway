@@ -61,6 +61,7 @@ import type {
 } from '../../application/engine.port';
 import { ForwardSourceError } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
+import { isWwebjsVersionMode } from '../../domain/wwebjs-version';
 
 // Caminho do Chrome do sistema (no WSL já existe /usr/bin/google-chrome-stable). Configurável por env.
 // `||` (não `??`): env VAZIA se comporta como ausente — mesma semântica do envStr() do config.ts.
@@ -71,14 +72,11 @@ const AUTH_PATH = process.env.WWEBJS_DATA_PATH || 'auth/wwebjs';
 // Versão do WhatsApp Web a FIXAR. Sem fixar, o wwebjs baixa a versão "ao vivo" do web.whatsapp.com a
 // cada conexão e a renegocia (é o "fica atualizando muito tempo") — e uma build ruim do WhatsApp Web
 // quebra getChats/getContacts (o wwebjs depende do Store interno). Fixar acelera e estabiliza.
-// DEFAULT = versão VALIDADA em produção (14/08/2026, B-002): grupos + envio + leads 99/99 COM
-// telefone E nome — EXIGE o patch `$1` (patches/whatsapp-web.js+1.34.7.patch; sem ele, builds
-// ≥2.3000.104x quebram sendMessage/getChats/downloadMedia com erro minificado `r`/`reading 'id'`).
-// ⚠️ A Meta expira builds em ~2 meses (esta: 13/10/2026) → revalidar uma mais nova antes disso
-// (leads com phone + sync 100% + envio); se expirar sem troca, o retry 'live' + warn seguram a
-// operação (o patch continua valendo na live).
+// DEFAULT = última build validada com chip (14/08/2026). Ela sai do catálogo em 13/10/2026;
+// a candidata 2.3000.1046934385-alpha deve passar por canário por sessão antes de promoção.
+// O patch desta versão inclui o fallback `$1` e o `__x_id` da mídia.
 // WWEBJS_WEB_VERSION aceita: versão explícita | 'auto' (currentVersion do wa-version — MAIS NOVA,
-// risco de LID-only nos contatos) | 'live' (não fixa).
+// risco de LID-only nos contatos) | 'live' (não fixa). Config por sessão prevalece sobre a env.
 const DEFAULT_WEB_VERSION = '2.3000.1045101284-alpha';
 const WEB_VERSION_MODE = process.env.WWEBJS_WEB_VERSION || DEFAULT_WEB_VERSION;
 const WEB_VERSION_REMOTE =
@@ -130,6 +128,8 @@ export function userAgentFor(sessionId: string): string {
 // Máximo de reconexões automáticas seguidas antes de desistir e marcar DEGRADED (espelha o
 // Baileys — baileys.engine.ts:398). O contador zera a cada 'ready' (conexão bem-sucedida).
 const MAX_RECONNECT = 5;
+const MAX_PAIRING_RENEWALS = 5;
+const MAX_PAGE_HEALS = 3;
 
 // mime/fileName → extensão do objeto no S3. Espelha o extOf do Baileys (baileys.engine.ts:226) —
 // helper mecânico (não é conhecimento de negócio), duplicado de propósito para não acoplar as
@@ -361,6 +361,8 @@ export class WWebJSEngine implements IEngine {
   private lifecycle: Promise<unknown> = Promise.resolve();
   // Reconexões automáticas seguidas (backoff). Zera no 'ready'. Ver handleDisconnect.
   private reconnectAttempts = 0;
+  private pairingRenewals = 0;
+  private pageHeals = 0;
   // Último percent visto no loading_screen (sincronização offline pós-login). Diagnóstico do
   // P-014: entra na mensagem de erro quando uma operação de Store estoura o teto — distingue
   // "ainda sincronizando em X%" de "página travada sem nunca ter emitido progresso" (null).
@@ -615,7 +617,14 @@ export class WWebJSEngine implements IEngine {
   }
 
   start(): Promise<void> {
-    return this.serialize(() => this.doStart());
+    return this.serialize(() => {
+      if (!this.client) {
+        this.reconnectAttempts = 0;
+        this.pageHeals = 0;
+        this.pairingRenewals = 0;
+      }
+      return this.doStart();
+    });
   }
 
   // attempt limita os retries internos (fallback de proxy / de webVersion) — nunca recursão infinita.
@@ -694,7 +703,16 @@ export class WWebJSEngine implements IEngine {
     }
 
     // Fixa a versão do WhatsApp Web (acelera/estabiliza o carregamento e evita quebra do Store).
-    const webVersion = await this.resolveWebVersion(forceLive);
+    const mode =
+      (await this.deps.resolveWwebjsWebVersion?.()) ?? WEB_VERSION_MODE;
+    if (!isWwebjsVersionMode(mode)) {
+      this.stopped = true;
+      this.setStatus('FAILED', {
+        error: 'Versão do WhatsApp Web inválida na configuração da sessão',
+      });
+      return;
+    }
+    const webVersion = await this.resolveWebVersion(mode, forceLive);
     // Item 6 — garante o HTML da versão no cache local: 1 download por versão, não por initialize.
     const hasLocalHtml = webVersion
       ? await this.ensureWebVersionHtml(webVersion)
@@ -801,7 +819,7 @@ export class WWebJSEngine implements IEngine {
     this.lastQrAt = null;
     this.lastPairingCode = null;
     this.setStatus('STARTING');
-    if (webVersion && WEB_VERSION_MODE !== 'auto') {
+    if (webVersion && mode !== 'auto') {
       void this.checkPinnedBuildAge(webVersion); // P-026: idade da build fixa (não bloqueia)
     }
 
@@ -839,6 +857,34 @@ export class WWebJSEngine implements IEngine {
         mePushName: client.info?.pushname ?? null,
         error: null,
       });
+      void Promise.all([client.getWWebVersion(), client.pupBrowser?.version()])
+        .then(([effectiveVersion, chromiumVersion]) => {
+          if (!current()) return;
+          const details = {
+            sessionId: this.deps.sessionId,
+            requestedVersion: webVersion ?? 'live',
+            effectiveVersion,
+            chromiumVersion: chromiumVersion ?? 'indisponível',
+            chromiumPath: CHROME_PATH,
+          };
+          if (webVersion && effectiveVersion !== webVersion) {
+            this.deps.logger.warn(
+              details,
+              'wwebjs: build efetiva diverge da versão pedida',
+            );
+          } else {
+            this.deps.logger.info(
+              details,
+              'wwebjs: build efetiva e Chromium da sessão',
+            );
+          }
+        })
+        .catch((err) =>
+          this.deps.logger.warn(
+            { err, sessionId: this.deps.sessionId },
+            'wwebjs: falha ao ler a build efetiva/Chromium',
+          ),
+        );
       // Merge: funde conversas antigas divididas em @lid (após o Store sincronizar).
       setTimeout(() => void this.mergeExistingLids(), 4000);
       // Puxa a agenda (nomes salvos) para o diretório. withStoreReady cobre o Store ainda injetando.
@@ -861,6 +907,21 @@ export class WWebJSEngine implements IEngine {
     // primeiro. O renovado aparece no log — sem isto, código expirado = beco sem saída silencioso.
     client.on('code', (code: string) => {
       if (!current()) return;
+      if (this.lastPairingCode) this.pairingRenewals += 1;
+      if (this.pairingRenewals > MAX_PAIRING_RENEWALS) {
+        this.stopped = true;
+        void this.serialize(async () => {
+          if (!current()) return;
+          await this.destroyWithTimeout();
+          this.client = null;
+          await this.closeAnonProxy();
+          this.lastPairingCode = null;
+          this.setStatus('FAILED', {
+            error: `Código de pareamento renovado ${MAX_PAIRING_RENEWALS} vezes sem conclusão — reinicie a sessão manualmente`,
+          });
+        });
+        return;
+      }
       // WA-18: o código é segredo efêmero de autenticação — NÃO vai para o log. Fica em memória e
       // sai só para o chamador autenticado (GET /:id/qr → pairingCode).
       this.lastPairingCode = code;
@@ -988,9 +1049,12 @@ export class WWebJSEngine implements IEngine {
   // Resolve a versão do WhatsApp Web a fixar NESTE start. null = não fixa ('live'/forceLive).
   // No modo 'auto', consulta a currentVersion do wa-version com cache de processo; se o fetch
   // falhar, cai no DEFAULT_WEB_VERSION.
-  private async resolveWebVersion(forceLive: boolean): Promise<string | null> {
-    if (forceLive || WEB_VERSION_MODE === 'live') return null;
-    if (WEB_VERSION_MODE !== 'auto') return WEB_VERSION_MODE;
+  private async resolveWebVersion(
+    mode: string,
+    forceLive: boolean,
+  ): Promise<string | null> {
+    if (forceLive || mode === 'live') return null;
+    if (mode !== 'auto') return mode;
     if (
       autoWebVersion &&
       Date.now() - autoWebVersion.fetchedAt < AUTO_WEB_VERSION_TTL_MS
@@ -1005,6 +1069,13 @@ export class WWebJSEngine implements IEngine {
       const j = (await res.json()) as { currentVersion?: string };
       if (!j.currentVersion) {
         throw new Error('versions.json sem currentVersion');
+      }
+      if (
+        !isWwebjsVersionMode(j.currentVersion) ||
+        j.currentVersion === 'auto' ||
+        j.currentVersion === 'live'
+      ) {
+        throw new Error('versions.json com versão inválida');
       }
       autoWebVersion = { version: j.currentVersion, fetchedAt: Date.now() };
       this.deps.logger.info(
@@ -1140,6 +1211,7 @@ export class WWebJSEngine implements IEngine {
   // agendamento e a execução cancela a reconexão em vez de ressuscitar o Chromium).
   private async handleDisconnect(reason: unknown): Promise<void> {
     const dead = this.client;
+    const code = String(reason);
     // Com TETO (WA-09): a própria lib já pode ter destruído, ou o Chromium pode estar travado —
     // nos dois casos não podemos ficar presos aqui (o handler roda fora do mutex).
     if (dead && this.client === dead) {
@@ -1172,6 +1244,23 @@ export class WWebJSEngine implements IEngine {
 
     if (this.stopped) {
       this.setStatus('STOPPED', { error: null });
+      return;
+    }
+
+    // O próprio WhatsApp encerrou a autorização ou impôs bloqueio. Reconectar aqui recriava QR
+    // indefinidamente e podia disputar a conta em CONFLICT. Só um start manual pode voltar.
+    if (['LOGOUT', 'UNPAIRED', 'UNPAIRED_IDLE', 'CONFLICT'].includes(code)) {
+      this.stopped = true;
+      this.setStatus('STOPPED', {
+        error: `${code}: reconexão automática suspensa; confira o aparelho e inicie manualmente`,
+      });
+      return;
+    }
+    if (code === 'TOS_BLOCK' || code === 'SMB_TOS_BLOCK') {
+      this.stopped = true;
+      this.setStatus('FAILED', {
+        error: `${code}: bloqueio informado pelo WhatsApp; não tentar novo QR automaticamente`,
+      });
       return;
     }
 
@@ -2447,10 +2536,27 @@ export class WWebJSEngine implements IEngine {
     if (!page || this.healing || this.stopped) return;
     const now = Date.now();
     if (now - this.lastHealAt < WWebJSEngine.HEAL_COOLDOWN_MS) return;
+    if (this.pageHeals >= MAX_PAGE_HEALS) {
+      this.stopped = true;
+      void this.serialize(async () => {
+        await this.destroyWithTimeout();
+        this.client = null;
+        await this.closeAnonProxy();
+        this.setStatus('FAILED', {
+          error: `Página do WhatsApp Web não respondeu após ${MAX_PAGE_HEALS} recargas automáticas — reinicie a sessão manualmente`,
+        });
+      });
+      return;
+    }
     this.healing = true;
     this.lastHealAt = now;
+    this.pageHeals += 1;
     this.deps.logger.warn(
-      { sessionId: this.deps.sessionId },
+      {
+        sessionId: this.deps.sessionId,
+        heal: this.pageHeals,
+        max: MAX_PAGE_HEALS,
+      },
       'wwebjs: página sem resposta — auto-heal via reload da página (sem QR)',
     );
     try {

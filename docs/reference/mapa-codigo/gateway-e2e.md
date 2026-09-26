@@ -20,7 +20,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/g5.e2e-spec.ts` | 82 |
 | `gateway/test/g6.e2e-spec.ts` | 95 |
 | `gateway/test/g7.e2e-spec.ts` | 114 |
-| `gateway/test/g8.e2e-spec.ts` | 115 |
+| `gateway/test/g8.e2e-spec.ts` | 151 |
 | `gateway/test/health.e2e-spec.ts` | 24 |
 | `gateway/test/inbox-triage.e2e-spec.ts` | 375 |
 | `gateway/test/media.e2e-spec.ts` | 484 |
@@ -31,7 +31,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/sessions.e2e-spec.ts` | 111 |
 | `gateway/test/setup-app.ts` | 179 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
-| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1031 |
+| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1014 |
 
 ## `gateway/test/audit.e2e-spec.ts`
 
@@ -287,15 +287,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/g8.e2e-spec.ts`
 
-115 linhas · caminho: `apps/gateway/test/g8.e2e-spec.ts`
+151 linhas · caminho: `apps/gateway/test/g8.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `gateway/test/setup-app.ts`
 
 - describe “G8 config / presence / markRead (e2e)” · L13
   - it “GET /sessions/:id/config → defaults + cap derivado” · L37
-  - it “PATCH /sessions/:id/config muda o cap SEM redeploy” · L51
-  - it “GET /sessions/:id/health agora traz cap_base/cap_atual” · L71
-  - it “POST /sessions/:id/presence → 201 (manager mockado)” · L82
-  - it “POST /sessions/:id/messages/:msgId/read → 201” · L93
+  - it “override WWEBJS persiste por sessão e null devolve ao modo global” · L52
+  - it “PATCH /sessions/:id/config muda o cap SEM redeploy” · L87
+  - it “GET /sessions/:id/health agora traz cap_base/cap_atual” · L107
+  - it “POST /sessions/:id/presence → 201 (manager mockado)” · L118
+  - it “POST /sessions/:id/messages/:msgId/read → 201” · L129
 
 ## `gateway/test/health.e2e-spec.ts`
 
@@ -473,78 +474,77 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/wwebjs-engine.e2e-spec.ts`
 
-1031 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
+1014 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
 - importa (interno): `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`
 
 - describe “WWebJSEngine — guard WA_REQUIRE_PROXY (P0-2)” · L51
   - it “recusa conectar sem proxy quando requireProxy=true (não vaza IP, não sobe Chromium)” · L52
-  - it “não bloqueia por engano quando requireProxy é ausente (default seguro reverso)” · L70
-- describe “WWebJSEngine — rótulo da engine (P1-1)” · L88
-  - it “expõe engineName "wwebjs" (fonte do rótulo do envelope de webhook)” · L89
-- describe “groupFlags — announce/restrict reais do grupo (P-012)” · L95
-  - it “lê os valores reais de groupMetadata” · L99
-  - it “metadata ausente → false (fallback sem regressão)” · L110
-- describe “mapInboundMediaType — tipo de mídia recebida (P0-3)” · L118
-  - it “mapeia os tipos do wwebjs para o mediaType público” · L119
-  - it “mídia desconhecida cai em document (recuperável no GET /media)” · L128
-- describe “WWebJSEngine.purgeAuthDir — limpeza do LocalAuth em disco (P1-2/P1-3)” · L134
-  - it “remove o perfil do Chromium da sessão do disco” · L135
-  - it “é no-op (não lança) para sessão sem perfil em disco” · L146
-- describe “WWebJSEngine — grupos/contatos/canais implementados (W4/P-010)” · L153
-  - it “createGroup vai à lib (sem client → "Sessão não conectada", não mais "não suportado")” · L158
-  - it “checkNumbers e setBlock idem (implementados, não mais nope)” · L166
-  - it “followChannel idem (canais beta implementados)” · L177
-- describe “WWebJSEngine — mensagens ricas (W5): reações e menções” · L186
-  - it “sendReaction vai à lib (sem client → "Sessão não conectada")” · L187
-  - it “sendText com menções não quebra o caminho (sem client → "Sessão não conectada")” · L195
-  - it “sendLocation vai à lib (sem client → "Sessão não conectada")” · L205
-  - it “sendPoll vai à lib (sem client → "Sessão não conectada")” · L217
-  - it “setProfileStatus/setProfileName vão à lib (sem client → "Sessão não conectada")” · L228
-- describe “WWebJSEngine — W8 grupos avançados (membership/settings/foto)” · L243
-  - it “groupMembershipRequests/Action e setGroupSetting/Photo vão à lib (sem client)” · L244
-- describe “WWebJSEngine — W7 inbox/histórico (listChats/fetchChatHistory)” · L262
-  - it “vão à lib (sem client → "Sessão não conectada", não são no-op)” · L263
-- describe “WWebJSEngine — W7 gestão de chat (setChatFlag)” · L273
-  - it “todos os flags vão à lib (sem client → "Sessão não conectada")” · L274
-- describe “buildAuthProxyUrl — upstream do forwarder local (proxy autenticado)” · L285
-  - it “injeta as credenciais na URL do proxy” · L286
-  - it “percent-encoda credenciais com caracteres especiais (@ : /) sem quebrar a URL” · L296
-- describe “proxy-chain — forwarder local p/ proxy autenticado (ERR_TUNNEL_CONNECTION_FAILED)” · L304
-  - it “anonymizeProxy devolve URL local sem credencial e closeAnonymizedProxy libera a porta” · L309
-- describe “userAgentFor — UA anti-flag estável por sessão (P-012)” · L320
-  - it “é DETERMINÍSTICO por sessão (mesmo id → mesmo UA entre reconexões)” · L332
-  - it “é um UA de Chrome/Linux plausível e recente (não o Chrome/101 default do wwebjs)” · L338
-  - it “varia entre sessões diferentes (frota não usa UA idêntico)” · L348
-  - it “WWEBJS_USER_AGENT força um override global explícito” · L357
-- describe “raceStoreOp + withStoreReady com teto (P-014 — página do Store travada)” · L370
-  - it “raceStoreOp: operação rápida passa; pendurada estoura com mensagem acionável + teto” · L386
-  - it “raceStoreOp: rejeição TARDIA da promise órfã é engolida (sem unhandled rejection)” · L393
-  - it “probe detecta página que não responde ANTES da operação pesada (fn nem é chamado)” · L402
-  - it “operação pendurada estoura o teto próprio (não os 240s do CDP) SEM retry” · L424
-  - it “retry do Store-ainda-injetando continua funcionando (regressão do fluxo original)” · L444
-  - it “mensagem de erro inclui o percent do loading_screen quando houve progresso (diagnóstico)” · L467
-  - it “sem client: comportamento antigo preservado (probe não roda, erro "Sessão não conectada")” · L477
-- describe “resolveParticipantsBatch SEM getContacts + auto-heal (P-014, 14/08)” · L484
-  - it “participantes resolvem phone/nome SEM chamar getContacts (getContacts ausente no client não explode)” · L508
-  - it “probe de página morta dispara o auto-heal (pupPage.reload) com cooldown single-flight” · L537
-- describe “WWebJSEngine — shutdown limpo do processo (P-015)” · L570
-  - it “shutdown() fecha o Chromium POR FORA do mutex (fila de ciclo de vida presa não impede o destroy)” · L606
-  - it “shutdown() com destroy pendurado estoura o teto próprio e RESOLVE (não pendura o grace period)” · L622
-  - it “destroy limpo grava o marcador no perfil; o start seguinte o consome SEM warn de sujo” · L633
-  - it “shutdown() sem client aberto NÃO grava o marcador (não mascara um fechamento sujo anterior)” · L664
-  - it “logout() numa página travada estoura o teto do client.logout() e segue para destroy+purga” · L680
-- describe “patch `$1` do WhatsApp Web aplicado na lib (B-002)” · L699
-  - it “Utils.js instalado contém o helper getMsgKeyId e Puppeteer.js o guard de exposeFunction” · L704
-- describe “P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)” · L724
-  - it “sendText numa página travada falha em segundos com erro acionável e dispara o heal (P-016)” · L750
-  - it “mídia acima do teto NÃO baixa: emite metadados com fileSize e não toca downloadMedia (P-017)” · L780
-  - it “mídia dentro do teto segue o fluxo normal de download (regressão)” · L809
-  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L837
-- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L864
-  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L877
-  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L890
-  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L924
-- describe “P-019 — watchdog de sync: fim do WORKING falso” · L954
-  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L967
-  - it “página volta a responder → status retorna a WORKING sozinho” · L999
-  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1022
+- describe “WWebJSEngine — rótulo da engine (P1-1)” · L71
+  - it “expõe engineName "wwebjs" (fonte do rótulo do envelope de webhook)” · L72
+- describe “groupFlags — announce/restrict reais do grupo (P-012)” · L78
+  - it “lê os valores reais de groupMetadata” · L82
+  - it “metadata ausente → false (fallback sem regressão)” · L93
+- describe “mapInboundMediaType — tipo de mídia recebida (P0-3)” · L101
+  - it “mapeia os tipos do wwebjs para o mediaType público” · L102
+  - it “mídia desconhecida cai em document (recuperável no GET /media)” · L111
+- describe “WWebJSEngine.purgeAuthDir — limpeza do LocalAuth em disco (P1-2/P1-3)” · L117
+  - it “remove o perfil do Chromium da sessão do disco” · L118
+  - it “é no-op (não lança) para sessão sem perfil em disco” · L129
+- describe “WWebJSEngine — grupos/contatos/canais implementados (W4/P-010)” · L136
+  - it “createGroup vai à lib (sem client → "Sessão não conectada", não mais "não suportado")” · L141
+  - it “checkNumbers e setBlock idem (implementados, não mais nope)” · L149
+  - it “followChannel idem (canais beta implementados)” · L160
+- describe “WWebJSEngine — mensagens ricas (W5): reações e menções” · L169
+  - it “sendReaction vai à lib (sem client → "Sessão não conectada")” · L170
+  - it “sendText com menções não quebra o caminho (sem client → "Sessão não conectada")” · L178
+  - it “sendLocation vai à lib (sem client → "Sessão não conectada")” · L188
+  - it “sendPoll vai à lib (sem client → "Sessão não conectada")” · L200
+  - it “setProfileStatus/setProfileName vão à lib (sem client → "Sessão não conectada")” · L211
+- describe “WWebJSEngine — W8 grupos avançados (membership/settings/foto)” · L226
+  - it “groupMembershipRequests/Action e setGroupSetting/Photo vão à lib (sem client)” · L227
+- describe “WWebJSEngine — W7 inbox/histórico (listChats/fetchChatHistory)” · L245
+  - it “vão à lib (sem client → "Sessão não conectada", não são no-op)” · L246
+- describe “WWebJSEngine — W7 gestão de chat (setChatFlag)” · L256
+  - it “todos os flags vão à lib (sem client → "Sessão não conectada")” · L257
+- describe “buildAuthProxyUrl — upstream do forwarder local (proxy autenticado)” · L268
+  - it “injeta as credenciais na URL do proxy” · L269
+  - it “percent-encoda credenciais com caracteres especiais (@ : /) sem quebrar a URL” · L279
+- describe “proxy-chain — forwarder local p/ proxy autenticado (ERR_TUNNEL_CONNECTION_FAILED)” · L287
+  - it “anonymizeProxy devolve URL local sem credencial e closeAnonymizedProxy libera a porta” · L292
+- describe “userAgentFor — UA anti-flag estável por sessão (P-012)” · L303
+  - it “é DETERMINÍSTICO por sessão (mesmo id → mesmo UA entre reconexões)” · L315
+  - it “é um UA de Chrome/Linux plausível e recente (não o Chrome/101 default do wwebjs)” · L321
+  - it “varia entre sessões diferentes (frota não usa UA idêntico)” · L331
+  - it “WWEBJS_USER_AGENT força um override global explícito” · L340
+- describe “raceStoreOp + withStoreReady com teto (P-014 — página do Store travada)” · L353
+  - it “raceStoreOp: operação rápida passa; pendurada estoura com mensagem acionável + teto” · L369
+  - it “raceStoreOp: rejeição TARDIA da promise órfã é engolida (sem unhandled rejection)” · L376
+  - it “probe detecta página que não responde ANTES da operação pesada (fn nem é chamado)” · L385
+  - it “operação pendurada estoura o teto próprio (não os 240s do CDP) SEM retry” · L407
+  - it “retry do Store-ainda-injetando continua funcionando (regressão do fluxo original)” · L427
+  - it “mensagem de erro inclui o percent do loading_screen quando houve progresso (diagnóstico)” · L450
+  - it “sem client: comportamento antigo preservado (probe não roda, erro "Sessão não conectada")” · L460
+- describe “resolveParticipantsBatch SEM getContacts + auto-heal (P-014, 14/08)” · L467
+  - it “participantes resolvem phone/nome SEM chamar getContacts (getContacts ausente no client não explode)” · L491
+  - it “probe de página morta dispara o auto-heal (pupPage.reload) com cooldown single-flight” · L520
+- describe “WWebJSEngine — shutdown limpo do processo (P-015)” · L553
+  - it “shutdown() fecha o Chromium POR FORA do mutex (fila de ciclo de vida presa não impede o destroy)” · L589
+  - it “shutdown() com destroy pendurado estoura o teto próprio e RESOLVE (não pendura o grace period)” · L605
+  - it “destroy limpo grava o marcador no perfil; o start seguinte o consome SEM warn de sujo” · L616
+  - it “shutdown() sem client aberto NÃO grava o marcador (não mascara um fechamento sujo anterior)” · L647
+  - it “logout() numa página travada estoura o teto do client.logout() e segue para destroy+purga” · L663
+- describe “patch `$1` do WhatsApp Web aplicado na lib (B-002)” · L682
+  - it “Utils.js instalado contém o helper getMsgKeyId e Puppeteer.js o guard de exposeFunction” · L687
+- describe “P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)” · L707
+  - it “sendText numa página travada falha em segundos com erro acionável e dispara o heal (P-016)” · L733
+  - it “mídia acima do teto NÃO baixa: emite metadados com fileSize e não toca downloadMedia (P-017)” · L763
+  - it “mídia dentro do teto segue o fluxo normal de download (regressão)” · L792
+  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L820
+- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L847
+  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L860
+  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L873
+  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L907
+- describe “P-019 — watchdog de sync: fim do WORKING falso” · L937
+  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L950
+  - it “página volta a responder → status retorna a WORKING sozinho” · L982
+  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1005

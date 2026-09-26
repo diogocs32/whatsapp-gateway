@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isWwebjsVersionMode } from '../domain/wwebjs-version';
 
 export const createSessionSchema = z.object({
   name: z
@@ -30,6 +31,13 @@ export const sessionConfigSchema = z
     janelaFim: z.number().int().min(0).max(23),
     timezone: z.string().min(1).max(64),
     device: z.record(z.string(), z.unknown()),
+    wwebjsWebVersion: z
+      .string()
+      .refine(
+        isWwebjsVersionMode,
+        'Use auto, live ou uma versão do catálogo WA Web',
+      )
+      .nullable(),
   })
   .partial();
 

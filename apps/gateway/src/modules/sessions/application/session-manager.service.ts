@@ -160,6 +160,13 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       resolveAgent: () => this.proxyResolver.resolveAgent(sessionId),
       resolveProxyConfig: () =>
         this.proxyResolver.resolveProxyConfig(sessionId),
+      resolveWwebjsWebVersion: async () =>
+        (
+          await this.prisma.sessionConfig.findUnique({
+            where: { sessionId },
+            select: { wwebjsWebVersion: true },
+          })
+        )?.wwebjsWebVersion ?? null,
       reportProxyFailure: (reason) =>
         this.proxyResolver.reportFailure(sessionId, reason),
       storeMedia: (key, body, contentType) =>

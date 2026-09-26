@@ -272,6 +272,14 @@ POST /api/sessions/{sessao}/profile/photo    # W8b { url } — foto de perfil (o
 
 `cap_atual` é derivado do estado: quarentena/banida/pausa=0; throttled≈50% do base; aquecimento=curva[0]; ativa=capBase.
 
+**Canário WWEBJS (E5, após o deploy da Onda 6):** `PATCH /api/sessions/{sessao}/config`
+aceita `{"wwebjsWebVersion":"2.3000.1046934385-alpha"}`. `GET .../config` devolve o valor
+persistido; `null` remove o override e volta à `WWEBJS_WEB_VERSION` global. Também aceita `auto`
+(build mais nova do catálogo) e `live` (sem pin). Só a próxima inicialização da sessão usa a
+mudança: não reinicie uma conta conectada para testar a configuração. A versão efetiva e a versão
+do Chromium aparecem no log do gateway após `ready`; a candidata ainda exige teste com chip
+(pareamento, sincronização, leads com telefone e envio). O contrato das demais rotas não muda.
+
 ## 8. Fluxo recomendado de adoção
 
 1. Integrar envio (`cold`/`idempotencyKey`) + webhooks (`source`/`isCold`/`message.ack`).

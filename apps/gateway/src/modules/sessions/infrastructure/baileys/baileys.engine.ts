@@ -87,6 +87,8 @@ export interface BaileysEngineDeps {
     username?: string;
     password?: string;
   } | null>;
+  // Somente wwebjs: override persistido da build WA Web da sessão (null = modo global).
+  resolveWwebjsWebVersion?: () => Promise<string | null>;
   // Notifica que o proxy ATUAL da sessão falhou em uso real (auth/tunnel rejeitados). O resolver
   // marca-o DEAD e devolve o modo do assignment — nos modos rotativos o chamador pode re-resolver
   // e tentar o próximo candidato (item 8 da auditoria 07/2026).

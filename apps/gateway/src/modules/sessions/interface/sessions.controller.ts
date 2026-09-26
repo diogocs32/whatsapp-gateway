@@ -68,6 +68,7 @@ function configDto(c: {
   janelaFim: number;
   timezone: string;
   device: unknown;
+  wwebjsWebVersion: string | null;
 }) {
   return {
     capBase: c.capBase,
@@ -78,6 +79,7 @@ function configDto(c: {
     janelaFim: c.janelaFim,
     timezone: c.timezone,
     device: c.device ?? null,
+    wwebjsWebVersion: c.wwebjsWebVersion,
   };
 }
 
