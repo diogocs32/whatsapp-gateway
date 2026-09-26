@@ -30,3 +30,11 @@
 - **BLOQUEADO EM VOCÊ:** merge do PR #10 apenas quando decidir; deploy W manual em janela própria; canário com 1 chip/proxy residencial segundo `docs/how-to/canario-wwebjs-onda6.md`; B-001 (`WA_REQUIRE_PROXY`) ainda requer decisão/ação operacional. Não reiniciar as contas conectadas da equipe por esta sessão.
 - **DOCS TOCADAS:** `ESTADO`, `SESSOES`, `PENDENCIAS`, `ROTEIRO-ONDAS`, `DECISOES` (D-033), `INTEGRACAO`, `MAPA-CODIGO` e referência gerada, análise histórica de memória, runbook do canário e `CHANGELOG`.
 - **Reconciliação R3:** o diff não altera shape de `packages/contracts`, migrations ou rotas; documentação pública de mídia em grupo e 400/tardio atualizada em `INTEGRACAO`. P-060 fica entregue em código, com medição de sessão logada e smoke real pendentes do canário. Produção não alterada.
+
+## Adendo pós-merge — 26/09/2026
+
+- O PR #10 foi mergeado em `d577b05`, confirmado em `origin/main` por `git log`. A E6/P-060 está
+  na `main`; o checkpoint acima registra o estado anterior ao merge.
+- Nenhum Deploy W ou canário com chip foi executado nesta reconciliação. Produção segue no último
+  SHA **documentado** `768fb26`, sem verificação ao vivo; a medição de sessão logada permanece
+  para a janela manual do dono.
