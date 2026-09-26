@@ -88,3 +88,65 @@ export function DownloadIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+// ⌄ do menu da mensagem (E25).
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m4 6 4 4 4-4" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ className }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    >
+      <path d="M3.5 3.5 12.5 12.5M12.5 3.5 3.5 12.5" />
+    </svg>
+  );
+}
+
+// ➤ enviar (botão verde redondo do diálogo de encaminhar).
+export function SendIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className={className}>
+      <path
+        d="M1.7 1.3a.6.6 0 0 1 .66-.08l12.3 6.1a.6.6 0 0 1 0 1.07l-12.3 6.1a.6.6 0 0 1-.84-.7L3.1 8.6h5.4a.6.6 0 0 0 0-1.2H3.1L1.52 2a.6.6 0 0 1 .18-.7Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+export function SpinnerIcon({ className }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className={`animate-spin ${className ?? ''}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="M8 1.5a6.5 6.5 0 1 1-6.5 6.5" />
+    </svg>
+  );
+}

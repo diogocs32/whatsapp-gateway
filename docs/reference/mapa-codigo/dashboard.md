@@ -7,19 +7,26 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | Arquivo | Linhas |
 | --- | --- |
 | `dashboard/App.tsx` | 196 |
-| `dashboard/components/chat/ChatThread.tsx` | 91 |
+| `dashboard/components/chat/ChatThread.tsx` | 246 |
+| `dashboard/components/chat/forward-context.ts` | 21 |
+| `dashboard/components/chat/ForwardDialog.tsx` | 629 |
 | `dashboard/components/chat/ForwardedTag.tsx` | 21 |
-| `dashboard/components/chat/icons.tsx` | 91 |
+| `dashboard/components/chat/icons.tsx` | 153 |
 | `dashboard/components/chat/MediaView.tsx` | 486 |
-| `dashboard/components/chat/MessageBubble.tsx` | 188 |
+| `dashboard/components/chat/MessageBubble.tsx` | 272 |
+| `dashboard/components/chat/MessageMenu.tsx` | 178 |
 | `dashboard/components/chat/Reactions.tsx` | 50 |
+| `dashboard/components/chat/SelectionBar.tsx` | 47 |
 | `dashboard/components/chat/thread-context.ts` | 16 |
 | `dashboard/components/chat/Ticks.tsx` | 29 |
 | `dashboard/components/chat/use-media.ts` | 66 |
-| `dashboard/lib/api.ts` | 532 |
+| `dashboard/lib/api.spec.ts` | 110 |
+| `dashboard/lib/api.ts` | 553 |
 | `dashboard/lib/auth.tsx` | 66 |
 | `dashboard/lib/branding.tsx` | 129 |
 | `dashboard/lib/error-boundary.tsx` | 74 |
+| `dashboard/lib/forward.spec.ts` | 1017 |
+| `dashboard/lib/forward.ts` | 695 |
 | `dashboard/lib/jid.spec.ts` | 102 |
 | `dashboard/lib/jid.ts` | 86 |
 | `dashboard/lib/live-events.spec.ts` | 507 |
@@ -29,14 +36,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/media.ts` | 32 |
 | `dashboard/lib/message-format.spec.ts` | 440 |
 | `dashboard/lib/message-format.ts` | 426 |
-| `dashboard/lib/send-feedback.spec.ts` | 54 |
-| `dashboard/lib/send-feedback.ts` | 48 |
+| `dashboard/lib/send-feedback.spec.ts` | 61 |
+| `dashboard/lib/send-feedback.ts` | 49 |
 | `dashboard/lib/time-format.spec.ts` | 25 |
 | `dashboard/lib/time-format.ts` | 40 |
 | `dashboard/lib/use-live-stream.ts` | 73 |
 | `dashboard/main.tsx` | 23 |
 | `dashboard/routes/ApiKeys.tsx` | 247 |
-| `dashboard/routes/Atendimento.tsx` | 688 |
+| `dashboard/routes/Atendimento.tsx` | 698 |
 | `dashboard/routes/Audit.tsx` | 113 |
 | `dashboard/routes/Branding.tsx` | 130 |
 | `dashboard/routes/Campaigns.tsx` | 408 |
@@ -44,7 +51,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/routes/Dashboard.tsx` | 261 |
 | `dashboard/routes/Groups.tsx` | 412 |
 | `dashboard/routes/Health.tsx` | 251 |
-| `dashboard/routes/Inbox.tsx` | 409 |
+| `dashboard/routes/Inbox.tsx` | 420 |
 | `dashboard/routes/License.tsx` | 157 |
 | `dashboard/routes/Login.tsx` | 81 |
 | `dashboard/routes/Monitor.tsx` | 137 |
@@ -107,13 +114,48 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/components/chat/ChatThread.tsx`
 
-91 linhas · caminho: `apps/dashboard/src/components/chat/ChatThread.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/lib/jid.ts`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/thread-context.ts`
+246 linhas · caminho: `apps/dashboard/src/components/chat/ChatThread.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.ts`, `dashboard/components/chat/forward-context.ts`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/icons.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/SelectionBar.tsx`, `dashboard/components/chat/thread-context.ts`
 - importado por: `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
-- `ChatThread({ messages, chatJid, empty, stickKey = 0, })` · L21
-  - chama: `isGroupJid` (jid.ts:18), `stripDevice` (jid.ts:6)
+- `ChatThread({ messages, chatJid, empty, stickKey = 0, forward, footer, })` · L39
+  - chama: `canForward` (forward.ts:37), `forwardedNotice` (forward.ts:688), `isGroupJid` (jid.ts:18), `stripDevice` (jid.ts:6)
+
+**Tipos**
+- interface `ForwardConfig` L33 · 3 propriedade(s)
+
+## `dashboard/components/chat/forward-context.ts`
+
+21 linhas · caminho: `apps/dashboard/src/components/chat/forward-context.ts`
+- importa (interno): `contracts/index.ts`
+- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/MessageBubble.tsx`
+
+**Funções e constantes de topo**
+- `ForwardContext` = `createContext<ForwardActions | null>(null)` · L16
+- `useForwardActions()` · L18
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30)
+
+**Tipos**
+- interface `ForwardActions` L7 · 3 propriedade(s)
+
+## `dashboard/components/chat/ForwardDialog.tsx`
+
+629 linhas · caminho: `apps/dashboard/src/components/chat/ForwardDialog.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/message-format.ts`, `dashboard/components/chat/icons.tsx`
+- importado por: `dashboard/components/chat/ChatThread.tsx`
+
+**Funções e constantes de topo**
+- `FROZEN_TEXT` = `'O pedido anterior ficou sem resposta — tente de novo o MESMO pedido …` · L65
+- `ForwardDialog({ msg, sessionId, deviceName, blockedReason, memory, onClos…)` · L68
+  - chama: `allClean` (forward.ts:422), `attemptSummary` (forward.ts:440), `forwardFailure` (forward.ts:531), `forwardTargets` (forward.ts:174), `maxGroupsFor` (forward.ts:75), `maxTargetsFor` (forward.ts:66), `mergeOutcomes` (forward.ts:406), `planAttempt` (forward.ts:281), `refusalText` (forward.ts:258), `resultsVerdict` (forward.ts:663), `searchTargets` (forward.ts:204), `toggleTarget` (forward.ts:227), `willBecomeFrequent` (forward.ts:86), `labelText` (message-format.ts:61), `messagePreview` (message-format.ts:101)
+- `TargetRow({ t, checked, outcome, sending, disabled, onToggle, })` · L546
+- `Avatar({ t })` · L606
+
+**Tipos**
+- type `Phase` L46
+- type `Banner` L47
+- interface `ForwardSnapshot` L52 · 8 propriedade(s)
 
 ## `dashboard/components/chat/ForwardedTag.tsx`
 
@@ -127,8 +169,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/components/chat/icons.tsx`
 
-91 linhas · caminho: `apps/dashboard/src/components/chat/icons.tsx`
-- importado por: `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/Ticks.tsx`
+153 linhas · caminho: `apps/dashboard/src/components/chat/icons.tsx`
+- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/MessageMenu.tsx`, `dashboard/components/chat/SelectionBar.tsx`, `dashboard/components/chat/Ticks.tsx`
 
 **Funções e constantes de topo**
 - `CheckIcon({ className })` · L7
@@ -136,6 +178,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `ForwardIcon({ className, double, })` · L42
 - `PlayIcon({ className })` · L64
 - `DownloadIcon({ className })` · L75
+- `ChevronDownIcon({ className })` · L93
+- `CloseIcon({ className })` · L110
+- `SendIcon({ className })` · L127
+- `SpinnerIcon({ className })` · L138
 
 **Tipos**
 - type `IconProps` L5
@@ -168,14 +214,23 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/components/chat/MessageBubble.tsx`
 
-188 linhas · caminho: `apps/dashboard/src/components/chat/MessageBubble.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/lib/jid.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/time-format.ts`, `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/components/chat/Ticks.tsx`
+272 linhas · caminho: `apps/dashboard/src/components/chat/MessageBubble.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/time-format.ts`, `dashboard/components/chat/forward-context.ts`, `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/icons.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/MessageMenu.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/components/chat/Ticks.tsx`
 - importado por: `dashboard/components/chat/ChatThread.tsx`
 
 **Funções e constantes de topo**
-- `MessageBubble` = `memo(function MessageBubble({ m, isGroup, firstInRun, }: { m: Message…` · L19
-  - chama: `groupSenderLabel` (jid.ts:54), `senderColor` (jid.ts:81), `bubbleContent` (message-format.ts:265), `clock` (time-format.ts:5), `fullDateTime` (time-format.ts:13)
-- `Body({ m, content })` · L86
+- `MessageBubble` = `memo(function MessageBubble({ m, isGroup, firstInRun, selecting = fal…` · L30
+  - chama: `useForwardActions` (forward-context.ts:18), `canForward` (forward.ts:37), `canQuickForward` (forward.ts:55), `groupSenderLabel` (jid.ts:54), `senderColor` (jid.ts:81), `bubbleContent` (message-format.ts:265), `labelText` (message-format.ts:61), `messagePreview` (message-format.ts:101), `clock` (time-format.ts:5), `fullDateTime` (time-format.ts:13)
+- `Body({ m, content })` · L170
+
+## `dashboard/components/chat/MessageMenu.tsx`
+
+178 linhas · caminho: `apps/dashboard/src/components/chat/MessageMenu.tsx`
+- importa (interno): `dashboard/components/chat/icons.tsx`
+- importado por: `dashboard/components/chat/MessageBubble.tsx`
+
+**Funções e constantes de topo**
+- `MessageMenu({ onForward, tone, })` · L20
 
 ## `dashboard/components/chat/Reactions.tsx`
 
@@ -189,6 +244,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `Reactions` L15
 - `Reactions({ reactions, align, })` · L15
   - chama: `who` L8, `reactionChips` (live-events.ts:336)
+
+## `dashboard/components/chat/SelectionBar.tsx`
+
+47 linhas · caminho: `apps/dashboard/src/components/chat/SelectionBar.tsx`
+- importa (interno): `dashboard/components/chat/icons.tsx`
+- importado por: `dashboard/components/chat/ChatThread.tsx`
+
+**Funções e constantes de topo**
+- `SelectionBar({ count, onCancel, onForward, })` · L6
 
 ## `dashboard/components/chat/thread-context.ts`
 
@@ -226,47 +290,60 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `useInView(target, root, rootMargin)` · L40
   - chamado por: `ImageMedia` (MediaView.tsx:159)
 
+## `dashboard/lib/api.spec.ts`
+
+110 linhas · caminho: `apps/dashboard/src/lib/api.spec.ts`
+- importa (interno): `dashboard/lib/api.ts`
+
+- describe “api.sessions.forward” · L17
+  - it “POST na rota da mensagem com o corpo do pedido e cookie” · L18
+  - it “423 chega com status, code, mensagem e o results[] do corpo” · L41
+- describe “parseError (todas as rotas)” · L65
+  - it “sem code no corpo: code undefined, mensagem do corpo” · L66
+  - it “corpo não-JSON: statusText; mensagem em lista vira uma linha” · L79
+  - it “code que não é string é ignorado” · L98
+
 ## `dashboard/lib/api.ts`
 
-532 linhas · caminho: `apps/dashboard/src/lib/api.ts`
+553 linhas · caminho: `apps/dashboard/src/lib/api.ts`
 - importa (interno): `contracts/index.ts`
-- importado por: `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/media.ts`, `dashboard/lib/use-live-stream.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
+- importado por: `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/lib/api.spec.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/media.ts`, `dashboard/lib/use-live-stream.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
 
-**class `ApiError`** L53 · `extends Error`
-- injeta (construtor): `status: number` · `message: string (param)`
-- `constructor(status, message)` · L54
-  - chamado por: `parseError` L118
+**class `ApiError`** L58 · `extends Error`
+- injeta (construtor): `status: number` · `message: string (param)` · `code: string` · `body: unknown`
+- `constructor(status, message, code, body)` · L59
+  - chamado por: `parseError` L125
 
 **Funções e constantes de topo**
-- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L51
+- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L53
   - env: `VITE_API_URL`
-- `setUnauthorizedHandler(fn)` · L72
+- `setUnauthorizedHandler(fn)` · L79
   - chamado por: `AuthProvider` (auth.tsx:21)
-- `isAuthEndpoint(path)` · L77
-  - chamado por: `coreFetch` L101
-- `tryRefresh()` · L85
-  - chamado por: `coreFetch` L101
-- `coreFetch(path, init, allowRefresh)` · L101 · async
-  - chama: `isAuthEndpoint` L77, `tryRefresh` L85
-  - chamado por: `request` L129, `requestBlob` L148, `requestForm` L155
-- `parseError(res)` · L118 · async
-  - chama: `constructor` L54
-  - chamado por: `request` L129, `requestBlob` L148, `requestForm` L155
-- `request(path, init)` · L129 · async
-  - chama: `coreFetch` L101, `parseError` L118
-  - chamado por: `api` L163
-- `requestBlob(path, signal)` · L148 · async
-  - chama: `coreFetch` L101, `parseError` L118
-  - chamado por: `api` L163
-- `requestForm(path, form)` · L155 · async
-  - chama: `coreFetch` L101, `parseError` L118
-  - chamado por: `api` L163
-- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L163
-  - chama: `request` L129, `requestBlob` L148, `requestForm` L155
-  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
+- `isAuthEndpoint(path)` · L84
+  - chamado por: `coreFetch` L108
+- `tryRefresh()` · L92
+  - chamado por: `coreFetch` L108
+- `coreFetch(path, init, allowRefresh)` · L108 · async
+  - chama: `isAuthEndpoint` L84, `tryRefresh` L92
+  - chamado por: `request` L142, `requestBlob` L161, `requestForm` L168
+- `parseError(res)` · L125 · async
+  - chama: `constructor` L59
+  - chamado por: `request` L142, `requestBlob` L161, `requestForm` L168
+- `request(path, init)` · L142 · async
+  - chama: `coreFetch` L108, `parseError` L125
+  - chamado por: `api` L176
+- `requestBlob(path, signal)` · L161 · async
+  - chama: `coreFetch` L108, `parseError` L125
+  - chamado por: `api` L176
+- `requestForm(path, form)` · L168 · async
+  - chama: `coreFetch` L108, `parseError` L125
+  - chamado por: `api` L176
+- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L176
+  - chama: `request` L142, `requestBlob` L161, `requestForm` L168
+  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIC…`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
 
 **Tipos**
-- type `Ok` L161
+- type `Ok` L174
 
 ## `dashboard/lib/auth.tsx`
 
@@ -277,7 +354,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `AuthContext` = `createContext<AuthState | null>(null)` · L19
 - `AuthProvider({ children })` · L21
-  - chama: `setUnauthorizedHandler` (api.ts:72), `MediaCache.clear` (media-cache.ts:51)
+  - chama: `setUnauthorizedHandler` (api.ts:79), `MediaCache.clear` (media-cache.ts:51)
 - `useAuth()` · L61
   - chamado por: `Protected` (App.tsx:48), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:226), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
 
@@ -328,6 +405,150 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Tipos**
 - interface `State` L20 · 1 propriedade(s)
 
+## `dashboard/lib/forward.spec.ts`
+
+1017 linhas · caminho: `apps/dashboard/src/lib/forward.spec.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/forward.ts`
+
+- describe “regras espelhadas do gateway (ida e volta)” · L83
+  - it “tipos encaminháveis e limites iguais aos do gateway” · L84
+  - it “destinationOf aceita e recusa o mesmo que o canonicalDestination” · L113
+  - it “sameDestination bate com o findDuplicate (9º dígito, sufixos, aparelho)” · L130
+- describe “canForward / canQuickForward” · L151
+  - it “só os tipos que o gateway encaminha” · L152
+  - it “texto vazio ou miniatura legada = "não suportada" → sem ação” · L172
+  - it “wwebjs `other` com arquivo continua fora (o gateway decide pelo type)” · L181
+  - it “mídia sem legenda e vCard legado entram” · L187
+  - it “atalho ↪ como o do WhatsApp Web: mídia, localização e contato — sem voz/figurinha/"com frequência"” · L196
+- describe “maxGroupsFor / willBecomeFrequent (regras do WhatsApp)” · L234
+  - it “mensagem que já veio encaminhada: só 1 grupo” · L235
+  - it “aviso quando a cópia vai virar "com frequência" (terceiro com contador 4)” · L241
+- describe “maxTargetsFor” · L258
+  - it “5; 1 quando a original tem forwardingScore ≥ 5” · L259
+- describe “forwardTargets” · L268
+  - it “descarta o que o gateway recusa e a mesma conversa repetida, mantendo a ordem” · L279
+  - it “rótulos: nome + telefone; sem nome = telefone formatado; grupo; lid” · L288
+  - it “busca sem acento, por nome ou por número (com ou sem formatação)” · L305
+- describe “toggleTarget” · L329
+  - it “marca e desmarca na ordem” · L339
+  - it “recusa o gêmeo do 9º dígito (o gateway daria 400)” · L348
+  - it “respeita o limite (5, ou 1 com "encaminhada com frequência")” · L357
+  - it “mensagem já encaminhada: o 2º grupo é recusado” · L379
+- describe “planAttempt (idempotencyKey por clique)” · L391
+  - it “mesmo pedido (mesma mensagem e conjunto, em qualquer ordem) reaproveita a chave” · L400
+  - it “conjunto ou mensagem diferente → chave nova” · L410
+  - it “newForwardKey cabe na chave derivada do gateway (≤ 200 com o destino)” · L421
+- describe “outcomeOf” · L430
+  - it “enviada, repetição, sem confirmação e tempo esgotado ficam travadas (nunca reenviar)” · L431
+  - it “423: 1º contato × pedido inteiro bloqueado” · L460
+  - it “409 em andamento pede espera e deixa tentar de novo” · L471
+  - it “recusas da MENSAGEM: motivo curto na linha, sem retry” · L478
+  - it “falha de envio genérica mostra o motivo do servidor e deixa tentar de novo” · L523
+- describe “attemptSummary” · L536
+  - it “tudo ok, parcial, sem confirmação e nada” · L537
+- describe “forwardFailure” · L578
+  - it “sem status (rede): tentar de novo não duplica” · L579
+  - it “423 conta os destinos de 1º contato e não oferece retry” · L587
+  - it “aparelho desconectado (as 3 grafias do gateway)” · L616
+  - it “recusas antes de enviar (code) e 404: travam o ➤ (final) ou limitam a 1” · L634
+  - it “409 de conflito de chave pede chave nova (a mesma daria 409 para sempre)” · L701
+  - it “409, 429 e 5xx deixam tentar o mesmo pedido” · L723
+  - it “400 genérico: motivo do servidor; retry só se algum item permite” · L729
+  - it “resultsFromError valida o corpo” · L753
+- describe “forwardedNotice” · L764
+  - it “1, 2 e muitos” · L765
+- describe “resultsVerdict” · L777
+  - it “recusa da mensagem, limite vivo e o que vale repetir” · L778
+- describe “mergeOutcomes / allClean” · L823
+  - it “casa cada resultado pelo target (ordem trocada não confunde) e soma ao que já se sabia” · L830
+  - it “target desconhecido cai na posição; sem conversa marcada não é "limpo"” · L856
+- describe “revisão E25” · L880
+  - it “423 diz o estado real do guard-rail (quarentena, banida, pausa manual)” · L884
+  - it “desfecho incerto congela o pedido (sem resposta, 5xx, 409 em andamento); 429 não” · L903
+  - it “falha com results[] resume destino a destino — nunca "Não encaminhada" sobre um "pode ter saído"” · L930
+  - it “allClean nunca aceita "pode ter saído"” · L976
+  - it “attemptSummary com "pode ter saído" sozinho e junto de enviada” · L993
+  - it “busca só com dígitos também acha pelo nome ("Turma 2024")” · L1006
+
+## `dashboard/lib/forward.ts`
+
+695 linhas · caminho: `apps/dashboard/src/lib/forward.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/jid.ts`, `dashboard/lib/message-format.ts`
+- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/forward.spec.ts`
+
+**Funções e constantes de topo**
+- `MAX_FORWARD_TARGETS` = `5` · L15
+- `FORWARDABLE_TYPES` = `[ 'text', 'image', 'video', 'audio', 'document', 'sticker', 'location…` · L19
+- `canForward(m)` · L37
+  - chama: `bubbleContent` (message-format.ts:265)
+  - chamado por: `ChatThread` (ChatThread.tsx:39), `MessageBubble` (MessageBubble.tsx:30), `canQuickForward` L55
+- `QUICK_KINDS` = `new Set([ 'image', 'video', 'document', 'location', 'contact', ])` · L47
+- `canQuickForward(m)` · L55
+  - chama: `canForward` L37, `maxTargetsFor` L66, `bubbleContent` (message-format.ts:265)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30)
+- `maxTargetsFor(m)` · L66
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `canQuickForward` L55
+- `maxGroupsFor(m)` · L75
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `willBecomeFrequent(m)` · L86
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `destinationOf(jid)` · L116
+  - chama: `phoneCandidates` L143
+  - chamado por: `forwardTargets` L174
+- `phoneCandidates(digits)` · L143
+  - chamado por: `destinationOf` L116
+- `sameDestination(a, b)` · L160
+  - chamado por: `toggleTarget` L227
+- `foldText(s)` · L168
+  - chamado por: `forwardTargets` L174, `searchTargets` L204
+- `forwardTargets(convs)` · L174
+  - chama: `destinationOf` L116, `foldText` L168, `displayName` (jid.ts:27), `formatPhone` (jid.ts:42), `stripDevice` (jid.ts:6)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `searchTargets(targets, query)` · L204
+  - chama: `foldText` L168
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `toggleTarget(selected, target, max, maxGroups)` · L227
+  - chama: `sameDestination` L160
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `FREQUENT_LIMIT_TEXT` = `'As mensagens encaminhadas com frequência podem ser compartilhadas co…` · L255
+- `refusalText(r)` · L258
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `planAttempt(prev, msgId, targets, newKey)` · L281
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `newForwardKey()` · L301
+- `outcomeOf(r)` · L324
+  - chamado por: `mergeOutcomes` L406, `resultsVerdict` L663
+- `mergeOutcomes(prev, results, att)` · L406
+  - chama: `outcomeOf` L324
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `allClean(keys, outcomes)` · L422
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `withPeriod(s)` · L435
+  - chamado por: `forwardFailure` L531
+- `attemptSummary(results)` · L440
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `forwardFailure` L531
+- `resultsFromError(err)` · L493
+  - chamado por: `forwardFailure` L531
+- `forwardFailure(err, deviceName)` · L531
+  - chama: `attemptSummary` L440, `resultsFromError` L493, `resultsVerdict` L663, `withPeriod` L435
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+- `resultsVerdict(results)` · L663
+  - chama: `outcomeOf` L324
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `forwardFailure` L531
+- `forwardedNotice(names)` · L688
+  - chamado por: `ChatThread` (ChatThread.tsx:39)
+
+**Tipos**
+- type `Forwardable` L30
+- type `TargetKind` L100
+- interface `ForwardTarget` L102 · 9 propriedade(s)
+- type `ToggleRefusal` L222
+- interface `ForwardAttempt` L274 · 4 propriedade(s)
+- type `OutcomeKind` L305
+- interface `TargetOutcome` L308 · 4 propriedade(s)
+- interface `ForwardErrorLike` L484 · 4 propriedade(s)
+- interface `ForwardFailure` L509 · 7 propriedade(s)
+
 ## `dashboard/lib/jid.spec.ts`
 
 102 linhas · caminho: `apps/dashboard/src/lib/jid.spec.ts`
@@ -346,33 +567,33 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `dashboard/lib/jid.ts`
 
 86 linhas · caminho: `apps/dashboard/src/lib/jid.ts`
-- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/lib/jid.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
+- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
 - `stripDevice(jid)` · L6
-  - chamado por: `ChatThread` (ChatThread.tsx:21), `groupSenderLabel` L54
+  - chamado por: `ChatThread` (ChatThread.tsx:39), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
 - `numberFromJid(jid)` · L11
   - chamado por: `who` (Reactions.tsx:8), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `Atendimento` (Atendimento.tsx:73)
 - `isPhoneJid(jid)` · L16
   - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54, `sendTarget` L22
 - `isGroupJid(jid)` · L18
-  - chamado por: `ChatThread` (ChatThread.tsx:21), `groupSenderLabel` L54, `Inbox` (Inbox.tsx:19)
+  - chamado por: `ChatThread` (ChatThread.tsx:39), `groupSenderLabel` L54, `Inbox` (Inbox.tsx:19)
 - `isLidJid(jid)` · L19
 - `sendTarget(chatJid)` · L22
   - chama: `isPhoneJid` L16, `numberFromJid` L11
   - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
 - `displayName(c)` · L27
   - chama: `numberFromJid` L11
-  - chamado por: `Atendimento` (Atendimento.tsx:73), `Avatar` (Inbox.tsx:392), `Inbox` (Inbox.tsx:19)
+  - chamado por: `forwardTargets` (forward.ts:174), `Atendimento` (Atendimento.tsx:73), `Avatar` (Inbox.tsx:403), `Inbox` (Inbox.tsx:19)
 - `isTriageExcludedChat(jid)` · L36
   - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `formatPhone(digits)` · L42
-  - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54
+  - chamado por: `who` (Reactions.tsx:8), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
 - `groupSenderLabel(m)` · L54
   - chama: `formatPhone` L42, `isGroupJid` L18, `isPhoneJid` L16, `numberFromJid` L11, `stripDevice` L6
-  - chamado por: `MessageBubble` (MessageBubble.tsx:19)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30)
 - `senderColor(key)` · L81
-  - chamado por: `MessageBubble` (MessageBubble.tsx:19)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30)
 
 ## `dashboard/lib/live-events.spec.ts`
 
@@ -594,7 +815,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 426 linhas · caminho: `apps/dashboard/src/lib/message-format.ts`
 - importa (interno): `contracts/index.ts`
-- importado por: `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/media.ts`, `dashboard/lib/message-format.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
+- importado por: `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/forward.spec.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/media.ts`, `dashboard/lib/message-format.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
 - `MEDIA_KINDS` = `[ 'image', 'video', 'audio', 'document', 'sticker', ] as const` · L11
@@ -608,7 +829,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `labelText` L61
 - `labelText(type, mediaType)` · L61
   - chama: `typeLabel` L50
-  - chamado por: `bubbleContent` L265, `messagePreview` L101
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `MessageBubble` (MessageBubble.tsx:30), `bubbleContent` L265, `messagePreview` L101
 - `isLegacyThumbnail(text)` · L70
   - chamado por: `bubbleContent` L265, `messagePreview` L101
 - `isRawVcard(text)` · L76
@@ -619,7 +840,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `messagePreview` L101
 - `messagePreview(m)` · L101
   - chama: `firstLine` L92, `isLegacyThumbnail` L70, `isMediaKind` L19, `isRawVcard` L76, `labelText` L61, `parseContactsText` L197, `parseLocationText` L164, `vcardToLine` L81
-  - chamado por: `conversationPreview` L141, `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `MessageBubble` (MessageBubble.tsx:30), `conversationPreview` L141, `Atendimento` (Atendimento.tsx:73)
 - `conversationPreview(c)` · L141
   - chama: `messagePreview` L101
   - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
@@ -636,7 +857,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `bubbleContent` L265
 - `bubbleContent(m)` · L265
   - chama: `isLegacyThumbnail` L70, `isMediaKind` L19, `isRawVcard` L76, `labelText` L61, `parseContactsText` L197, `parseLocationText` L164, `parsePollText` L218, `splitTitleBody` L234, `vcardToLine` L81
-  - chamado por: `MessageBubble` (MessageBubble.tsx:19)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30), `canForward` (forward.ts:37), `canQuickForward` (forward.ts:55)
 - `FREQUENTLY_FORWARDED_MIN` = `5` · L317
 - `forwardBadge(m)` · L319
   - chamado por: `ForwardedTag` (ForwardedTag.tsx:5)
@@ -665,26 +886,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/lib/send-feedback.spec.ts`
 
-54 linhas · caminho: `apps/dashboard/src/lib/send-feedback.spec.ts`
+61 linhas · caminho: `apps/dashboard/src/lib/send-feedback.spec.ts`
 - importa (interno): `dashboard/lib/send-feedback.ts`
 
 - describe “deviceBlockReason” · L4
   - it “trava a resposta quando o aparelho não consegue enviar” · L5
-  - it “WORKING, DEGRADED e aparelho desconhecido não travam” · L18
-- describe “sendErrorMessage” · L26
-  - it “"Sessão não iniciada" vira aparelho desconectado” · L27
-  - it “quarentena (423), rate-limit (429), rede e genérico” · L37
+  - it “no encaminhar o texto diz "encaminhe" (E25)” · L18
+  - it “WORKING, DEGRADED e aparelho desconhecido não travam” · L25
+- describe “sendErrorMessage” · L33
+  - it “"Sessão não iniciada" vira aparelho desconectado” · L34
+  - it “quarentena (423), rate-limit (429), rede e genérico” · L44
 
 ## `dashboard/lib/send-feedback.ts`
 
-48 linhas · caminho: `apps/dashboard/src/lib/send-feedback.ts`
+49 linhas · caminho: `apps/dashboard/src/lib/send-feedback.ts`
 - importa (interno): `contracts/index.ts`
 - importado por: `dashboard/lib/send-feedback.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
-- `deviceBlockReason(device)` · L16
-  - chamado por: `Atendimento` (Atendimento.tsx:73)
-- `sendErrorMessage(err, deviceName)` · L28
+- `deviceBlockReason(device, action)` · L16
+  - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
+- `sendErrorMessage(err, deviceName)` · L29
   - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
 
 ## `dashboard/lib/time-format.spec.ts`
@@ -704,9 +926,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `clock(iso)` · L5
-  - chamado por: `MessageBubble` (MessageBubble.tsx:19), `listTime` L24, `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30), `listTime` L24, `Atendimento` (Atendimento.tsx:73)
 - `fullDateTime(iso)` · L13
-  - chamado por: `MessageBubble` (MessageBubble.tsx:19)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30)
 - `listTime(iso, now)` · L24
   - chama: `clock` L5
   - chamado por: `Inbox` (Inbox.tsx:19)
@@ -745,14 +967,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/routes/Atendimento.tsx`
 
-688 linhas · caminho: `apps/dashboard/src/routes/Atendimento.tsx`
+698 linhas · caminho: `apps/dashboard/src/routes/Atendimento.tsx`
 - importa (interno): `contracts/index.ts`, `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardedTag.tsx`, `dashboard/components/chat/Ticks.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/time-format.ts`, `dashboard/lib/send-feedback.ts`, `dashboard/lib/use-live-stream.ts`
 
 **Funções e constantes de topo**
 - `convKey(c)` · L70
   - chamado por: `Atendimento` L73
 - `Atendimento()` · L73
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:141), `applyReaction` (live-events.ts:252), `feedItemFromEvent` (live-events.ts:364), `mergeFeed` (live-events.ts:418), `overlayAcks` (live-events.ts:181), `rememberAck` (live-events.ts:165), `rememberFeedItem` (live-events.ts:406), `rememberReaction` (live-events.ts:310), `replayReactions` (live-events.ts:320), `stabilize` (live-events.ts:457), `upsertFeedItem` (live-events.ts:383), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:28), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L70
+  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:141), `applyReaction` (live-events.ts:252), `feedItemFromEvent` (live-events.ts:364), `mergeFeed` (live-events.ts:418), `overlayAcks` (live-events.ts:181), `rememberAck` (live-events.ts:165), `rememberFeedItem` (live-events.ts:406), `rememberReaction` (live-events.ts:310), `replayReactions` (live-events.ts:320), `stabilize` (live-events.ts:457), `upsertFeedItem` (live-events.ts:383), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L70
 
 **Tipos**
 - type `StatusFilter` L53
@@ -833,13 +1055,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/routes/Inbox.tsx`
 
-409 linhas · caminho: `apps/dashboard/src/routes/Inbox.tsx`
+420 linhas · caminho: `apps/dashboard/src/routes/Inbox.tsx`
 - importa (interno): `contracts/index.ts`, `dashboard/components/chat/ChatThread.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/send-feedback.ts`, `dashboard/lib/time-format.ts`
 
 **Funções e constantes de topo**
 - `Inbox()` · L19
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:457), `conversationPreview` (message-format.ts:141), `sendErrorMessage` (send-feedback.ts:28), `listTime` (time-format.ts:24)
-- `Avatar({ conv })` · L392
+  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:457), `conversationPreview` (message-format.ts:141), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `listTime` (time-format.ts:24)
+- `Avatar({ conv })` · L403
   - chama: `displayName` (jid.ts:27)
 
 ## `dashboard/routes/License.tsx`

@@ -5,14 +5,14 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 261 arquivos · 1430 símbolos (métodos/funções/assinaturas/constantes) · 1419 chamadas resolvidas · 700 testes (it/test)
+- 268 arquivos · 1470 símbolos (métodos/funções/assinaturas/constantes) · 1460 chamadas resolvidas · 751 testes (it/test)
 
 ## Áreas
 
 | Área | Arquivos | Linhas | Mapa |
 | --- | --- | --- | --- |
 | packages/contracts | 1 | 646 | [contracts.md](contracts.md) |
-| Dashboard (React) | 46 | 10283 | [dashboard.md](dashboard.md) |
+| Dashboard (React) | 53 | 13331 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1684 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 5 | 855 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
@@ -289,84 +289,85 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Chamada | Componente/função |
 | --- | --- |
-| `request /api/api-keys` | `api` (api.ts:163) |
-| `request /api/api-keys` | `api` (api.ts:163) |
-| `request /api/api-keys/${id}` | `api` (api.ts:163) |
-| `request /api/audit?limit=${limit}&offset=${offset}` | `api` (api.ts:163) |
-| `request /api/auth/login` | `api` (api.ts:163) |
-| `request /api/auth/logout` | `api` (api.ts:163) |
-| `request /api/auth/me` | `api` (api.ts:163) |
-| `request /api/branding` | `api` (api.ts:163) |
-| `request /api/branding` | `api` (api.ts:163) |
-| `request /api/campaigns` | `api` (api.ts:163) |
-| `request /api/campaigns/${id}` | `api` (api.ts:163) |
-| `request /api/campaigns/${id}/cancel` | `api` (api.ts:163) |
-| `request /api/campaigns/${id}/pause` | `api` (api.ts:163) |
-| `request /api/campaigns/${id}/resume` | `api` (api.ts:163) |
-| `request /api/campaigns/${id}/start` | `api` (api.ts:163) |
-| `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}` | `api` (api.ts:163) |
-| `request /api/inbox/conversations${qs ? `?${qs}` : ''}` | `api` (api.ts:163) |
-| `request /api/inbox/messages${qs ? `?${qs}` : ''}` | `api` (api.ts:163) |
-| `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage` | `api` (api.ts:163) |
-| `request /api/license` | `api` (api.ts:163) |
-| `request /api/license` | `api` (api.ts:163) |
-| `request /api/license` | `api` (api.ts:163) |
-| `request /api/observability/summary` | `api` (api.ts:163) |
-| `request /api/observability/timeline/${sessionId}?limit=${limit}` | `api` (api.ts:163) |
-| `request /api/proxies` | `api` (api.ts:163) |
-| `request /api/proxies` | `api` (api.ts:163) |
-| `request /api/proxies/${id}` | `api` (api.ts:163) |
-| `request /api/proxies/${id}/disable` | `api` (api.ts:163) |
-| `request /api/proxies/${id}/enable` | `api` (api.ts:163) |
-| `request /api/proxies/${id}/test` | `api` (api.ts:163) |
-| `request /api/proxies/available` | `api` (api.ts:163) |
-| `request /api/proxies/bulk` | `api` (api.ts:163) |
-| `request /api/proxies/test-all` | `api` (api.ts:163) |
-| `request /api/proxies/webshare/status` | `api` (api.ts:163) |
-| `request /api/proxies/webshare/sync` | `api` (api.ts:163) |
-| `request /api/sessions` | `api` (api.ts:163) |
-| `request /api/sessions` | `api` (api.ts:163) |
-| `request /api/sessions/${id}` | `api` (api.ts:163) |
-| `request /api/sessions/${id}` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/logout` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chatId)}&lim…` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/messages/conversations?limit=${limit}` | `api` (api.ts:163) |
-| `requestForm /api/sessions/${id}/messages/media` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/messages/text` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/new-qr` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/pairing-code` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/qr` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/restart` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/start` | `api` (api.ts:163) |
-| `request /api/sessions/${id}/stop` | `api` (api.ts:163) |
-| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:163) |
-| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/channels` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/follow` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfollow` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/profile-pict…` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/contacts/block` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/contacts/check` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset=${offse…` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/description` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite/revoke` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/participants` | `api` (api.ts:163) |
-| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject` | `api` (api.ts:163) |
-| `request /api/users` | `api` (api.ts:163) |
-| `request /api/users` | `api` (api.ts:163) |
-| `request /api/users/${id}` | `api` (api.ts:163) |
-| `request /api/users/${id}` | `api` (api.ts:163) |
-| `request /api/users/${id}/password` | `api` (api.ts:163) |
-| `request /api/webhooks` | `api` (api.ts:163) |
-| `request /api/webhooks` | `api` (api.ts:163) |
-| `request /api/webhooks/${id}` | `api` (api.ts:163) |
-| `request /api/webhooks/${id}/disable` | `api` (api.ts:163) |
-| `request /api/webhooks/${id}/enable` | `api` (api.ts:163) |
-| `request /api/webhooks/${id}/test` | `api` (api.ts:163) |
-| `request /health` | `api` (api.ts:163) |
+| `request /api/api-keys` | `api` (api.ts:176) |
+| `request /api/api-keys` | `api` (api.ts:176) |
+| `request /api/api-keys/${id}` | `api` (api.ts:176) |
+| `request /api/audit?limit=${limit}&offset=${offset}` | `api` (api.ts:176) |
+| `request /api/auth/login` | `api` (api.ts:176) |
+| `request /api/auth/logout` | `api` (api.ts:176) |
+| `request /api/auth/me` | `api` (api.ts:176) |
+| `request /api/branding` | `api` (api.ts:176) |
+| `request /api/branding` | `api` (api.ts:176) |
+| `request /api/campaigns` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/cancel` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/pause` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/resume` | `api` (api.ts:176) |
+| `request /api/campaigns/${id}/start` | `api` (api.ts:176) |
+| `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}` | `api` (api.ts:176) |
+| `request /api/inbox/conversations${qs ? `?${qs}` : ''}` | `api` (api.ts:176) |
+| `request /api/inbox/messages${qs ? `?${qs}` : ''}` | `api` (api.ts:176) |
+| `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage` | `api` (api.ts:176) |
+| `request /api/license` | `api` (api.ts:176) |
+| `request /api/license` | `api` (api.ts:176) |
+| `request /api/license` | `api` (api.ts:176) |
+| `request /api/observability/summary` | `api` (api.ts:176) |
+| `request /api/observability/timeline/${sessionId}?limit=${limit}` | `api` (api.ts:176) |
+| `request /api/proxies` | `api` (api.ts:176) |
+| `request /api/proxies` | `api` (api.ts:176) |
+| `request /api/proxies/${id}` | `api` (api.ts:176) |
+| `request /api/proxies/${id}/disable` | `api` (api.ts:176) |
+| `request /api/proxies/${id}/enable` | `api` (api.ts:176) |
+| `request /api/proxies/${id}/test` | `api` (api.ts:176) |
+| `request /api/proxies/available` | `api` (api.ts:176) |
+| `request /api/proxies/bulk` | `api` (api.ts:176) |
+| `request /api/proxies/test-all` | `api` (api.ts:176) |
+| `request /api/proxies/webshare/status` | `api` (api.ts:176) |
+| `request /api/proxies/webshare/sync` | `api` (api.ts:176) |
+| `request /api/sessions` | `api` (api.ts:176) |
+| `request /api/sessions` | `api` (api.ts:176) |
+| `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIComponent…` | `api` (api.ts:176) |
+| `request /api/sessions/${id}` | `api` (api.ts:176) |
+| `request /api/sessions/${id}` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/logout` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chatId)}&lim…` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/messages/conversations?limit=${limit}` | `api` (api.ts:176) |
+| `requestForm /api/sessions/${id}/messages/media` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/messages/text` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/new-qr` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/pairing-code` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/qr` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/restart` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/start` | `api` (api.ts:176) |
+| `request /api/sessions/${id}/stop` | `api` (api.ts:176) |
+| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:176) |
+| `request /api/sessions/${sessionId}/proxy` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/follow` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfollow` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/profile-pict…` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/block` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/check` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset=${offse…` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/description` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite/revoke` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/participants` | `api` (api.ts:176) |
+| `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject` | `api` (api.ts:176) |
+| `request /api/users` | `api` (api.ts:176) |
+| `request /api/users` | `api` (api.ts:176) |
+| `request /api/users/${id}` | `api` (api.ts:176) |
+| `request /api/users/${id}` | `api` (api.ts:176) |
+| `request /api/users/${id}/password` | `api` (api.ts:176) |
+| `request /api/webhooks` | `api` (api.ts:176) |
+| `request /api/webhooks` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}/disable` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}/enable` | `api` (api.ts:176) |
+| `request /api/webhooks/${id}/test` | `api` (api.ts:176) |
+| `request /health` | `api` (api.ts:176) |

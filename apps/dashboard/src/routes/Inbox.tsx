@@ -13,7 +13,7 @@ import { useAuth } from '../lib/auth';
 import { displayName, isGroupJid, sendTarget } from '../lib/jid';
 import { stabilize } from '../lib/live-events';
 import { conversationPreview } from '../lib/message-format';
-import { sendErrorMessage } from '../lib/send-feedback';
+import { deviceBlockReason, sendErrorMessage } from '../lib/send-feedback';
 import { listTime } from '../lib/time-format';
 
 export function Inbox() {
@@ -217,6 +217,7 @@ export function Inbox() {
   }
 
   const working = sessions.filter((s) => s.status === 'WORKING');
+  const device = sessions.find((s) => s.id === sessionId);
   const activeConv = conversations.find((c) => c.chatJid === chat);
   const activeName = activeConv ? displayName(activeConv) : chat;
 
@@ -337,51 +338,61 @@ export function Inbox() {
                   Sem mensagens ainda. Envie a primeira.
                 </p>
               }
+              // E25: ⌄ Encaminhar / atalho ↪ — conversas da MESMA sessão; o modo seleção troca a
+              // caixa de resposta (footer) pela barra de seleção.
+              forward={{
+                sessionId,
+                deviceName: deviceName(),
+                blockedReason: deviceBlockReason(device, 'encaminhe'),
+              }}
+              footer={
+                <>
+                  <form
+                    onSubmit={send}
+                    className="flex gap-2 border-t border-zinc-800 p-4"
+                  >
+                    <input
+                      type="file"
+                      ref={fileRef}
+                      className="hidden"
+                      onChange={onPickFile}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      title="Anexar arquivo (imagem, áudio, vídeo, documento)"
+                      className="rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800"
+                    >
+                      📎
+                    </button>
+                    <input
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder={`Mensagem para ${activeName} (vira legenda do anexo)`}
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!text.trim() || sending}
+                      aria-busy={sending}
+                      title={
+                        !text.trim()
+                          ? 'Escreva a mensagem para enviar'
+                          : undefined
+                      }
+                      className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+                    >
+                      {sending ? 'Enviando…' : 'Enviar'}
+                    </button>
+                  </form>
+                  {error && (
+                    <p role="alert" className="px-4 pb-3 text-sm text-red-400">
+                      {error}
+                    </p>
+                  )}
+                </>
+              }
             />
-          )}
-
-          {chat && (
-            <form
-              onSubmit={send}
-              className="flex gap-2 border-t border-zinc-800 p-4"
-            >
-              <input
-                type="file"
-                ref={fileRef}
-                className="hidden"
-                onChange={onPickFile}
-              />
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                title="Anexar arquivo (imagem, áudio, vídeo, documento)"
-                className="rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800"
-              >
-                📎
-              </button>
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={`Mensagem para ${activeName} (vira legenda do anexo)`}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-              />
-              <button
-                type="submit"
-                disabled={!text.trim() || sending}
-                aria-busy={sending}
-                title={
-                  !text.trim() ? 'Escreva a mensagem para enviar' : undefined
-                }
-                className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
-              >
-                {sending ? 'Enviando…' : 'Enviar'}
-              </button>
-            </form>
-          )}
-          {error && (
-            <p role="alert" className="px-4 pb-3 text-sm text-red-400">
-              {error}
-            </p>
           )}
         </main>
       </div>

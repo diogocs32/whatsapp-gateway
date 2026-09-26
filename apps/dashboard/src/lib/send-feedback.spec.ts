@@ -15,6 +15,13 @@ describe('deviceBlockReason', () => {
       );
     }
   });
+  it('no encaminhar o texto diz "encaminhe" (E25)', () => {
+    expect(
+      deviceBlockReason({ name: 'vendas', status: 'STOPPED' }, 'encaminhe'),
+    ).toBe(
+      'O aparelho vendas está desligado — encaminhe pelo celular ou conecte-o em Sessões.',
+    );
+  });
   it('WORKING, DEGRADED e aparelho desconhecido não travam', () => {
     expect(deviceBlockReason({ name: 'v', status: 'WORKING' })).toBeNull();
     expect(deviceBlockReason({ name: 'v', status: 'DEGRADED' })).toBeNull();

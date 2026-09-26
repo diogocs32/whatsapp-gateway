@@ -636,47 +636,57 @@ export function Atendimento() {
                       Sem histórico guardado desta conversa ainda.
                     </p>
                   }
+                  // E25: ⌄ Encaminhar / atalho ↪ — conversas do MESMO aparelho (contatos e grupos,
+                  // inclusive os que esta caixa não lista); o modo seleção troca a resposta pela barra.
+                  forward={{
+                    sessionId: selected.sessionId,
+                    deviceName: selected.sessionName,
+                    blockedReason: deviceBlockReason(
+                      sessions.find((s) => s.id === selected.sessionId),
+                      'encaminhe',
+                    ),
+                  }}
+                  footer={
+                    <div className="border-t border-zinc-800 p-3">
+                      {(blocked || sendError) && (
+                        <p
+                          role="alert"
+                          className={`mb-2 rounded-md px-3 py-2 text-sm ${
+                            blocked
+                              ? 'bg-zinc-800 text-zinc-300'
+                              : 'bg-amber-500/10 text-amber-300'
+                          }`}
+                        >
+                          {blocked ?? sendError}
+                        </p>
+                      )}
+                      <form onSubmit={reply} className="flex gap-2">
+                        <input
+                          value={text}
+                          disabled={!!blocked}
+                          onChange={(e) => setText(e.target.value)}
+                          placeholder={`Responder ${displayName(selected)} por ${selected.sessionName} (opcional — o normal é responder no aparelho)`}
+                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!text.trim() || sending || !!blocked}
+                          aria-busy={sending}
+                          title={
+                            blocked
+                              ? 'Aparelho desconectado'
+                              : !text.trim()
+                                ? 'Escreva a mensagem para enviar'
+                                : undefined
+                          }
+                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+                        >
+                          {sending ? 'Enviando…' : 'Enviar'}
+                        </button>
+                      </form>
+                    </div>
+                  }
                 />
-              )}
-              {selected && (
-                <div className="border-t border-zinc-800 p-3">
-                  {(blocked || sendError) && (
-                    <p
-                      role="alert"
-                      className={`mb-2 rounded-md px-3 py-2 text-sm ${
-                        blocked
-                          ? 'bg-zinc-800 text-zinc-300'
-                          : 'bg-amber-500/10 text-amber-300'
-                      }`}
-                    >
-                      {blocked ?? sendError}
-                    </p>
-                  )}
-                  <form onSubmit={reply} className="flex gap-2">
-                    <input
-                      value={text}
-                      disabled={!!blocked}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder={`Responder ${displayName(selected)} por ${selected.sessionName} (opcional — o normal é responder no aparelho)`}
-                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!text.trim() || sending || !!blocked}
-                      aria-busy={sending}
-                      title={
-                        blocked
-                          ? 'Aparelho desconectado'
-                          : !text.trim()
-                            ? 'Escreva a mensagem para enviar'
-                            : undefined
-                      }
-                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
-                    >
-                      {sending ? 'Enviando…' : 'Enviar'}
-                    </button>
-                  </form>
-                </div>
               )}
             </>
           )}

@@ -11,14 +11,15 @@ const OFFLINE: Partial<Record<SessionStatus, string>> = {
   FAILED: 'com falha',
 };
 
-// Motivo para travar a caixa de resposta, ou null (pode enviar). Aparelho desconhecido → null: deixa
-// tentar e o gateway responde.
+// Motivo para travar a caixa de resposta (ou o ➤ do encaminhar — E25), ou null (pode enviar).
+// Aparelho desconhecido → null: deixa tentar e o gateway responde.
 export function deviceBlockReason(
   device: { name: string; status: SessionStatus } | null | undefined,
+  action: 'responda' | 'encaminhe' = 'responda',
 ): string | null {
   const state = device ? OFFLINE[device.status] : undefined;
   return state
-    ? `O aparelho ${device!.name} está ${state} — responda pelo celular ou conecte-o em Sessões.`
+    ? `O aparelho ${device!.name} está ${state} — ${action} pelo celular ou conecte-o em Sessões.`
     : null;
 }
 

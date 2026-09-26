@@ -17,6 +17,8 @@ import type {
   CreateUserRequest,
   CreateWebhookRequest,
   CreatedApiKeyDto,
+  ForwardMessageRequest,
+  ForwardMessageResponse,
   GroupDto,
   GroupInviteDto,
   GroupParticipantAction,
@@ -50,10 +52,15 @@ import type {
 
 export const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
+// `code` e `body` (E25): o corpo de erro do gateway pode trazer um código de máquina (ex.: 423
+// `SESSION_QUARANTINED`, 400 `FORWARD_UNSUPPORTED`) e dados (o `results[]` do encaminhar). Quem só
+// usa `status`/`message` segue igual.
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly code?: string,
+    public readonly body?: unknown,
   ) {
     super(message);
   }
@@ -117,13 +124,19 @@ async function coreFetch(
 
 async function parseError(res: Response): Promise<never> {
   let message = res.statusText;
+  let code: string | undefined;
+  let body: unknown;
   try {
-    const body = (await res.json()) as { message?: string };
-    if (body?.message) message = body.message;
+    body = await res.json();
+    const b = body as { message?: unknown; code?: unknown } | null;
+    if (typeof b?.message === 'string' && b.message) message = b.message;
+    else if (Array.isArray(b?.message) && b.message.length)
+      message = b.message.join('; '); // validação do Nest com várias mensagens
+    if (typeof b?.code === 'string' && b.code) code = b.code;
   } catch {
     /* corpo não-JSON */
   }
-  throw new ApiError(res.status, message);
+  throw new ApiError(res.status, message, code, body);
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -267,6 +280,14 @@ export const api = {
       requestBlob(
         `/api/sessions/${encodeURIComponent(id)}/messages/${encodeURIComponent(ref)}/media`,
         signal,
+      ),
+    // P-068 (E25): encaminhar a mensagem `msgId` (o `id` do MessageDto) para até 5 conversas da
+    // MESMA sessão. Um destino por vez no gateway (1–3 s entre eles) — a resposta leva segundos.
+    // `idempotencyKey` vale para o pedido: repetir o mesmo pedido não reenvia o que já saiu.
+    forward: (id: string, msgId: string, body: ForwardMessageRequest) =>
+      request<ForwardMessageResponse>(
+        `/api/sessions/${encodeURIComponent(id)}/messages/${encodeURIComponent(msgId)}/forward`,
+        { method: 'POST', body: JSON.stringify(body) },
       ),
     // UP-02: o painel manda idempotencyKey (o gateway reserva a intenção — retry não duplica).
     sendText: (
