@@ -122,6 +122,10 @@ latest: '1.34.7' }`. Instalados: Baileys 7.0.0-rc14 e wwebjs 1.34.7 (pin `178071
   `ADD COLUMN` com default constante sem reescrita da tabela (doc do PG 18 + PoC de 2M linhas em 8,3 ms
   num cluster descartável).
 
+- **CI do PR #7 (run 36203225481, `98e8fea`+`80bef35`, amd64):** `ci` 3m03s ✅ (format, depcruise,
+  suíte com coverage contra Postgres/Redis/MinIO) · `imagens` 2m39s ✅ (build das 2 imagens + boot do
+  gateway com a migration nova até o `/health`). `advisories` não rodou (lockfile inalterado).
+
 ### Reconciliação documental — R3/R9
 
 - Payload do webhook `message`/`message.reaction`, `GET /messages`, `/search`, feed, tabelas e
