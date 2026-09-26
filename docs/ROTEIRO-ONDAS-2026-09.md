@@ -46,7 +46,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E6    | 6    | wwebjs leve: mídia por stream, sem auto-download de grupo, fila de mídia, teto de envio, flags do Chromium (P-060) → fecha a Onda 6                                                                                                  | `feature/onda6-wwebjs`              | PR #10 com CI verde; **merge/deploy W manual** depois (1 chip antes da frota)       | ✅ 26/09           |
 | E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | PR #11 aberto para a main; sem merge/deploy                                         | ✅ 26/09           |
 | E8    | 2    | Baileys: sinais nativos de restrição → pausa até o fim + alerta + evento aditivo (P-048)                                                                                                                                             | `feature/onda2-baileys`             | —                                                                                   | ✅ 26/09 · 8b513c5 |
-| E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | —                                                                                   | 🟡 26/09           |
+| E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | PR #11 aberto; sem merge/deploy; canário após E12                                   | ✅ 26/09 · 7c0441c |
 | E10   | 2    | Baileys: download de mídia com timeout e pelo proxy (P-050)                                                                                                                                                                          | `feature/onda2-baileys`             | —                                                                                   | ⬜                 |
 | E11   | 2    | Baileys: patch-package mínimo (#2751 Curve.verify, #2815 stream de mídia) (P-051)                                                                                                                                                    | `feature/onda2-baileys`             | teste de pareamento com chip (B-007)                                                | ⬜                 |
 | E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys`             | **merge = deploy B**                                                                | ⬜                 |
@@ -313,6 +313,21 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 
 ## Diário de execução
 
+- **26/09 — E9 (sessão `e9-baileys-desconexao`, commit `7c0441c`, PR #11):** P-049 entregue
+  em código: matriz 401/403/405/408/411/428/440/500/503/515, alerta `session.client_too_old`
+  no 405, uma tentativa quieta aos 60 s no 440 e 515 sem orçamento comum (teto próprio). O
+  diagnóstico bruto `lastErrorDetails {code,reason}` é aditivo e persistido em migration aplicada
+  só no Postgres local; `lastError` texto permanece. Métrica `wa_disconnects_total{engine,code}`
+  desde o boot. Consulta de versão com espera 3 s/single-flight/intervalo 30 s, cache renovado só
+  por `isLatest:true`, log por conexão e override por par de envs de uma sessão canário. A pausa E8
+  segue provisória no `connection.update` e só o retorno direto do RPC confirma o prazo. Revisão
+  adversarial detectou e corrigiu a corrida entre status WORKING pendente e detalhe do close.
+  Provas: 546 unit gateway, 831 gateway no total e 180 painel, e2e com socket falso/HTTP/banco/
+  webhook/métrica; typecheck, fronteiras, builds e mapa; CI `ci`/`imagens` verde no run
+  `36262065637`. Sem conta, envio real, merge ou deploy. **Para E10:** preservar E7/E8/E9,
+  sobretudo dedupe `append`, pausa provisória e matriz/versão; a rc14 ignora `fetchAgent` no
+  download e a próxima etapa precisa provar `dispatcher` undici, timeout e reupload 404/410.
+
 - **26/09 — revisão E8 (sessão `e8-baileys-fonte-prazo`, commit `8b513c5`, PR #11):** a rc14
   fabrica agora + 60 s quando a notificação de timelock omite o prazo. `connection.update`
   passa a registrar a data como provisória; só a resposta direta do RPC confirma
@@ -347,7 +362,8 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
   replay sequencial antes do EventBus, inclusive após restart; `describeBaileysMessage`, reação
   separada, participante de grupo e `raw` inbound foram preservados. E2E do efeito: banco, job do
   webhook, Inbox e reply-rate; 493 unit gateway + 776 testes gateway + 180 painel. Nenhuma migration
-  nem campo público novo. PR #11 depende do #10 aberto; E8 continua na mesma branch e PR. Limites:
+  nem campo público novo. PR #11 depende do #10 aberto; E8/E9 foram concluídas depois na mesma
+  branch e PR. Limites:
   concorrência de duas instâncias = P-056/B-004; falta de outbox = P-034. Canário após E12 no
   `how-to/canario-baileys-onda2.md`. O `onMessagesUpsert` agora é async; tests privados devem
   aguardar sua Promise. CI dos jobs `ci` e `imagens` verde no PR #11 (run `36250883011`).
