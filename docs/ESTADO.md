@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 no PR #8 e E6/P-060 no PR #10 mergeadas (deploy W pendente). **E7/P-047, E8/P-048, E9/P-049 e E10/P-050/P-075 estão na `main` pelo PR #11; E11/P-051 e E12/P-052 seguem por fazer em nova branch/PR a partir de `origin/main` atualizada.** O PR #13 (`2f02f02`) reconciliou as pontas restantes das branches M2/Mac e integrou o observador WWEBJS D-035/P-088, desligado por padrão e sem ação de guardrail. O dono autorizou os merges #7, #8, #10, #11 e #13 em 26/09, sem Deploy. Deploys manuais A/G/W e futuro B, mais canários, seguem pendentes. P-084 e P-086 são pedidos futuros; P-087 registra o listener interno do reupload sem cancelamento na rc14. Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 no PR #8 e E6/P-060 no PR #10 mergeadas (deploy W pendente). **E7–E10 estão na `main` pelo PR #11; E11/P-051 está no PR #15 draft, criado de `origin/main=960471e`, sem merge/deploy; E12/P-052 continua pendente na mesma branch/PR.** O PR #13 (`2f02f02`) reconciliou as pontas restantes das branches M2/Mac e integrou o observador WWEBJS D-035/P-088, desligado por padrão e sem ação de guardrail. O dono autorizou os merges #7, #8, #10, #11 e #13 em 26/09, sem Deploy. Deploys manuais A/G/W e futuro B, mais canários, seguem pendentes. P-084 e P-086 são pedidos futuros; P-087 registra o listener interno do reupload sem cancelamento na rc14. Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,14 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **26/09/2026 (E11/P-051, PR #15 draft — sem merge/deploy):** patch-package da rc14
+> corrige `Curve.verify`, domínio hosted por device e erro do stream cifrado (D-036).
+> `npm ci`, guardas na imagem final, ambos os Dockerfiles, 567 unit gateway, 853 testes
+> gateway no total e 180 painel passaram localmente; jobs `ci` e `imagens` do [run 36279808592](https://github.com/diogocs32/whatsapp-gateway/actions/runs/36279808592) passaram no commit de código `9e82ec7`.
+> P-087 continua aberta: o listener interno do reupload não é cancelado pelo patch.
+> E12/P-052 e canário com chip seguem antes de merge e deploy B manual do dono.
+> Último SHA de produção **documentado** segue `768fb26`, sem verificação ao vivo aqui.
 
 > **26/09/2026 (integração das branches, PR #13 mergeado — sem Deploy):** `origin/main`
 > contém o merge `2f02f02` com as pontas antes exclusivas de `coleta-mac`,
