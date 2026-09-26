@@ -37,7 +37,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `newId` (ulid.ts:4)
   - chamado por: `recordMany` L69
 - `namesFor(sessionId, keys)` · L150 · async
-  - chamado por: `MessagesController.groupSenderNames` (messages.controller.ts:325), `SessionManager.getOrCreateEngine` (session-manager.service.ts:138)
+  - chamado por: `MessagesController.groupSenderNames` (messages.controller.ts:326), `SessionManager.getOrCreateEngine` (session-manager.service.ts:138)
   - banco: `waContact.findMany`
 - `lidMap(sessionId)` · L190 · async
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:138)
@@ -186,9 +186,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `probeWrite` L80, `SessionManager.getOrCreateEngine` (session-manager.service.ts:138)
 - `getObject(key)` · L118 · async
   - chama: `isNotFound` L25, `constructor` L18
-  - chamado por: `MessagesController.downloadMedia` (messages.controller.ts:441)
+  - chamado por: `MessagesController.downloadMedia` (messages.controller.ts:442)
 - `presignedGetUrl(key)` · L144
-  - chamado por: `MessagesController.toDtos` (messages.controller.ts:290), `SessionManager.handleEngineEvent` (session-manager.service.ts:199)
+  - chamado por: `MessagesController.toDtos` (messages.controller.ts:291), `SessionManager.handleEngineEvent` (session-manager.service.ts:199)
 
 **Funções e constantes de topo**
 - `isNotFound(e)` · L25

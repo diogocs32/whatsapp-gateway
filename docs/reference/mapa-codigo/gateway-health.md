@@ -44,7 +44,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `prisma: PrismaService` · `redis: RedisService` · `media: MediaStorage`
 - `constructor(prisma, redis, media)` · L47
 - `check()` · L53 · async
-  - chama: `RedisService.ping` (redis.service.ts:18), `MediaStorage.probeWrite` (media-storage.service.ts:80), `checkDatabase` L89, `withDeadline` L31, `memoryStats` (memory.ts:45)
+  - chama: `RedisService.ping` (redis.service.ts:18), `MediaStorage.probeWrite` (media-storage.service.ts:80), `checkDatabase` L89, `withDeadline` L31, `memoryStats` (memory.ts:93)
   - chamado por: `HealthController.check` (health.controller.ts:10)
   - env: `npm_package_version`
 - `checkDatabase()` · L89 · private · async

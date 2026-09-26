@@ -37,6 +37,7 @@ import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../../iam/interface/roles.guard';
 import {
   MAX_FORWARD_TARGETS,
+  PendingMediaSendError,
   UnsupportedEngineOperationError,
 } from '../../sessions/application/engine.port';
 import type { MediaSendType } from '../../sessions/application/engine.port';
@@ -588,6 +589,23 @@ export class MessagesController {
       if (intentId) await this.intents.complete(intentId, res.keyId, res.jid);
       return { id: res.keyId, to: res.jid, deduped: false };
     } catch (e) {
+      if (e instanceof PendingMediaSendError) {
+        // Não liberar a idempotencyKey enquanto o CDP ainda pode confirmar o envio.
+        // O trabalho continua na fila da sessão e conclui/falha a intenção quando realmente acabar.
+        void e.completion
+          .then(
+            (result) =>
+              intentId
+                ? this.intents.complete(intentId, result.keyId, result.jid)
+                : undefined,
+            (err: Error) =>
+              intentId ? this.intents.fail(intentId, err.message) : undefined,
+          )
+          .catch((err: Error) =>
+            this.logger.error('Falha ao reconciliar envio WWEBJS tardio', err),
+          );
+        throw new BadRequestException(e.message);
+      }
       if (intentId) await this.intents.fail(intentId, (e as Error).message);
       throw new BadRequestException((e as Error).message);
     }

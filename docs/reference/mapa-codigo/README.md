@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 272 arquivos · 1484 símbolos (métodos/funções/assinaturas/constantes) · 1476 chamadas resolvidas · 763 testes (it/test)
+- 274 arquivos · 1502 símbolos (métodos/funções/assinaturas/constantes) · 1493 chamadas resolvidas · 770 testes (it/test)
 
 ## Áreas
 
@@ -13,23 +13,23 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | --- | --- | --- | --- |
 | packages/contracts | 1 | 674 | [contracts.md](contracts.md) |
 | Dashboard (React) | 55 | 13776 | [dashboard.md](dashboard.md) |
-| Gateway — bootstrap (config, logs, adapter) | 15 | 1684 | [gateway-bootstrap.md](gateway-bootstrap.md) |
+| Gateway — bootstrap (config, logs, adapter) | 15 | 1685 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 5 | 855 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 26 | 6910 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 26 | 6986 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 5 | 1125 | [gateway-guardrail.md](gateway-guardrail.md) |
 | módulo `health` | 3 | 127 | [gateway-health.md](gateway-health.md) |
 | módulo `iam` | 40 | 2457 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
-| módulo `messaging` | 25 | 4148 | [gateway-messaging.md](gateway-messaging.md) |
+| módulo `messaging` | 25 | 4166 | [gateway-messaging.md](gateway-messaging.md) |
 | módulo `observability` | 7 | 625 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 12 | 1277 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 153 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 33 | 13162 | [gateway-sessions.md](gateway-sessions.md) |
-| Gateway — shared-kernel | 16 | 1239 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
+| módulo `sessions` | 35 | 13567 | [gateway-sessions.md](gateway-sessions.md) |
+| Gateway — shared-kernel | 16 | 1287 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
 ## Rotas HTTP (gateway)
@@ -114,20 +114,20 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/sessions/:id/groups/:groupId/subject` | `GroupsController.subject` (groups.controller.ts:122) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/health` | `SessionsController.health` (sessions.controller.ts:181) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/logout` | `SessionsController.logout` (sessions.controller.ts:343) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages` | `MessagesController.list` (messages.controller.ts:275) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/:chatId/flag` | `MessagesController.chatFlag` (messages.controller.ts:409) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/:msgId/forward` | `MessagesController.forward` (messages.controller.ts:527) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages/:msgId/media` | `MessagesController.downloadMedia` (messages.controller.ts:441) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/:msgId/reaction` | `MessagesController.reaction` (messages.controller.ts:495) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/:msgId/read` | `MessagesController.markRead` (messages.controller.ts:483) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages/conversations` | `MessagesController.conversations` (messages.controller.ts:265) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/location` | `MessagesController.sendLocation` (messages.controller.ts:767) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/media` | `MessagesController.sendMedia` (messages.controller.ts:625) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/media-url` | `MessagesController.sendMediaUrl` (messages.controller.ts:695) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/poll` | `MessagesController.sendPoll` (messages.controller.ts:806) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/messages/search` | `MessagesController.search` (messages.controller.ts:358) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/sync` | `MessagesController.sync` (messages.controller.ts:380) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/messages/text` | `MessagesController.sendText` (messages.controller.ts:596) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages` | `MessagesController.list` (messages.controller.ts:276) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:chatId/flag` | `MessagesController.chatFlag` (messages.controller.ts:410) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:msgId/forward` | `MessagesController.forward` (messages.controller.ts:528) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages/:msgId/media` | `MessagesController.downloadMedia` (messages.controller.ts:442) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:msgId/reaction` | `MessagesController.reaction` (messages.controller.ts:496) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/:msgId/read` | `MessagesController.markRead` (messages.controller.ts:484) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages/conversations` | `MessagesController.conversations` (messages.controller.ts:266) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/location` | `MessagesController.sendLocation` (messages.controller.ts:785) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/media` | `MessagesController.sendMedia` (messages.controller.ts:643) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/media-url` | `MessagesController.sendMediaUrl` (messages.controller.ts:713) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/poll` | `MessagesController.sendPoll` (messages.controller.ts:824) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/messages/search` | `MessagesController.search` (messages.controller.ts:359) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/sync` | `MessagesController.sync` (messages.controller.ts:381) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/messages/text` | `MessagesController.sendText` (messages.controller.ts:614) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/new-qr` | `SessionsController.newQr` (sessions.controller.ts:374) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/pairing-code` | `SessionsController.pairingCode` (sessions.controller.ts:381) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/pause` | `SessionsController.pause` (sessions.controller.ts:312) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -277,6 +277,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `WA_REQUIRE_PROXY` | `base` (config.ts) |
 | `WEBHOOK_CONCURRENCY` | `base` (config.ts) |
 | `WEBSHARE_API_KEY` | `base` (config.ts) |
+| `WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA` | `base` (config.ts), `WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA` (wwebjs.engine.ts) |
 | `WWEBJS_CHROME_PATH` | `base` (config.ts) |
 | `WWEBJS_DATA_PATH` | `base` (config.ts) |
 | `WWEBJS_INIT_TIMEOUT_MS` | `base` (config.ts), `INIT_TIMEOUT_MS` (wwebjs.engine.ts) |

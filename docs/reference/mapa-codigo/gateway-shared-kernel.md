@@ -13,7 +13,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `shared-kernel/event-bus/event-bus.ts` | 38 |
 | `shared-kernel/local-day.spec.ts` | 40 |
 | `shared-kernel/local-day.ts` | 48 |
-| `shared-kernel/memory.ts` | 71 |
+| `shared-kernel/memory.ts` | 119 |
 | `shared-kernel/process-errors.ts` | 16 |
 | `shared-kernel/query-int.spec.ts` | 19 |
 | `shared-kernel/query-int.ts` | 14 |
@@ -150,16 +150,21 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `shared-kernel/memory.ts`
 
-71 linhas · caminho: `apps/gateway/src/shared-kernel/memory.ts`
-- importado por: `modules/health/health.service.ts`, `modules/observability/metrics.service.ts`
+119 linhas · caminho: `apps/gateway/src/shared-kernel/memory.ts`
+- importado por: `modules/health/health.service.ts`, `modules/observability/metrics.service.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`
 
 **Funções e constantes de topo**
-- `round2(n)` · L15
-  - chamado por: `memoryStats` L45
-- `readCgroupWorkingSet()` · L22
-  - chamado por: `memoryStats` L45
-- `memoryStats()` · L45
-  - chama: `readCgroupWorkingSet` L22, `round2` L15
+- `chromiumProcessTree(rootPid)` · L17
+  - chamado por: `WWebJSEngine.destroyWithTimeout` (wwebjs.engine.ts:1403), `chromiumTreePss` L43
+- `chromiumTreePss(rootPid)` · L43
+  - chama: `chromiumProcessTree` L17
+  - chamado por: `WWebJSEngine.recordMemoryProfile` (wwebjs.engine.ts:481)
+- `round2(n)` · L63
+  - chamado por: `memoryStats` L93
+- `readCgroupWorkingSet()` · L70
+  - chamado por: `memoryStats` L93
+- `memoryStats()` · L93
+  - chama: `readCgroupWorkingSet` L70, `round2` L63
   - chamado por: `HealthService.check` (health.service.ts:53), `MetricsService.summary` (metrics.service.ts:72)
 
 **Tipos**
@@ -193,7 +198,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `clampInt(raw, def, min, max)` · L4
-  - chamado por: `ContactsController.listDirectory` (contacts.controller.ts:58), `AuditController.list` (audit.controller.ts:15), `InboxController.conversations` (inbox.controller.ts:111), `InboxController.messages` (inbox.controller.ts:148), `MessagesController.conversations` (messages.controller.ts:265), `MessagesController.list` (messages.controller.ts:275), `MessagesController.search` (messages.controller.ts:358)
+  - chamado por: `ContactsController.listDirectory` (contacts.controller.ts:58), `AuditController.list` (audit.controller.ts:15), `InboxController.conversations` (inbox.controller.ts:111), `InboxController.messages` (inbox.controller.ts:148), `MessagesController.conversations` (messages.controller.ts:266), `MessagesController.list` (messages.controller.ts:276), `MessagesController.search` (messages.controller.ts:359)
 
 ## `shared-kernel/result.ts`
 
@@ -252,7 +257,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `egressPolicyFromEnv(env)` · L23
-  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:695), `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `fetchImageByUrl` L204
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:713), `WebhookQueue.deliver` (webhook-queue.ts:151), `WebhooksController.create` (webhooks.controller.ts:60), `fetchImageByUrl` L204
 - `BLOCKED_V4` = `[ ['0.0.0.0', 8], // "this network" ['10.0.0.0', 8], // RFC 1918 ['10…` · L51
 - `BLOCKED_V6` = `[ ['100::', 8], // 0100::/8 (inclui 100::/64 discard, RFC 6666) ['200…` · L72
 - `BLOCKED` = `new BlockList()` · L86
@@ -270,7 +275,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `GroupsController.photo` (groups.controller.ts:213), `SessionsController.profilePhoto` (sessions.controller.ts:269)
 - `safeFetch(raw, opts)` · L235 · async
   - chama: `assertEgressAllowed` L133, `constructor` L192, `constructor` L39, `parseEgressUrl` L104
-  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:695), `fetchImageByUrl` L204
+  - chamado por: `fetchMedia` (campaign-queue.ts:41), `MessagesController.sendMediaUrl` (messages.controller.ts:713), `fetchImageByUrl` L204
 
 **Tipos**
 - interface `EgressPolicy` L18 · 2 propriedade(s)

@@ -117,6 +117,7 @@ const base = z.object({
   WWEBJS_DATA_PATH: envStr(),
   WWEBJS_WEB_VERSION: envStr(), // versão fixa | 'auto' | 'live'
   WWEBJS_USER_AGENT: envStr(), // override global do UA (sem ele: UA estável por sessão)
+  WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA: envBool(false), // opt-in; default preserva só metadados da mídia de grupo
   // Teto do client.initialize() em ms (WA-08/P-025). Default 240000 (4 min). Lido pela engine.
   WWEBJS_INIT_TIMEOUT_MS: z.preprocess(
     (v) => (v === '' ? undefined : v),

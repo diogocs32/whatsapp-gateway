@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 mergeada no PR #8 (deploy W pendente). **Próxima: E6/P-060**, ainda não implementada. P-084 e P-086 são pedidos futuros. Em 26/09 o dono autorizou que o assistente integrasse os PRs #7 e #8 à `main`; **não autorizou deploy** enquanto a equipe trabalha. O Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 mergeada no PR #8 (deploy W pendente). **E6/P-060 concluída em código no PR #10 com CI verde; merge, deploy W manual e canário pendentes. Próxima: E7/P-047.** P-084 e P-086 são pedidos futuros. Em 26/09 o dono autorizou que o assistente integrasse os PRs #7 e #8 à `main`; **não autorizou deploy** enquanto a equipe trabalha. O Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -22,10 +22,20 @@
 
 ## Estado de produção
 
+> **26/09/2026 (sessão `e6-wwebjs-leve`, E6/P-060 na branch — sem deploy):** download WWEBJS
+> por stream de 2 MB e fila por sessão; mídia de grupo não baixa por padrão (opt-in por env), teto
+> de envio 24 MB e resultado tardio protegido pela intenção de idempotência; patch single-flight,
+> sync de agenda só no primeiro ready da instância, limpeza do Chromium por PID e flags revistas.
+> Perfil periódico JSHeap/PSS/IndexedDB no log. Sem conta conectada, `about:blank` no macOS mostrou
+> JSHeap 1.073.432→1.073.432 B, soma RSS 739.622.912→651.640.832 B, IndexedDB 0→0 B; PSS
+> indisponível. Esses valores **não demonstram** ganho em sessão logada. 489 unit gateway, 282 e2e
+> locais, 180 painel; canário com chip e deploy W manual do dono pendentes. Produção continua no
+> último SHA **documentado** `768fb26`; nenhum restart, pareamento ou envio real nesta sessão.
+
 > **26/09/2026 — integração autorizada pelo dono, sem Deploy manual:** PR #7 (Onda 8) mergeado em
 > `ddca44a`; PR #8 (E5 da Onda 6) mergeado em `6567112`. O código está na `main`, mas as mudanças
 > de gateway e painel só chegam à produção após Deploy manual no Dokploy (D-027). A E6/P-060 continua
-> pendente; o canário com chip da build wwebjs também. Nenhum Deploy foi executado nesta conversa.
+> pendente naquele fechamento; o canário com chip da build wwebjs também. Nenhum Deploy foi executado naquela conversa.
 > Às 13:16 UTC, `/health` nos domínios `.cloud` e `.com` respondeu `ok`, com uptime de 947.341 s
 > (boot aproximado em 15/09 14:06 UTC): o gateway não reiniciou após os merges. Último SHA de
 > produção **documentado**: `768fb26`; o toggle do Dokploy não foi inspecionado ao vivo.

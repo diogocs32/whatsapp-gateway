@@ -43,7 +43,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E3    | 1    | Patches de segurança/estabilidade sem major: Nest 11.2.6, multipart 10.1.2, bullmq 5.81.5, protobufjs 7.6.6 + checagem de advisories de repositório (P-054)                                                                          | `feature/onda1-guardas-seguranca`   | —                                                                                   | ✅ 25/09 |
 | E4    | 1    | Rate-limit/log/auditoria por rota real em vez de `req.url` (P-053) + bypass do egress por IPv6 v4-mapeado em hex (P-065) → fecha a Onda 1                                                                                            | `feature/onda1-guardas-seguranca`   | **merge = deploy A**; depois **B-004** (stop-first)                                 | ✅ 25/09 |
 | E5    | 6    | wwebjs pronto para canário: build candidata + patch estendido (`__x_id`, WID), build efetiva no log, override por sessão, LOGOUT/TOS sem QR automático, tetos (P-059) — **prazo 13/10**                                              | `feature/onda6-wwebjs`              | PR #8 mergeado; canário por sessão após deploy W + **B-001**                        | ✅ 26/09 |
-| E6    | 6    | wwebjs leve: mídia por stream, sem auto-download de grupo, fila de mídia, teto de envio, flags do Chromium (P-060) → fecha a Onda 6                                                                                                  | `feature/onda6-wwebjs`              | E6 pendente; **deploy W manual** depois (1 chip antes da frota)                     | ⬜       |
+| E6    | 6    | wwebjs leve: mídia por stream, sem auto-download de grupo, fila de mídia, teto de envio, flags do Chromium (P-060) → fecha a Onda 6                                                                                                  | `feature/onda6-wwebjs`              | PR #10 com CI verde; **merge/deploy W manual** depois (1 chip antes da frota)       | ✅ 26/09 |
 | E7    | 2    | Baileys: mensagens recebidas durante queda/deploy deixam de ser descartadas (P-047)                                                                                                                                                  | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
 | E8    | 2    | Baileys: sinais nativos de restrição → pausa até o fim + alerta + evento aditivo (P-048)                                                                                                                                             | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
 | E9    | 2    | Baileys: tratamento por código de desconexão + política de versão do protocolo (P-049)                                                                                                                                               | `feature/onda2-baileys`             | —                                                                                   | ⬜       |
@@ -181,6 +181,18 @@ Esta etapa FECHA a Onda 6: PR com CI verde + roteiro do canário (1 chip) para e
 No fim: atualize o roteiro, e me dê a mensagem da E7 e a lista do que eu preciso fazer.
 ```
 
+### E7 — Baileys: recebidas durante queda/deploy (P-047) — abre a Onda 2
+
+```text
+Execute a E7 do ConexoZenvo: mensagens recebidas durante queda, reconexão ou deploy devem chegar ao webhook, Inbox e reply-rate (P-047), conforme docs/ROTEIRO-ONDAS-2026-09.md e docs/PENDENCIAS.md.
+
+Siga a leitura obrigatória do AGENTS.md/R9, abra uma sessão própria e trabalhe na branch feature/onda2-baileys a partir da main atualizada (ou da feature/onda6-wwebjs se o PR #10 ainda não tiver sido mergeado, conforme a regra 2 do roteiro). Preserve os arquivos locais não versionados. Antes de usar APIs, confira o Baileys instalado (rc14) e a documentação oficial; leia docs/MAPA-CODIGO.md §3.2/§5.1 P-047, os avisos da E22/E24 e docs/INTEGRACAO.md §3.2.
+
+Corrija o descarte de messages.upsert type=append com decisão por mensagem: janela 24–48 h, sem eco dos nossos envios, sem newsletter/status, dedupe por sessão+keyId inclusive após restart. Preserve describeBaileysMessage, reação fora de message, remetente de grupo e raw inbound do encaminhar. Se acrescentar campo público de histórico/offline, atualize packages/contracts e INTEGRACAO no mesmo commit. Use migration somente forward-only se necessária. Teste o efeito no banco, webhook, Inbox e reply-rate, com lote misto notify/append/eco/reação e chave repetida; não conecte conta, não envie mensagem real e não faça deploy.
+
+Entregue código, testes, documentação e PR da Onda 2 para a main com CI verde. No fim, atualize o roteiro e o runbook do próximo canário, informe o que ficou pendente e a mensagem pronta da E8. O merge e o deploy ficam para outra ordem/janela.
+```
+
 ### E22 — conversas fiéis: gateway (P-066) — abre a Onda 8
 
 ```text
@@ -274,6 +286,15 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064              |
 
 ## Diário de execução
+
+- **26/09 — E6 (sessão `e6-wwebjs-leve`, branch `feature/onda6-wwebjs`, PR #10, D-033):** P-060
+  implementada sem deploy/conta real: stream de 2 MB no download, grupo sem auto-download por
+  padrão, fila de mídia por sessão, teto de 24 MB no envio, intenção pendente se o CDP completar
+  depois do HTTP, single-flight no patch, sync de agenda uma vez por instância, limpeza do Chromium
+  por PID, flags revistas e perfil JSHeap/PSS/IndexedDB no log. Medição local `about:blank` no macOS
+  (soma RSS −87.982.080 B; JSHeap estável; PSS indisponível) **não substitui** o canário de sessão
+  logada. 489 unit gateway + 282 e2e + 180 painel locais. Próxima E7: proteger `append`/dedupe sem
+  mexer na semântica de grupo/mídia desta etapa; ver `INTEGRACAO` e aviso em `SESSOES`.
 
 - **26/09 — E25 (sessão `e25-encaminhar-painel`, commits `06d4ac1` + `f6d0116`):** P-068 parte interface (decisões do dono na
   abertura: modo seleção com 1 mensagem; destinos = contatos e grupos) na branch

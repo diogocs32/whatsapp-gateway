@@ -32,7 +32,17 @@ import {
   type WwebjsMessageLike,
 } from './wwebjs-content';
 import { ForwardEchoRegistry, type ForwardEcho } from './wwebjs.forward-echo';
+import {
+  collectMediaStream,
+  MediaDeadlineError,
+  mediaDeadline,
+  SessionMediaQueue,
+} from './wwebjs-media';
 import { formatLocation, formatPoll } from '../message-content';
+import {
+  chromiumProcessTree,
+  chromiumTreePss,
+} from '../../../../shared-kernel/memory';
 import type {
   ChannelInfo,
   ChatFlag,
@@ -59,7 +69,10 @@ import type {
   SendPollInput,
   SendResult,
 } from '../../application/engine.port';
-import { ForwardSourceError } from '../../application/engine.port';
+import {
+  ForwardSourceError,
+  PendingMediaSendError,
+} from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 import { isWwebjsVersionMode } from '../../domain/wwebjs-version';
 
@@ -104,6 +117,12 @@ export function isPageCrashError(message: string | undefined): boolean {
 // Acima do teto, a mensagem segue só com metadados (sem mediaKey) — mesmo fallback do erro.
 const WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES =
   Number(process.env.WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES) || 24 * 1024 * 1024;
+const WWEBJS_MEDIA_SEND_MAX_BYTES = 24 * 1024 * 1024;
+const WWEBJS_MEDIA_CHUNK_BYTES = 2 * 1024 * 1024;
+const WWEBJS_MEDIA_TIMEOUT_MS = 120_000;
+const WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA = /^(true|1|yes|on)$/i.test(
+  process.env.WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA ?? '',
+);
 // P-012 anti-flag — UA realista, ESTÁVEL POR SESSÃO (paridade com o browser-fingerprint do
 // Baileys): determinístico pelo sessionId — estável entre reconexões (trocar UA a cada conexão é
 // suspeito) e distinto entre sessões (frota inteira com UA idêntico denuncia automação). Varia SÓ a
@@ -363,6 +382,10 @@ export class WWebJSEngine implements IEngine {
   private reconnectAttempts = 0;
   private pairingRenewals = 0;
   private pageHeals = 0;
+  private readonly mediaQueue = new SessionMediaQueue();
+  private autoDownloadGroupMedia = WWEBJS_AUTO_DOWNLOAD_GROUP_MEDIA;
+  private addressBookSynced = false;
+  private memoryProfileTimer: ReturnType<typeof setInterval> | undefined;
   // Último percent visto no loading_screen (sincronização offline pós-login). Diagnóstico do
   // P-014: entra na mensagem de erro quando uma operação de Store estoura o teto — distingue
   // "ainda sincronizando em X%" de "página travada sem nunca ter emitido progresso" (null).
@@ -430,9 +453,70 @@ export class WWebJSEngine implements IEngine {
     } else if (status === 'STOPPED' || status === 'FAILED') {
       this.stopSyncWatchdog();
       this.stopQrWatchdog();
+      this.stopMemoryProfile();
     } else if (status === 'SCAN_QR_CODE' || status === 'PAIRING_CODE') {
       this.startQrWatchdog();
     }
+  }
+
+  private startMemoryProfile(client: Client): void {
+    if (this.memoryProfileTimer) return;
+    const first = setTimeout(
+      () => void this.recordMemoryProfile(client),
+      15_000,
+    );
+    first.unref?.();
+    this.memoryProfileTimer = setInterval(
+      () => void this.recordMemoryProfile(client),
+      5 * 60_000,
+    );
+    this.memoryProfileTimer.unref?.();
+  }
+
+  private stopMemoryProfile(): void {
+    if (this.memoryProfileTimer) clearInterval(this.memoryProfileTimer);
+    this.memoryProfileTimer = undefined;
+  }
+
+  private async recordMemoryProfile(client: Client): Promise<void> {
+    if (this.client !== client || this.stopped) return;
+    const browserPid = client.pupBrowser?.process()?.pid ?? null;
+    const pss = browserPid ? chromiumTreePss(browserPid) : null;
+    let jsHeapUsedBytes: number | null = null;
+    let indexedDbBytes: number | null = null;
+    const page = client.pupPage;
+    if (!page) return;
+    try {
+      jsHeapUsedBytes = (await page.metrics()).JSHeapUsedSize ?? null;
+      const cdp = await page.createCDPSession();
+      try {
+        const usage = await cdp.send('Storage.getUsageAndQuota', {
+          origin: 'https://web.whatsapp.com',
+        });
+        indexedDbBytes =
+          usage.usageBreakdown.find((item) => item.storageType === 'indexeddb')
+            ?.usage ?? null;
+      } finally {
+        await cdp.detach().catch(() => undefined);
+      }
+    } catch (err) {
+      this.deps.logger.warn(
+        { err, sessionId: this.deps.sessionId },
+        'wwebjs: leitura de JSHeap/IndexedDB indisponível',
+      );
+    }
+    if (this.client !== client || this.stopped) return;
+    this.deps.logger.info(
+      {
+        sessionId: this.deps.sessionId,
+        browserPid,
+        jsHeapUsedBytes,
+        chromiumPssBytes: pss?.pssBytes ?? null,
+        chromiumProcessCount: pss?.processCount ?? null,
+        indexedDbBytes,
+      },
+      'wwebjs: perfil de memória da sessão',
+    );
   }
 
   // P-025 — watchdog da fase de QR/pairing: página que parou de renovar o QR/código é página
@@ -622,6 +706,7 @@ export class WWebJSEngine implements IEngine {
         this.reconnectAttempts = 0;
         this.pageHeals = 0;
         this.pairingRenewals = 0;
+        this.addressBookSynced = false;
       }
       return this.doStart();
     });
@@ -790,10 +875,9 @@ export class WWebJSEngine implements IEngine {
           // Reduzem RAM/CPU do Chromium em servidor headless, sem afetar o WhatsApp Web.
           // Evita-se --single-process/--no-zygote de propósito (instabilizam o whatsapp-web.js).
           '--disable-gpu',
-          '--disable-software-rasterizer',
           '--disable-accelerated-2d-canvas',
-          // Cap do heap V8 por renderer: RAM previsível por sessão (multi-tenant).
-          '--js-flags=--max-old-space-size=512,--max-semi-space-size=64',
+          // Limite do heap JS por isolate; não limita ArrayBuffer/DOM nem o RSS do Chromium.
+          '--js-flags=--max-old-space-size=512',
           '--disable-extensions',
           '--disable-component-update',
           '--disable-sync',
@@ -801,7 +885,7 @@ export class WWebJSEngine implements IEngine {
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
-          '--disable-features=Translate,BackForwardCache,MediaRouter,OptimizationHints,AcceptCHFrame,CalculateNativeWinOcclusion',
+          '--disable-features=Translate,BackForwardCache,MediaRouter,OptimizationHints,AcceptCHFrame,CalculateNativeWinOcclusion,SpareRendererForSitePerProcess',
           '--mute-audio',
           '--no-first-run',
           '--no-default-browser-check',
@@ -857,6 +941,7 @@ export class WWebJSEngine implements IEngine {
         mePushName: client.info?.pushname ?? null,
         error: null,
       });
+      this.startMemoryProfile(client);
       void Promise.all([client.getWWebVersion(), client.pupBrowser?.version()])
         .then(([effectiveVersion, chromiumVersion]) => {
           if (!current()) return;
@@ -885,10 +970,13 @@ export class WWebJSEngine implements IEngine {
             'wwebjs: falha ao ler a build efetiva/Chromium',
           ),
         );
-      // Merge: funde conversas antigas divididas em @lid (após o Store sincronizar).
-      setTimeout(() => void this.mergeExistingLids(), 4000);
-      // Puxa a agenda (nomes salvos) para o diretório. withStoreReady cobre o Store ainda injetando.
-      setTimeout(() => void this.syncAddressBook(), 3000);
+      // O ready reaparece após reload/heal. A agenda e o merge persistem no banco e só precisam
+      // da primeira sincronização desta instância, não de outra varredura CDP a cada heal.
+      if (!this.addressBookSynced) {
+        this.addressBookSynced = true;
+        setTimeout(() => void this.mergeExistingLids(), 4000);
+        setTimeout(() => void this.syncAddressBook(), 3000);
+      }
     });
     client.on('auth_failure', (m: string) => {
       if (!current()) return;
@@ -1308,26 +1396,51 @@ export class WWebJSEngine implements IEngine {
 
   // Fecha o Chromium com TETO de tempo: um destroy() que pendura (Chromium travado) não pode
   // bloquear a fila `lifecycle` (mutex) desta sessão para sempre — sem o teto, todo start/stop/logout
-  // futuro penduraria atrás dele. Se estourar, o Chromium pode ficar órfão, mas o clearStaleSingletonLocks
-  // do próximo start remove o lock remanescente — melhor um órfão do que a sessão travada.
-  // Retorna se fechou LIMPO (destroy completou dentro do teto — P-015): false = estouro, o browser
-  // pode morrer no meio de escritas do perfil. destroy() que REJEITA conta como fechado (o browser
-  // já não está mais de pé segurando o perfil).
+  // futuro penduraria atrás dele. Se expirar ou rejeitar, encerra apenas a árvore de PIDs daquele
+  // Client, sem deixar um Chromium órfão nem alcançar os browsers das outras sessões.
+  // Retorna se fechou LIMPO (destroy completou dentro do teto — P-015): false = estouro/rejeição;
+  // o browser pode morrer no meio de escritas do perfil.
   private async destroyWithTimeout(): Promise<boolean> {
     const client = this.client;
     if (!client) return true; // nada aberto = nada a sujar
+    this.stopMemoryProfile();
+    const browserProcess = client.pupBrowser?.process?.();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<boolean>((r) => {
       timer = setTimeout(() => r(false), this.destroyTimeoutMs);
     });
     try {
-      return await Promise.race([
+      const clean = await Promise.race([
         client.destroy().then(
           () => true,
-          () => true,
+          () => false,
         ),
         timeout,
       ]);
+      if (!clean) {
+        // Só a árvore do browser pertencente a ESTE Client. Filhos primeiro; PID inválido ou do
+        // próprio gateway é recusado por chromiumProcessTree. Sem matar outros Chromiums da VPS.
+        const browserPid = browserProcess?.pid;
+        if (
+          browserPid &&
+          browserProcess.exitCode === null &&
+          browserProcess.signalCode === null
+        ) {
+          const pids = chromiumProcessTree(browserPid).reverse();
+          for (const pid of pids) {
+            try {
+              process.kill(pid, 'SIGKILL');
+            } catch {
+              // Já encerrou entre a enumeração e o sinal.
+            }
+          }
+          this.deps.logger.warn(
+            { browserPid, processes: pids.length },
+            'wwebjs: Chromium órfão encerrado por PID após destroy falhar/expirar',
+          );
+        }
+      }
+      return clean;
     } finally {
       if (timer) clearTimeout(timer); // não deixa o timer vivo após um destroy rápido
     }
@@ -1415,6 +1528,7 @@ export class WWebJSEngine implements IEngine {
   async shutdown(): Promise<void> {
     this.stopped = true;
     this.stopSyncWatchdog();
+    this.stopMemoryProfile();
     const startedAt = Date.now();
     const hadClient = this.client !== null;
     const clean = await this.destroyWithTimeout();
@@ -1517,6 +1631,25 @@ export class WWebJSEngine implements IEngine {
   }
 
   async sendMedia(
+    to: string,
+    input: SendMediaInput,
+  ): Promise<{ keyId: string; jid: string }> {
+    if (input.buffer.length > WWEBJS_MEDIA_SEND_MAX_BYTES) {
+      throw new Error('Mídia acima do teto de 24 MB para envio WWEBJS');
+    }
+    // O deadline libera a requisição; a fila continua ocupada até a operação real terminar.
+    // Assim um CDP tardio não concorre com a próxima mídia desta sessão.
+    const work = this.mediaQueue.run(() => this.sendMediaQueued(to, input));
+    try {
+      return await mediaDeadline(work, WWEBJS_MEDIA_TIMEOUT_MS);
+    } catch (err) {
+      if (err instanceof MediaDeadlineError)
+        throw new PendingMediaSendError(work);
+      throw err;
+    }
+  }
+
+  private async sendMediaQueued(
     to: string,
     input: SendMediaInput,
   ): Promise<{ keyId: string; jid: string }> {
@@ -2031,6 +2164,24 @@ export class WWebJSEngine implements IEngine {
     caption: string | null = msg.body || null,
     type: string = mediaType,
   ): Promise<void> {
+    // Grupo: opt-in explícito. Preserva a mensagem e seus metadados no webhook/feed, sem mediaKey.
+    if (!this.autoDownloadGroupMedia && base.chatJid.endsWith('@g.us')) {
+      const meta = (
+        msg as unknown as {
+          _data?: { size?: number; mimetype?: string; filename?: string };
+        }
+      )._data;
+      this.deps.onEvent('message', {
+        ...base,
+        type,
+        text: caption,
+        mediaType,
+        mimetype: meta?.mimetype ?? null,
+        fileName: meta?.filename ?? null,
+        fileSize: meta?.size ?? null,
+      });
+      return;
+    }
     // P-017 — checa o tamanho DECLARADO antes de baixar (o download roda no renderer; ver
     // WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES). Sem size declarado, segue o fluxo normal.
     const declaredSize =
@@ -2059,32 +2210,67 @@ export class WWebJSEngine implements IEngine {
       });
       return;
     }
+    const abort = new AbortController();
     try {
-      // O d.ts diz Promise<MessageMedia>, mas em runtime devolve undefined quando a mídia expirou
-      // ou está sendo reprocessada — daí o cast + guard.
-      const media = (await msg.downloadMedia()) as MessageMedia | undefined;
-      if (!media?.data) throw new Error('downloadMedia sem dados');
-      const buffer = Buffer.from(media.data, 'base64');
-      const mimetype = media.mimetype || 'application/octet-stream';
-      const fileName = media.filename ?? null;
-      const ext = extOf(mimetype, fileName);
-      const safeId = (base.keyId || String(base.timestamp)).replace(
-        /[^a-zA-Z0-9_-]/g,
-        '',
-      );
-      const key = `media/${this.deps.sessionId}/${safeId}.${ext}`;
-      await this.deps.storeMedia?.(key, buffer, mimetype);
+      const work = this.mediaQueue.run(async () => {
+        // O pin 1780711 oferece downloadMediaStream; fallback só para instalação divergente.
+        const canStream = typeof msg.downloadMediaStream === 'function';
+        const streamed = canStream
+          ? await msg.downloadMediaStream({
+              chunkSize: WWEBJS_MEDIA_CHUNK_BYTES,
+            })
+          : undefined;
+        if (canStream && !streamed)
+          throw new Error('downloadMediaStream sem dados');
+        let buffer: Buffer;
+        let mimetype: string;
+        let fileName: string | null;
+        let fileSize: number | null;
+        if (streamed) {
+          buffer = await collectMediaStream(
+            streamed.stream,
+            WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES,
+          );
+          mimetype = streamed.mimetype || 'application/octet-stream';
+          fileName = streamed.filename ?? null;
+          fileSize = streamed.filesize ?? buffer.length;
+        } else {
+          const media = (await msg.downloadMedia()) as MessageMedia | undefined;
+          if (!media?.data) throw new Error('downloadMedia sem dados');
+          buffer = Buffer.from(media.data, 'base64');
+          if (buffer.length > WWEBJS_MEDIA_DOWNLOAD_MAX_BYTES) {
+            throw new Error('Mídia excedeu teto de download');
+          }
+          mimetype = media.mimetype || 'application/octet-stream';
+          fileName = media.filename ?? null;
+          fileSize = media.filesize ?? buffer.length;
+        }
+        // Deadline do HTTP pode ter expirado enquanto a chamada CDP ainda baixava.
+        // Não criar objeto S3 sem um evento que entregue a respectiva mediaKey.
+        if (abort.signal.aborted)
+          throw new Error('Mídia expirada após download');
+        const ext = extOf(mimetype, fileName);
+        const safeId = (base.keyId || String(base.timestamp)).replace(
+          /[^a-zA-Z0-9_-]/g,
+          '',
+        );
+        const key = `media/${this.deps.sessionId}/${safeId}.${ext}`;
+        await this.deps.storeMedia?.(key, buffer, mimetype);
+        return { mimetype, fileName, fileSize, key };
+      }, abort.signal);
+      const media = await mediaDeadline(work, WWEBJS_MEDIA_TIMEOUT_MS);
       this.deps.onEvent('message', {
         ...base,
         type,
         text: caption,
         mediaType,
-        mimetype,
-        fileName,
-        fileSize: media.filesize ?? buffer.length,
-        mediaKey: key,
+        mimetype: media.mimetype,
+        fileName: media.fileName,
+        fileSize: media.fileSize,
+        mediaKey: media.key,
       });
     } catch (e) {
+      if (e instanceof MediaDeadlineError) abort.abort();
       const reason = (e as Error)?.message ?? '';
       this.deps.logger.error(
         { err: e, reason },

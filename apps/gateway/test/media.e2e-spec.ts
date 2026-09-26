@@ -5,6 +5,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { MediaStorage } from '../src/infra/storage/media-storage.service';
+import { PendingMediaSendError } from '../src/modules/sessions/application/engine.port';
 import {
   createTestApp,
   fakeSessionManager,
@@ -64,6 +65,75 @@ describe('Mídia (e2e)', () => {
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().id).toBe('fake-media');
+  });
+
+  it('envio WWEBJS sem confirmação mantém intenção pendente até resultado tardio, sem duplicar', async () => {
+    const boundary = '----vitestpendingmedia';
+    const payload = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="to"',
+      '',
+      '5511999999999',
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="idempotencyKey"',
+      '',
+      'e6-pending-media',
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="file"; filename="foto.png"',
+      'Content-Type: image/png',
+      '',
+      'PNGFAKEDATA',
+      `--${boundary}--`,
+      '',
+    ].join('\r\n');
+    const send = () =>
+      inject(app, {
+        method: 'POST',
+        url: '/api/sessions/s1/messages/media',
+        headers: {
+          ...auth(),
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+        },
+        payload,
+      });
+    let finish!: (value: { keyId: string; jid: string }) => void;
+    const completion = new Promise<{ keyId: string; jid: string }>(
+      (resolve) => {
+        finish = resolve;
+      },
+    );
+    const spy = vi
+      .spyOn(fakeSessionManager, 'sendMedia')
+      .mockRejectedValueOnce(new PendingMediaSendError(completion));
+    const prisma = app.get(PrismaService);
+    try {
+      const first = await send();
+      expect(first.statusCode).toBe(400);
+      expect(first.json().message).toMatch(/sem confirmação/);
+      const intent = () =>
+        prisma.sendIntent.findUnique({
+          where: {
+            sessionId_idempotencyKey: {
+              sessionId: 's1',
+              idempotencyKey: 'e6-pending-media',
+            },
+          },
+        });
+      expect((await intent())?.status).toBe('pending');
+      expect((await send()).statusCode).toBe(409);
+      expect(spy).toHaveBeenCalledTimes(1);
+      finish({ keyId: 'e6-late-key', jid: '5511999999999@c.us' });
+      for (let n = 0; n < 20 && (await intent())?.status !== 'sent'; n++) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect((await intent())?.status).toBe('sent');
+      const replay = await send();
+      expect(replay.statusCode).toBe(201);
+      expect(replay.json()).toMatchObject({ id: 'e6-late-key', deduped: true });
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('upload multipart sem o campo "to" → 400', async () => {

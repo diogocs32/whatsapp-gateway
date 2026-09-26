@@ -1,3 +1,32 @@
+diff --git a/node_modules/whatsapp-web.js/src/Client.js b/node_modules/whatsapp-web.js/src/Client.js
+index a122a8f..8ce0689 100644
+--- a/node_modules/whatsapp-web.js/src/Client.js
++++ b/node_modules/whatsapp-web.js/src/Client.js
+@@ -290,6 +290,10 @@ class Client extends EventEmitter {
+                 this.pupPage,
+                 'onAppStateHasSyncedEvent',
+                 async () => {
++                    // hasSynced can fire while the previous injection is still awaiting CDP.
++                    // Share that attempt so listeners/ready are installed and emitted once.
++                    if (this._appStateSyncFlight) return this._appStateSyncFlight;
++                    const flight = (async () => {
+                     const authEventPayload =
+                         await this.authStrategy.getAuthEventPayload();
+                     /**
+@@ -364,6 +368,13 @@ class Client extends EventEmitter {
+                      */
+                     this.emit(Events.READY);
+                     this.authStrategy.afterAuthReady();
++                    })();
++                    this._appStateSyncFlight = flight;
++                    try {
++                        return await flight;
++                    } finally {
++                        if (this._appStateSyncFlight === flight) this._appStateSyncFlight = null;
++                    }
+                 },
+             );
+             let lastPercent = null;
 diff --git a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js b/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
 index dfa30a5..143839c 100644
 --- a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js

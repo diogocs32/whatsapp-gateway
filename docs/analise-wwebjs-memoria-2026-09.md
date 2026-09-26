@@ -3,11 +3,17 @@ tipo: analise
 dono: Diogo Santos
 revisado_em: 2026-09-23
 validade: números de navegador medidos em macOS e página NÃO logada — medir no container com sessão logada antes de decidir
-status: propostas; nenhuma alteração de código
+status: análise histórica pré-E6; implementação local da P-060 em 26/09, canário pendente
 complementa: analise-atualizacoes-2026-09.md
 ---
 
 # wwebjs: memória e CPU — o que reduz, o que não reduz, e se o projeto precisa dele (23/09/2026)
+
+> **Atualização E6 (26/09):** as descrições de código e medições abaixo registram a situação
+> **anterior** à P-060. A branch `feature/onda6-wwebjs` implementa download em blocos, fila por
+> sessão, grupo sem auto-download por padrão, teto de envio, single-flight, limpeza de PIDs e
+> perfil JSHeap/PSS/IndexedDB. Ver D-033 e o runbook do canário. A comparação local em
+> `about:blank` não demonstra economia numa conta conectada; o canário e o deploy W estão pendentes.
 
 Pergunta do dono (23/09): _"tem algo do wwebjs que diminui consumo de memória? Hoje está tudo
 Baileys, pois o wwebjs consome muita memória e processamento."_

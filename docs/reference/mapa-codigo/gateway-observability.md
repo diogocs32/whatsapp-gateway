@@ -46,7 +46,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `refresh` L104
   - chamado por: `MetricsController.scrape` (metrics.controller.ts:22)
 - `summary()` · L72 · async
-  - chama: `counters` L117, `memoryStats` (memory.ts:45)
+  - chama: `counters` L117, `memoryStats` (memory.ts:93)
   - chamado por: `ObservabilityController.summary` (observability.controller.ts:17)
 - `timeline(sessionId, limit)` · L89 · async
   - chamado por: `ObservabilityController.timeline` (observability.controller.ts:22)

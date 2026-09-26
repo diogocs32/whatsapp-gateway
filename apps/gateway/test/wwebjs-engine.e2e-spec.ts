@@ -811,7 +811,10 @@ describe('P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)
         filename: 'a.jpg',
       }),
     };
-    await internals(engine).handleIncomingMedia(smallMsg, baseMsg);
+    await internals(engine).handleIncomingMedia(smallMsg, {
+      ...baseMsg,
+      chatJid: '5511999999999@c.us',
+    });
     expect(stored).toHaveLength(1);
     expect(events[0]).toMatchObject({ mediaType: 'image' });
     expect(events[0].mediaKey).toBeTruthy();
@@ -838,7 +841,10 @@ describe('P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)
         );
       },
     };
-    await internals(engine).handleIncomingMedia(crashMsg, baseMsg);
+    await internals(engine).handleIncomingMedia(crashMsg, {
+      ...baseMsg,
+      chatJid: '5511999999999@c.us',
+    });
     await new Promise((r) => setTimeout(r, 20)); // heal roda em background
     expect(reloads).toBe(1);
   });

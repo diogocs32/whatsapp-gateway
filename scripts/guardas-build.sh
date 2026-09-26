@@ -33,7 +33,9 @@ case "${1:-}" in
       falha "patch do whatsapp-web.js NÃO aplicado em $ww/Puppeteer.js (patches/ ausente ou patch-package falhou)"
     grep -q 'versionFilePath(version)' "node_modules/whatsapp-web.js/src/webCache/LocalWebCache.js" ||
       falha "patch do cache de versões do whatsapp-web.js NÃO aplicado"
-    echo "[guardas-build] patches OK (whatsapp-web.js: Utils.js + Puppeteer.js + LocalWebCache.js)"
+    grep -q '_appStateSyncFlight' "node_modules/whatsapp-web.js/src/Client.js" ||
+      falha "patch single-flight do whatsapp-web.js NÃO aplicado"
+    echo "[guardas-build] patches OK (whatsapp-web.js: Client.js + Utils.js + Puppeteer.js + LocalWebCache.js)"
     ;;
   dist)
     # O entrypoint roda `node dist/main.js` (apps/gateway/docker-entrypoint.sh). Se o build mudar o
