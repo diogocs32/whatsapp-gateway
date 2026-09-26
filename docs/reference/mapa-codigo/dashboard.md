@@ -7,14 +7,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | Arquivo | Linhas |
 | --- | --- |
 | `dashboard/App.tsx` | 196 |
-| `dashboard/components/chat/ChatThread.tsx` | 246 |
+| `dashboard/components/chat/ChatThread.tsx` | 267 |
 | `dashboard/components/chat/forward-context.ts` | 21 |
-| `dashboard/components/chat/ForwardDialog.tsx` | 629 |
+| `dashboard/components/chat/ForwardDialog.tsx` | 683 |
 | `dashboard/components/chat/ForwardedTag.tsx` | 21 |
 | `dashboard/components/chat/icons.tsx` | 153 |
 | `dashboard/components/chat/MediaView.tsx` | 486 |
 | `dashboard/components/chat/MessageBubble.tsx` | 272 |
-| `dashboard/components/chat/MessageMenu.tsx` | 178 |
+| `dashboard/components/chat/MessageMenu.tsx` | 179 |
 | `dashboard/components/chat/Reactions.tsx` | 50 |
 | `dashboard/components/chat/SelectionBar.tsx` | 47 |
 | `dashboard/components/chat/thread-context.ts` | 16 |
@@ -25,8 +25,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/auth.tsx` | 66 |
 | `dashboard/lib/branding.tsx` | 129 |
 | `dashboard/lib/error-boundary.tsx` | 74 |
-| `dashboard/lib/forward.spec.ts` | 1017 |
-| `dashboard/lib/forward.ts` | 695 |
+| `dashboard/lib/forward-memory.spec.ts` | 122 |
+| `dashboard/lib/forward-memory.ts` | 118 |
+| `dashboard/lib/forward.spec.ts` | 1111 |
+| `dashboard/lib/forward.ts` | 730 |
 | `dashboard/lib/jid.spec.ts` | 102 |
 | `dashboard/lib/jid.ts` | 86 |
 | `dashboard/lib/live-events.spec.ts` | 507 |
@@ -114,13 +116,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/components/chat/ChatThread.tsx`
 
-246 linhas · caminho: `apps/dashboard/src/components/chat/ChatThread.tsx`
+267 linhas · caminho: `apps/dashboard/src/components/chat/ChatThread.tsx`
 - importa (interno): `contracts/index.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.ts`, `dashboard/components/chat/forward-context.ts`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/icons.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/SelectionBar.tsx`, `dashboard/components/chat/thread-context.ts`
 - importado por: `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
 - `ChatThread({ messages, chatJid, empty, stickKey = 0, forward, footer, })` · L39
-  - chama: `canForward` (forward.ts:37), `forwardedNotice` (forward.ts:688), `isGroupJid` (jid.ts:18), `stripDevice` (jid.ts:6)
+  - chama: `canForward` (forward.ts:37), `forwardedNotice` (forward.ts:723), `isGroupJid` (jid.ts:18), `stripDevice` (jid.ts:6)
 
 **Tipos**
 - interface `ForwardConfig` L33 · 3 propriedade(s)
@@ -141,21 +143,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/components/chat/ForwardDialog.tsx`
 
-629 linhas · caminho: `apps/dashboard/src/components/chat/ForwardDialog.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/message-format.ts`, `dashboard/components/chat/icons.tsx`
+683 linhas · caminho: `apps/dashboard/src/components/chat/ForwardDialog.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/forward-memory.ts`, `dashboard/lib/message-format.ts`, `dashboard/components/chat/icons.tsx`
 - importado por: `dashboard/components/chat/ChatThread.tsx`
 
 **Funções e constantes de topo**
-- `FROZEN_TEXT` = `'O pedido anterior ficou sem resposta — tente de novo o MESMO pedido …` · L65
-- `ForwardDialog({ msg, sessionId, deviceName, blockedReason, memory, onClos…)` · L68
-  - chama: `allClean` (forward.ts:422), `attemptSummary` (forward.ts:440), `forwardFailure` (forward.ts:531), `forwardTargets` (forward.ts:174), `maxGroupsFor` (forward.ts:75), `maxTargetsFor` (forward.ts:66), `mergeOutcomes` (forward.ts:406), `planAttempt` (forward.ts:281), `refusalText` (forward.ts:258), `resultsVerdict` (forward.ts:663), `searchTargets` (forward.ts:204), `toggleTarget` (forward.ts:227), `willBecomeFrequent` (forward.ts:86), `labelText` (message-format.ts:61), `messagePreview` (message-format.ts:101)
-- `TargetRow({ t, checked, outcome, sending, disabled, onToggle, })` · L546
-- `Avatar({ t })` · L606
+- `FROZEN_TEXT` = `'O pedido anterior ficou sem resposta — tente de novo o MESMO pedido …` · L55
+- `ForwardDialog({ msg, sessionId, deviceName, blockedReason, onClose, })` · L58
+  - chama: `ForwardMemory.delete` (forward-memory.ts:43), `ForwardMemory.get` (forward-memory.ts:41), `ForwardMemory.set` (forward-memory.ts:42), `memoryKey` (forward-memory.ts:37), `allClean` (forward.ts:434), `attemptSummary` (forward.ts:452), `forwardFailure` (forward.ts:558), `forwardTargets` (forward.ts:174), `maxGroupsFor` (forward.ts:75), `maxTargetsFor` (forward.ts:66), `mergeOutcomes` (forward.ts:418), `planAttempt` (forward.ts:281), `refusalText` (forward.ts:258), `resultsVerdict` (forward.ts:704), `searchTargets` (forward.ts:204), `summarizeOutcomes` (forward.ts:461), `toggleTarget` (forward.ts:227), `willBecomeFrequent` (forward.ts:86), `labelText` (message-format.ts:61), `messagePreview` (message-format.ts:101)
+- `TargetRow({ t, checked, outcome, sending, disabled, onToggle, })` · L600
+- `Avatar({ t })` · L660
 
 **Tipos**
-- type `Phase` L46
-- type `Banner` L47
-- interface `ForwardSnapshot` L52 · 8 propriedade(s)
+- type `Phase` L52
 
 ## `dashboard/components/chat/ForwardedTag.tsx`
 
@@ -225,7 +225,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/components/chat/MessageMenu.tsx`
 
-178 linhas · caminho: `apps/dashboard/src/components/chat/MessageMenu.tsx`
+179 linhas · caminho: `apps/dashboard/src/components/chat/MessageMenu.tsx`
 - importa (interno): `dashboard/components/chat/icons.tsx`
 - importado por: `dashboard/components/chat/MessageBubble.tsx`
 
@@ -405,76 +405,122 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Tipos**
 - interface `State` L20 · 1 propriedade(s)
 
+## `dashboard/lib/forward-memory.spec.ts`
+
+122 linhas · caminho: `apps/dashboard/src/lib/forward-memory.spec.ts`
+- importa (interno): `dashboard/lib/forward-memory.ts`
+
+- describe “forward-memory” · L59
+  - it “ida e volta pelo storage (outra instância = recarga da página), com o Map de desfechos” · L60
+  - it “apaga no sucesso e vence em 24 h” · L76
+  - it “storage corrompido, ausente ou que lança não quebra (fica só em memória)” · L106
+
+## `dashboard/lib/forward-memory.ts`
+
+118 linhas · caminho: `apps/dashboard/src/lib/forward-memory.ts`
+- importa (interno): `dashboard/lib/forward.ts`
+- importado por: `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/lib/forward-memory.spec.ts`
+
+**Funções e constantes de topo**
+- `MEMORY_KEY` = `'cz:fwd-memory:v1'` · L33
+- `MEMORY_TTL_MS` = `24 * 60 * 60 * 1000` · L34
+- `MEMORY_MAX` = `50` · L35
+- `memoryKey(sessionId, msgId)` · L37
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
+- `createForwardMemory(storage, now)` · L46
+  - chamado por: `forwardMemory` L115
+- `sessionStorageOrNull()` · L106
+  - chamado por: `forwardMemory` L115
+- `forwardMemory` = `createForwardMemory( sessionStorageOrNull(), )` · L115
+  - chama: `createForwardMemory` L46, `sessionStorageOrNull` L106
+
+**Tipos**
+- type `ForwardBanner` L13
+- interface `ForwardSnapshot` L15 · 8 propriedade(s)
+- interface `Stored` L26 · 2 propriedade(s)
+- type `StorageLike` L31
+- interface `ForwardMemory` L40
+  - `ForwardMemory.get(key)` · L41
+    - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
+  - `ForwardMemory.set(key, snap)` · L42
+    - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
+  - `ForwardMemory.delete(key)` · L43
+    - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
+
 ## `dashboard/lib/forward.spec.ts`
 
-1017 linhas · caminho: `apps/dashboard/src/lib/forward.spec.ts`
+1111 linhas · caminho: `apps/dashboard/src/lib/forward.spec.ts`
 - importa (interno): `contracts/index.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/forward.ts`
 
-- describe “regras espelhadas do gateway (ida e volta)” · L83
-  - it “tipos encaminháveis e limites iguais aos do gateway” · L84
-  - it “destinationOf aceita e recusa o mesmo que o canonicalDestination” · L113
-  - it “sameDestination bate com o findDuplicate (9º dígito, sufixos, aparelho)” · L130
-- describe “canForward / canQuickForward” · L151
-  - it “só os tipos que o gateway encaminha” · L152
-  - it “texto vazio ou miniatura legada = "não suportada" → sem ação” · L172
-  - it “wwebjs `other` com arquivo continua fora (o gateway decide pelo type)” · L181
-  - it “mídia sem legenda e vCard legado entram” · L187
-  - it “atalho ↪ como o do WhatsApp Web: mídia, localização e contato — sem voz/figurinha/"com frequência"” · L196
-- describe “maxGroupsFor / willBecomeFrequent (regras do WhatsApp)” · L234
-  - it “mensagem que já veio encaminhada: só 1 grupo” · L235
-  - it “aviso quando a cópia vai virar "com frequência" (terceiro com contador 4)” · L241
-- describe “maxTargetsFor” · L258
-  - it “5; 1 quando a original tem forwardingScore ≥ 5” · L259
-- describe “forwardTargets” · L268
-  - it “descarta o que o gateway recusa e a mesma conversa repetida, mantendo a ordem” · L279
-  - it “rótulos: nome + telefone; sem nome = telefone formatado; grupo; lid” · L288
-  - it “busca sem acento, por nome ou por número (com ou sem formatação)” · L305
-- describe “toggleTarget” · L329
-  - it “marca e desmarca na ordem” · L339
-  - it “recusa o gêmeo do 9º dígito (o gateway daria 400)” · L348
-  - it “respeita o limite (5, ou 1 com "encaminhada com frequência")” · L357
-  - it “mensagem já encaminhada: o 2º grupo é recusado” · L379
-- describe “planAttempt (idempotencyKey por clique)” · L391
-  - it “mesmo pedido (mesma mensagem e conjunto, em qualquer ordem) reaproveita a chave” · L400
-  - it “conjunto ou mensagem diferente → chave nova” · L410
-  - it “newForwardKey cabe na chave derivada do gateway (≤ 200 com o destino)” · L421
-- describe “outcomeOf” · L430
-  - it “enviada, repetição, sem confirmação e tempo esgotado ficam travadas (nunca reenviar)” · L431
-  - it “423: 1º contato × pedido inteiro bloqueado” · L460
-  - it “409 em andamento pede espera e deixa tentar de novo” · L471
-  - it “recusas da MENSAGEM: motivo curto na linha, sem retry” · L478
-  - it “falha de envio genérica mostra o motivo do servidor e deixa tentar de novo” · L523
-- describe “attemptSummary” · L536
-  - it “tudo ok, parcial, sem confirmação e nada” · L537
-- describe “forwardFailure” · L578
-  - it “sem status (rede): tentar de novo não duplica” · L579
-  - it “423 conta os destinos de 1º contato e não oferece retry” · L587
-  - it “aparelho desconectado (as 3 grafias do gateway)” · L616
-  - it “recusas antes de enviar (code) e 404: travam o ➤ (final) ou limitam a 1” · L634
-  - it “409 de conflito de chave pede chave nova (a mesma daria 409 para sempre)” · L701
-  - it “409, 429 e 5xx deixam tentar o mesmo pedido” · L723
-  - it “400 genérico: motivo do servidor; retry só se algum item permite” · L729
-  - it “resultsFromError valida o corpo” · L753
-- describe “forwardedNotice” · L764
-  - it “1, 2 e muitos” · L765
-- describe “resultsVerdict” · L777
-  - it “recusa da mensagem, limite vivo e o que vale repetir” · L778
-- describe “mergeOutcomes / allClean” · L823
-  - it “casa cada resultado pelo target (ordem trocada não confunde) e soma ao que já se sabia” · L830
-  - it “target desconhecido cai na posição; sem conversa marcada não é "limpo"” · L856
-- describe “revisão E25” · L880
-  - it “423 diz o estado real do guard-rail (quarentena, banida, pausa manual)” · L884
-  - it “desfecho incerto congela o pedido (sem resposta, 5xx, 409 em andamento); 429 não” · L903
-  - it “falha com results[] resume destino a destino — nunca "Não encaminhada" sobre um "pode ter saído"” · L930
-  - it “allClean nunca aceita "pode ter saído"” · L976
-  - it “attemptSummary com "pode ter saído" sozinho e junto de enviada” · L993
-  - it “busca só com dígitos também acha pelo nome ("Turma 2024")” · L1006
+- describe “regras espelhadas do gateway (ida e volta)” · L84
+  - it “tipos encaminháveis e limites iguais aos do gateway” · L85
+  - it “destinationOf aceita e recusa o mesmo que o canonicalDestination” · L114
+  - it “sameDestination bate com o findDuplicate (9º dígito, sufixos, aparelho)” · L131
+- describe “canForward / canQuickForward” · L152
+  - it “só os tipos que o gateway encaminha” · L153
+  - it “texto vazio ou miniatura legada = "não suportada" → sem ação” · L173
+  - it “wwebjs `other` com arquivo continua fora (o gateway decide pelo type)” · L182
+  - it “mídia sem legenda e vCard legado entram” · L188
+  - it “atalho ↪ como o do WhatsApp Web: mídia, localização e contato — sem voz/figurinha/"com frequência"” · L197
+- describe “maxGroupsFor / willBecomeFrequent (regras do WhatsApp)” · L235
+  - it “mensagem que já veio encaminhada: só 1 grupo” · L236
+  - it “aviso quando a cópia vai virar "com frequência" (terceiro com contador 4)” · L242
+- describe “maxTargetsFor” · L259
+  - it “5; 1 quando a original tem forwardingScore ≥ 5” · L260
+- describe “forwardTargets” · L269
+  - it “descarta o que o gateway recusa e a mesma conversa repetida, mantendo a ordem” · L280
+  - it “rótulos: nome + telefone; sem nome = telefone formatado; grupo; lid” · L289
+  - it “busca sem acento, por nome ou por número (com ou sem formatação)” · L306
+- describe “toggleTarget” · L330
+  - it “marca e desmarca na ordem” · L340
+  - it “recusa o gêmeo do 9º dígito (o gateway daria 400)” · L349
+  - it “respeita o limite (5, ou 1 com "encaminhada com frequência")” · L358
+  - it “mensagem já encaminhada: o 2º grupo é recusado” · L380
+- describe “planAttempt (idempotencyKey por clique)” · L392
+  - it “mesmo pedido (mesma mensagem e conjunto, em qualquer ordem) reaproveita a chave” · L401
+  - it “conjunto ou mensagem diferente → chave nova” · L411
+  - it “newForwardKey cabe na chave derivada do gateway (≤ 200 com o destino)” · L422
+- describe “outcomeOf” · L431
+  - it “enviada, repetição, sem confirmação e tempo esgotado ficam travadas (nunca reenviar)” · L432
+  - it “423: 1º contato × pedido inteiro bloqueado” · L461
+  - it “409 num destino: "em andamento" trava como pode-ter-saído; conflito de chave falha sem retry” · L474
+  - it “recusas da MENSAGEM: motivo curto na linha, sem retry” · L495
+  - it “falha de envio genérica mostra o motivo do servidor e deixa tentar de novo” · L540
+- describe “attemptSummary” · L553
+  - it “tudo ok, parcial, sem confirmação e nada” · L554
+- describe “forwardFailure” · L595
+  - it “sem status (rede): tentar de novo não duplica” · L596
+  - it “423 conta os destinos de 1º contato e não oferece retry” · L606
+  - it “aparelho desconectado (as 3 grafias do gateway)” · L635
+  - it “recusas antes de enviar (code) e 404: travam o ➤ (final) ou limitam a 1” · L653
+  - it “409 de conflito de chave pede chave nova (a mesma daria 409 para sempre)” · L738
+  - it “409, 429 e 5xx deixam tentar o mesmo pedido” · L760
+  - it “400 genérico: motivo do servidor; retry só se algum item permite” · L766
+  - it “resultsFromError valida o corpo” · L790
+- describe “forwardedNotice” · L801
+  - it “1, 2 e muitos” · L802
+- describe “resultsVerdict” · L814
+  - it “recusa da mensagem, limite vivo e o que vale repetir” · L815
+- describe “mergeOutcomes / allClean” · L850
+  - it “casa cada resultado pelo target (ordem trocada não confunde) e soma ao que já se sabia” · L857
+  - it “target desconhecido cai na posição; sem conversa marcada não é "limpo"” · L887
+- describe “revisão E25” · L911
+  - it “423 diz o estado real do guard-rail (quarentena, banida, pausa manual)” · L915
+  - it “desfecho incerto congela o pedido (sem resposta, 5xx, 409 em andamento); 429 não” · L934
+  - it “falha com results[] resume destino a destino — nunca "Não encaminhada" sobre um "pode ter saído"” · L961
+  - it “allClean nunca aceita "pode ter saído"” · L1007
+  - it “attemptSummary com "pode ter saído" sozinho e junto de enviada” · L1024
+  - it “busca só com dígitos também acha pelo nome ("Turma 2024")” · L1037
+- describe “revisão E25 — 2ª rodada” · L1049
+  - it “409 num destino: textos (em andamento × conflito)” · L1050
+  - it “409 do pedido COM results[] resume destino a destino (não "em andamento" genérico) e marca summary” · L1075
+  - it “summarizeOutcomes: singular sem "nenhuma das 1" e o histórico do diálogo inteiro” · L1097
 
 ## `dashboard/lib/forward.ts`
 
-695 linhas · caminho: `apps/dashboard/src/lib/forward.ts`
+730 linhas · caminho: `apps/dashboard/src/lib/forward.ts`
 - importa (interno): `contracts/index.ts`, `dashboard/lib/jid.ts`, `dashboard/lib/message-format.ts`
-- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/forward.spec.ts`
+- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/forward-memory.ts`, `dashboard/lib/forward.spec.ts`
 
 **Funções e constantes de topo**
 - `MAX_FORWARD_TARGETS` = `5` · L15
@@ -487,11 +533,11 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `canForward` L37, `maxTargetsFor` L66, `bubbleContent` (message-format.ts:265)
   - chamado por: `MessageBubble` (MessageBubble.tsx:30)
 - `maxTargetsFor(m)` · L66
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `canQuickForward` L55
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58), `canQuickForward` L55
 - `maxGroupsFor(m)` · L75
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
 - `willBecomeFrequent(m)` · L86
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
 - `destinationOf(jid)` · L116
   - chama: `phoneCandidates` L143
   - chamado por: `forwardTargets` L174
@@ -503,39 +549,42 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `forwardTargets` L174, `searchTargets` L204
 - `forwardTargets(convs)` · L174
   - chama: `destinationOf` L116, `foldText` L168, `displayName` (jid.ts:27), `formatPhone` (jid.ts:42), `stripDevice` (jid.ts:6)
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
 - `searchTargets(targets, query)` · L204
   - chama: `foldText` L168
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
 - `toggleTarget(selected, target, max, maxGroups)` · L227
   - chama: `sameDestination` L160
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
 - `FREQUENT_LIMIT_TEXT` = `'As mensagens encaminhadas com frequência podem ser compartilhadas co…` · L255
 - `refusalText(r)` · L258
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
 - `planAttempt(prev, msgId, targets, newKey)` · L281
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
 - `newForwardKey()` · L301
 - `outcomeOf(r)` · L324
-  - chamado por: `mergeOutcomes` L406, `resultsVerdict` L663
-- `mergeOutcomes(prev, results, att)` · L406
+  - chamado por: `mergeOutcomes` L418, `resultsVerdict` L704
+- `mergeOutcomes(prev, results, att)` · L418
   - chama: `outcomeOf` L324
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
-- `allClean(keys, outcomes)` · L422
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
-- `withPeriod(s)` · L435
-  - chamado por: `forwardFailure` L531
-- `attemptSummary(results)` · L440
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `forwardFailure` L531
-- `resultsFromError(err)` · L493
-  - chamado por: `forwardFailure` L531
-- `forwardFailure(err, deviceName)` · L531
-  - chama: `attemptSummary` L440, `resultsFromError` L493, `resultsVerdict` L663, `withPeriod` L435
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68)
-- `resultsVerdict(results)` · L663
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
+- `allClean(keys, outcomes)` · L434
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
+- `withPeriod(s)` · L447
+  - chamado por: `forwardFailure` L558
+- `attemptSummary(results)` · L452
+  - chama: `summarizeOutcomes` L461
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58), `forwardFailure` L558
+- `summarizeOutcomes(outs)` · L461
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58), `attemptSummary` L452
+- `resultsFromError(err)` · L516
+  - chamado por: `forwardFailure` L558
+- `forwardFailure(err, deviceName)` · L558
+  - chama: `attemptSummary` L452, `resultsFromError` L516, `resultsVerdict` L704, `withPeriod` L447
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58)
+- `resultsVerdict(results)` · L704
   - chama: `outcomeOf` L324
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `forwardFailure` L531
-- `forwardedNotice(names)` · L688
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58), `forwardFailure` L558
+- `forwardedNotice(names)` · L723
   - chamado por: `ChatThread` (ChatThread.tsx:39)
 
 **Tipos**
@@ -546,8 +595,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `ForwardAttempt` L274 · 4 propriedade(s)
 - type `OutcomeKind` L305
 - interface `TargetOutcome` L308 · 4 propriedade(s)
-- interface `ForwardErrorLike` L484 · 4 propriedade(s)
-- interface `ForwardFailure` L509 · 7 propriedade(s)
+- interface `ForwardErrorLike` L507 · 4 propriedade(s)
+- interface `ForwardFailure` L532 · 8 propriedade(s)
 
 ## `dashboard/lib/jid.spec.ts`
 
@@ -829,7 +878,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `labelText` L61
 - `labelText(type, mediaType)` · L61
   - chama: `typeLabel` L50
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `MessageBubble` (MessageBubble.tsx:30), `bubbleContent` L265, `messagePreview` L101
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58), `MessageBubble` (MessageBubble.tsx:30), `bubbleContent` L265, `messagePreview` L101
 - `isLegacyThumbnail(text)` · L70
   - chamado por: `bubbleContent` L265, `messagePreview` L101
 - `isRawVcard(text)` · L76
@@ -840,7 +889,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `messagePreview` L101
 - `messagePreview(m)` · L101
   - chama: `firstLine` L92, `isLegacyThumbnail` L70, `isMediaKind` L19, `isRawVcard` L76, `labelText` L61, `parseContactsText` L197, `parseLocationText` L164, `vcardToLine` L81
-  - chamado por: `ForwardDialog` (ForwardDialog.tsx:68), `MessageBubble` (MessageBubble.tsx:30), `conversationPreview` L141, `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `ForwardDialog` (ForwardDialog.tsx:58), `MessageBubble` (MessageBubble.tsx:30), `conversationPreview` L141, `Atendimento` (Atendimento.tsx:73)
 - `conversationPreview(c)` · L141
   - chama: `messagePreview` L101
   - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)

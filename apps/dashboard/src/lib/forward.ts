@@ -354,18 +354,30 @@ export function outcomeOf(r: ForwardResultDto): TargetOutcome {
     return {
       kind: 'failed',
       text: r.cold
-        ? 'Nada enviado: é 1º contato (sem conversa) e o guard-rail bloqueou o aparelho.'
+        ? 'Nada enviado: nunca recebeu mensagem desse contato/grupo (conta como 1º contato) e o guard-rail bloqueou o aparelho.'
         : 'Nada enviado: o guard-rail bloqueou o encaminhamento inteiro (há destino de 1º contato).',
       locked: false,
       retry: false,
     };
   }
   if (r.status === 409) {
+    // Conflito de chave num destino (outro conteúdo com a mesma chave derivada): nada saiu por ele.
+    if (KEY_CONFLICT_RE.test(error ?? '')) {
+      return {
+        kind: 'failed',
+        text: 'Não enviada: conflito com um encaminhamento anterior — encaminhe de novo num pedido novo.',
+        locked: false,
+        retry: false,
+      };
+    }
+    // "Em andamento": a intenção desse destino está pendente (outro pedido/processo enviando agora) —
+    // pode sair a qualquer momento. Travado como "pode ter saído": repetir, mesmo com a mesma chave,
+    // retomaria outros destinos que estouraram o tempo (takeover no gateway) — nunca pelo painel.
     return {
-      kind: 'failed',
-      text: 'Um encaminhamento igual ainda está em andamento — espere alguns segundos e tente de novo (não duplica).',
-      locked: false,
-      retry: true,
+      kind: 'unknown',
+      text: 'Ainda em andamento no servidor — pode sair a qualquer momento; confira no celular antes de encaminhar de novo.',
+      locked: true,
+      retry: false,
     };
   }
   if (
@@ -441,7 +453,15 @@ export function attemptSummary(results: ForwardResultDto[]): {
   tone: 'ok' | 'partial' | 'error';
   text: string;
 } {
-  const outs = results.map(outcomeOf);
+  return summarizeOutcomes(results.map(outcomeOf));
+}
+
+// Resumo de TODAS as conversas marcadas (o que o diálogo sabe de todos os pedidos): depois de um
+// reenvio parcial, "nenhuma recebeu" seria falso para quem recebeu no pedido anterior.
+export function summarizeOutcomes(outs: TargetOutcome[]): {
+  tone: 'ok' | 'partial' | 'error';
+  text: string;
+} {
   const count = (...kinds: OutcomeKind[]) =>
     outs.filter((o) => kinds.includes(o.kind)).length;
   const sent = count('sent', 'already');
@@ -455,7 +475,10 @@ export function attemptSummary(results: ForwardResultDto[]): {
   if (!sent && !unconfirmed && !unknown) {
     return {
       tone: 'error',
-      text: `Não foi encaminhada para nenhuma das ${convs(failed)}.`,
+      text:
+        failed === 1
+          ? 'Não foi encaminhada para essa conversa.'
+          : `Não foi encaminhada para nenhuma das ${convs(failed)}.`,
     };
   }
   const parts: string[] = [];
@@ -463,7 +486,7 @@ export function attemptSummary(results: ForwardResultDto[]): {
   if (unconfirmed)
     parts.push(`${convs(unconfirmed)} sem confirmação do WhatsApp`);
   if (unknown)
-    parts.push(`${convs(unknown)} sem resposta a tempo (pode ter saído)`);
+    parts.push(`${convs(unknown)} sem desfecho confirmado (pode ter saído)`);
   if (failed)
     parts.push(
       `${convs(failed)} não ${failed === 1 ? 'recebeu' : 'receberam'}`,
@@ -514,9 +537,10 @@ export interface ForwardFailure {
   final?: boolean;
   // "Encaminhada com frequência" pelo contador vivo: só 1 conversa por vez.
   limitOne?: boolean;
-  // Desfecho INCERTO (sem resposta, 5xx, 409 "em andamento"): parte pode ter saído. O pedido fica
-  // congelado — o único próximo passo é repeti-lo igual (mesma chave, mesmo conjunto; o gateway faz
-  // replay do que saiu). Mudar os destinos geraria chave nova e reenviaria para quem já recebeu.
+  // Desfecho INCERTO sem `results[]` (sem resposta, 5xx, 409 "em andamento" do pedido): parte pode
+  // ter saído. O pedido fica congelado — o único próximo passo é repeti-lo igual (mesma chave, mesmo
+  // conjunto; o gateway faz replay do que saiu). Mudar os destinos geraria chave nova e reenviaria
+  // para quem já recebeu. Com `results[]` cada destino já tem desfecho (quem pode ter saído trava).
   uncertain?: boolean;
   // Tentar de novo o MESMO pedido faz sentido (rede, 409 em andamento, 429, 5xx). Recusas (400 com
   // code, 404, 423) só mudam mudando o pedido — ou pelo celular.
@@ -524,6 +548,9 @@ export interface ForwardFailure {
   // A chave do pedido ficou presa a OUTRO conteúdo (409 de conflito — send-intent.service.ts): nada
   // deste pedido saiu; o próximo clique precisa de chave nova (a mesma daria 409 para sempre).
   resetKey?: boolean;
+  // O texto é só o resumo destino a destino deste pedido — quem tem o histórico do diálogo (pedidos
+  // anteriores) deve resumir tudo (`summarizeOutcomes`).
+  summary?: boolean;
 }
 
 const KEY_CONFLICT_RE = /outro destinat[aá]rio|use uma chave nova/i;
@@ -538,7 +565,7 @@ export function forwardFailure(
   const results = resultsFromError(err);
   if (!status) {
     return {
-      text: 'Sem resposta do servidor — o encaminhamento pode ter saído em parte. Tentar de novo com o mesmo pedido não reenvia o que já saiu.',
+      text: 'Sem resposta do servidor — o encaminhamento pode ter saído em parte. Tente de novo o MESMO pedido: o que o servidor já confirmou não é reenviado; na dúvida, confira no celular antes.',
       results: null,
       retry: true,
       uncertain: true,
@@ -550,10 +577,10 @@ export function forwardFailure(
     return {
       text: `Nada foi enviado: o aparelho ${deviceName} está ${GUARD_STATE[String(state)] ?? 'bloqueado'} (guard-rail) e ${
         cold === 1
-          ? '1 destino é 1º contato (sem conversa)'
+          ? '1 destino nunca mandou mensagem para este aparelho (conta como 1º contato)'
           : cold > 1
-            ? `${cold} destinos são 1º contato (sem conversa)`
-            : 'há destino de 1º contato (sem conversa)'
+            ? `${cold} destinos nunca mandaram mensagem para este aparelho (contam como 1º contato)`
+            : 'há destino de 1º contato (que nunca mandou mensagem para este aparelho)'
       }. Tire esse${cold > 1 ? 's destinos' : ' destino'} para encaminhar só a quem já conversa com você, ou encaminhe pelo celular.`,
       results,
       retry: false,
@@ -592,13 +619,28 @@ export function forwardFailure(
           retry: false,
           final: true,
         }
-      : // sessão apagada, rota ausente (gateway antigo)…
-        {
-          text: `Não encaminhada: ${msg || 'erro 404'}`,
-          results: null,
-          retry: false,
-          final: true,
-        };
+      : /^cannot (post|get)\b/i.test(msg)
+        ? // Rota ausente: o painel novo subiu antes do gateway novo (deploy G fora de ordem, ou
+          // rollback só do gateway). Nada saiu; não é recusa da MENSAGEM — depois do deploy do
+          // gateway o mesmo pedido funciona (não trava o ➤ nem fica gravado como recusa).
+          {
+            text: 'Este servidor ainda não tem o encaminhar — publique a versão nova do gateway e tente de novo.',
+            results: null,
+            retry: true,
+          }
+        : /sess[aã]o n[aã]o encontrada/i.test(msg)
+          ? {
+              text: `O aparelho ${deviceName} não existe mais neste servidor.`,
+              results: null,
+              retry: false,
+              final: true,
+            }
+          : {
+              text: `Não encaminhada: ${msg || 'erro 404'}`,
+              results: null,
+              retry: false,
+              final: true,
+            };
   }
   if (status === 409 && !results && KEY_CONFLICT_RE.test(msg)) {
     return {
@@ -611,12 +653,11 @@ export function forwardFailure(
   // Daqui para baixo, com `results[]` a faixa resume destino a destino (quem pode ter saído aparece
   // como tal — nunca "Não encaminhada" por cima de um "pode ter saído").
   if (results) {
-    const v = resultsVerdict(results);
     return {
       text: attemptSummary(results).text,
       results,
-      retry: v.retry,
-      uncertain: v.uncertain,
+      retry: resultsVerdict(results).retry,
+      summary: true,
     };
   }
   if (status === 409) {
@@ -637,7 +678,7 @@ export function forwardFailure(
   }
   if (status >= 500) {
     return {
-      text: `Erro no servidor (${status}) — o encaminhamento pode ter saído em parte. Tentar de novo com o mesmo pedido não reenvia o que já saiu.`,
+      text: `Erro no servidor (${status}) — o encaminhamento pode ter saído em parte. Tente de novo o MESMO pedido: o que o servidor já confirmou não é reenviado; na dúvida, confira no celular antes.`,
       results: null,
       retry: true,
       uncertain: true,
@@ -664,15 +705,9 @@ export function resultsVerdict(results: ForwardResultDto[]): {
   final: boolean;
   limitOne: boolean;
   retry: boolean;
-  uncertain: boolean;
 } {
   const failed = results.filter((r) => !r.ok);
   return {
-    // Destino com 409 "em andamento": a intenção dele está pendente (outro pedido/processo enviando).
-    // Repetir com chave nova duplicaria — só o mesmo pedido (a chave dele faz replay).
-    uncertain: failed.some(
-      (r) => r.status === 409 && !KEY_CONFLICT_RE.test(r.error ?? ''),
-    ),
     final: failed.some(
       (r) =>
         r.code === 'FORWARD_UNSUPPORTED' ||

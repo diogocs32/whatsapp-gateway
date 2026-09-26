@@ -58,8 +58,9 @@ export function MessageMenu({
     if (!open) return;
     // Fechou com o foco dentro do menu (rolagem, redimensionar): o foco volta à seta — nunca some.
     const close = () => {
+      // preventScroll: devolver o foco não pode rolar a conversa de volta (fechou POR rolagem).
       if (menuRef.current?.contains(document.activeElement))
-        btnRef.current?.focus();
+        btnRef.current?.focus({ preventScroll: true });
       setOpen(false);
     };
     const onPointer = (e: PointerEvent) => {

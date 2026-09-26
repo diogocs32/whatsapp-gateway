@@ -12,6 +12,7 @@ import {
   allClean,
   attemptSummary,
   forwardFailure,
+  summarizeOutcomes,
   forwardTargets,
   maxGroupsFor,
   maxTargetsFor,
@@ -28,6 +29,11 @@ import {
   type ForwardTarget,
   type TargetOutcome,
 } from '../../lib/forward';
+import {
+  forwardMemory,
+  memoryKey,
+  type ForwardBanner as Banner,
+} from '../../lib/forward-memory';
 import { labelText, messagePreview } from '../../lib/message-format';
 import { CheckIcon, CloseIcon, SendIcon, SpinnerIcon } from './icons';
 
@@ -44,40 +50,22 @@ import { CheckIcon, CloseIcon, SendIcon, SpinnerIcon } from './icons';
 // travado e nunca entra noutro pedido.
 
 type Phase = 'choosing' | 'sending' | 'done';
-type Banner = { tone: 'ok' | 'partial' | 'error'; text: string };
-
-// O que o diálogo sabia quando foi fechado sem terminar (falha, pendência, pedido congelado): o
-// ChatThread guarda por mensagem e o próximo diálogo da MESMA mensagem retoma daí — fechar e reabrir
-// não pode destravar quem já recebeu nem trocar a chave de um pedido incerto (achado da revisão E25).
-export interface ForwardSnapshot {
-  selected: ForwardTarget[];
-  outcomes: Map<string, TargetOutcome>;
-  attempt: ForwardAttempt | null;
-  frozen: boolean;
-  refused: boolean;
-  maxLive: number;
-  canRetry: boolean;
-  banner: Banner | null;
-}
-
 const CONVERSATIONS_LIMIT = 500; // teto do GET …/messages/conversations
 
 const FROZEN_TEXT =
-  'O pedido anterior ficou sem resposta — tente de novo o MESMO pedido (não reenvia o que já saiu) antes de mudar as conversas.';
+  'O pedido anterior ficou sem resposta — tente de novo o MESMO pedido (o que o servidor já confirmou não é reenviado) antes de mudar as conversas.';
 
 export function ForwardDialog({
   msg,
   sessionId,
   deviceName,
   blockedReason,
-  memory,
   onClose,
 }: {
   msg: MessageDto;
   sessionId: string;
   deviceName: string;
   blockedReason: string | null;
-  memory?: Map<string, ForwardSnapshot>;
   // `names` = conversas que receberam (tudo certo, sem pendência) → a conversa mostra o aviso.
   onClose: (done?: { names: string[] }) => void;
 }) {
@@ -92,7 +80,10 @@ export function ForwardDialog({
   // clique COMEÇOU e terminou no fundo (arrastar uma seleção de texto para fora não fecha).
   const downOnBackdrop = useRef(false);
 
-  const [saved] = useState(() => memory?.get(msg.id) ?? null);
+  // O que um diálogo anterior desta mensagem deixou por terminar (lib/forward-memory.ts — por aba,
+  // sobrevive a troca de conversa/tela, recarga e login expirado).
+  const memKey = memoryKey(sessionId, msg.id);
+  const [saved] = useState(() => forwardMemory.get(memKey));
   const [targets, setTargets] = useState<ForwardTarget[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -138,7 +129,7 @@ export function ForwardDialog({
   // Guarda o que não pode se perder ao fechar (ver ForwardSnapshot). Diálogo sem nenhum pedido feito
   // não guarda nada.
   useEffect(() => {
-    if (!memory || phase === 'sending') return;
+    if (phase === 'sending') return;
     if (!attempt && outcomes.size === 0) return;
     // Tudo certo: nada a retomar — o próximo diálogo desta mensagem é um encaminhamento novo. (O
     // efeito roda DEPOIS do send(); sem esta guarda ele regravaria o que o sucesso acabou de apagar.)
@@ -149,10 +140,10 @@ export function ForwardDialog({
         outcomes,
       )
     ) {
-      memory.delete(msg.id);
+      forwardMemory.delete(memKey);
       return;
     }
-    memory.set(msg.id, {
+    forwardMemory.set(memKey, {
       selected,
       outcomes,
       attempt,
@@ -163,8 +154,7 @@ export function ForwardDialog({
       banner,
     });
   }, [
-    memory,
-    msg.id,
+    memKey,
     phase,
     selected,
     outcomes,
@@ -214,6 +204,12 @@ export function ForwardDialog({
     setHint(r.refused ? refusalText(r.refused) : null);
   }
 
+  // A faixa resume TODAS as conversas marcadas (pedidos anteriores inclusive), não só o último.
+  const summarizeSelected = (m: Map<string, TargetOutcome>): Banner =>
+    summarizeOutcomes(
+      selected.map((t) => m.get(t.key)).filter((o): o is TargetOutcome => !!o),
+    );
+
   async function send() {
     if (sendingRef.current || blockedReason || !targets) return;
     const toSend = selected.filter((t) => !locked(t));
@@ -224,6 +220,20 @@ export function ForwardDialog({
       frozen && attempt
         ? attempt
         : planAttempt(attempt, msg.id, toSend, newForwardKey);
+    // Fotografia do diálogo no momento do clique (as variáveis de estado deste render).
+    const base = { selected, outcomes, refused, maxLive };
+    // Grava o pedido ANTES da resposta, como congelado: se o diálogo sair da tela no meio (Voltar do
+    // navegador, troca de conversa, recarga), o próximo diálogo desta mensagem só pode repeti-lo igual.
+    forwardMemory.set(memKey, {
+      ...base,
+      attempt: att,
+      frozen: true,
+      canRetry: true,
+      banner: {
+        tone: 'error',
+        text: 'O encaminhamento anterior ainda não tinha terminado quando a tela foi fechada — tente de novo o MESMO pedido (o que o servidor já confirmou não é reenviado).',
+      },
+    });
     setAttempt(att);
     sendingRef.current = true;
     setPhase('sending');
@@ -238,14 +248,17 @@ export function ForwardDialog({
       retry: false,
       uncertain: false,
     };
+    let hadResults = false;
+    let nextAttempt: ForwardAttempt | null = att;
     try {
       const { results } = await api.sessions.forward(sessionId, msg.id, {
         to: att.to,
         idempotencyKey: att.key,
       });
       next = mergeOutcomes(outcomes, results, att);
-      summary = attemptSummary(results);
-      verdict = resultsVerdict(results);
+      summary = summarizeSelected(next);
+      verdict = { ...resultsVerdict(results), uncertain: false };
+      hadResults = true;
     } catch (e) {
       const err =
         e instanceof ApiError
@@ -253,38 +266,79 @@ export function ForwardDialog({
           : { message: (e as Error | undefined)?.message };
       const f = forwardFailure(err, deviceName);
       if (f.results) next = mergeOutcomes(outcomes, f.results, att);
-      if (f.resetKey) setAttempt(null);
-      summary = {
-        tone: f.results ? attemptSummary(f.results).tone : 'error',
-        text: f.text,
-      };
+      if (f.resetKey) nextAttempt = null;
+      summary =
+        f.summary && next
+          ? summarizeSelected(next)
+          : {
+              tone: f.results ? attemptSummary(f.results).tone : 'error',
+              text: f.text,
+            };
       const fromItems = f.results ? resultsVerdict(f.results) : null;
       verdict = {
         final: !!f.final || !!fromItems?.final,
         limitOne: !!f.limitOne || !!fromItems?.limitOne,
         retry: f.retry,
-        uncertain: !!f.uncertain || !!fromItems?.uncertain,
+        uncertain: !!f.uncertain,
       };
+      hadResults = !!f.results;
     } finally {
       sendingRef.current = false;
     }
-    if (!aliveRef.current) return;
     const merged = next ?? outcomes;
+    // Congelado só descongela com `results[]` (cada destino com desfecho). Qualquer outra resposta
+    // (429, 401/403, 5xx, rede…) não diz o que o pedido anterior fez — segue congelado. Se o gateway
+    // passou a recusar a mensagem (ou limitar a 1), repetir não adianta: vira recusa (não trava o
+    // diálogo para sempre) e o operador confere no celular.
+    let stillFrozen = verdict.uncertain;
+    let refuse = verdict.final;
+    if (frozen && !hadResults) {
+      if (verdict.final || verdict.limitOne) {
+        stillFrozen = false;
+        refuse = true;
+        summary = {
+          tone: 'error',
+          text: `${summary?.text ?? 'Não dá para repetir o pedido anterior.'} O pedido anterior ficou sem resposta — confira no celular quem recebeu.`,
+        };
+      } else {
+        stillFrozen = true;
+      }
+    }
+    const keys = selected.map((t) => t.key);
+    const clean = !stillFrozen && allClean(keys, merged);
+    // O desfecho vai para a memória mesmo que o diálogo já tenha saído da tela durante o envio. Tudo
+    // certo COM o diálogo na tela: apaga (o operador vê "Você encaminhou…"). Tudo certo com a tela
+    // já fechada: guarda — o próximo diálogo desta mensagem mostra quem recebeu (travado), senão o
+    // operador, sem ter visto a confirmação, encaminharia de novo.
+    if (clean && aliveRef.current) {
+      forwardMemory.delete(memKey);
+    } else {
+      forwardMemory.set(memKey, {
+        ...base,
+        outcomes: merged,
+        attempt: nextAttempt,
+        frozen: stillFrozen,
+        refused: refuse,
+        maxLive: verdict.limitOne ? 1 : maxLive,
+        canRetry: verdict.retry || stillFrozen,
+        banner: summary,
+      });
+    }
+    if (!aliveRef.current) return;
     setOutcomes(merged);
     setPhase('done');
-    setRefused(verdict.final);
-    setCanRetry(verdict.retry || verdict.uncertain);
-    setFrozen(verdict.uncertain);
+    setAttempt(nextAttempt);
+    setRefused(refuse);
+    setCanRetry(verdict.retry || stillFrozen);
+    setFrozen(stillFrozen);
     if (verdict.limitOne) {
       setMaxLive(1);
       // A faixa já diz o limite quando a recusa veio antes de enviar (400 sem results).
       if (summary?.text !== FREQUENT_LIMIT_TEXT) setHint(FREQUENT_LIMIT_TEXT);
     }
-    const keys = selected.map((t) => t.key);
-    if (!verdict.uncertain && allClean(keys, merged)) {
+    if (clean) {
       // Tudo certo → fecha e a conversa avisa (o WhatsApp Web volta para o chat). Um novo diálogo
       // desta mensagem é um novo encaminhamento (chave nova), como no WhatsApp.
-      memory?.delete(msg.id);
       ref.current?.close();
       onClose({ names: selected.map((t) => t.name) });
       return;
@@ -298,7 +352,7 @@ export function ForwardDialog({
     if (sendingRef.current) return;
     const keys = selected.map((t) => t.key);
     const clean = !frozen && allClean(keys, outcomes);
-    if (clean) memory?.delete(msg.id);
+    if (clean) forwardMemory.delete(memKey);
     const done = clean ? { names: selected.map((t) => t.name) } : undefined;
     ref.current?.close();
     onClose(done);

@@ -11,7 +11,7 @@ import type { MessageDto } from '@contracts';
 import { canForward, forwardedNotice } from '../../lib/forward';
 import { isGroupJid, stripDevice } from '../../lib/jid';
 import { ForwardContext, type ForwardActions } from './forward-context';
-import { ForwardDialog, type ForwardSnapshot } from './ForwardDialog';
+import { ForwardDialog } from './ForwardDialog';
 import { ForwardIcon } from './icons';
 import { MessageBubble } from './MessageBubble';
 import { SelectionBar } from './SelectionBar';
@@ -63,12 +63,19 @@ export function ChatThread({
   // terminar — abrir outro agora desmontaria o primeiro e perderia o resultado dele.
   const dialogOpenRef = useRef(false);
   dialogOpenRef.current = !!dialogMsg;
-  const openDialog = useCallback((m: MessageDto) => {
-    if (!dialogOpenRef.current) setDialogMsg(m);
-  }, []);
   const [notice, setNotice] = useState<string | null>(null);
-  // Estado dos diálogos fechados sem terminar, por mensagem (ForwardSnapshot) — vive com a conversa.
-  const [memory] = useState(() => new Map<string, ForwardSnapshot>());
+  const openDialog = useCallback((m: MessageDto) => {
+    if (dialogOpenRef.current) {
+      // Só acontece com o diálogo fechado à força e o pedido ainda em voo: avisa em vez de ignorar.
+      setNotice(
+        'Um encaminhamento ainda está em andamento — aguarde ele terminar.',
+      );
+      return;
+    }
+    setDialogMsg(m);
+  }, []);
+  // Mensagem marcada no modo seleção, lida no fim do pedido (closeDialog).
+  const selectedIdRef = useRef<string | null>(null);
   const footerRef = useRef<HTMLDivElement>(null);
 
   const onScroll = () => {
@@ -125,11 +132,16 @@ export function ChatThread({
     if (wasSelecting.current && !selecting) {
       const active = document.activeElement;
       if (!active || active === document.body) {
-        footerRef.current
-          ?.querySelector<HTMLElement>(
-            'input:not([type="file"]):not(:disabled), textarea:not(:disabled), button:not(:disabled)',
-          )
-          ?.focus();
+        // A caixa de texto primeiro (no Inbox o 📎 vem antes dela); aparelho desconectado deixa tudo
+        // desabilitado → o foco vai para a própria conversa (tabIndex -1), nunca para o <body>.
+        const footer = footerRef.current;
+        const target =
+          footer?.querySelector<HTMLElement>(
+            'input:not([type="file"]):not([type="hidden"]):not(:disabled), textarea:not(:disabled)',
+          ) ??
+          footer?.querySelector<HTMLElement>('button:not(:disabled)') ??
+          scrollRef.current;
+        target?.focus({ preventScroll: true });
       }
     }
     wasSelecting.current = selecting;
@@ -140,15 +152,21 @@ export function ChatThread({
     setSelectedId(null);
   }, []);
 
-  // Esc sai do modo seleção (com o diálogo aberto, o Esc é dele).
+  // Esc sai do modo seleção. Com um <dialog> aberto (encaminhar, lightbox) o Esc é dele; com o do
+  // encaminhar fechado à força e o pedido em voo, o Esc volta a valer aqui.
   useEffect(() => {
-    if (!selecting || dialogMsg) return;
+    if (!selecting) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) cancelSelect();
+      if (
+        e.key === 'Escape' &&
+        !e.defaultPrevented &&
+        !document.querySelector('dialog[open]')
+      )
+        cancelSelect();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [selecting, dialogMsg, cancelSelect]);
+  }, [selecting, cancelSelect]);
 
   useEffect(() => {
     if (!notice) return;
@@ -160,12 +178,15 @@ export function ChatThread({
   const selectedMsg = selectedId
     ? (messages.find((m) => m.id === selectedId) ?? null)
     : null;
+  selectedIdRef.current = selecting ? selectedId : null;
 
   const closeDialog = useCallback(
-    (done?: { names: string[] }) => {
+    (msgId: string, done?: { names: string[] }) => {
       setDialogMsg(null);
       if (done) {
-        cancelSelect(); // encaminhou → sai do modo seleção, como o WhatsApp Web
+        // Encaminhou → sai do modo seleção, como o WhatsApp Web — só se a marcada ainda é a que foi
+        // encaminhada (com o diálogo fechado à força o operador pode ter marcado outra no meio).
+        if (selectedIdRef.current === msgId) cancelSelect();
         setNotice(forwardedNotice(done.names));
       }
     },
@@ -178,7 +199,8 @@ export function ChatThread({
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="flex-1 overflow-y-auto px-4 py-3"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto px-4 py-3 outline-none"
         >
           {messages.length === 0 && empty}
           {messages.map((m, i) => {
@@ -235,8 +257,7 @@ export function ChatThread({
             sessionId={forward.sessionId}
             deviceName={forward.deviceName}
             blockedReason={forward.blockedReason}
-            memory={memory}
-            onClose={closeDialog}
+            onClose={(done) => closeDialog(dialogMsg.id, done)}
           />
         )}
       </ForwardContext.Provider>

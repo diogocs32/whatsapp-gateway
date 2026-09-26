@@ -49,6 +49,7 @@ import {
   resultsFromError,
   resultsVerdict,
   sameDestination,
+  summarizeOutcomes,
   searchTargets,
   toggleTarget,
   type ForwardTarget,
@@ -461,18 +462,34 @@ describe('outcomeOf', () => {
     expect(
       outcomeOf(res({ status: 423, cold: true, code: 'SESSION_QUARANTINED' }))
         .text,
-    ).toMatch(/1º contato .* guard-rail bloqueou o aparelho/);
+    ).toMatch(
+      /nunca recebeu mensagem .*conta como 1º contato\) e o guard-rail bloqueou o aparelho/,
+    );
     expect(outcomeOf(res({ status: 423, cold: false })).text).toMatch(
       /bloqueou o encaminhamento inteiro/,
     );
     expect(outcomeOf(res({ status: 423 })).retry).toBe(false);
   });
 
-  it('409 em andamento pede espera e deixa tentar de novo', () => {
-    expect(outcomeOf(res({ status: 409, error: 'x' }))).toMatchObject({
-      kind: 'failed',
-      retry: true,
-    });
+  it('409 num destino: "em andamento" trava como pode-ter-saído; conflito de chave falha sem retry', () => {
+    expect(
+      outcomeOf(
+        res({
+          status: 409,
+          error:
+            'envio com esta idempotencyKey em andamento — retente em instantes',
+        }),
+      ),
+    ).toMatchObject({ kind: 'unknown', locked: true, retry: false });
+    expect(
+      outcomeOf(
+        res({
+          status: 409,
+          error:
+            'idempotencyKey já usada nesta sessão com outro destinatário/conteúdo — use uma chave nova',
+        }),
+      ),
+    ).toMatchObject({ kind: 'failed', locked: false, retry: false });
   });
 
   it('recusas da MENSAGEM: motivo curto na linha, sem retry', () => {
@@ -561,10 +578,10 @@ describe('attemptSummary', () => {
             'o envio não respondeu a tempo — confira no celular antes de tentar de novo',
         }),
         res({ status: 409 }),
-        res({ status: 409 }),
+        res({ status: 400, error: 'Sessão não conectada' }),
       ]).text,
     ).toBe(
-      'Encaminhada para 2 conversas; 1 conversa sem resposta a tempo (pode ter saído); 2 conversas não receberam — veja abaixo. Confira no celular antes de encaminhar de novo.',
+      'Encaminhada para 2 conversas; 2 conversas sem desfecho confirmado (pode ter saído); 1 conversa não recebeu — veja abaixo. Confira no celular antes de encaminhar de novo.',
     );
     expect(
       attemptSummary([res({ status: 423 }), res({ status: 423 })]),
@@ -581,7 +598,9 @@ describe('forwardFailure', () => {
       retry: true,
       results: null,
     });
-    expect(forwardFailure(null, 'v').text).toMatch(/não reenvia o que já saiu/);
+    expect(forwardFailure(null, 'v').text).toMatch(
+      /o que o servidor já confirmou não é reenviado/,
+    );
   });
 
   it('423 conta os destinos de 1º contato e não oferece retry', () => {
@@ -601,7 +620,7 @@ describe('forwardFailure', () => {
       'vendas',
     );
     expect(f.text).toBe(
-      'Nada foi enviado: o aparelho vendas está em quarentena (guard-rail) e 2 destinos são 1º contato (sem conversa). Tire esses destinos para encaminhar só a quem já conversa com você, ou encaminhe pelo celular.',
+      'Nada foi enviado: o aparelho vendas está em quarentena (guard-rail) e 2 destinos nunca mandaram mensagem para este aparelho (contam como 1º contato). Tire esses destinos para encaminhar só a quem já conversa com você, ou encaminhe pelo celular.',
     );
     expect(f.results).toHaveLength(4);
     expect(f.retry).toBe(false);
@@ -610,7 +629,7 @@ describe('forwardFailure', () => {
         { status: 423, body: { results: [res({ status: 423, cold: true })] } },
         'v',
       ).text,
-    ).toMatch(/1 destino é 1º contato .* Tire esse destino para/);
+    ).toMatch(/1 destino nunca mandou mensagem .* Tire esse destino para/);
   });
 
   it('aparelho desconectado (as 3 grafias do gateway)', () => {
@@ -692,7 +711,25 @@ describe('forwardFailure', () => {
         'v',
       ),
     ).toMatchObject({
-      text: 'Não encaminhada: Cannot POST /api/sessions/x/messages/y/forward',
+      text: 'Este servidor ainda não tem o encaminhar — publique a versão nova do gateway e tente de novo.',
+      retry: true, // depois do deploy do gateway o mesmo pedido funciona
+    });
+    expect(
+      forwardFailure(
+        {
+          status: 404,
+          message: 'Cannot POST /api/sessions/x/messages/y/forward',
+        },
+        'v',
+      ).final,
+    ).toBeUndefined();
+    expect(
+      forwardFailure(
+        { status: 404, message: 'Sessão não encontrada: vendas' },
+        'vendas',
+      ),
+    ).toMatchObject({
+      text: 'O aparelho vendas não existe mais neste servidor.',
       final: true,
     });
     expect(forwardFailure({ status: 423 }, 'v').final).toBeUndefined();
@@ -780,7 +817,6 @@ describe('resultsVerdict', () => {
       final: false,
       limitOne: false,
       retry: false,
-      uncertain: false,
     });
     expect(
       resultsVerdict([
@@ -791,7 +827,7 @@ describe('resultsVerdict', () => {
           error: 'x (apagada).',
         }),
       ]),
-    ).toEqual({ final: true, limitOne: false, retry: false, uncertain: false });
+    ).toEqual({ final: true, limitOne: false, retry: false });
     expect(
       resultsVerdict([res({ status: 400, code: 'FORWARD_SOURCE_UNAVAILABLE' })])
         .final,
@@ -800,23 +836,14 @@ describe('resultsVerdict', () => {
       resultsVerdict([res({ status: 400, code: 'FORWARD_LIMIT' })]).limitOne,
     ).toBe(true);
     expect(
-      resultsVerdict([res({ status: 409 }), res({ status: 423, cold: true })]),
-    ).toEqual({
-      final: false,
-      limitOne: false,
-      retry: true,
-      uncertain: true, // 409 "em andamento" num destino: só o MESMO pedido pode ser repetido
-    });
-    expect(resultsVerdict([res({ status: 423 })]).retry).toBe(false);
-    expect(
       resultsVerdict([
-        res({
-          status: 409,
-          error:
-            'idempotencyKey já usada nesta sessão com outro destinatário/conteúdo — use uma chave nova',
-        }),
-      ]).uncertain,
-    ).toBe(false);
+        res({ status: 400, error: 'Sessão não conectada' }),
+        res({ status: 423, cold: true }),
+      ]),
+    ).toEqual({ final: false, limitOne: false, retry: true });
+    expect(resultsVerdict([res({ status: 423 })]).retry).toBe(false);
+    // "em andamento" num destino não é para repetir (trava como pode-ter-saído)
+    expect(resultsVerdict([res({ status: 409 })]).retry).toBe(false);
   });
 });
 
@@ -831,7 +858,11 @@ describe('mergeOutcomes / allClean', () => {
     const first = mergeOutcomes(
       new Map(),
       [
-        res({ target: '120363025246125486@g.us', status: 409 }),
+        res({
+          target: '120363025246125486@g.us',
+          status: 400,
+          error: 'Sessão não conectada',
+        }),
         res({ target: '5511988887777@s.whatsapp.net', ok: true }),
       ],
       att,
@@ -951,7 +982,7 @@ describe('revisão E25', () => {
       'v',
     );
     expect(f.text).toBe(
-      '1 conversa sem resposta a tempo (pode ter saído); 1 conversa não recebeu — veja abaixo. Confira no celular antes de encaminhar de novo.',
+      '1 conversa sem desfecho confirmado (pode ter saído); 1 conversa não recebeu — veja abaixo. Confira no celular antes de encaminhar de novo.',
     );
     expect(f.text).not.toMatch(/results\[\]/);
     expect(f.results).toHaveLength(2);
@@ -995,11 +1026,11 @@ describe('revisão E25', () => {
       attemptSummary([res({ ok: true }), res({ status: 400, error: TIMEOUT })]),
     ).toEqual({
       tone: 'partial',
-      text: 'Encaminhada para 1 conversa; 1 conversa sem resposta a tempo (pode ter saído) — veja abaixo. Confira no celular antes de encaminhar de novo.',
+      text: 'Encaminhada para 1 conversa; 1 conversa sem desfecho confirmado (pode ter saído) — veja abaixo. Confira no celular antes de encaminhar de novo.',
     });
     expect(attemptSummary([res({ status: 400, error: TIMEOUT })])).toEqual({
       tone: 'partial',
-      text: '1 conversa sem resposta a tempo (pode ter saído) — veja abaixo. Confira no celular antes de encaminhar de novo.',
+      text: '1 conversa sem desfecho confirmado (pode ter saído) — veja abaixo. Confira no celular antes de encaminhar de novo.',
     });
   });
 
@@ -1012,5 +1043,68 @@ describe('revisão E25', () => {
       'Turma 2024',
     ]);
     expect(searchTargets(ts, '98888').map((t) => t.name)).toEqual(['Ana']);
+  });
+});
+
+describe('revisão E25 — 2ª rodada', () => {
+  it('409 num destino: textos (em andamento × conflito)', () => {
+    expect(
+      outcomeOf(
+        res({
+          status: 409,
+          error:
+            'envio com esta idempotencyKey em andamento — retente em instantes',
+        }),
+      ).text,
+    ).toBe(
+      'Ainda em andamento no servidor — pode sair a qualquer momento; confira no celular antes de encaminhar de novo.',
+    );
+    expect(
+      outcomeOf(
+        res({
+          status: 409,
+          error:
+            'idempotencyKey já usada nesta sessão com outro destinatário/conteúdo — use uma chave nova',
+        }),
+      ).text,
+    ).toBe(
+      'Não enviada: conflito com um encaminhamento anterior — encaminhe de novo num pedido novo.',
+    );
+  });
+
+  it('409 do pedido COM results[] resume destino a destino (não "em andamento" genérico) e marca summary', () => {
+    const f = forwardFailure(
+      {
+        status: 409,
+        message: 'x',
+        body: { results: [res({ status: 409, error: 'em andamento' })] },
+      },
+      'v',
+    );
+    expect(f).toMatchObject({
+      summary: true,
+      retry: false,
+      results: [expect.anything()],
+    });
+    expect(f.text).toBe(
+      '1 conversa sem desfecho confirmado (pode ter saído) — veja abaixo. Confira no celular antes de encaminhar de novo.',
+    );
+    expect(
+      forwardFailure({ status: 409, message: 'x' }, 'v').summary,
+    ).toBeUndefined();
+  });
+
+  it('summarizeOutcomes: singular sem "nenhuma das 1" e o histórico do diálogo inteiro', () => {
+    const failed = outcomeOf(res({ status: 400, error: 'x' }));
+    const sent = outcomeOf(res({ ok: true }));
+    expect(summarizeOutcomes([failed])).toEqual({
+      tone: 'error',
+      text: 'Não foi encaminhada para essa conversa.',
+    });
+    // quem recebeu num pedido anterior entra no resumo do reenvio que falhou
+    expect(summarizeOutcomes([sent, failed])).toEqual({
+      tone: 'partial',
+      text: 'Encaminhada para 1 conversa; 1 conversa não recebeu — veja abaixo.',
+    });
   });
 });
