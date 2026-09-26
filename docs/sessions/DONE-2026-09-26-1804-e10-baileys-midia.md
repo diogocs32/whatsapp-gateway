@@ -46,3 +46,13 @@
 - **Commits/PR:** E10 em `b489b21`; fechamento R9 em commit documental posterior, ambos no PR #11. Jobs `ci`/`imagens` do código verdes no run `36272852120`; o commit de fechamento tem CI próprio no PR.
 - **BLOQUEADO EM VOCÊ:** merge do PR #11, deploy manual B e canário com chip/egress real aguardam a E12 e a ordem do dono. B-004/B-005/B-007, P-034 e P-056 continuam pendentes em `PENDENCIAS.md`; P-087 é limite técnico residual da E10.
 - **DOCS TOCADAS PELO DIFF:** `INTEGRACAO`, `ARQUITETURA`, `MAPA-CODIGO`/referência gerada, runbook do canário, `PENDENCIAS`, `DECISOES`, `ROTEIRO-ONDAS`, `SESSOES`, `ESTADO`, `CHANGELOG` e este DONE. Nenhum contrato/payload novo.
+
+## Adendo pós-merge — 26/09/2026
+
+- Após o fechamento da E10, o PR #10 foi mergeado em `d577b05` e o PR #11 em `8291c17`, ambos
+  confirmados em `origin/main` por `git log`; E7–E10 agora estão na `main`.
+- As referências a PR aberto e ausência de merge acima são o retrato do encerramento original.
+  E11/P-051 e E12/P-052 continuam pendentes e exigem nova branch/PR a partir da `main` atual.
+- Nenhum Deploy ou canário foi executado nesta reconciliação; produção permanece no último SHA
+  **documentado** `768fb26`, sem verificação ao vivo. Deploy B manual segue para a janela do dono
+  depois de E12 e do novo PR integrado; P-087 permanece aberto.
