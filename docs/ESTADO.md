@@ -22,6 +22,13 @@
 
 ## Estado de produção
 
+> **26/09/2026 (revisão `e8-baileys-fonte-prazo`, PR #11 — sem merge/deploy):** a notificação de
+> timelock da rc14 pode fabricar agora + 60 s; o prazo é provisório até confirmação pela resposta
+> direta do RPC. Capping menor não reduz a pausa provisória e resposta tardia pode confirmar.
+> Commit `8b513c5` com 507 unit gateway, 791 gateway no total e 180 painel locais; jobs `ci` e
+> `imagens` verdes (run `36259684192`). Produção permanece no último SHA **documentado**
+> `768fb26`; canário da Onda 2 só após E12 e ordem de merge/deploy B.
+
 > **26/09/2026 (sessão `e8-baileys-restricao`, E8/P-048 no PR #11 — sem merge/deploy):**
 > ERROR 463, `reachoutTimeLock` e capping CAPPED pausam envios de mensagem com 423 até o prazo
 > persistido; `session.restricted` alerta e a pausa vence automaticamente. ERROR 479 é contado,
