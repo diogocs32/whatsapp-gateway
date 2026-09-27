@@ -35,6 +35,9 @@ function harness() {
     registered: false,
   };
   const requestPairingCode = vi.fn(async () => '12345678');
+  const groupFetchAllParticipating = vi.fn(
+    async (): Promise<Record<string, unknown>> => ({}),
+  );
   const sock = {
     ev,
     authState: { creds },
@@ -43,11 +46,13 @@ function harness() {
     },
     signalRepository: { lidMapping: { getPNsForLIDs } },
     requestPairingCode,
+    groupFetchAllParticipating,
   };
   const internals = engine as unknown as {
     sock: typeof sock | null;
     status: string;
     pairingReadySock: typeof sock | null;
+    lidToPn: Map<string, string>;
     recordGroupParticipants: (groups: unknown[]) => Promise<void>;
   };
   internals.sock = sock;
@@ -62,6 +67,7 @@ function harness() {
     recordMany,
     getPNsForLIDs,
     requestPairingCode,
+    groupFetchAllParticipating,
   };
 }
 
@@ -138,6 +144,22 @@ describe('Baileys rc14 — roster LID E12', () => {
     ]);
   });
 
+  it('prioriza phoneNumber do lote quando o mesmo LID aparece em dois grupos', async () => {
+    const h = harness();
+    h.getPNsForLIDs.mockResolvedValue([
+      { lid: LID, pn: '5521999999999@s.whatsapp.net' },
+    ]);
+    await h.internals.recordGroupParticipants([
+      { id: 'grupo-a@g.us', participants: [{ id: LID }] },
+      { id: 'grupo-b@g.us', participants: [{ id: LID, phoneNumber: PN }] },
+    ]);
+    expect(h.getPNsForLIDs).not.toHaveBeenCalled();
+    expect(h.recordMany).toHaveBeenCalledWith([
+      expect.objectContaining({ phone: '5511999999999' }),
+      expect.objectContaining({ phone: '5511999999999' }),
+    ]);
+  });
+
   it('usa apenas lidMapping local quando falta phoneNumber e tira sufixo de device', async () => {
     const h = harness();
     h.getPNsForLIDs.mockResolvedValue([
@@ -157,6 +179,20 @@ describe('Baileys rc14 — roster LID E12', () => {
     await h.internals.recordGroupParticipants([
       { id: 'grupo@g.us', participants: [{ id: LID }] },
     ]);
+    expect(h.recordMany).toHaveBeenCalledWith([
+      expect.objectContaining({ jid: null, lid: LID, phone: null }),
+    ]);
+  });
+
+  it('não usa par aprendido de mensagens como fallback do roster', async () => {
+    const h = harness();
+    h.internals.lidToPn.set(LID, PN);
+    h.groupFetchAllParticipating.mockResolvedValue({
+      'grupo@g.us': { id: 'grupo@g.us', participants: [{ id: LID }] },
+    });
+    const groups = await h.engine.listGroups();
+    expect(h.getPNsForLIDs).toHaveBeenCalledWith([LID]);
+    expect(groups[0].participants[0].phone).toBeNull();
     expect(h.recordMany).toHaveBeenCalledWith([
       expect.objectContaining({ jid: null, lid: LID, phone: null }),
     ]);

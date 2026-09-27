@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 295 arquivos · 1552 símbolos (métodos/funções/assinaturas/constantes) · 1553 chamadas resolvidas · 839 testes (it/test)
+- 295 arquivos · 1552 símbolos (métodos/funções/assinaturas/constantes) · 1554 chamadas resolvidas · 841 testes (it/test)
 
 ## Áreas
 
@@ -28,7 +28,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `observability` | 7 | 636 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 13 | 1424 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 153 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 47 | 16483 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 47 | 16531 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 17 | 1315 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 

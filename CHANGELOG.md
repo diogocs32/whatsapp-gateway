@@ -6,7 +6,7 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
-### Corrigido — pairing e roster LID do Baileys (26/09 — E12/P-052; deploy B pendente)
+### Corrigido — pairing e roster LID do Baileys (26/09 — E12/P-052; PR #16, deploy B pendente)
 
 - `POST /pairing-code` passa a devolver 409 antes de tocar o Baileys para sessão WORKING ou com `creds.me`/`sock.user`; a espera após start observa `connecting` ou o primeiro QR por até 10 s, sem sleep fixo. A resposta `{code}` e os DTOs não mudam.
 - O roster da rc14 grava `phoneNumber` junto do LID; quando o número falta, consulta apenas `lidMapping` local e normaliza o JID sem device. Os caches de retry/devices conservam TTLs da rc14 e ganham medidas agregadas por socket; o log conta pre-keys por sessão. A externalização depende de medições no canário. `countryCode: BR` é coerência da frota, sem alegação anti-ban.

@@ -367,8 +367,8 @@ type RawParticipant = {
   notify?: string;
 };
 
-// O roster rc14 expõe phoneNumber (não jid) quando id é @lid. Sem número no roster,
-// só o cache aprendido das mensagens ou o lidMapping local pode preencher o telefone.
+// O roster rc14 expõe phoneNumber (não jid) quando id é @lid. O mapa recebido aqui
+// contém apenas pares do próprio roster ou do lidMapping local, nunca lookup na rede.
 function resolveParticipantPhone(
   p: RawParticipant,
   lidToPn: Map<string, string>,
@@ -2143,8 +2143,11 @@ export class BaileysEngine implements IEngine {
     if (records.length) this.deps.contacts?.recordMany(records);
   }
 
-  private async recordGroupParticipants(groups: RawGroup[]): Promise<void> {
+  private async recordGroupParticipants(
+    groups: RawGroup[],
+  ): Promise<Map<string, string>> {
     const participants = groups.flatMap((md) => md.participants ?? []);
+    const rosterLidToPn = new Map<string, string>();
     const unresolved = new Set<string>();
     for (const p of participants) {
       const lid = p.lid ?? (p.id.endsWith('@lid') ? p.id : null);
@@ -2153,11 +2156,16 @@ export class BaileysEngine implements IEngine {
       if (!lid) continue;
       const key = jidNormalizedUser(lid);
       if (pn?.endsWith('@s.whatsapp.net')) {
-        this.lidToPn.set(key, jidNormalizedUser(pn));
-      } else if (!this.lidToPn.has(key) && key.endsWith('@lid')) {
+        const normalizedPn = jidNormalizedUser(pn);
+        rosterLidToPn.set(key, normalizedPn);
+        this.lidToPn.set(key, normalizedPn);
+      } else if (key.endsWith('@lid')) {
         unresolved.add(key);
       }
     }
+    // Um mesmo LID pode aparecer em vários grupos: phoneNumber de qualquer roster deste lote
+    // tem prioridade sobre um mapping local possivelmente antigo.
+    for (const lid of rosterLidToPn.keys()) unresolved.delete(lid);
     if (unresolved.size) {
       try {
         // rc14: getPNsForLIDs consulta apenas mappingCache e auth.keys('lid-mapping').
@@ -2168,13 +2176,13 @@ export class BaileysEngine implements IEngine {
           ]);
         for (const pair of mappings ?? []) {
           if (
-            pair.lid.endsWith('@lid') &&
+            unresolved.has(jidNormalizedUser(pair.lid)) &&
             (pair.pn.endsWith('@s.whatsapp.net') || pair.pn.endsWith('@hosted'))
           ) {
-            this.lidToPn.set(
-              jidNormalizedUser(pair.lid),
-              jidNormalizedUser(pair.pn),
-            );
+            const lid = jidNormalizedUser(pair.lid);
+            const pn = jidNormalizedUser(pair.pn);
+            rosterLidToPn.set(lid, pn);
+            this.lidToPn.set(lid, pn);
           }
         }
       } catch (err) {
@@ -2186,25 +2194,27 @@ export class BaileysEngine implements IEngine {
       const pn =
         p.phoneNumber ??
         (p.id.endsWith('@s.whatsapp.net') ? p.id : null) ??
-        (lid ? this.lidToPn.get(jidNormalizedUser(lid)) : null);
+        (lid ? rosterLidToPn.get(jidNormalizedUser(lid)) : null);
       const jid = pn ? jidNormalizedUser(pn) : null;
       return {
         waId: p.id,
         jid,
         lid: lid ? jidNormalizedUser(lid) : null,
-        phone: resolveParticipantPhone(p, this.lidToPn),
+        phone: resolveParticipantPhone(p, rosterLidToPn),
         name: p.name ?? null,
         pushName: p.notify ?? null,
         source: 'group',
       };
     });
     if (recs.length) this.deps.contacts?.recordMany(recs);
+    return rosterLidToPn;
   }
 
   // ---- Grupos (§ F5) ----
   // Busca em lote (1 query) os nomes salvos no diretório para todos os participantes dos grupos.
   private async resolveParticipantNames(
     groups: RawGroup[],
+    rosterLidToPn: Map<string, string>,
   ): Promise<Map<string, { name: string | null; pushName: string | null }>> {
     if (!this.deps.contacts?.resolveNames) return new Map();
     const keys = new Set<string>();
@@ -2213,7 +2223,7 @@ export class BaileysEngine implements IEngine {
         if (p.id) keys.add(p.id);
         if (p.lid) keys.add(p.lid);
         if (p.phoneNumber) keys.add(p.phoneNumber);
-        const phone = resolveParticipantPhone(p, this.lidToPn);
+        const phone = resolveParticipantPhone(p, rosterLidToPn);
         if (phone) keys.add(phone);
       }
     }
@@ -2229,17 +2239,17 @@ export class BaileysEngine implements IEngine {
     const map = await this.sk().groupFetchAllParticipating();
     for (const md of Object.values(map)) this.cacheGroupMeta(md); // WA-12
     const raws = Object.values(map) as unknown as RawGroup[];
-    await this.recordGroupParticipants(raws);
-    const names = await this.resolveParticipantNames(raws);
-    return raws.map((g) => toGroupInfo(g, this.lidToPn, names));
+    const rosterLidToPn = await this.recordGroupParticipants(raws);
+    const names = await this.resolveParticipantNames(raws, rosterLidToPn);
+    return raws.map((g) => toGroupInfo(g, rosterLidToPn, names));
   }
   async groupInfo(jid: string): Promise<GroupInfo> {
     const fresh = await this.sk().groupMetadata(toGroupJid(jid));
     this.cacheGroupMeta(fresh); // WA-12
     const md = fresh as unknown as RawGroup;
-    await this.recordGroupParticipants([md]);
-    const names = await this.resolveParticipantNames([md]);
-    return toGroupInfo(md, this.lidToPn, names);
+    const rosterLidToPn = await this.recordGroupParticipants([md]);
+    const names = await this.resolveParticipantNames([md], rosterLidToPn);
+    return toGroupInfo(md, rosterLidToPn, names);
   }
   async createGroup(
     subject: string,
@@ -2247,7 +2257,9 @@ export class BaileysEngine implements IEngine {
   ): Promise<GroupInfo> {
     const jids = await this.resolveParticipants(participants);
     const md = await this.sk().groupCreate(subject, jids);
-    return toGroupInfo(md as unknown as RawGroup, this.lidToPn);
+    const raw = md as unknown as RawGroup;
+    const rosterLidToPn = await this.recordGroupParticipants([raw]);
+    return toGroupInfo(raw, rosterLidToPn);
   }
   async updateParticipants(
     jid: string,
