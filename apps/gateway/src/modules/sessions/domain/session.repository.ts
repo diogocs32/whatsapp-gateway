@@ -16,6 +16,18 @@ export interface StatusPatch {
   lastErrorDetails?: SessionErrorDetails | null;
 }
 
+// E27 (P-086): o que o link de conexão precisa saber da sessão, numa leitura só. `paired` = há
+// credencial de conta salva (Baileys `creds.account`, gravado no pair-success) — sem trazer o JSON
+// inteiro das creds.
+export interface ConnectSnapshot {
+  id: string;
+  engine: Engine;
+  status: SessionStatus;
+  meJid: string | null;
+  lastMeJid: string | null;
+  paired: boolean;
+}
+
 export interface SessionRepository {
   create(input: CreateSessionInput): Promise<Session>;
   findById(id: string): Promise<Session | null>;
@@ -35,6 +47,10 @@ export interface SessionRepository {
   ): Promise<boolean>;
   delete(id: string): Promise<void>;
   findAutostart(): Promise<Session[]>;
+  findConnectSnapshot(id: string): Promise<ConnectSnapshot | null>;
+  // Corrige o último número conhecido (ex.: conexão desfeita por número errado não pode virar a
+  // sugestão do próximo link).
+  setLastMeJid(id: string, jid: string | null): Promise<void>;
 }
 
 export const SESSION_REPOSITORY = Symbol('SESSION_REPOSITORY');

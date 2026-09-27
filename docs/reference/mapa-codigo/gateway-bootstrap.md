@@ -18,8 +18,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `bootstrap/log-redaction.ts` | 169 |
 | `bootstrap/logging-exception.filter.spec.ts` | 117 |
 | `bootstrap/logging-exception.filter.ts` | 154 |
-| `bootstrap/rate-limit.spec.ts` | 189 |
-| `bootstrap/rate-limit.ts` | 35 |
+| `bootstrap/rate-limit.spec.ts` | 347 |
+| `bootstrap/rate-limit.ts` | 48 |
 | `bootstrap/route-url.ts` | 54 |
 
 ## `bootstrap/config.ts`
@@ -89,7 +89,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `buildFastifyAdapter(maxFileBytes)` · L11
   - chama: `rejectAmbiguousAbsoluteForm` (route-url.ts:39), `stampRouteUrl` (route-url.ts:20)
-  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:93)
+  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:102)
 
 ## `bootstrap/http-logger.spec.ts`
 
@@ -218,27 +218,35 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `bootstrap/rate-limit.spec.ts`
 
-189 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.spec.ts`
-- importa (interno): `modules/iam/interface/auth.controller.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/rate-limit.ts`
+347 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.spec.ts`
+- importa (interno): `modules/iam/interface/auth.controller.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/interface/public-connect.controller.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/rate-limit.ts`
 
-- describe “rate-limit pela rota resolvida (P-053)” · L72
-  - it “o 11º login em 1 min é 429 mesmo alternando %-encoding e forma absoluta” · L99
-  - it “o login tem contador próprio: tráfego do mesmo IP não o esgota (D-025)” · L125
-  - it “/health fica fora do rate-limit em qualquer grafia; 404 não passa pelo limitador” · L142
-  - it “forma absoluta com ? ou # antes do caminho → 400 antes de qualquer rota (nem conta no limitador)” · L165
-- describe “rateLimitMaxFromEnv” · L180
-  - it “default 600; 0/negativo/inválido desligam” · L181
+- describe “rate-limit pela rota resolvida (P-053)” · L84
+  - it “o 11º login em 1 min é 429 mesmo alternando %-encoding e forma absoluta” · L111
+  - it “o login tem contador próprio: tráfego do mesmo IP não o esgota (D-025)” · L137
+  - it “/health fica fora do rate-limit em qualquer grafia; 404 não passa pelo limitador” · L154
+  - it “forma absoluta com ? ou # antes do caminho → 400 antes de qualquer rota (nem conta no limitador)” · L177
+- describe “rateLimitMaxFromEnv” · L192
+  - it “default 600; 0/negativo/inválido desligam” · L193
+- describe “rate-limit das rotas públicas do link de conexão (E27 · P-086)” · L206
+  - it “os tetos são 120/min (consulta) e 10/min (gerar QR)” · L252
+  - it “GET /api/public/connect: 121ª consulta em 1 min é 429; não gasta o balde do new-qr nem o global” · L263
+  - it “POST /api/public/connect/new-qr: 11º pedido em 1 min é 429; a consulta segue no próprio balde” · L294
+  - it “token inválido (404 no guard) também conta no balde da rota — o limitador roda antes do guard” · L317
+  - it “HEAD /api/public/connect → 405 sem chegar ao serviço (não vira 2º balde de leitura)” · L333
 
 ## `bootstrap/rate-limit.ts`
 
-35 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.ts`
-- importado por: `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/auth.controller.ts`
+48 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.ts`
+- importado por: `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/auth.controller.ts`, `modules/sessions/interface/public-connect.controller.ts`
 
 **Funções e constantes de topo**
 - `rateLimitMaxFromEnv(env)` · L6
   - chamado por: `bootstrap` (main.ts:16)
 - `LOGIN_RATE_LIMIT` = `{ max: 10, timeWindow: '1 minute' } as const` · L19
-- `registerRateLimit(app, max)` · L23 · async
+- `PUBLIC_CONNECT_READ_RATE_LIMIT` = `{ max: 120, timeWindow: '1 minute', } as const` · L25
+- `PUBLIC_CONNECT_NEW_QR_RATE_LIMIT` = `{ max: 10, timeWindow: '1 minute', } as const` · L29
+- `registerRateLimit(app, max)` · L36 · async
   - chamado por: `bootstrap` (main.ts:16)
 
 ## `bootstrap/route-url.ts`

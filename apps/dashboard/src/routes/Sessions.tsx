@@ -1,8 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { ProxyDto, SessionDto, SessionStatus } from '@contracts';
+import {
+  CONNECT_LINK_WWEBJS_REASON,
+  ConnectLinkDialog,
+} from '../components/sessions/ConnectLinkDialog';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { numberFromJid } from '../lib/jid';
+import {
+  EMPTY_SESSION_FILTER,
+  SESSION_STATUSES,
+  filterSessions,
+  isSessionFilterActive,
+  parseSessionFilter,
+  sessionFilterToParams,
+  type SessionFilter,
+} from '../lib/session-filter';
 
 const STATUS_META: Record<SessionStatus, { label: string; cls: string }> = {
   WORKING: { label: 'Conectado', cls: 'bg-emerald-500/15 text-emerald-400' },
@@ -32,9 +46,11 @@ function StatusBadge({ status }: { status: SessionStatus }) {
 function ConnectModal({
   session,
   onClose,
+  onOpenLink,
 }: {
   session: SessionDto;
   onClose: () => void;
+  onOpenLink: () => void; // E27/P-086 — troca este modal pelo diálogo do link
 }) {
   const [qr, setQr] = useState<string | null>(null);
   const [status, setStatus] = useState<SessionStatus>(session.status);
@@ -216,6 +232,20 @@ function ConnectModal({
                 Fechar
               </button>
             </div>
+            {/* E27/P-086 — a pessoa do número não está aqui: link para ela ler o QR de outra tela. */}
+            <button
+              type="button"
+              onClick={onOpenLink}
+              disabled={session.engine !== 'BAILEYS'}
+              title={
+                session.engine !== 'BAILEYS'
+                  ? CONNECT_LINK_WWEBJS_REASON
+                  : undefined
+              }
+              className="mt-2 w-full rounded-lg border border-zinc-700 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+            >
+              Link para conectar de outro lugar
+            </button>
           </>
         )}
       </div>
@@ -234,6 +264,33 @@ export function Sessions() {
   const [availableProxies, setAvailableProxies] = useState<ProxyDto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [connect, setConnect] = useState<SessionDto | null>(null);
+  // E27/P-086 — diálogo do link; guarda o id para o diálogo receber a versão viva da lista.
+  const [linkFor, setLinkFor] = useState<string | null>(null);
+  const linkSession = linkFor
+    ? (sessions.find((s) => s.id === linkFor) ?? null)
+    : null;
+  // P-089 — filtro por nome, status e número. Estado LOCAL síncrono (é ele que controla os
+  // inputs) e a URL (?nome=&status=&numero=) só como espelho, para sobreviver ao recarregar e poder
+  // ser compartilhada. Input controlado direto pela URL quebra a digitação: o BrowserRouter aplica
+  // cada navegação em React.startTransition (react-router 7.18.3, chunk-BV7QT456.mjs:10504-10510) e
+  // o React devolve ao DOM o valor antigo até a transição entrar — cursor pula para o fim, IME
+  // (Gboard) e tecla morta (acento no macOS/iOS) geram lixo. `replace`: digitar não empilha
+  // histórico. O setSearchParams fica FORA do updater do setState (StrictMode chama o updater 2×).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filter, setFilterState] = useState<SessionFilter>(() =>
+    parseSessionFilter(searchParams),
+  );
+  const filtering = isSessionFilterActive(filter);
+  const visible = filterSessions(sessions, filter);
+  const setFilter = (patch: Partial<SessionFilter>) => {
+    // O onChange re-renderiza de forma síncrona: `filter` aqui é sempre o atual.
+    const next = { ...filter, ...patch };
+    setFilterState(next);
+    setSearchParams((prev) => sessionFilterToParams(next, prev), {
+      replace: true,
+    });
+  };
+  const clearFilter = () => setFilter(EMPTY_SESSION_FILTER);
 
   async function refresh() {
     try {
@@ -307,7 +364,11 @@ export function Sessions() {
 
       <main className="p-6">
         <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm text-zinc-400">{sessions.length} sessão(ões)</p>
+          <p className="text-sm text-zinc-400" aria-live="polite">
+            {filtering
+              ? `${visible.length} de ${sessions.length} sessão(ões)`
+              : `${sessions.length} sessão(ões)`}
+          </p>
           <button
             onClick={() => setCreating((v) => !v)}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
@@ -371,6 +432,65 @@ export function Sessions() {
 
         {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
+        <div
+          role="search"
+          aria-label="Filtrar sessões"
+          className="mb-4 flex flex-wrap items-end gap-3"
+        >
+          <label className="space-y-1">
+            <span className="text-xs text-zinc-400">Nome</span>
+            <input
+              type="search"
+              value={filter.name}
+              onChange={(e) => setFilter({ name: e.target.value })}
+              placeholder="Buscar por nome"
+              className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs text-zinc-400">Status</span>
+            <select
+              value={filter.status}
+              onChange={(e) =>
+                setFilter({
+                  status: e.target.value as SessionFilter['status'],
+                })
+              }
+              className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+            >
+              <option value="">Todos</option>
+              <option value="DISCONNECTED">
+                Desconectadas (tudo menos Conectado)
+              </option>
+              {SESSION_STATUSES.map((st) => (
+                <option key={st} value={st}>
+                  {STATUS_META[st].label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs text-zinc-400">Número</span>
+            <input
+              type="search"
+              inputMode="tel"
+              value={filter.number}
+              onChange={(e) => setFilter({ number: e.target.value })}
+              placeholder="Ex.: 11 98888-7777"
+              className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+            />
+          </label>
+          {filtering && (
+            <button
+              type="button"
+              onClick={clearFilter}
+              className="rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-800"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
         <div className="overflow-hidden rounded-xl border border-zinc-800">
           <table className="w-full text-sm">
             <thead className="bg-zinc-900/60 text-left text-zinc-400">
@@ -393,7 +513,24 @@ export function Sessions() {
                   </td>
                 </tr>
               )}
-              {sessions.map((s) => (
+              {sessions.length > 0 && visible.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-10 text-center text-zinc-500"
+                  >
+                    Nenhuma sessão com esses filtros.{' '}
+                    <button
+                      type="button"
+                      onClick={clearFilter}
+                      className="text-emerald-400 underline hover:text-emerald-300"
+                    >
+                      Limpar filtros
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {visible.map((s) => (
                 <tr key={s.id} className="hover:bg-zinc-900/40">
                   <td className="px-4 py-3 font-medium">{s.name}</td>
                   <td className="px-4 py-3">
@@ -406,7 +543,16 @@ export function Sessions() {
                   </td>
                   <td className="px-4 py-3 text-zinc-300">
                     {s.mePushName ? `${s.mePushName} · ` : ''}
-                    {s.meJid ? s.meJid.split(':')[0].split('@')[0] : '—'}
+                    {s.meJid ? (
+                      s.meJid.split(':')[0].split('@')[0]
+                    ) : s.lastMeJid ? (
+                      // E27: caiu (meJid zera no 401) — o último número ajuda a achar e reconectar.
+                      <span className="text-zinc-400">
+                        último: {numberFromJid(s.lastMeJid)}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-4 py-3 text-zinc-400">{s.engine}</td>
                   <td className="px-4 py-3">
@@ -433,6 +579,21 @@ export function Sessions() {
                           Parar
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setLinkFor(s.id)}
+                        disabled={s.engine !== 'BAILEYS'}
+                        title={
+                          s.engine !== 'BAILEYS'
+                            ? CONNECT_LINK_WWEBJS_REASON
+                            : s.status === 'WORKING'
+                              ? 'Ver o último link de conexão'
+                              : 'Link para a pessoa conectar de outro lugar'
+                        }
+                        className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs hover:bg-zinc-800 disabled:opacity-50"
+                      >
+                        Link
+                      </button>
                       <button
                         onClick={() =>
                           doAction(() => api.sessions.restart(s.id))
@@ -474,6 +635,18 @@ export function Sessions() {
             setConnect(null);
             refresh();
           }}
+          onOpenLink={() => {
+            setConnect(null);
+            setLinkFor(connect.id);
+          }}
+        />
+      )}
+
+      {linkSession && (
+        <ConnectLinkDialog
+          session={linkSession}
+          onClose={() => setLinkFor(null)}
+          onChanged={() => void refresh()}
         />
       )}
     </div>

@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 no PR #8 e E6/P-060 no PR #10 mergeadas (deploy W pendente). **E7–E10 estão na `main` pelo PR #11; E11/P-051 foi integrada pelo PR #15 e E12/P-052 foi implementada no PR #16, criado de `origin/main=119635c`, para merge ao fim após CI verde. A Onda 2 fecha em código com a E12; deploy B e canário continuam pendentes.** O PR #13 (`2f02f02`) reconciliou as pontas restantes das branches M2/Mac e integrou o observador WWEBJS D-035/P-088, desligado por padrão e sem ação de guardrail. O dono autorizou os merges #7, #8, #10, #11 e #13 e, em 26/09, orientou fazer merge ao fim de cada etapa após CI verde; o PR #15 integrou a E11, sem deploy. Deploys manuais A/G/W e futuro B, mais canários, seguem pendentes. P-084 e P-086 são pedidos futuros; P-087 registra o listener interno do reupload sem cancelamento na rc14. Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 no PR #8 e E6/P-060 no PR #10 mergeadas (deploy W pendente). **E7–E10 estão na `main` pelo PR #11; E11/P-051 foi integrada pelo PR #15 e E12/P-052 foi implementada no PR #16, criado de `origin/main=119635c`, para merge ao fim após CI verde. A Onda 2 fecha em código com a E12; deploy B e canário continuam pendentes.** O PR #13 (`2f02f02`) reconciliou as pontas restantes das branches M2/Mac e integrou o observador WWEBJS D-035/P-088, desligado por padrão e sem ação de guardrail. O dono autorizou os merges #7, #8, #10, #11 e #13 e, em 26/09, orientou fazer merge ao fim de cada etapa após CI verde; o PR #15 integrou a E11, sem deploy. Deploys manuais A/G/W e futuro B, mais canários, seguem pendentes. P-084 é pedido futuro (E26); **P-086 (link público de conexão por QR) e P-089 (filtro de sessões) foram entregues em código na E27 (Onda 9, PR próprio, D-037) — deploy manual dos 2 apps pendente**; P-087 registra o listener interno do reupload sem cancelamento na rc14. Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,18 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **27/09/2026 (E27/P-086/P-089, D-037 — sem deploy):** link público temporário para outra pessoa
+> conectar uma sessão **Baileys** por QR em outra tela (página `/conectar` do painel; token no
+> fragmento e em `Authorization: Bearer`; só login do painel cria; nunca apaga login salvo nem derruba
+> conta; número esperado com desfazimento automático; `CONNECTED` por 15 min) e filtro de sessões por
+> nome/status/número. Migration aditiva `20260927013000_link_conexao_qr` (tabela `wa_connect_links` +
+> `wa_sessions.lastMeJid`), rotas aditivas, `SessionDto.lastMeJid`, lock de ciclo de vida por sessão no
+> `SessionManager` (pairing com teto de 45 s → 409), CORS `maxAge` 600. 866 unit gateway, 255 painel e
+> 348/349 e2e locais (a falha é ambiental do banco de dev — dead-letters órfãs; CI é o gate). Validação
+> no Chrome da página pública com gateway local e fases simuladas; sem chip, sem QR lido, sem deploy. Não
+> verificado: o `#` sobreviver ao toque no link dentro do WhatsApp (aceite no runbook
+> `how-to/link-conexao-qr.md`). Último SHA de produção **documentado** segue `768fb26`.
 
 > **26/09/2026 (E12/P-052, PR #16 — sem deploy):** a rc14 instalada foi confirmada
 > na tag oficial antes da mudança. Pairing recusa WORKING/`creds.me`/`sock.user` com 409 e

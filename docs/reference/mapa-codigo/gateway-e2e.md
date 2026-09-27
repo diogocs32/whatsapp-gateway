@@ -14,6 +14,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-restriction.e2e-spec.ts` | 271 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
+| `gateway/test/connect-links.e2e-spec.ts` | 1301 |
 | `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1540 |
 | `gateway/test/conversas-grupo.e2e-spec.ts` | 214 |
 | `gateway/test/conversas-reacoes.e2e-spec.ts` | 544 |
@@ -32,7 +33,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 131 |
 | `gateway/test/sessions.e2e-spec.ts` | 179 |
-| `gateway/test/setup-app.ts` | 182 |
+| `gateway/test/setup-app.ts` | 191 |
 | `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1020 |
@@ -126,6 +127,65 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “"true"/"1"/"on" LIGAM, aceitando maiúsculas e espaços” · L38
   - it “string vazia cai no default (equivale a não definir)” · L50
   - it “valor não reconhecido derruba o boot citando a variável (fail-fast)” · L55
+
+## `gateway/test/connect-links.e2e-spec.ts`
+
+1301 linhas · caminho: `apps/gateway/test/connect-links.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/domain/session-status.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/ulid.ts`, `gateway/test/setup-app.ts`
+
+- describe “link de conexão por QR (e2e)” · L18
+  - describe “autenticação e papéis” · L208
+    - it “POST/GET/DELETE sem login → 401” · L209
+    - it “X-Api-Key válida NÃO cria link (401), embora abra as rotas de API” · L224
+    - it “VIEWER consulta (200) mas não cria nem revoga (403)” · L244
+  - describe “criar link (POST /api/sessions/:id/connect-link)” · L263
+    - it “Baileys STOPPED sem creds → 201 {link ACTIVE, token de 43, path /conectar#token}, TTL padrão 24 h” · L264
+    - it “normaliza expectedPhone para dígitos e respeita ttlMinutes” · L295
+    - it “expectedPhone não vazio sem dígitos → 400 (não vira "qualquer número")” · L336
+    - it “sessão WWEBJS → 409 CONNECT_LINK_ENGINE_UNSUPPORTED” · L342
+    - it “sessão WORKING no banco → 409 CONNECT_LINK_SESSION_WORKING” · L349
+    - it “engine viva WORKING com banco STOPPED → 409 CONNECT_LINK_SESSION_WORKING” · L356
+    - it “login salvo (creds.account) → 409 CONNECT_LINK_SESSION_PAIRED” · L370
+    - it “creds só com `me` → 201” · L383
+    - it “sessão fica WORKING entre a checagem e o insert → link nasce CONNECTED” · L392
+    - it “sessão inexistente → 404” · L408
+    - it “GET devolve o último link sem token; segundo create revoga o primeiro (REPLACED → 410)” · L413
+    - it “dois creates simultâneos deixam UM link ativo” · L451
+    - it “create apaga inativos da sessão com mais de 30 dias e preserva os recentes e os de outra sessão” · L476
+    - it “DELETE revoga o link ativo (MANUAL) e o token passa a dar 410; sem link ativo revoga 0” · L519
+  - describe “rota pública — credencial do link” · L553
+    - it “sem header / Bearer lixo / esquema errado / JWT do painel → 404 CONNECT_LINK_NOT_FOUND” · L554
+    - it “corpo de erro nunca ecoa o token (404 desconhecido e 410 revogado)” · L574
+    - it “token do link não abre rota autenticada (401)” · L596
+    - it “link expirado → 410 CONNECT_LINK_EXPIRED” · L607
+  - describe “rota pública — fase ACTIVE” · L626
+    - it “QR vivo → phase QR com o data URL; resposta sem nome/número/status da sessão; no-store” · L627
+    - it “sem engine e banco STOPPED → phase IDLE, qr null, newQr.available; grava lastSeenAt” · L658
+  - describe “rota pública — gerar QR (POST /api/public/connect/new-qr)” · L743
+    - it “IDLE → 200, chama newQrForConnectLink e grava a cota; GET vira PREPARING; 2º pedido imediato → 429 COOLDOWN” · L744
+    - it “dois pedidos simultâneos → um 200 e um 429, cota gasta uma vez” · L782
+    - it “cota esgotada → GET sem botão e POST 409 CONNECT_LINK_NEW_QR_LIMIT” · L790
+    - it “login salvo depois de criar o link → GET UNAVAILABLE e POST 409 NEW_QR_UNAVAILABLE sem gastar cota” · L811
+    - it “QR vivo na tela → POST 409 NEW_QR_UNAVAILABLE sem gastar cota” · L840
+    - it “sessão ocupada (SessionBusyError) → 409 CONNECT_LINK_BUSY sem gastar cota” · L856
+    - it “falha ao gerar o QR → 503 CONNECT_LINK_NEW_QR_FAILED com mensagem fixa (sem o erro interno)” · L872
+  - describe “consumo pela conexão (evento WORKING no EventBus)” · L892
+    - it “número esperado conecta → link consumido; GET 200 CONNECTED sem qr; depois da graça de 15 min → 410 USED” · L893
+    - it “tolera o 9º dígito BR (conta antiga conecta sem o 9)” · L933
+    - it “sem número esperado → qualquer número consome” · L941
+    - it “número errado → revoga WRONG_NUMBER e GET 410; engine fora deste processo (hasEngine=false) não chama rejectC…” · L949
+    - it “número errado com a engine neste processo → rejectConnectedAccount(id, motivo, esperado@s.whatsapp.net)” · L977
+    - it “meJid @lid com número esperado → WRONG_NUMBER” · L1004
+    - it “`wa.event.remote` WORKING é ignorado pelo link” · L1013
+    - it “leitura pública com banco WORKING (sem evento) aplica a regra de número” · L1047
+    - it “fallback pela timeline: WORKING depois do link consome; WORKING anterior ao link não” · L1104
+  - describe “ciclo de vida da sessão” · L1132
+    - it “stop depois de consumido não mexe no link conectado” · L1153
+    - it “remover a sessão apaga os links em cascata (token vira 404)” · L1167
+  - describe “auditoria e lastMeJid” · L1180
+    - it “POST create auditado com o usuário; new-qr público auditado com ator link: e path sem token” · L1181
+    - it “ator login: só em /api/auth/login; username no corpo de outra rota anônima não forja o ator” · L1235
+    - it “GET /api/sessions expõe lastMeJid (aditivo); updateStatus grava e mantém depois do meJid null” · L1272
 
 ## `gateway/test/conversas-encaminhar.e2e-spec.ts`
 
@@ -469,27 +529,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/setup-app.ts`
 
-182 linhas · caminho: `apps/gateway/test/setup-app.ts`
+191 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
-- `createTestApp(managerOverride)` · L93 · async
+- `createTestApp(managerOverride)` · L102 · async
   - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts)
-- `inject(app, opts)` · L129
-  - chamado por: `login` L153
-- `readSetCookie(res, name)` · L141
-- `login(app)` · L153 · async
-  - chama: `inject` L129
-- `seedSession(app, name)` · L166 · async
+- `inject(app, opts)` · L138
+  - chamado por: `login` L162
+- `readSetCookie(res, name)` · L150
+- `login(app)` · L162 · async
+  - chama: `inject` L138
+- `seedSession(app, name)` · L175 · async
   - banco: `waSession.create`, `waSession.deleteMany`
-- `removeSession(app, name)` · L175 · async
+- `removeSession(app, name)` · L184 · async
   - banco: `waSession.deleteMany`
 
 **Tipos**
-- interface `InjectOpts` L115 · 4 propriedade(s)
-- interface `InjectResponse` L122 · 4 propriedade(s)
+- interface `InjectOpts` L124 · 4 propriedade(s)
+- interface `InjectResponse` L131 · 4 propriedade(s)
 
 ## `gateway/test/undelivered-observer.e2e-spec.ts`
 

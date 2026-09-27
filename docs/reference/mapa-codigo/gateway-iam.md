@@ -35,8 +35,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/iam/interface/api-key-auth.guard.ts` | 67 |
 | `modules/iam/interface/api-keys.controller.ts` | 56 |
 | `modules/iam/interface/audit.controller.ts` | 31 |
-| `modules/iam/interface/audit.interceptor.spec.ts` | 158 |
-| `modules/iam/interface/audit.interceptor.ts` | 93 |
+| `modules/iam/interface/audit.interceptor.spec.ts` | 315 |
+| `modules/iam/interface/audit.interceptor.ts` | 102 |
 | `modules/iam/interface/auth.controller.ts` | 152 |
 | `modules/iam/interface/auth.guard.ts` | 84 |
 | `modules/iam/interface/branding.controller.ts` | 53 |
@@ -83,7 +83,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `constructor(repo)` · L11
 - `log(entry)` · L15 · async
   - chama: `AuditRepository.create` (audit.repository.ts:15)
-  - chamado por: `AuditInterceptor.record` (audit.interceptor.ts:66)
+  - chamado por: `AuditInterceptor.record` (audit.interceptor.ts:71)
 - `list(limit, offset)` · L19
   - chama: `AuditRepository.list` (audit.repository.ts:16)
   - chamado por: `AuditController.list` (audit.controller.ts:15)
@@ -149,7 +149,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `onModuleInit()` · L30 · async
   - chama: `reload` L40
 - `effective()` · L35
-  - chamado por: `UserService.create` (user.service.ts:50), `UserService.seats` (user.service.ts:43), `LicenseController.status` (license.controller.ts:40), `SessionsController.create` (sessions.controller.ts:99)
+  - chamado por: `UserService.create` (user.service.ts:50), `UserService.seats` (user.service.ts:43), `LicenseController.status` (license.controller.ts:40), `SessionsController.create` (sessions.controller.ts:102)
 - `reload()` · L40 · async
   - chama: `resolve` L71, `LicenseRepository.get` (license.repository.ts:3)
   - chamado por: `onModuleInit` L30, `remove` L66
@@ -658,39 +658,44 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/iam/interface/audit.interceptor.spec.ts`
 
-158 linhas · caminho: `apps/gateway/src/modules/iam/interface/audit.interceptor.spec.ts`
+315 linhas · caminho: `apps/gateway/src/modules/iam/interface/audit.interceptor.spec.ts`
 - importa (interno): `bootstrap/fastify-adapter.ts`, `modules/iam/application/audit.service.ts`, `modules/iam/domain/audit.repository.ts`, `modules/iam/interface/audit.interceptor.ts`
 
-- describe “AuditInterceptor pela rota resolvida (P-053)” · L64
-  - it “mutação em /api/* é auditada em qualquer grafia do alvo — o path gravado é o alvo cru” · L94
-  - it “envio de mensagem (alto volume) continua fora — decidido pelo padrão da rota” · L118
-  - it “sessão cujo NOME contém "messages" deixa de escapar da trilha; GET nunca é auditado” · L129
-  - it “path gravado tem teto de 512 caracteres (host da forma absoluta é do cliente)” · L137
-  - it “forma absoluta com ? ou # antes do caminho: 400 na borda, a mutação não roda” · L147
+- describe “AuditInterceptor pela rota resolvida (P-053)” · L75
+  - it “mutação em /api/* é auditada em qualquer grafia do alvo — o path gravado é o alvo cru” · L105
+  - it “envio de mensagem (alto volume) continua fora — decidido pelo padrão da rota” · L129
+  - it “sessão cujo NOME contém "messages" deixa de escapar da trilha; GET nunca é auditado” · L140
+  - it “path gravado tem teto de 512 caracteres (host da forma absoluta é do cliente)” · L148
+  - it “forma absoluta com ? ou # antes do caminho: 400 na borda, a mutação não roda” · L158
+- describe “AuditInterceptor — ator da trilha (E27 · P-086)” · L212
+  - it “sem usuário nem API key, o ator é o auditActor do guard (com teto de 200 caracteres)” · L258
+  - it “usuário (JWT) e API key têm precedência sobre o auditActor” · L277
+  - it “username no corpo fora da rota de login não forja ator: fica "anônimo"” · L291
+  - it “username no corpo da rota /api/auth/login continua "login:<nome>" (inclusive %-encoding e falha 401)” · L301
 
 ## `modules/iam/interface/audit.interceptor.ts`
 
-93 linhas · caminho: `apps/gateway/src/modules/iam/interface/audit.interceptor.ts`
+102 linhas · caminho: `apps/gateway/src/modules/iam/interface/audit.interceptor.ts`
 - importa (interno): `shared-kernel/process-errors.ts`, `modules/iam/application/audit.service.ts`, `modules/iam/interface/auth.guard.ts`
 - importado por: `modules/iam/iam.module.ts`, `modules/iam/interface/audit.interceptor.spec.ts`
 
-**class `AuditInterceptor`** L38 · @Injectable · `implements NestInterceptor`
+**class `AuditInterceptor`** L43 · @Injectable · `implements NestInterceptor`
 - injeta (construtor): `audit: AuditService`
-- `logger` · L40 · private · campo
-- `constructor(audit)` · L42
-- `intercept(context, next)` · L44
-  - chama: `record` L66, `shouldAudit` L58
-- `shouldAudit(req)` · L58 · private
-  - chamado por: `intercept` L44
-- `record(req, statusCode)` · L66 · private
+- `logger` · L45 · private · campo
+- `constructor(audit)` · L47
+- `intercept(context, next)` · L49
+  - chama: `record` L71, `shouldAudit` L63
+- `shouldAudit(req)` · L63 · private
+  - chamado por: `intercept` L49
+- `record(req, statusCode)` · L71 · private
   - chama: `AuditService.log` (audit.service.ts:15), `recordProcessError` (process-errors.ts:9)
-  - chamado por: `intercept` L44
+  - chamado por: `intercept` L49
 
 **Funções e constantes de topo**
 - `MUTATIONS` = `new Set(['POST', 'PUT', 'PATCH', 'DELETE'])` · L13
 
 **Tipos**
-- interface `AuditReq` L18 · 7 propriedade(s)
+- interface `AuditReq` L18 · 8 propriedade(s)
 
 ## `modules/iam/interface/auth.controller.ts`
 
@@ -729,7 +734,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 84 linhas · caminho: `apps/gateway/src/modules/iam/interface/auth.guard.ts`
 - importa (interno): `bootstrap/config.ts`, `modules/iam/interface/csrf.ts`
-- importado por: `modules/iam/application/token.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/api-keys.controller.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/audit.interceptor.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/branding.controller.ts`, `modules/iam/interface/license.controller.ts`, `modules/iam/interface/roles.guard.ts`, `modules/iam/interface/users.controller.ts`
+- importado por: `modules/iam/application/token.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/api-keys.controller.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/audit.interceptor.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/branding.controller.ts`, `modules/iam/interface/license.controller.ts`, `modules/iam/interface/roles.guard.ts`, `modules/iam/interface/users.controller.ts`, `modules/sessions/interface/connect-links.controller.ts`
 
 **class `JwtAuthGuard`** L56 · @Injectable · `implements CanActivate`
 - injeta (construtor): `jwt: JwtService` · `config: ConfigService<Env, true>`
@@ -842,13 +847,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `MIN_ROLE_KEY` = `'minRole'` · L4
 - `MinRole(role)` · L8
-  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:99), `SessionsController.remove` (sessions.controller.ts:351)
+  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:102), `SessionsController.remove` (sessions.controller.ts:358)
 
 ## `modules/iam/interface/roles.guard.ts`
 
 62 linhas · caminho: `apps/gateway/src/modules/iam/interface/roles.guard.ts`
 - importa (interno): `modules/iam/domain/role.ts`, `modules/iam/interface/auth.guard.ts`, `modules/iam/interface/roles.decorator.ts`
-- importado por: `modules/campaigns/interface/campaigns.controller.ts`, `modules/channels/interface/channels.controller.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/groups/interface/groups.controller.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/iam/iam.module.ts`, `modules/iam/interface/api-keys.controller.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/branding.controller.ts`, `modules/iam/interface/license.controller.ts`, `modules/iam/interface/users.controller.ts`, `modules/messaging/interface/inbox.controller.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/observability/observability.controller.ts`, `modules/proxies/interface/proxies.controller.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/interface/webhooks.controller.ts`
+- importado por: `modules/campaigns/interface/campaigns.controller.ts`, `modules/channels/interface/channels.controller.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/groups/interface/groups.controller.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/iam/iam.module.ts`, `modules/iam/interface/api-keys.controller.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/branding.controller.ts`, `modules/iam/interface/license.controller.ts`, `modules/iam/interface/users.controller.ts`, `modules/messaging/interface/inbox.controller.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/observability/observability.controller.ts`, `modules/proxies/interface/proxies.controller.ts`, `modules/sessions/interface/connect-links.controller.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/interface/webhooks.controller.ts`
 
 **class `RolesGuard`** L25 · @Injectable · `implements CanActivate`
 - injeta (construtor): `reflector: Reflector`

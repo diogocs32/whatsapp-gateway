@@ -7,11 +7,15 @@ import type {
   BulkImportResult,
   CampaignDto,
   ChannelDto,
+  ConnectLinkCreatedResponse,
+  ConnectLinkCurrentResponse,
+  ConnectLinkRevokeResponse,
   ContactCheckDto,
   ContactDirectoryDto,
   ConversationDto,
   CreateApiKeyRequest,
   CreateCampaignRequest,
+  CreateConnectLinkRequest,
   CreateProxyRequest,
   CreateSessionRequest,
   CreateUserRequest,
@@ -266,6 +270,26 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ phoneNumber }),
       }),
+    // E27/P-086 — link público para conectar de outro lugar. Só login do painel: criar/revogar
+    // OPERATOR+, consultar VIEWER+. O `token` só vem na resposta do POST (o banco guarda o hash).
+    connectLink: {
+      // O link mais recente da sessão (qualquer estado) ou `link: null`.
+      get: (id: string) =>
+        request<ConnectLinkCurrentResponse>(
+          `/api/sessions/${encodeURIComponent(id)}/connect-link`,
+        ),
+      // Criar outro revoga o anterior (motivo REPLACED). 409 com `code` CONNECT_LINK_SESSION_*.
+      create: (id: string, body: CreateConnectLinkRequest) =>
+        request<ConnectLinkCreatedResponse>(
+          `/api/sessions/${encodeURIComponent(id)}/connect-link`,
+          { method: 'POST', body: JSON.stringify(body) },
+        ),
+      revoke: (id: string) =>
+        request<ConnectLinkRevokeResponse>(
+          `/api/sessions/${encodeURIComponent(id)}/connect-link`,
+          { method: 'DELETE' },
+        ),
+    },
     messages: (id: string, chatId: string, limit = 50) =>
       request<MessageDto[]>(
         `/api/sessions/${id}/messages?chatId=${encodeURIComponent(chatId)}&limit=${limit}`,

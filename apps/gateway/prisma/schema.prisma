@@ -71,7 +71,7 @@ model WaBranding {
   logoUrl      String?
   primaryColor String   @default("#10b981")
   faviconUrl   String?
-  updatedAt    DateTime @updatedAt @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
   @@map("wa_branding")
 }
@@ -130,51 +130,81 @@ enum GuardrailState {
 // Instância/sessão de WhatsApp. `creds` guarda o AuthenticationCreds (BufferJSON-encoded);
 // as Signal keys ficam em WaAuthKey (custom auth store — blueprint §8.4).
 model WaSession {
-  id          String        @id
-  name        String        @unique
-  engine      Engine        @default(BAILEYS)
-  status      SessionStatus @default(STOPPED)
-  meJid       String?
-  mePushName  String?
-  phoneNumber String?
-  autostart   Boolean       @default(true)
-  creds       Json?
-  metadata    Json?
-  lastError   String?
+  id               String        @id
+  name             String        @unique
+  engine           Engine        @default(BAILEYS)
+  status           SessionStatus @default(STOPPED)
+  meJid            String?
+  mePushName       String?
+  // E27 (P-086/P-089): último meJid conectado. O meJid zera quando o celular desconecta (401); este
+  // fica — pré-preenche o número esperado do link de conexão e acha a sessão caída pelo número.
+  lastMeJid        String?
+  phoneNumber      String?
+  autostart        Boolean       @default(true)
+  creds            Json?
+  metadata         Json?
+  lastError        String?
   lastErrorDetails Json?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  authKeys  WaAuthKey[]
-  messages  WaMessage[]
-  contacts  WaContact[]
-  campaigns Campaign[]
-  sendIntents SendIntent[]
-  triage    ConversationTriage[]
-  reactions MessageReaction[]
-  events    WaSessionEvent[]
-  metrics   SessionMetric[]
-  guardrail SessionGuardrail?
-  config    SessionConfig?
+  authKeys     WaAuthKey[]
+  messages     WaMessage[]
+  contacts     WaContact[]
+  campaigns    Campaign[]
+  sendIntents  SendIntent[]
+  triage       ConversationTriage[]
+  reactions    MessageReaction[]
+  events       WaSessionEvent[]
+  metrics      SessionMetric[]
+  guardrail    SessionGuardrail?
+  config       SessionConfig?
+  connectLinks ConnectLink[]
 
   @@map("wa_sessions")
+}
+
+// E27/P-086 (D-037) — link público temporário para outra pessoa conectar a sessão lendo o QR de
+// outra tela. O texto do token NÃO é guardado — só sha512(raw), como refresh_tokens/api_keys. Um
+// link ativo por sessão (criar outro revoga o anterior). `consumedAt` só é gravado quando a sessão
+// fica WORKING com o número esperado. Dono: módulo sessions. Datas com fuso (R13).
+model ConnectLink {
+  id            String    @id
+  sessionId     String
+  tokenHash     String    @unique
+  createdBy     String
+  expectedPhone String? // só dígitos; null = qualquer número
+  expiresAt     DateTime  @db.Timestamptz(3)
+  revokedAt     DateTime? @db.Timestamptz(3)
+  revokedReason String? // MANUAL | REPLACED | SESSION_STOPPED | WRONG_NUMBER
+  consumedAt    DateTime? @db.Timestamptz(3)
+  newQrCount    Int       @default(0)
+  lastNewQrAt   DateTime? @db.Timestamptz(3)
+  lastSeenAt    DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("wa_connect_links")
 }
 
 // G8 — config de ENVIO por sessão, editável em runtime (PATCH /sessions/:id/config). `cap_atual`
 // NÃO é persistido: é derivado de capBase + warmupCurve + estado guard-rail (ver SessionConfigService).
 model SessionConfig {
-  id           String   @id
-  sessionId    String   @unique
-  capBase      Int      @default(20) // teto diário de cold-sends quando ativa
-  warmupCurve  Int[]    @default([5, 10, 20]) // trickle de cold/dia durante aquecimento
-  regiaoDdd    String? // DDD p/ geo-match do proxy sticky (refino)
-  modo         String   @default("cold_ok") // cold_ok | inbound_only | manual_first
-  janelaInicio Int      @default(8) // hora local de início do envio (0-23)
-  janelaFim    Int      @default(20) // hora local de fim
-  timezone     String   @default("America/Sao_Paulo")
-  device       Json? // fingerprint estável/pinado
+  id               String   @id
+  sessionId        String   @unique
+  capBase          Int      @default(20) // teto diário de cold-sends quando ativa
+  warmupCurve      Int[]    @default([5, 10, 20]) // trickle de cold/dia durante aquecimento
+  regiaoDdd        String? // DDD p/ geo-match do proxy sticky (refino)
+  modo             String   @default("cold_ok") // cold_ok | inbound_only | manual_first
+  janelaInicio     Int      @default(8) // hora local de início do envio (0-23)
+  janelaFim        Int      @default(20) // hora local de fim
+  timezone         String   @default("America/Sao_Paulo")
+  device           Json? // fingerprint estável/pinado
   wwebjsWebVersion String? // override do WA Web por sessão; null usa WWEBJS_WEB_VERSION global
-  updatedAt    DateTime @updatedAt @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
 
   session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -194,9 +224,9 @@ model SessionGuardrail {
   cooldownAte       DateTime?
   ultimoSinal       String? // último sinal duro (463, close não-recuperável, restrição)
   restrictionUntil  DateTime? // P-048: trava temporária de TODO envio; expira sem override manual
-  restrictionSignal String?   // sinal que fixou o prazo (463, reachoutTimeLock, message-capping)
-  restrictionSource String?   // timeEnforcementEnds, cycle_end_timestamp ou temporary
-  restrictionType   String?   // enforcementType informado pelo WhatsApp, quando houver
+  restrictionSignal String? // sinal que fixou o prazo (463, reachoutTimeLock, message-capping)
+  restrictionSource String? // timeEnforcementEnds, cycle_end_timestamp ou temporary
+  restrictionType   String? // enforcementType informado pelo WhatsApp, quando houver
   eventTs           DateTime       @default(now()) // C10: só aplica transição se eventTs < novo evento
   updatedAt         DateTime       @updatedAt
 
@@ -232,7 +262,7 @@ model GuardrailConfig {
   quarantineMult  Float?
   targetReplyRate Float?
   cooldownHours   Int?
-  updatedAt       DateTime @updatedAt @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
 
   @@map("guardrail_config")
 }
@@ -281,51 +311,51 @@ model WaSessionEvent {
 
 // Mensagens (F2) — enviadas e recebidas. `raw` guarda o conteúdo proto para histórico/depuração.
 model WaMessage {
-  id        String   @id
-  sessionId String
-  keyId     String
-  chatJid   String
-  senderJid String?
-  fromMe    Boolean  @default(false)
+  id              String    @id
+  sessionId       String
+  keyId           String
+  chatJid         String
+  senderJid       String?
+  fromMe          Boolean   @default(false)
   // G1 (guard-rail/reply-rate): `isCold` marca o 1º contato permissionado; `idempotencyKey`
   // dá dedup forte de envio (retry do n8n não duplica). Só fazem sentido em outbound (fromMe).
-  isCold         Boolean @default(false)
-  idempotencyKey String?
+  isCold          Boolean   @default(false)
+  idempotencyKey  String?
   // G2: origem de um fromMe — "api" (nossa API) | "phone" (celular/outro device). null em inbound.
-  source         String?
-  type      String   @default("text")
-  text      String?
-  status    String?
-  raw       Json?
+  source          String?
+  type            String    @default("text")
+  text            String?
+  status          String?
+  raw             Json?
   // Mídia (F4): em mídia, `type` = image|video|audio|document|sticker; mediaKey = objeto no S3.
-  mediaType String?
-  mimetype  String?
-  fileName  String?
-  mediaKey  String?
-  fileSize  Int?
+  mediaType       String?
+  mimetype        String?
+  fileName        String?
+  mediaKey        String?
+  fileSize        Int?
   // P-066 (E22): selo "Encaminhada" do WhatsApp — `contextInfo.isForwarded`/`forwardingScore` (Baileys)
   // ou `msg.isForwarded`/`forwardingScore` (wwebjs). forwardingScore = quantas vezes a mensagem já
   // foi encaminhada (null quando a mensagem não é encaminhada ou a engine não informa).
-  isForwarded     Boolean @default(false)
+  isForwarded     Boolean   @default(false)
   forwardingScore Int?
   // P-068 (E24): marcas de mensagem APAGADA para todos / EDITADA (Baileys `messages.update` REVOKE
   // e MESSAGE_EDIT). Só o encaminhar lê (recusa: com a original guardada em `raw` ele mandaria o
   // conteúdo apagado ou a versão velha). A exibição no painel fica para a P-069.
-  revokedAt DateTime?
-  editedAt  DateTime?
-  timestamp DateTime
-  createdAt DateTime @default(now())
+  revokedAt       DateTime?
+  editedAt        DateTime?
+  timestamp       DateTime
+  createdAt       DateTime  @default(now())
 
   session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@index([sessionId, chatJid, timestamp])
-  @@index([sessionId, keyId])
-  // Retenção (item 13): purge/strip do raw por idade varre createdAt — precisa do índice próprio.
-  @@index([createdAt])
   // Dedup idempotente por sessão. No Postgres o default é NULLS DISTINCT, então só restringe
   // quando idempotencyKey ≠ null (inbound e envios sem key continuam livres). Se o volume crescer,
   // trocar por índice parcial (WHERE idempotencyKey IS NOT NULL) via migration custom.
   @@unique([sessionId, idempotencyKey])
+  @@index([sessionId, chatJid, timestamp])
+  @@index([sessionId, keyId])
+  // Retenção (item 13): purge/strip do raw por idade varre createdAt — precisa do índice próprio.
+  @@index([createdAt])
   @@map("wa_messages")
 }
 
@@ -393,15 +423,15 @@ model SendIntent {
 // entrada NOVA a âncora deixa de valer e a conversa volta a vermelho sozinha, sem limpar nada.
 // Uma linha por conversa (sessão + chat); não guarda autor (decisão do dono 15/09).
 model ConversationTriage {
-  id        String @id
-  sessionId String
-  chatJid   String
+  id              String   @id
+  sessionId       String
+  chatJid         String
   // keyId da última mensagem de entrada no instante da marcação. Null = marca sem âncora
   // (conversa sem entrada conhecida) — nesse caso vale o markedTimestamp.
-  markedKeyId    String?
+  markedKeyId     String?
   markedTimestamp DateTime // timestamp da mensagem de entrada ancorada (ou do clique, se não houver)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

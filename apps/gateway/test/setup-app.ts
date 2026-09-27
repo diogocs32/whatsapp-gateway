@@ -19,6 +19,15 @@ export const fakeSessionManager = {
   getQr: () => null,
   getPairingCode: () => null,
   requestPairingCode: async () => '12345678',
+  // E27 (P-086) — link público de conexão: leitura do estado vivo e "gerar QR" guardado.
+  liveView: (): { status: string; qr: string | null } | null => null,
+  isBusy: () => false,
+  isRehydrated: () => true,
+  hasEngine: () => false,
+  newQrForConnectLink: async (_id: string, check: () => Promise<void>) => {
+    await check();
+  },
+  rejectConnectedAccount: async () => undefined,
   sendText: async () => ({
     keyId: 'fake-key',
     jid: '5511999999999@s.whatsapp.net',

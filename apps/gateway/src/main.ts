@@ -83,6 +83,9 @@ async function bootstrap(): Promise<void> {
     // do assignment de proxy (PUT /api/sessions/:id/proxy) era bloqueado por CORS.
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    // E27: o navegador guarda o preflight por 10 min (padrão da spec: 5 s). A página pública do
+    // link manda Authorization a cada 2–3 s — sem isto, ~12 OPTIONS/min por aparelho.
+    maxAge: 600,
   });
 
   // Dispara onModuleDestroy (Prisma $disconnect, Redis quit) em SIGTERM/SIGINT — blueprint §18.4.

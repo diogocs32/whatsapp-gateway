@@ -6,6 +6,14 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado — link público para conectar sessão por QR e filtro de sessões (27/09 — E27/P-086/P-089, D-037; deploy manual dos 2 apps pendente)
+
+- O operador (login do painel, OPERATOR+) gera na tela de Sessões um **link temporário** (1 h, 24 h ou 72 h) para outra pessoa conectar a sessão lendo o QR **em outra tela**. A página pública `/conectar` mostra só a fase (QR, preparando, pedir QR, conectado), orienta a abrir em outro aparelho, pede consentimento e deixa pedir até 5 QRs (30 s entre eles). Só sessões Baileys; o link nunca apaga login salvo nem derruba conta conectada; morre ao conectar, ao gerar outro, ao revogar, ao parar/deslogar a sessão ou ao vencer.
+- **Número esperado:** se o QR for lido por outro WhatsApp, o gateway desfaz a conexão (desvincula o aparelho, sessão `STOPPED` com o motivo) e revoga o link. Token de 32 bytes guardado só como hash, no fragmento `#` da URL e em `Authorization: Bearer` (fora de log, auditoria e `Referer`).
+- Rotas aditivas `POST/GET/DELETE /api/sessions/:id/connect-link` e `GET /api/public/connect` + `POST /api/public/connect/new-qr` (tetos próprios 120/10 por minuto por IP); `SessionDto.lastMeJid` aditivo; migration aditiva `20260927013000_link_conexao_qr`. `SessionManager` ganhou lock de ciclo de vida por sessão (as rotas existentes esperam na fila, sem código novo); auditoria grava o ator do link e só usa `login:` na rota de login; CORS `maxAge` 600.
+- **Filtro de sessões** por nome, status (inclui "Desconectadas") e número (com/sem +55 e 9º dígito, inclusive o último número conectado), guardado na URL.
+- Não verificado sem chip: o `#` sobreviver ao toque no link dentro do WhatsApp e a leitura real do QR — aceite no runbook [how-to/link-conexao-qr.md](docs/how-to/link-conexao-qr.md). Pendências novas P-090..P-096.
+
 ### Corrigido — pairing e roster LID do Baileys (26/09 — E12/P-052; PR #16, deploy B pendente)
 
 - `POST /pairing-code` passa a devolver 409 antes de tocar o Baileys para sessão WORKING ou com `creds.me`/`sock.user`; a espera após start observa `connecting` ou o primeiro QR por até 10 s, sem sleep fixo. A resposta `{code}` e os DTOs não mudam.

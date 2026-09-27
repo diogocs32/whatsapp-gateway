@@ -23,8 +23,13 @@ interface AuditReq {
   ip?: string;
   user?: JwtPayload;
   apiKey?: { id: string; name: string };
+  // Ator de uma credencial que não é usuário nem API key, posto pelo guard da rota (E27: o token
+  // do link público de conexão → `link:<id> (de <quem criou>)`). O iam não sabe o que é um link.
+  auditActor?: string;
   body?: { username?: string };
 }
+
+const MAX_ACTOR = 200;
 
 // Audita automaticamente as mutações em /api/* (exceto as rotas de /messages — envio e afins,
 // alto volume; catálogo explícito de ações = P-036).
@@ -65,13 +70,17 @@ export class AuditInterceptor implements NestInterceptor {
 
   private record(req: AuditReq, statusCode: number): void {
     const path = req.url.split('?')[0].slice(0, MAX_PATH);
+    // `login:` só na rota de login (E27): antes, qualquer mutação anônima com `username` no corpo
+    // gravava um ator forjado ("login:admin").
     const actor = req.user
       ? `${req.user.username} (${req.user.role})`
       : req.apiKey
         ? `key:${req.apiKey.name}`
-        : req.body?.username
-          ? `login:${req.body.username}`
-          : 'anônimo';
+        : req.auditActor
+          ? req.auditActor.slice(0, MAX_ACTOR)
+          : req.body?.username && req.routeOptions?.url === '/api/auth/login'
+            ? `login:${req.body.username}`
+            : 'anônimo';
     void this.audit
       .log({
         actor,

@@ -49,6 +49,15 @@ import type {
   WaEventEnvelope,
 } from './engine.port';
 
+// E27 (D-037): a sessão já tem uma operação de ciclo de vida em andamento e o chamador pediu para
+// não esperar na fila (link público de conexão).
+export class SessionBusyError extends Error {
+  constructor() {
+    super('Operação em andamento na sessão');
+    this.name = 'SessionBusyError';
+  }
+}
+
 @Injectable()
 export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SessionManager.name);
@@ -61,6 +70,14 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   // Um close pode correr com o UPDATE de WORKING anterior ou com start manual/open posterior.
   // Ordena status e diagnóstico da mesma sessão para a última transição vencer no banco.
   private readonly statusWrites = new Map<string, Promise<void>>();
+  // E27 (D-037): uma operação de ciclo de vida por sessão de cada vez (start, stop, restart, logout,
+  // newQr, remove, pairing e a rejeição de número). Antes, newQr trocava a instância da engine e
+  // não se enxergava com um stop/newQr concorrente (dois starts, socket novo derrubado). Por
+  // processo: o gateway roda 1 réplica; a sobreposição do deploy start-first é o B-004. Criado sob
+  // demanda (os specs montam o manager por Object.create, sem inicializadores de campo).
+  private lifecycleLocks?: Map<string, Promise<void>>;
+  // E27: reidratação do boot concluída — sem ela, "sem engine" pode ser só "ainda não reidratou".
+  private rehydrated = false;
 
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly repo: SessionRepository,
@@ -76,7 +93,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
 
   async onApplicationBootstrap(): Promise<void> {
     const candidates = await this.repo.findAutostart();
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+      this.rehydrated = true;
+      return;
+    }
     // Reidratação ESCALONADA e fora do bootstrap do Nest. Antes era tudo em paralelo: N sessões
     // wwebjs = N Chromium subindo de uma vez no boot (pico de CPU/RAM → swap/OOM do host = "trava
     // tudo") + N fetchLatestBaileysVersion simultâneos. Agora inicia UMA por vez — cada start já
@@ -97,6 +117,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
           );
         }
       }
+      this.rehydrated = true;
     })();
   }
 
@@ -271,6 +292,55 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return next;
   }
 
+  private get locks(): Map<string, Promise<void>> {
+    return (this.lifecycleLocks ??= new Map());
+  }
+
+  // Mesmo encadeamento do enqueueStatusWrite: cada operação espera a anterior da mesma sessão
+  // terminar (com sucesso ou erro) e o erro volta só para o próprio chamador. `failFast`: com algo
+  // em andamento, lança SessionBusyError em vez de entrar na fila. Nunca chamar um método público
+  // (com lock) de dentro de outro — a promise esperaria por ela mesma; use as versões *Unlocked.
+  private runExclusive<T>(
+    sessionId: string,
+    fn: () => Promise<T>,
+    opts: { failFast?: boolean } = {},
+  ): Promise<T> {
+    const prior = this.locks.get(sessionId);
+    if (prior && opts.failFast) return Promise.reject(new SessionBusyError());
+    const run = (prior ?? Promise.resolve()).then(fn);
+    // Libera na PRIMEIRA reação ao fim de `run` (registrada antes do await de quem chamou): logo
+    // depois do `await manager.stop(id)`, a sessão já não aparece ocupada.
+    const release = (): void => {
+      if (this.locks.get(sessionId) === settled) this.locks.delete(sessionId);
+    };
+    const settled: Promise<void> = run.then(release, release);
+    this.locks.set(sessionId, settled);
+    return run;
+  }
+
+  // E27: leituras sem efeito para o link público de conexão.
+  isBusy(sessionId: string): boolean {
+    return this.locks.has(sessionId);
+  }
+
+  isRehydrated(): boolean {
+    return this.rehydrated;
+  }
+
+  hasEngine(sessionId: string): boolean {
+    return this.engines.has(sessionId);
+  }
+
+  // Status e QR da MESMA instância, lidos juntos e sem await — depois de um newQr a engine é outra.
+  liveView(
+    sessionId: string,
+  ): { status: SessionStatePayload['status']; qr: string | null } | null {
+    const engine = this.engines.get(sessionId);
+    return engine
+      ? { status: engine.getStatus(), qr: engine.getQrBase64() }
+      : null;
+  }
+
   private async handleEngineEvent(
     sessionId: string,
     name: EngineEventName,
@@ -382,7 +452,11 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   // em background com o estado real chegando via polling de status/QR.
   private static readonly START_TIMEOUT_MS = 15_000;
 
-  async start(sessionId: string): Promise<void> {
+  start(sessionId: string): Promise<void> {
+    return this.runExclusive(sessionId, () => this.startUnlocked(sessionId));
+  }
+
+  private async startUnlocked(sessionId: string): Promise<void> {
     const session = await this.repo.findById(sessionId);
     if (!session) throw new Error('Sessão não encontrada');
     this.names.set(sessionId, session.name);
@@ -455,17 +529,27 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  async stop(sessionId: string): Promise<void> {
+  stop(sessionId: string): Promise<void> {
+    return this.runExclusive(sessionId, () => this.stopUnlocked(sessionId));
+  }
+
+  private async stopUnlocked(sessionId: string): Promise<void> {
     await this.withTimeout(this.engines.get(sessionId)?.stop(), 10_000);
   }
 
-  async restart(sessionId: string): Promise<void> {
-    await this.stop(sessionId);
-    // start() já se auto-limita (START_TIMEOUT_MS) e propaga erro rápido — sem wrap extra.
-    await this.start(sessionId);
+  restart(sessionId: string): Promise<void> {
+    return this.runExclusive(sessionId, async () => {
+      await this.stopUnlocked(sessionId);
+      // start já se auto-limita (START_TIMEOUT_MS) e propaga erro rápido — sem wrap extra.
+      await this.startUnlocked(sessionId);
+    });
   }
 
-  async logout(sessionId: string): Promise<void> {
+  logout(sessionId: string): Promise<void> {
+    return this.runExclusive(sessionId, () => this.logoutUnlocked(sessionId));
+  }
+
+  private async logoutUnlocked(sessionId: string): Promise<void> {
     const engine = this.engines.get(sessionId);
     if (engine) {
       await this.withTimeout(engine.logout(), 12_000);
@@ -494,7 +578,77 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   // sock.logout() (round-trip com o WhatsApp): com creds mortas ele só trava, e o timeout abriria
   // corrida entre a limpeza tardia da engine velha e as creds novas do QR seguinte. Sessão WORKING
   // que queira desvincular "educadamente" do celular: usar POST /:id/logout.
-  async newQr(sessionId: string): Promise<void> {
+  newQr(sessionId: string): Promise<void> {
+    return this.runExclusive(sessionId, () => this.newQrUnlocked(sessionId));
+  }
+
+  // E27 (D-037): "gerar QR" pedido pelo link público. Não espera na fila (failFast → o link responde
+  // "já estamos preparando"). `check` roda DENTRO do lock: relê a sessão, confere a fase e reserva a
+  // cota do link (erro = nada acontece). Depois, a engine em memória é conferida e retirada do mapa
+  // no MESMO tick (sem await): se ela saiu do repouso (alguém iniciou/conectou), nada é apagado.
+  newQrForConnectLink(
+    sessionId: string,
+    check: () => Promise<void>,
+  ): Promise<void> {
+    return this.runExclusive(
+      sessionId,
+      async () => {
+        await check();
+        const status = this.engines.get(sessionId)?.getStatus();
+        if (
+          status !== undefined &&
+          status !== 'STOPPED' &&
+          status !== 'DEGRADED'
+        ) {
+          throw new SessionBusyError();
+        }
+        return this.newQrUnlocked(sessionId);
+      },
+      { failFast: true },
+    );
+  }
+
+  // E27 (D-037): a sessão conectou pelo link com um número diferente do esperado. Desvincula o
+  // aparelho (logout da engine: remove-companion-device + limpa creds), grava STOPPED com o motivo
+  // (vira webhook session.status) e devolve o "último número" ao esperado. Só faz algo se a engine
+  // estiver NESTE processo (réplica dona) — sem ela, um logout só no banco não derrubaria o socket.
+  // `withoutEngine: 'clear'` (reserva da timeline, sessão já fora de WORKING): sem engine neste
+  // processo, limpa o login salvo como o logout sem engine e grava STOPPED com o motivo.
+  rejectConnectedAccount(
+    sessionId: string,
+    reason: string,
+    restoreLastMeJid: string | null,
+    opts: { withoutEngine?: 'skip' | 'clear' } = {},
+  ): Promise<void> {
+    return this.runExclusive(sessionId, async () => {
+      const engine = this.engines.get(sessionId);
+      if (!engine) {
+        if (opts.withoutEngine !== 'clear') return;
+        await this.logoutUnlocked(sessionId);
+        await this.repo.updateStatus(sessionId, 'STOPPED', {
+          lastError: reason,
+        });
+        await this.repo.setLastMeJid(sessionId, restoreLastMeJid);
+        return;
+      }
+      // Fora do mapa ANTES do logout (como no newQr): o guard de onEvent descarta o STOPPED sem
+      // motivo do próprio logout — sai um único session.status STOPPED, o nosso, com o motivo.
+      this.engines.delete(sessionId);
+      this.lastStatusKey.delete(sessionId);
+      await this.withTimeout(engine.logout(), 12_000);
+      // Escritas de status que já estavam na fila desta sessão antes da nossa.
+      await this.statusWrites.get(sessionId);
+      await this.handleEngineEvent(sessionId, 'session.status', {
+        status: 'STOPPED',
+        meJid: null,
+        mePushName: null,
+        error: reason,
+      });
+      await this.repo.setLastMeJid(sessionId, restoreLastMeJid);
+    });
+  }
+
+  private async newQrUnlocked(sessionId: string): Promise<void> {
     const engine = this.engines.get(sessionId);
     // Fora do mapa ANTES do stop: o guard de onEvent passa a ignorar eventos tardios da engine
     // velha, e o start abaixo cria uma instância nova em vez de reaproveitar a antiga.
@@ -512,10 +666,14 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     // restaurava o MESMO perfil no start abaixo e o new-qr era no-op (a sessão voltava sem QR novo).
     // Chamado APÓS o stop (Chromium morto). No-op para sessão Baileys.
     await WWebJSEngine.purgeAuthDir(sessionId);
-    await this.start(sessionId);
+    await this.startUnlocked(sessionId);
   }
 
-  async remove(sessionId: string): Promise<void> {
+  remove(sessionId: string): Promise<void> {
+    return this.runExclusive(sessionId, () => this.removeUnlocked(sessionId));
+  }
+
+  private async removeUnlocked(sessionId: string): Promise<void> {
     const engine = this.engines.get(sessionId);
     // Remove do mapa ANTES de deletar/parar: a partir daqui o guard de onEvent ignora qualquer
     // evento tardio desta engine (a sessão vai deixar de existir).
@@ -538,7 +696,13 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return this.engines.get(sessionId)?.getPairingCode?.() ?? null;
   }
 
-  async requestPairingCode(
+  requestPairingCode(sessionId: string, phoneNumber: string): Promise<string> {
+    return this.runExclusive(sessionId, () =>
+      this.requestPairingCodeUnlocked(sessionId, phoneNumber),
+    );
+  }
+
+  private async requestPairingCodeUnlocked(
     sessionId: string,
     phoneNumber: string,
   ): Promise<string> {
@@ -569,7 +733,36 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     }
     // O Baileys espera connection.update('connecting') ou o primeiro QR na própria engine,
     // com teto. O wwebjs já espera a inicialização do Client no start().
-    return engine.requestPairingCode(phoneNumber);
+    // E27: o pedido roda dentro do lock de ciclo de vida — sem teto, um page.evaluate pendurado do
+    // wwebjs (até o protocolTimeout de 240 s) seguraria Parar/Logout/Novo QR/remover da sessão, que
+    // antes destravavam o pairing. Rejeita (nunca resolve vazio): a rota devolve 409.
+    return this.rejectAfter(
+      engine.requestPairingCode(phoneNumber),
+      SessionManager.PAIRING_REQUEST_TIMEOUT_MS,
+      'Sessão não conectada: o código de pareamento não chegou a tempo',
+    );
+  }
+
+  // Baileys: espera de até 10 s pelo socket + envio com connectTimeout de 20 s — 45 s cobre folgado.
+  private static readonly PAIRING_REQUEST_TIMEOUT_MS = 45_000;
+
+  // Diferente do withTimeout (que resolve em silêncio): estourou → rejeita com `message`. A operação
+  // órfã segue sozinha; a rejeição tardia dela é engolida.
+  private async rejectAfter<T>(
+    op: Promise<T>,
+    ms: number,
+    message: string,
+  ): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    });
+    op.catch(() => undefined);
+    try {
+      return await Promise.race([op, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   async sendText(

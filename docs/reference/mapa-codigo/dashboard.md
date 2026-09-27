@@ -6,7 +6,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
-| `dashboard/App.tsx` | 196 |
+| `dashboard/App.tsx` | 199 |
 | `dashboard/components/chat/ChatThread.tsx` | 267 |
 | `dashboard/components/chat/forward-context.ts` | 21 |
 | `dashboard/components/chat/ForwardDialog.tsx` | 683 |
@@ -20,10 +20,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/components/chat/thread-context.ts` | 16 |
 | `dashboard/components/chat/Ticks.tsx` | 29 |
 | `dashboard/components/chat/use-media.ts` | 66 |
-| `dashboard/lib/api.spec.ts` | 110 |
-| `dashboard/lib/api.ts` | 553 |
-| `dashboard/lib/auth.tsx` | 66 |
+| `dashboard/components/sessions/ConnectLinkDialog.tsx` | 505 |
+| `dashboard/lib/api.spec.ts` | 164 |
+| `dashboard/lib/api.ts` | 577 |
+| `dashboard/lib/auth.tsx` | 90 |
 | `dashboard/lib/branding.tsx` | 129 |
+| `dashboard/lib/connect-link-memory.spec.ts` | 53 |
+| `dashboard/lib/connect-link-memory.ts` | 46 |
+| `dashboard/lib/connect-link.spec.ts` | 781 |
+| `dashboard/lib/connect-link.ts` | 705 |
+| `dashboard/lib/connect-path.ts` | 8 |
 | `dashboard/lib/error-boundary.tsx` | 74 |
 | `dashboard/lib/forward-memory.spec.ts` | 122 |
 | `dashboard/lib/forward-memory.ts` | 118 |
@@ -38,8 +44,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/media.ts` | 32 |
 | `dashboard/lib/message-format.spec.ts` | 440 |
 | `dashboard/lib/message-format.ts` | 426 |
+| `dashboard/lib/public-connect.spec.ts` | 243 |
+| `dashboard/lib/public-connect.ts` | 133 |
 | `dashboard/lib/send-feedback.spec.ts` | 61 |
 | `dashboard/lib/send-feedback.ts` | 49 |
+| `dashboard/lib/session-filter.spec.ts` | 150 |
+| `dashboard/lib/session-filter.ts` | 142 |
 | `dashboard/lib/time-format.spec.ts` | 25 |
 | `dashboard/lib/time-format.ts` | 40 |
 | `dashboard/lib/use-live-stream.ts` | 73 |
@@ -49,6 +59,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/routes/Audit.tsx` | 113 |
 | `dashboard/routes/Branding.tsx` | 130 |
 | `dashboard/routes/Campaigns.tsx` | 408 |
+| `dashboard/routes/Conectar.tsx` | 440 |
 | `dashboard/routes/Contacts.tsx` | 420 |
 | `dashboard/routes/Dashboard.tsx` | 261 |
 | `dashboard/routes/Groups.tsx` | 412 |
@@ -58,19 +69,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/routes/Login.tsx` | 81 |
 | `dashboard/routes/Monitor.tsx` | 137 |
 | `dashboard/routes/Proxies.tsx` | 635 |
-| `dashboard/routes/Sessions.tsx` | 482 |
+| `dashboard/routes/Sessions.tsx` | 655 |
 | `dashboard/routes/Users.tsx` | 259 |
 | `dashboard/routes/Webhooks.tsx` | 257 |
 
 ## `dashboard/App.tsx`
 
-196 linhas · caminho: `apps/dashboard/src/App.tsx`
+199 linhas · caminho: `apps/dashboard/src/App.tsx`
 - importa (interno): `dashboard/lib/auth.tsx`, `dashboard/lib/error-boundary.tsx`
 - importado por: `dashboard/main.tsx`
 
 **Funções e constantes de topo**
 - `page(load, name)` · L17
-  - chamado por: `ApiKeys` L29, `Atendimento` L26, `Audit` L33, `Branding` L32, `Campaigns` L37, `Contacts` L36, `Dashboard` L23, `Groups` L35, `Health` L38, `Inbox` L25, `License` L31, `Login` L22, `Monitor` L27, `Proxies` L34, `Sessions` L24, `Users` L30, `Webhooks` L28
+  - chamado por: `ApiKeys` L29, `Atendimento` L26, `Audit` L33, `Branding` L32, `Campaigns` L37, `Conectar` L40, `Contacts` L36, `Dashboard` L23, `Groups` L35, `Health` L38, `Inbox` L25, `License` L31, `Login` L22, `Monitor` L27, `Proxies` L34, `Sessions` L24, `Users` L30, `Webhooks` L28
 - `Login` = `page(() => import('./routes/Login'), 'Login')` · L22
   - chama: `page` L17
 - `Dashboard` = `page(() => import('./routes/Dashboard'), 'Dashboard')` · L23
@@ -105,10 +116,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `page` L17
 - `Health` = `page(() => import('./routes/Health'), 'Health')` · L38
   - chama: `page` L17
-- `Loading()` · L40
-- `Protected({ children })` · L48
-  - chama: `useAuth` (auth.tsx:61)
-- `App()` · L56
+- `Conectar` = `page(() => import('./routes/Conectar'), 'Conectar')` · L40
+  - chama: `page` L17
+- `Loading()` · L42
+- `Protected({ children })` · L50
+  - chama: `useAuth` (auth.tsx:85)
+- `App()` · L58
 
 **Código de topo**
 - `(módulo:L11)` · L11
@@ -290,9 +303,20 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `useInView(target, root, rootMargin)` · L40
   - chamado por: `ImageMedia` (MediaView.tsx:159)
 
+## `dashboard/components/sessions/ConnectLinkDialog.tsx`
+
+505 linhas · caminho: `apps/dashboard/src/components/sessions/ConnectLinkDialog.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/connect-link-memory.ts`, `dashboard/lib/jid.ts`
+- importado por: `dashboard/routes/Sessions.tsx`
+
+**Funções e constantes de topo**
+- `CONNECT_LINK_WWEBJS_REASON` = `'Disponível só para sessões Baileys nesta versão'` · L37
+- `ConnectLinkDialog({ session, onClose, onChanged, })` · L55
+  - chama: `useAuth` (auth.tsx:85), `useBranding` (branding.tsx:126), `forgetLinkUrl` (connect-link-memory.ts:38), `recallLinkUrl` (connect-link-memory.ts:24), `rememberLinkUrl` (connect-link-memory.ts:13), `buildConnectUrl` (connect-link.ts:39), `buildShareText` (connect-link.ts:61), `createLinkError` (connect-link.ts:681), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `expectedPhoneError` (connect-link.ts:606), `formatPhone` (jid.ts:42)
+
 ## `dashboard/lib/api.spec.ts`
 
-110 linhas · caminho: `apps/dashboard/src/lib/api.spec.ts`
+164 linhas · caminho: `apps/dashboard/src/lib/api.spec.ts`
 - importa (interno): `dashboard/lib/api.ts`
 
 - describe “api.sessions.forward” · L17
@@ -302,70 +326,73 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “sem code no corpo: code undefined, mensagem do corpo” · L66
   - it “corpo não-JSON: statusText; mensagem em lista vira uma linha” · L79
   - it “code que não é string é ignorado” · L98
+- describe “api.sessions.connectLink” · L112
+  - it “get/create/revoke: rota com o id codificado, método e corpo certos, cookie” · L113
+  - it “409 do criar chega com o code” · L142
 
 ## `dashboard/lib/api.ts`
 
-553 linhas · caminho: `apps/dashboard/src/lib/api.ts`
+577 linhas · caminho: `apps/dashboard/src/lib/api.ts`
 - importa (interno): `contracts/index.ts`
-- importado por: `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/lib/api.spec.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/media.ts`, `dashboard/lib/use-live-stream.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
+- importado por: `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.spec.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/media.ts`, `dashboard/lib/public-connect.spec.ts`, `dashboard/lib/public-connect.ts`, `dashboard/lib/use-live-stream.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
 
-**class `ApiError`** L58 · `extends Error`
+**class `ApiError`** L62 · `extends Error`
 - injeta (construtor): `status: number` · `message: string (param)` · `code: string` · `body: unknown`
-- `constructor(status, message, code, body)` · L59
-  - chamado por: `parseError` L125
+- `constructor(status, message, code, body)` · L63
+  - chamado por: `parseError` L129
 
 **Funções e constantes de topo**
-- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L53
+- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L57
   - env: `VITE_API_URL`
-- `setUnauthorizedHandler(fn)` · L79
-  - chamado por: `AuthProvider` (auth.tsx:21)
-- `isAuthEndpoint(path)` · L84
-  - chamado por: `coreFetch` L108
-- `tryRefresh()` · L92
-  - chamado por: `coreFetch` L108
-- `coreFetch(path, init, allowRefresh)` · L108 · async
-  - chama: `isAuthEndpoint` L84, `tryRefresh` L92
-  - chamado por: `request` L142, `requestBlob` L161, `requestForm` L168
-- `parseError(res)` · L125 · async
-  - chama: `constructor` L59
-  - chamado por: `request` L142, `requestBlob` L161, `requestForm` L168
-- `request(path, init)` · L142 · async
-  - chama: `coreFetch` L108, `parseError` L125
-  - chamado por: `api` L176
-- `requestBlob(path, signal)` · L161 · async
-  - chama: `coreFetch` L108, `parseError` L125
-  - chamado por: `api` L176
-- `requestForm(path, form)` · L168 · async
-  - chama: `coreFetch` L108, `parseError` L125
-  - chamado por: `api` L176
-- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L176
-  - chama: `request` L142, `requestBlob` L161, `requestForm` L168
-  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIC…`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
+- `setUnauthorizedHandler(fn)` · L83
+  - chamado por: `AuthProvider` (auth.tsx:24)
+- `isAuthEndpoint(path)` · L88
+  - chamado por: `coreFetch` L112
+- `tryRefresh()` · L96
+  - chamado por: `coreFetch` L112
+- `coreFetch(path, init, allowRefresh)` · L112 · async
+  - chama: `isAuthEndpoint` L88, `tryRefresh` L96
+  - chamado por: `request` L146, `requestBlob` L165, `requestForm` L172
+- `parseError(res)` · L129 · async
+  - chama: `constructor` L63
+  - chamado por: `request` L146, `requestBlob` L165, `requestForm` L172
+- `request(path, init)` · L146 · async
+  - chama: `coreFetch` L112, `parseError` L129
+  - chamado por: `api` L180
+- `requestBlob(path, signal)` · L165 · async
+  - chama: `coreFetch` L112, `parseError` L129
+  - chamado por: `api` L180
+- `requestForm(path, form)` · L172 · async
+  - chama: `coreFetch` L112, `parseError` L129
+  - chamado por: `api` L180
+- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L180
+  - chama: `request` L146, `requestBlob` L165, `requestForm` L172
+  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${encodeURIComponent(id)}/connect-link`, `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIC…`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
 
 **Tipos**
-- type `Ok` L174
+- type `Ok` L178
 
 ## `dashboard/lib/auth.tsx`
 
-66 linhas · caminho: `apps/dashboard/src/lib/auth.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/media.ts`
-- importado por: `dashboard/App.tsx`, `dashboard/main.tsx`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Login.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
+90 linhas · caminho: `apps/dashboard/src/lib/auth.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/connect-link-memory.ts`, `dashboard/lib/connect-path.ts`, `dashboard/lib/media.ts`
+- importado por: `dashboard/App.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/main.tsx`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Login.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
 
 **Funções e constantes de topo**
-- `AuthContext` = `createContext<AuthState | null>(null)` · L19
-- `AuthProvider({ children })` · L21
-  - chama: `setUnauthorizedHandler` (api.ts:79), `MediaCache.clear` (media-cache.ts:51)
-- `useAuth()` · L61
-  - chamado por: `Protected` (App.tsx:48), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:226), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
+- `AuthContext` = `createContext<AuthState | null>(null)` · L22
+- `AuthProvider({ children })` · L24
+  - chama: `setUnauthorizedHandler` (api.ts:83), `clearRememberedLinkUrls` (connect-link-memory.ts:43), `isPublicPath` (connect-path.ts:5), `MediaCache.clear` (media-cache.ts:51)
+- `useAuth()` · L85
+  - chamado por: `Protected` (App.tsx:50), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:256), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
 
 **Tipos**
-- interface `AuthState` L12 · 4 propriedade(s)
+- interface `AuthState` L15 · 4 propriedade(s)
 
 ## `dashboard/lib/branding.tsx`
 
 129 linhas · caminho: `apps/dashboard/src/lib/branding.tsx`
 - importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`
-- importado por: `dashboard/main.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Login.tsx`
+- importado por: `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/main.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Conectar.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Login.tsx`
 
 **Funções e constantes de topo**
 - `hexToHsl(hex)` · L19
@@ -382,10 +409,195 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `BrandingProvider({ children })` · L100
   - chama: `applyBranding` L76
 - `useBranding()` · L126
-  - chamado por: `Branding` (Branding.tsx:7), `Dashboard` (Dashboard.tsx:16), `Login` (Login.tsx:6)
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `Branding` (Branding.tsx:7), `Conectar` (Conectar.tsx:65), `Dashboard` (Dashboard.tsx:16), `Login` (Login.tsx:6)
 
 **Tipos**
 - interface `BrandingState` L90 · 2 propriedade(s)
+
+## `dashboard/lib/connect-link-memory.spec.ts`
+
+53 linhas · caminho: `apps/dashboard/src/lib/connect-link-memory.spec.ts`
+- importa (interno): `dashboard/lib/connect-link-memory.ts`
+
+- describe “connect-link-memory” · L19
+  - it “devolve a URL só para o mesmo link, ativo, e o mesmo usuário” · L20
+  - it “revogar apaga a sessão; logout apaga tudo” · L34
+  - it “criar outro link na mesma sessão substitui a URL guardada” · L44
+
+## `dashboard/lib/connect-link-memory.ts`
+
+46 linhas · caminho: `apps/dashboard/src/lib/connect-link-memory.ts`
+- importa (interno): `contracts/index.ts`
+- importado por: `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/auth.tsx`, `dashboard/lib/connect-link-memory.spec.ts`
+
+**Funções e constantes de topo**
+- `remembered` = `new Map< string, { linkId: string; url: string; userId: string } >()` · L7
+- `rememberLinkUrl(sessionId, linkId, url, userId)` · L13
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+- `recallLinkUrl(sessionId, link, userId)` · L24
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+- `forgetLinkUrl(sessionId)` · L38
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+- `clearRememberedLinkUrls()` · L43
+  - chamado por: `AuthProvider` (auth.tsx:24)
+
+## `dashboard/lib/connect-link.spec.ts`
+
+781 linhas · caminho: `apps/dashboard/src/lib/connect-link.spec.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/connect-link.ts`
+
+- describe “token no fragmento” · L81
+  - it “readTokenFromHash: tira o #, aceita t=, valida 43 chars base64url” · L82
+  - it “pickToken: # manda; hash vazio (recarregou) usa o guardado; # inválido não cai no guardado” · L93
+  - it “buildConnectUrl e isPublicPath” · L102
+  - it “isQrDataUrl: só PNG base64” · L112
+- describe “buildShareText” · L120
+  - it “começa pela instrução de abrir em outra tela; URL sozinha numa linha” · L123
+  - it “nome da marca configurado entra na instrução” · L140
+- describe “mesmo celular” · L152
+  - it “uaSaysMobile: UA-CH quando existe; senão o token "Mobi"” · L160
+  - it “isLikelyPhone: celular sim; tablet, desktop com toque e janela estreita não” · L168
+- describe “view model da página /conectar” · L186
+  - it “sem token = link inválido (texto do 404), terminal” · L187
+  - it “antes da 1ª resposta: carregando, sem anúncio” · L195
+  - it “PREPARING explica a espera e o "acabei de ler"” · L262
+  - it “fase QR com qr que não é PNG base64 não mostra nada (fica "preparando")” · L269
+  - it “IDLE sem tentativas → esgotado, sem botão, sem parar de consultar” · L277
+  - it “IDLE: "restam N" só com ≤ 2; intervalo entre pedidos segura o botão” · L299
+  - it “CONNECTED → sucesso com a hora, terminal” · L319
+  - it “410 USED: sucesso se esta aba já viu o link ativo; senão "já usado"” · L334
+  - it “sem rede: mantém o QR por até 15 s, depois esconde; backoff 2→4→8→10 s” · L404
+  - it “com falha registrada, o QR some no re-render dos 15 s (refreshAt)” · L440
+  - it “SEM falha (GET pendurado, aba que volta): QR com mais de 15 s vira "Atualizando o código…"” · L445
+  - it “429 sem code (teto por IP): 30 s; 5xx conta como falha transitória” · L474
+  - it “"Mostrar QR": mostra preparando até o servidor sair do IDLE ou 45 s” · L495
+  - it “"Mostrar QR" com limite/falha/rede: aviso, sem retry; 410 é terminal” · L569
+  - it “expiryInfo: validade dd/mm às hh:mm e aviso com menos de 10 min” · L599
+- describe “diálogo do painel” · L612
+  - it “defaultExpectedPhone: último número > atual > informado; LID não é telefone” · L630
+  - it “defaultExpectedPhone: phoneNumber sem DDI ganha o 55” · L650
+  - it “looksLikeBrNational: DDD + celular/fixo sem o 55” · L675
+  - it “isValidExpectedPhone / expectedPhoneError: 10 a 15 dígitos e com DDI” · L686
+  - it “lastSeenLabel” · L701
+  - it “describeLink ACTIVE: validade, aberto, QR pedidos e número esperado” · L712
+  - it “describeLink CONNECTED/USED: hora e número conectado agora” · L725
+  - it “describeLink EXPIRED” · L758
+  - it “createLinkError: textos dos 409 e oferta de QR novo só no PAIRED” · L764
+
+## `dashboard/lib/connect-link.ts`
+
+705 linhas · caminho: `apps/dashboard/src/lib/connect-link.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/connect-path.ts`, `dashboard/lib/jid.ts`, `dashboard/lib/time-format.ts`
+- importado por: `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/connect-link.spec.ts`, `dashboard/lib/public-connect.ts`, `dashboard/routes/Conectar.tsx`
+
+**Funções e constantes de topo**
+- `TOKEN_RE` = `/^[A-Za-z0-9_-]{43}$/` · L19
+- `TOKEN_STORAGE_KEY` = `'cz-connect-token'` · L21
+- `DEFAULT_PRODUCT_NAME` = `'WhatsApp Gateway'` · L23
+- `readTokenFromHash(hash)` · L26
+  - chamado por: `pickToken` L34
+- `pickToken(hash, stored)` · L34
+  - chama: `readTokenFromHash` L26
+  - chamado por: `Conectar` (Conectar.tsx:65)
+- `buildConnectUrl(origin, token)` · L39
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `Conectar` (Conectar.tsx:65)
+- `dayTime(iso)` · L44
+  - chama: `clock` (time-format.ts:5)
+  - chamado por: `buildShareText` L61, `describeLink` L630, `expiryInfo` L549
+- `isDefaultProductName(name)` · L53
+  - chamado por: `buildShareText` L61, `Conectar` (Conectar.tsx:65)
+- `buildShareText({ url, expiresAt, productName, })` · L61
+  - chama: `dayTime` L44, `isDefaultProductName` L53
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+- `uaSaysMobile(uaDataMobile, userAgent)` · L82
+  - chamado por: `detectPhone` (Conectar.tsx:45)
+- `isLikelyPhone({ uaMobile, coarse, width, })` · L92
+  - chamado por: `detectPhone` (Conectar.tsx:45)
+- `isQrDataUrl(s)` · L104
+  - chamado por: `activeView` L381
+- `STEPS_ANDROID` = `'WhatsApp → ⋮ (três pontinhos) → Aparelhos conectados → Conectar um a…` · L107
+- `STEPS_IPHONE` = `'WhatsApp → Configurações → Aparelhos conectados → Conectar um aparel…` · L109
+- `REQUEST_WINDOW_MS` = `45_000` · L138
+- `STALE_QR_MS` = `15_000` · L139
+- `IP_LIMIT_BACKOFF_MS` = `30_000` · L140
+- `POLL_QR_MS` = `2_000` · L141
+- `POLL_PREPARING_MS` = `3_000` · L142
+- `POLL_IDLE_MS` = `5_000` · L143
+- `POLL_SLOW_MS` = `10_000` · L144
+- `initialConnectState(now)` · L146
+  - chamado por: `Conectar` (Conectar.tsx:65)
+- `isTerminalFailure(f)` · L160
+  - chamado por: `applyNewQr` L202, `applyPoll` L171, `rawView` L506
+- `retryDelayMs(f, failures)` · L165
+  - chamado por: `rawView` L506
+- `applyPoll(s, r, now)` · L171
+  - chama: `isTerminalFailure` L160
+  - chamado por: `Conectar` (Conectar.tsx:65)
+- `applyNewQr(s, r, now)` · L202
+  - chama: `isTerminalFailure` L160
+  - chamado por: `Conectar` (Conectar.tsx:65)
+- `base(kind, tone, title, body, pollMs)` · L280
+  - chamado por: `activeView` L381, `rawView` L506, `successView` L308, `terminalView` L320
+- `successView(connectedAt)` · L308
+  - chama: `base` L280, `clock` (time-format.ts:5)
+  - chamado por: `rawView` L506, `terminalView` L320
+- `terminalView(f, sawActive)` · L320
+  - chama: `base` L280, `successView` L308
+  - chamado por: `rawView` L506
+- `transientNotice(f)` · L374
+  - chamado por: `rawView` L506
+- `activeView(s, d)` · L381
+  - chama: `base` L280, `isQrDataUrl` L104, `newQrFailureNotice` L482
+  - chamado por: `rawView` L506
+- `newQrFailureNotice(f)` · L482
+  - chamado por: `activeView` L381
+- `connectView(s, hasToken)` · L492
+  - chama: `rawView` L506
+  - chamado por: `Conectar` (Conectar.tsx:65)
+- `rawView(s, hasToken)` · L506
+  - chama: `activeView` L381, `base` L280, `isTerminalFailure` L160, `retryDelayMs` L165, `successView` L308, `terminalView` L320, `transientNotice` L374
+  - chamado por: `connectView` L492
+- `expiryInfo(expiresAt, now)` · L549
+  - chama: `dayTime` L44
+  - chamado por: `Conectar` (Conectar.tsx:65)
+- `looksLikeBrNational(digits)` · L569
+  - chamado por: `defaultExpectedPhone` L579, `expectedPhoneError` L606, `isValidExpectedPhone` L601
+- `defaultExpectedPhone(s)` · L579
+  - chama: `looksLikeBrNational` L569, `isLidJid` (jid.ts:19), `numberFromJid` (jid.ts:11)
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+- `TTL_OPTIONS` = `[ { minutes: 60, label: '1 hora' }, { minutes: 1440, label: '24 horas…` · L593
+- `DEFAULT_TTL_MINUTES` = `1440` · L598
+- `isValidExpectedPhone(digits)` · L601
+  - chama: `looksLikeBrNational` L569
+  - chamado por: `expectedPhoneError` L606
+- `expectedPhoneError(digits)` · L606
+  - chama: `isValidExpectedPhone` L601, `looksLikeBrNational` L569
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+- `lastSeenLabel(lastSeenAt, now)` · L615
+  - chama: `since` (time-format.ts:32)
+  - chamado por: `describeLink` L630
+- `describeLink(link, session, now)` · L630
+  - chama: `dayTime` L44, `lastSeenLabel` L615, `formatPhone` (jid.ts:42), `isLidJid` (jid.ts:19), `numberFromJid` (jid.ts:11)
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+- `createLinkError(code, message)` · L681
+  - chamado por: `ConnectLinkDialog` (ConnectLinkDialog.tsx:55)
+
+**Tipos**
+- interface `ConnectFailure` L116 · 4 propriedade(s)
+- type `ConnectResult` L123
+- interface `ConnectPageState` L126 · 8 propriedade(s)
+- type `ConnectViewKind` L238
+- interface `ConnectView` L256 · 16 propriedade(s)
+
+## `dashboard/lib/connect-path.ts`
+
+8 linhas · caminho: `apps/dashboard/src/lib/connect-path.ts`
+- importado por: `dashboard/lib/auth.tsx`, `dashboard/lib/connect-link.ts`
+
+**Funções e constantes de topo**
+- `CONNECT_PATH` = `'/conectar'` · L3
+- `isPublicPath(pathname)` · L5
+  - chamado por: `AuthProvider` (auth.tsx:24)
 
 ## `dashboard/lib/error-boundary.tsx`
 
@@ -616,18 +828,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `dashboard/lib/jid.ts`
 
 86 linhas · caminho: `apps/dashboard/src/lib/jid.ts`
-- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
+- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.spec.ts`, `dashboard/lib/session-filter.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/Sessions.tsx`
 
 **Funções e constantes de topo**
 - `stripDevice(jid)` · L6
   - chamado por: `ChatThread` (ChatThread.tsx:39), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
 - `numberFromJid(jid)` · L11
-  - chamado por: `who` (Reactions.tsx:8), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `who` (Reactions.tsx:8), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `sessionNumbers` (session-filter.ts:100), `Atendimento` (Atendimento.tsx:73), `Sessions` (Sessions.tsx:256)
 - `isPhoneJid(jid)` · L16
   - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54, `sendTarget` L22
 - `isGroupJid(jid)` · L18
   - chamado por: `ChatThread` (ChatThread.tsx:39), `groupSenderLabel` L54, `Inbox` (Inbox.tsx:19)
 - `isLidJid(jid)` · L19
+  - chamado por: `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630)
 - `sendTarget(chatJid)` · L22
   - chama: `isPhoneJid` L16, `numberFromJid` L11
   - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
@@ -637,7 +850,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `isTriageExcludedChat(jid)` · L36
   - chamado por: `Atendimento` (Atendimento.tsx:73)
 - `formatPhone(digits)` · L42
-  - chamado por: `who` (Reactions.tsx:8), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
+  - chamado por: `who` (Reactions.tsx:8), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `describeLink` (connect-link.ts:630), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
 - `groupSenderLabel(m)` · L54
   - chama: `formatPhone` L42, `isGroupJid` L18, `isPhoneJid` L16, `numberFromJid` L11, `stripDevice` L6
   - chamado por: `MessageBubble` (MessageBubble.tsx:30)
@@ -795,7 +1008,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - `MediaCache.request(key, load)` · L50
     - chamado por: `useMedia` (use-media.ts:14)
   - `MediaCache.clear()` · L51
-    - chamado por: `AuthProvider` (auth.tsx:21)
+    - chamado por: `AuthProvider` (auth.tsx:24)
   - `MediaCache.stats()` · L52
 - interface `Entry` L62 · 8 propriedade(s)
 
@@ -933,6 +1146,50 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `ContactCard` L190 · 2 propriedade(s)
 - type `BubbleContent` L249
 
+## `dashboard/lib/public-connect.spec.ts`
+
+243 linhas · caminho: `apps/dashboard/src/lib/public-connect.spec.ts`
+- importa (interno): `dashboard/lib/api.ts`, `dashboard/lib/public-connect.ts`
+
+- describe “fetchConnectState” · L47
+  - it “GET sem cookie, sem cache, Bearer no header e token fora da URL” · L48
+  - it “CONNECTED passa” · L71
+  - it “410 com code conhecido; code desconhecido é descartado” · L80
+  - it “429 do teto por IP (sem code) e corpo não-JSON” · L103
+  - it “rede fora ou resposta 200 sem o formato esperado = status 0” · L121
+- describe “requestConnectNewQr” · L138
+  - it “POST sem corpo e sem Content-Type” · L139
+  - it “429 COOLDOWN traz retryAfterSeconds; valor inválido é ignorado” · L159
+- describe “prazo das chamadas públicas” · L193
+  - it “GET pendurado vira falha de rede (status 0) em 8 s” · L194
+  - it “GET repassa o abort de quem chama (desmontar a página)” · L214
+  - it “POST new-qr NÃO tem prazo no cliente (o servidor pode levar ~25 s)” · L231
+
+## `dashboard/lib/public-connect.ts`
+
+133 linhas · caminho: `apps/dashboard/src/lib/public-connect.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/connect-link.ts`
+- importado por: `dashboard/lib/public-connect.spec.ts`, `dashboard/routes/Conectar.tsx`
+
+**Funções e constantes de topo**
+- `isKnownCode(v)` · L16
+  - chamado por: `failureFrom` L22
+- `failureFrom(res)` · L22 · async
+  - chama: `isKnownCode` L16
+  - chamado por: `call` L44
+- `call(path, token, method, isValid, signal)` · L44 · async
+  - chama: `failureFrom` L22
+  - chamado por: `fetchConnectState` L95, `requestConnectNewQr` L121
+- `isConnectResponse(b)` · L74
+- `isNewQrResponse(b)` · L82
+- `GET_TIMEOUT_MS` = `8_000` · L89
+- `fetchConnectState(token, signal)` · L95 · async
+  - chama: `call` L44
+  - chamado por: `Conectar` (Conectar.tsx:65)
+- `requestConnectNewQr(token, signal)` · L121
+  - chama: `call` L44
+  - chamado por: `Conectar` (Conectar.tsx:65)
+
 ## `dashboard/lib/send-feedback.spec.ts`
 
 61 linhas · caminho: `apps/dashboard/src/lib/send-feedback.spec.ts`
@@ -958,6 +1215,62 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `sendErrorMessage(err, deviceName)` · L29
   - chamado por: `Atendimento` (Atendimento.tsx:73), `Inbox` (Inbox.tsx:19)
 
+## `dashboard/lib/session-filter.spec.ts`
+
+150 linhas · caminho: `apps/dashboard/src/lib/session-filter.spec.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/session-filter.ts`
+
+- describe “session-filter (P-089)” · L37
+  - it “sem filtro devolve tudo (cópia, na ordem)” · L59
+  - it “nome: contém, sem diferenciar caixa nem acento” · L66
+  - it “status: exato, e "desconectadas" = tudo que não está WORKING” · L73
+  - it “número: só dígitos, casa com meJid sem aparelho e com phoneNumber” · L82
+  - it “número: 9º dígito BR presente ou ausente nos dois sentidos” · L90
+  - it “número sem dígitos não filtra; LID não é telefone” · L99
+  - it “sessão caída acha pelo lastMeJid (meJid zerado), LID ignorado” · L106
+  - it “combina os três filtros (E)” · L125
+  - it “URL: ida e volta em pt-BR, vazios saem, outros parâmetros ficam” · L131
+  - it “URL: status desconhecido vira "todos"” · L144
+
+## `dashboard/lib/session-filter.ts`
+
+142 linhas · caminho: `apps/dashboard/src/lib/session-filter.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/jid.ts`
+- importado por: `dashboard/lib/session-filter.spec.ts`, `dashboard/routes/Sessions.tsx`
+
+**Funções e constantes de topo**
+- `SESSION_STATUSES` = `[ 'WORKING', 'SCAN_QR_CODE', 'PAIRING_CODE', 'STARTING', 'STOPPED', '…` · L8
+- `EMPTY_SESSION_FILTER` = `{ name: '', status: '', number: '', }` · L27
+- `isStatusFilter(v)` · L36
+  - chamado por: `parseSessionFilter` L44
+- `parseSessionFilter(params)` · L44
+  - chama: `isStatusFilter` L36
+  - chamado por: `Sessions` (Sessions.tsx:256)
+- `sessionFilterToParams(filter, base)` · L56
+  - chamado por: `Sessions` (Sessions.tsx:256)
+- `isSessionFilterActive(filter)` · L71
+  - chama: `digitsOf` L82
+  - chamado por: `filterSessions` L135, `Sessions` (Sessions.tsx:256)
+- `fold(text)` · L78
+  - chamado por: `matchesSessionFilter` L114
+- `digitsOf(text)` · L82
+  - chamado por: `isSessionFilterActive` L71, `matchesSessionFilter` L114, `sessionNumbers` L100
+- `numberVariants(digits)` · L88
+  - chamado por: `sessionNumbers` L100
+- `sessionNumbers(s)` · L100
+  - chama: `numberFromJid` (jid.ts:11), `digitsOf` L82, `numberVariants` L88
+  - chamado por: `matchesSessionFilter` L114
+- `matchesSessionFilter(s, filter)` · L114
+  - chama: `digitsOf` L82, `fold` L78, `sessionNumbers` L100
+  - chamado por: `filterSessions` L135
+- `filterSessions(sessions, filter)` · L135
+  - chama: `isSessionFilterActive` L71, `matchesSessionFilter` L114
+  - chamado por: `Sessions` (Sessions.tsx:256)
+
+**Tipos**
+- type `SessionStatusFilter` L19
+- interface `SessionFilter` L21 · 3 propriedade(s)
+
 ## `dashboard/lib/time-format.spec.ts`
 
 25 linhas · caminho: `apps/dashboard/src/lib/time-format.spec.ts`
@@ -971,18 +1284,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `dashboard/lib/time-format.ts`
 
 40 linhas · caminho: `apps/dashboard/src/lib/time-format.ts`
-- importado por: `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/time-format.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
+- importado por: `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/time-format.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
 - `clock(iso)` · L5
-  - chamado por: `MessageBubble` (MessageBubble.tsx:30), `listTime` L24, `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30), `dayTime` (connect-link.ts:44), `successView` (connect-link.ts:308), `listTime` L24, `Atendimento` (Atendimento.tsx:73)
 - `fullDateTime(iso)` · L13
   - chamado por: `MessageBubble` (MessageBubble.tsx:30)
 - `listTime(iso, now)` · L24
   - chama: `clock` L5
   - chamado por: `Inbox` (Inbox.tsx:19)
 - `since(iso, now)` · L32
-  - chamado por: `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `lastSeenLabel` (connect-link.ts:615), `Atendimento` (Atendimento.tsx:73)
 
 ## `dashboard/lib/use-live-stream.ts`
 
@@ -1012,7 +1325,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `fmt(s)` · L7
   - chamado por: `ApiKeys` L13
 - `ApiKeys()` · L13
-  - chama: `useAuth` (auth.tsx:61), `fmt` L7
+  - chama: `useAuth` (auth.tsx:85), `fmt` L7
 
 ## `dashboard/routes/Atendimento.tsx`
 
@@ -1023,7 +1336,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `convKey(c)` · L70
   - chamado por: `Atendimento` L73
 - `Atendimento()` · L73
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:142), `applyReaction` (live-events.ts:253), `feedItemFromEvent` (live-events.ts:365), `mergeFeed` (live-events.ts:419), `overlayAcks` (live-events.ts:182), `rememberAck` (live-events.ts:166), `rememberFeedItem` (live-events.ts:407), `rememberReaction` (live-events.ts:311), `replayReactions` (live-events.ts:321), `stabilize` (live-events.ts:458), `upsertFeedItem` (live-events.ts:384), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L70
+  - chama: `useAuth` (auth.tsx:85), `displayName` (jid.ts:27), `isTriageExcludedChat` (jid.ts:36), `numberFromJid` (jid.ts:11), `sendTarget` (jid.ts:22), `applyAck` (live-events.ts:142), `applyReaction` (live-events.ts:253), `feedItemFromEvent` (live-events.ts:365), `mergeFeed` (live-events.ts:419), `overlayAcks` (live-events.ts:182), `rememberAck` (live-events.ts:166), `rememberFeedItem` (live-events.ts:407), `rememberReaction` (live-events.ts:311), `replayReactions` (live-events.ts:321), `stabilize` (live-events.ts:458), `upsertFeedItem` (live-events.ts:384), `conversationPreview` (message-format.ts:141), `messagePreview` (message-format.ts:101), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `clock` (time-format.ts:5), `since` (time-format.ts:32), `useLiveStream` (use-live-stream.ts:11), `convKey` L70
 
 **Tipos**
 - type `StatusFilter` L53
@@ -1037,7 +1350,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `statusColor(code)` · L9
   - chamado por: `Audit` L15
 - `Audit()` · L15
-  - chama: `useAuth` (auth.tsx:61), `statusColor` L9
+  - chama: `useAuth` (auth.tsx:85), `statusColor` L9
 
 ## `dashboard/routes/Branding.tsx`
 
@@ -1046,7 +1359,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Branding()` · L7
-  - chama: `useAuth` (auth.tsx:61), `useBranding` (branding.tsx:126)
+  - chama: `useAuth` (auth.tsx:85), `useBranding` (branding.tsx:126)
 
 ## `dashboard/routes/Campaigns.tsx`
 
@@ -1055,9 +1368,24 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Campaigns()` · L15
-  - chama: `useAuth` (auth.tsx:61)
+  - chama: `useAuth` (auth.tsx:85)
 - `Btn({ children, onClick, danger, })` · L369
 - `BtnEmerald({ children, onClick, })` · L392
+
+## `dashboard/routes/Conectar.tsx`
+
+440 linhas · caminho: `apps/dashboard/src/routes/Conectar.tsx`
+- importa (interno): `dashboard/lib/branding.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/public-connect.ts`
+
+**Funções e constantes de topo**
+- `readStoredToken()` · L27
+  - chamado por: `Conectar` L65
+- `storeToken(token)` · L35
+  - chamado por: `Conectar` L65
+- `detectPhone()` · L45
+  - chama: `isLikelyPhone` (connect-link.ts:92), `uaSaysMobile` (connect-link.ts:82)
+- `Conectar()` · L65
+  - chama: `useBranding` (branding.tsx:126), `applyNewQr` (connect-link.ts:202), `applyPoll` (connect-link.ts:171), `buildConnectUrl` (connect-link.ts:39), `connectView` (connect-link.ts:492), `expiryInfo` (connect-link.ts:549), `initialConnectState` (connect-link.ts:146), `isDefaultProductName` (connect-link.ts:53), `pickToken` (connect-link.ts:34), `fetchConnectState` (public-connect.ts:95), `requestConnectNewQr` (public-connect.ts:121), `readStoredToken` L27, `storeToken` L35
 
 ## `dashboard/routes/Contacts.tsx`
 
@@ -1066,7 +1394,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Contacts()` · L12
-  - chama: `useAuth` (auth.tsx:61)
+  - chama: `useAuth` (auth.tsx:85)
 
 ## `dashboard/routes/Dashboard.tsx`
 
@@ -1076,7 +1404,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `Dot({ up })` · L8
 - `Dashboard()` · L16
-  - chama: `useAuth` (auth.tsx:61), `useBranding` (branding.tsx:126)
+  - chama: `useAuth` (auth.tsx:85), `useBranding` (branding.tsx:126)
 
 ## `dashboard/routes/Groups.tsx`
 
@@ -1085,7 +1413,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Groups()` · L7
-  - chama: `useAuth` (auth.tsx:61)
+  - chama: `useAuth` (auth.tsx:85)
 - `ActionBtn({ children, onClick, danger, })` · L390
 
 ## `dashboard/routes/Health.tsx`
@@ -1100,7 +1428,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `statusColor(s)` · L24
   - chamado por: `Health` L37
 - `Health()` · L37
-  - chama: `useAuth` (auth.tsx:61), `mb` L20, `statusColor` L24
+  - chama: `useAuth` (auth.tsx:85), `mb` L20, `statusColor` L24
 
 ## `dashboard/routes/Inbox.tsx`
 
@@ -1109,7 +1437,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Inbox()` · L19
-  - chama: `useAuth` (auth.tsx:61), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:458), `conversationPreview` (message-format.ts:141), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `listTime` (time-format.ts:24)
+  - chama: `useAuth` (auth.tsx:85), `displayName` (jid.ts:27), `isGroupJid` (jid.ts:18), `sendTarget` (jid.ts:22), `stabilize` (live-events.ts:458), `conversationPreview` (message-format.ts:141), `deviceBlockReason` (send-feedback.ts:16), `sendErrorMessage` (send-feedback.ts:29), `listTime` (time-format.ts:24)
 - `Avatar({ conv })` · L403
   - chama: `displayName` (jid.ts:27)
 
@@ -1122,7 +1450,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `fmtDate(s)` · L7
   - chamado por: `License` L11
 - `License()` · L11
-  - chama: `useAuth` (auth.tsx:61), `fmtDate` L7
+  - chama: `useAuth` (auth.tsx:85), `fmtDate` L7
 
 ## `dashboard/routes/Login.tsx`
 
@@ -1131,7 +1459,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Login()` · L6
-  - chama: `useAuth` (auth.tsx:61), `useBranding` (branding.tsx:126)
+  - chama: `useAuth` (auth.tsx:85), `useBranding` (branding.tsx:126)
 
 ## `dashboard/routes/Monitor.tsx`
 
@@ -1140,7 +1468,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Monitor()` · L14
-  - chama: `useAuth` (auth.tsx:61)
+  - chama: `useAuth` (auth.tsx:85)
 
 **Tipos**
 - interface `EventItem` L6 · 5 propriedade(s)
@@ -1155,20 +1483,20 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `statusBadge(status)` · L28
   - chamado por: `Proxies` L37
 - `Proxies()` · L37
-  - chama: `useAuth` (auth.tsx:61), `statusBadge` L28
+  - chama: `useAuth` (auth.tsx:85), `statusBadge` L28
 - `Field({ label, children, })` · L472
 - `AssignmentRow({ session, proxies, assignment, onSaved, onError, })` · L487
 
 ## `dashboard/routes/Sessions.tsx`
 
-482 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`
+655 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/session-filter.ts`
 
 **Funções e constantes de topo**
-- `StatusBadge({ status })` · L23
-- `ConnectModal({ session, onClose, })` · L32
-- `Sessions()` · L226
-  - chama: `useAuth` (auth.tsx:61)
+- `StatusBadge({ status })` · L37
+- `ConnectModal({ session, onClose, onOpenLink, })` · L46
+- `Sessions()` · L256
+  - chama: `useAuth` (auth.tsx:85), `numberFromJid` (jid.ts:11), `filterSessions` (session-filter.ts:135), `isSessionFilterActive` (session-filter.ts:71), `parseSessionFilter` (session-filter.ts:44), `sessionFilterToParams` (session-filter.ts:56)
 
 ## `dashboard/routes/Users.tsx`
 
@@ -1179,7 +1507,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `fmt(s)` · L9
   - chamado por: `Users` L16
 - `Users()` · L16
-  - chama: `useAuth` (auth.tsx:61), `fmt` L9
+  - chama: `useAuth` (auth.tsx:85), `fmt` L9
 
 ## `dashboard/routes/Webhooks.tsx`
 
@@ -1188,4 +1516,4 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `Webhooks()` · L7
-  - chama: `useAuth` (auth.tsx:61)
+  - chama: `useAuth` (auth.tsx:85)

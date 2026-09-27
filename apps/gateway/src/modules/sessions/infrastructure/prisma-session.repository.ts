@@ -3,6 +3,7 @@ import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import type { Engine, SessionStatus } from '../domain/session-status';
 import { Session, type SessionErrorDetails } from '../domain/session.entity';
 import type {
+  ConnectSnapshot,
   CreateSessionInput,
   SessionRepository,
   StatusPatch,
@@ -15,6 +16,7 @@ interface Row {
   status: string;
   meJid: string | null;
   mePushName: string | null;
+  lastMeJid: string | null;
   phoneNumber: string | null;
   autostart: boolean;
   lastError: string | null;
@@ -49,6 +51,7 @@ export class PrismaSessionRepository implements SessionRepository {
       r.createdAt,
       r.updatedAt,
       parseErrorDetails(r.lastErrorDetails),
+      r.lastMeJid,
     );
   }
 
@@ -97,6 +100,8 @@ export class PrismaSessionRepository implements SessionRepository {
       data: {
         status,
         ...(patch.meJid !== undefined ? { meJid: patch.meJid } : {}),
+        // E27: o último número conectado sobrevive ao 401 (meJid volta a null).
+        ...(patch.meJid ? { lastMeJid: patch.meJid } : {}),
         ...(patch.mePushName !== undefined
           ? { mePushName: patch.mePushName }
           : {}),
@@ -134,6 +139,40 @@ export class PrismaSessionRepository implements SessionRepository {
 
   async delete(id: string): Promise<void> {
     await this.prisma.waSession.delete({ where: { id } });
+  }
+
+  async findConnectSnapshot(id: string): Promise<ConnectSnapshot | null> {
+    // `creds -> 'account'` direto no Postgres: evita trazer o JSON inteiro das credenciais a cada
+    // consulta da página pública (2–3 s).
+    const rows = await this.prisma.$queryRaw<
+      {
+        id: string;
+        engine: string;
+        status: string;
+        meJid: string | null;
+        lastMeJid: string | null;
+        paired: boolean;
+      }[]
+    >`SELECT "id", "engine"::text AS "engine", "status"::text AS "status", "meJid", "lastMeJid",
+             ("creds" -> 'account') IS NOT NULL AS "paired"
+        FROM "wa_sessions" WHERE "id" = ${id}`;
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      id: r.id,
+      engine: r.engine as Engine,
+      status: r.status as SessionStatus,
+      meJid: r.meJid,
+      lastMeJid: r.lastMeJid,
+      paired: r.paired === true,
+    };
+  }
+
+  async setLastMeJid(id: string, jid: string | null): Promise<void> {
+    await this.prisma.waSession.updateMany({
+      where: { id },
+      data: { lastMeJid: jid },
+    });
   }
 
   async findAutostart(): Promise<Session[]> {

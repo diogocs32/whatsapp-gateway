@@ -9,6 +9,12 @@
 Toda rota `/api/*` exige o header **`X-Api-Key: <sua-chave>`** (papel ADMIN; gere no painel).
 Sessões são referenciadas por **nome** (`campanha1`) ou ID — ambos funcionam na URL.
 
+> **Exceções (sem `X-Api-Key`):** `GET /api/branding` (público — a tela de login precisa dele) e
+> as rotas **`/api/public/connect*`** do link de conexão (E27, §11), cuja credencial é o token do
+> link em `Authorization: Bearer <token>` e que só dão acesso ao QR daquela sessão. As rotas que
+> **criam/consultam/revogam** o link (`/api/sessions/{id}/connect-link`) aceitam **só o login do
+> painel** nesta versão — `X-Api-Key` recebe 401 (P-093).
+
 > **Cookie do painel × integrações (09/2026, ABE-12):** requisições com efeito (POST/PUT/PATCH/
 > DELETE) autenticadas pelo **cookie** do painel passam por verificação CSRF — o `Origin` precisa
 > estar em `CORS_ORIGIN` (ou `Sec-Fetch-Site: same-origin`); caso contrário **403**. Integrações
@@ -21,6 +27,9 @@ Sessões são referenciadas por **nome** (`campanha1`) ou ID — ambos funcionam
 > ou já tiver credenciais de pareamento/QR (`creds.me`), devolve **409** antes de pedir código ao
 > Baileys. Uma sessão recém-iniciada espera até 10 s pelo primeiro `connecting` ou QR; se não
 > ficar pronta, também devolve 409 com o motivo. O formato da resposta de sucesso não mudou.
+> **E27:** o pedido tem teto de 45 s — se o código não chegar, **409** (antes, no wwebjs com a página
+> travada, a rota podia ficar pendurada até 240 s). Operações da mesma sessão (start/stop/restart/
+> logout/new-qr/pairing/remover) passam a rodar uma de cada vez; a seguinte espera a anterior.
 
 > **Limite de requisições (desde 07/2026; regra do login revista em 25/09/2026 — P-053, D-025):**
 > **600/min por IP** em `/api/*` (`RATE_LIMIT_MAX` no gateway; `/health` fica de fora) e **10/min
@@ -29,6 +38,11 @@ Sessões são referenciadas por **nome** (`campanha1`) ou ID — ambos funcionam
 retry in …"}` (janela fixa de 1 min contada do 1º request) com os headers `x-ratelimit-limit`,
 > `x-ratelimit-remaining`, `x-ratelimit-reset` (segundos) e `retry-after`. O teto vale para qualquer grafia do caminho (forma absoluta,
 > `%xx`) — é decidido pela rota. Integrações via `X-Api-Key` não chamam o login.
+> **E27:** as rotas públicas do link de conexão têm balde próprio por IP — `GET /api/public/connect`
+> **120/min** e `POST /api/public/connect/new-qr` **10/min**. Esse 429 do plugin vem **sem** `code`;
+> o 429 de negócio do "gerar QR" (`CONNECT_LINK_NEW_QR_COOLDOWN`, §11) traz `code` e
+> `retryAfterSeconds` no corpo. O CORS do gateway passou a responder `Access-Control-Max-Age: 600`
+> (o navegador guarda o preflight por 10 min).
 
 ## 2. Enviar mensagem (G1 — cold + idempotência)
 
@@ -503,6 +517,79 @@ Para testar uma candidata em **uma** sessão de teste, defina juntas as envs
 `BAILEYS_PROTOCOL_CANARY_SESSION_ID=<ID da sessão>`; uma env isolada impede o boot. O override não
 altera as outras sessões. Aplicar/remover env no Dokploy exige Deploy manual em janela controlada,
 conforme o runbook; não muda a versão em conexões já abertas.
+
+### Último número conectado (E27, aditivo)
+
+`GET /api/sessions` e `GET /api/sessions/{sessao}` ganharam **`lastMeJid`** (`string | null`): o
+último `meJid` que esteve conectado. O `meJid` volta a `null` quando o celular desconecta (401);
+`lastMeJid` fica — serve para achar a sessão caída pelo número e pré-preencher o link de conexão.
+Nenhum campo existente mudou.
+
+### Link público de conexão por QR (E27 · P-086 · D-037)
+
+O operador gera um link temporário para **outra pessoa** conectar a sessão lendo o QR **em outra
+tela** (computador ou outro celular) — ex.: a sessão caiu ou foi criada e o celular está com a
+pessoa em outro lugar. Só sessões **BAILEYS** nesta versão (P-092). Criar/consultar/revogar exige
+o **login do painel** (API key não — P-093).
+
+```
+POST   /api/sessions/{sessao}/connect-link   # { "ttlMinutes": 1440, "expectedPhone": "5511988887777" } — OPERATOR+
+GET    /api/sessions/{sessao}/connect-link   # o link mais recente da sessão (ativo ou não), sem token — VIEWER+
+DELETE /api/sessions/{sessao}/connect-link   # revoga o link ativo → { "ok": true, "revoked": 1 } — OPERATOR+
+GET    /api/public/connect                   # Authorization: Bearer <token> — estado da página pública
+POST   /api/public/connect/new-qr            # Authorization: Bearer <token> — pedir QR (sem corpo)
+```
+
+- **`ttlMinutes`** opcional, 10..4320 (72 h); padrão 1440 (24 h). **`expectedPhone`** opcional: o
+  número que deve conectar (DDI + DDD + número, 10 a 15 dígitos; máscara é ignorada). Número
+  brasileiro **sem o 55** (ex.: `11988887777`) recebe **400** "expectedPhone sem DDI" — ele nunca
+  casaria com o número conectado. Com ele, se o
+  QR for lido por **outro** WhatsApp, o gateway **desfaz a conexão** (desvincula o aparelho, limpa as
+  credenciais, sessão `STOPPED` com `lastError` "Conectado com número diferente do esperado…",
+  webhook `session.status`) e revoga o link. O 9º dígito brasileiro é tolerado. Sem `expectedPhone`,
+  qualquer WhatsApp que ler o QR é aceito. Janela residual: o `session.status WORKING` do número
+  errado e 1–2 s de mensagens dele podem chegar antes do desfazimento.
+- **Resposta do POST (201):** `{ link: ConnectLinkDto, token, path }` — o `token` (43 caracteres)
+  aparece **só aqui** (o banco guarda o hash); `path` = `/conectar#<token>` — prefixe com a origem do
+  painel. O token vai no **fragmento** (`#`): não chega a log de servidor nem a `Referer`.
+- **Um link ativo por sessão:** criar outro revoga o anterior (`revokedReason: "REPLACED"`). `POST
+/api/sessions/{sessao}/stop` e `/logout` também revogam o link ativo (`SESSION_STOPPED`); remover
+  a sessão apaga os links.
+- **Erros do POST:** 400 (`ttlMinutes`/`expectedPhone` inválidos); 409 com `code`
+  `CONNECT_LINK_ENGINE_UNSUPPORTED` (WWEBJS), `CONNECT_LINK_SESSION_WORKING` (já conectada) ou
+  `CONNECT_LINK_SESSION_PAIRED` (tem login salvo — caiu por instabilidade: use Reiniciar; para
+  conectar do zero, gere um novo QR antes). O link **nunca** apaga um login salvo nem derruba uma
+  conta conectada.
+- **`ConnectLinkDto`:** `id, sessionId, state` (`ACTIVE` · `CONNECTED` — conectou há até 15 min ·
+  `USED` · `REVOKED` · `EXPIRED`), `createdAt, expiresAt, createdBy, expectedPhone, lastSeenAt`
+  (última abertura da página, gravada no máx. 1×/min), `newQrCount, newQrMax, consumedAt, revokedAt,
+revokedReason` (`MANUAL` · `REPLACED` · `SESSION_STOPPED` · `WRONG_NUMBER`).
+
+**Rotas públicas** (a página `/conectar` do painel; `Cache-Control: no-store`; tetos por IP no §1):
+
+| Resposta de `GET /api/public/connect`                                  | Quando                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 200 `{state:"ACTIVE", phase, qr, expiresAt, expectedPhoneHint, newQr}` | link válido. `phase`: `QR` (QR válido agora — `qr` é data URL PNG), `PREPARING` (gerando/renovando ou finalizando uma leitura), `IDLE` (sem QR — pode pedir um), `PAIRING` (código de pareamento em andamento), `UNAVAILABLE` (precisa do operador: falha, login salvo) |
+| 200 `{state:"CONNECTED", connectedAt}`                                 | conectou pelo link há até 15 min                                                                                                                                                                                                                                        |
+| 404 `CONNECT_LINK_NOT_FOUND`                                           | token ausente, malformado ou desconhecido                                                                                                                                                                                                                               |
+| 410 `CONNECT_LINK_USED` / `_REVOKED` / `_EXPIRED` / `_WRONG_NUMBER`    | usado há mais de 15 min · revogado/substituído · vencido · lido por outro número (conexão desfeita)                                                                                                                                                                     |
+
+- `newQr = {available, remaining, max, retryAfterSeconds}`: `available` só na fase `IDLE` e com
+  cota. `expectedPhoneHint` = 2 últimos dígitos do número esperado (ou `null`). A fase é calculada
+  pelo estado **vivo** da engine (o QR em memória do Baileys continua o mesmo por segundos depois de
+  expirar, entre um ciclo e outro, e depois de lido) — o `GET /sessions/{id}/qr` autenticado segue
+  como antes (P-094).
+- `POST /api/public/connect/new-qr` → 200 `{ ok: true, newQr }`: gera um QR novo (mesmo efeito do
+  "Gerar novo QR" do painel) **só** na fase `IDLE` — sessão Baileys parada e **sem login salvo**. 5
+  por link, com 30 s entre pedidos (regra no banco, vale entre processos). Erros: 409
+  `CONNECT_LINK_NEW_QR_UNAVAILABLE` (fase não permite; não gasta cota), `CONNECT_LINK_NEW_QR_LIMIT`
+  (tentativas acabaram), `CONNECT_LINK_BUSY` (outra operação na sessão em andamento); 429
+  `CONNECT_LINK_NEW_QR_COOLDOWN` com `retryAfterSeconds`; 503 `CONNECT_LINK_NEW_QR_FAILED`; 404/410
+  como no GET. Com o link já usado (inclusive nos 15 min em que o GET ainda responde `CONNECTED`),
+  o POST responde 410 `CONNECT_LINK_USED`. O 503 e a recusa por mudança de estado no último
+  instante (409 `CONNECT_LINK_BUSY` depois da reserva) gastam 1 das 5 tentativas.
+- Corpo de erro: `{ statusCode, error, code, message }` com mensagem fixa (nunca ecoa o token).
+  Auditoria: o POST público entra em `wa_audit_logs` com ator `link:<id> (de <quem criou>)`.
 
 ## 12. Inbox — conversas, mensagens e backfill de histórico (W7)
 

@@ -107,3 +107,57 @@ describe('parseError (todas as rotas)', () => {
     expect(err.message).toBe('em andamento');
   });
 });
+
+// E27/P-086 — link de conexão (rotas autenticadas por cookie do painel).
+describe('api.sessions.connectLink', () => {
+  it('get/create/revoke: rota com o id codificado, método e corpo certos, cookie', async () => {
+    const fetchMock = vi.fn(async (..._args: unknown[]) =>
+      json(200, { link: null }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await api.sessions.connectLink.get('vendas 1');
+    await api.sessions.connectLink.create('vendas 1', {
+      ttlMinutes: 60,
+      expectedPhone: '5511988887777',
+    });
+    await api.sessions.connectLink.revoke('vendas 1');
+    const calls = fetchMock.mock.calls as [string, RequestInit][];
+    const path = `${BASE}/api/sessions/vendas%201/connect-link`;
+    expect(calls.map(([u, i]) => [u, i.method ?? 'GET'])).toEqual([
+      [path, 'GET'],
+      [path, 'POST'],
+      [path, 'DELETE'],
+    ]);
+    expect(calls.every(([, i]) => i.credentials === 'include')).toBe(true);
+    expect(JSON.parse(calls[1][1].body as string)).toEqual({
+      ttlMinutes: 60,
+      expectedPhone: '5511988887777',
+    });
+    // DELETE sem corpo → sem Content-Type (o Fastify recusa JSON vazio).
+    expect(
+      (calls[2][1].headers as Record<string, string>)['Content-Type'],
+    ).toBeUndefined();
+  });
+
+  it('409 do criar chega com o code', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        json(409, {
+          statusCode: 409,
+          error: 'Conflict',
+          code: 'CONNECT_LINK_SESSION_PAIRED',
+          message: 'Sessão com login salvo',
+        }),
+      ),
+    );
+    const err = await api.sessions.connectLink
+      .create('s', {})
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({
+      status: 409,
+      code: 'CONNECT_LINK_SESSION_PAIRED',
+    });
+  });
+});

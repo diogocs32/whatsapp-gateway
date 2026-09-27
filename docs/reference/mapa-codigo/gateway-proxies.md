@@ -44,16 +44,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `resolveBaileysTransport` L146, `resolveProxyConfig` L127
 - `reportFailure(sessionId, reason)` · L104 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.getAssignment` (proxy.repository.ts:55), `ProxyRepository.updateTest` (proxy.repository.ts:48)
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
 - `resolveProxyConfig(sessionId)` · L127 · async
   - chama: `resolve` L35
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
 - `resolveBaileysTransport(sessionId)` · L146 · async
   - chama: `resolve` L35, `ProxyRepository.getAssignment` (proxy.repository.ts:55), `buildMediaDispatcher` (proxy-agent.factory.ts:25), `buildProxyAgent` (proxy-agent.factory.ts:15)
-  - chamado por: `resolveAgent` L182, `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
+  - chamado por: `resolveAgent` L182, `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
 - `resolveAgent(sessionId)` · L182 · async
   - chama: `resolveBaileysTransport` L146
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:144)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
 
 **Funções e constantes de topo**
 - `hashString(s)` · L16
@@ -101,10 +101,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `ProxiesController.listAvailable` (proxies.controller.ts:66)
 - `ensureAvailable(proxyId)` · L218 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:45), `ProxyRepository.usedProxyIds` (proxy.repository.ts:60)
-  - chamado por: `assignExclusive` L232, `SessionsController.create` (sessions.controller.ts:99)
+  - chamado por: `assignExclusive` L232, `SessionsController.create` (sessions.controller.ts:102)
 - `assignExclusive(sessionId, proxyId)` · L232 · async
   - chama: `ensureAvailable` L218, `setAssignment` L246
-  - chamado por: `SessionsController.create` (sessions.controller.ts:99)
+  - chamado por: `SessionsController.create` (sessions.controller.ts:102)
 - `setAssignment(sessionId, data)` · L246 · async
   - chama: `ProxyRepository.setAssignment` (proxy.repository.ts:56), `ProxyRepository.setCurrent` (proxy.repository.ts:57)
   - chamado por: `assignExclusive` L232, `ProxiesController.setAssignment` (proxies.controller.ts:160)
