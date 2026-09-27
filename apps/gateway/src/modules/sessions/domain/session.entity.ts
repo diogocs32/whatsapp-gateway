@@ -19,5 +19,7 @@ export class Session {
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public lastErrorDetails: SessionErrorDetails | null = null,
+    // E27: último meJid conectado — não zera quando o celular desconecta.
+    public lastMeJid: string | null = null,
   ) {}
 }

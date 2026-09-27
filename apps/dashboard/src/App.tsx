@@ -36,6 +36,8 @@ const Groups = page(() => import('./routes/Groups'), 'Groups');
 const Contacts = page(() => import('./routes/Contacts'), 'Contacts');
 const Campaigns = page(() => import('./routes/Campaigns'), 'Campaigns');
 const Health = page(() => import('./routes/Health'), 'Health');
+// E27/P-086 — página PÚBLICA do link de conexão (sem login; fora do <Protected>).
+const Conectar = page(() => import('./routes/Conectar'), 'Conectar');
 
 function Loading() {
   return (
@@ -59,6 +61,7 @@ export function App() {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/conectar" element={<Conectar />} />
           <Route
             path="/"
             element={

@@ -18,6 +18,19 @@ export function rateLimitMaxFromEnv(
 // do IP (polling do painel não bloqueia o login; tentativas de login não gastam os 600).
 export const LOGIN_RATE_LIMIT = { max: 10, timeWindow: '1 minute' } as const;
 
+// E27 (P-086, D-037): rotas públicas do link de conexão, por IP e com balde próprio. A página
+// consulta a cada 2–3 s (~30/min por aparelho): 120 deixa folga para 4 aparelhos atrás do mesmo IP
+// (NAT). O "gerar QR" tem teto de domínio no banco (5 por link, 30 s entre pedidos) — este teto é
+// só a primeira barreira (store em memória por processo; RATE_LIMIT_MAX=0 desliga tudo).
+export const PUBLIC_CONNECT_READ_RATE_LIMIT = {
+  max: 120,
+  timeWindow: '1 minute',
+} as const;
+export const PUBLIC_CONNECT_NEW_QR_RATE_LIMIT = {
+  max: 10,
+  timeWindow: '1 minute',
+} as const;
+
 // Registrar SEMPRE antes do init/listen: o plugin instala o limitador em cada rota pelo onRoute —
 // registrado depois das rotas, não dá erro e não limita nada. Usado pelo main.ts e pelo spec.
 export async function registerRateLimit(

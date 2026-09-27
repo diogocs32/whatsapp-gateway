@@ -7,7 +7,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | Arquivo | Linhas |
 | --- | --- |
 | `app.module.ts` | 53 |
-| `main.ts` | 100 |
+| `main.ts` | 103 |
 
 ## `app.module.ts`
 
@@ -22,14 +22,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `main.ts`
 
-100 linhas · caminho: `apps/gateway/src/main.ts`
+103 linhas · caminho: `apps/gateway/src/main.ts`
 - importa (interno): `app.module.ts`, `bootstrap/console-bridge.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `bootstrap/config.ts`, `shared-kernel/process-errors.ts`
 
 **Funções e constantes de topo**
 - `bootstrap()` · L16 · async
-  - chama: `bridgeConsoleToLogger` (console-bridge.ts:42), `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts), `rateLimitMaxFromEnv` (rate-limit.ts:6), `registerRateLimit` (rate-limit.ts:23), `recordProcessError` (process-errors.ts:9)
-  - chamado por: `(módulo:L99)` L99
+  - chama: `bridgeConsoleToLogger` (console-bridge.ts:42), `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts), `rateLimitMaxFromEnv` (rate-limit.ts:6), `registerRateLimit` (rate-limit.ts:36), `recordProcessError` (process-errors.ts:9)
+  - chamado por: `(módulo:L102)` L102
 
 **Código de topo**
-- `(módulo:L99)` · L99
+- `(módulo:L102)` · L102
   - chama: `bootstrap` L16

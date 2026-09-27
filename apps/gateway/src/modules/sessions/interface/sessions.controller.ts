@@ -24,6 +24,7 @@ import { ProxyService } from '../../proxies/application/proxy.service';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
 import { RolesGuard } from '../../iam/interface/roles.guard';
+import { ConnectLinkService } from '../application/connect-link.service';
 import { SessionConfigService } from '../application/session-config.service';
 import { SessionManager } from '../application/session-manager.service';
 import { SessionRefPipe } from './session-ref.pipe';
@@ -50,6 +51,7 @@ function toDto(s: Session) {
     status: s.status,
     meJid: s.meJid,
     mePushName: s.mePushName,
+    lastMeJid: s.lastMeJid,
     phoneNumber: s.phoneNumber,
     autostart: s.autostart,
     lastError: s.lastError,
@@ -94,6 +96,7 @@ export class SessionsController {
     private readonly guardrail: GuardrailService,
     private readonly sessionConfig: SessionConfigService,
     private readonly proxies: ProxyService,
+    private readonly connectLinks: ConnectLinkService,
   ) {}
 
   @Post()
@@ -330,6 +333,9 @@ export class SessionsController {
   @Post(':id/stop')
   async stop(@Param('id', SessionRefPipe) id: string) {
     await this.ensure(id);
+    // E27 (D-037): parar de propósito cancela o link de conexão ativo (senão a pessoa religaria).
+    // Antes do stop: sem a janela em que o link ainda ativo pediria QR logo depois do stop.
+    await this.connectLinks.revokeOnOperatorStop(id);
     await this.manager.stop(id);
     return { ok: true };
   }
@@ -344,6 +350,7 @@ export class SessionsController {
   @Post(':id/logout')
   async logout(@Param('id', SessionRefPipe) id: string) {
     await this.ensure(id);
+    await this.connectLinks.revokeOnOperatorStop(id);
     await this.manager.logout(id);
     return { ok: true };
   }

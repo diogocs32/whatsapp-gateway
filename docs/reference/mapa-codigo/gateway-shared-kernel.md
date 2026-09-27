@@ -64,7 +64,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `shared-kernel/crypto.ts`
 
 157 linhas · caminho: `apps/gateway/src/shared-kernel/crypto.ts`
-- importado por: `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `shared-kernel/crypto.spec.ts`
+- importado por: `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `shared-kernel/crypto.spec.ts`
 
 **Funções e constantes de topo**
 - `scryptAsync` = `promisify< string, string, number, { N: number; r: number; p: number;…` · L18
@@ -93,7 +93,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `AuthSessionService.login` (auth-session.service.ts:57)
 - `hmacSha512(secret, payload)` · L149
 - `sha512(text)` · L154
-  - chamado por: `ApiKeyService.create` (api-key.service.ts:25), `ApiKeyService.validate` (api-key.service.ts:42), `TokenService.hashRefresh` (token.service.ts:33), `TokenService.newRefresh` (token.service.ts:28)
+  - chamado por: `ApiKeyService.create` (api-key.service.ts:25), `ApiKeyService.validate` (api-key.service.ts:42), `TokenService.hashRefresh` (token.service.ts:33), `TokenService.newRefresh` (token.service.ts:28), `ConnectLinkService.create` (connect-link.service.ts:144), `ConnectLinkService.resolveToken` (connect-link.service.ts:240)
 
 **Tipos**
 - interface `ScryptCost` L32 · 3 propriedade(s)
@@ -118,7 +118,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `shared-kernel/domain-event.ts`
 
 7 linhas · caminho: `apps/gateway/src/shared-kernel/domain-event.ts`
-- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/event-bus/event-bus.ts`
+- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/event-bus/event-bus.ts`
 
 **Tipos**
 - interface `DomainEvent` L2 · 3 propriedade(s)
@@ -127,16 +127,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 38 linhas · caminho: `apps/gateway/src/shared-kernel/event-bus/event-bus.ts`
 - importa (interno): `shared-kernel/domain-event.ts`
-- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/guardrail/guardrail.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/shared-kernel.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/guardrail/guardrail.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/shared-kernel.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **class `EventBus`** L9 · @Injectable
 - `logger` · L11 · private · campo
 - `emitter` · L12 · private · campo
 - `constructor()` · L14
 - `publish(event)` · L21
-  - chamado por: `EventFanout.onRemote` (event-fanout.ts:73), `GuardrailService.emit` (guardrail.service.ts:190), `SessionManager.handleEngineEvent` (session-manager.service.ts:274)
+  - chamado por: `EventFanout.onRemote` (event-fanout.ts:73), `GuardrailService.emit` (guardrail.service.ts:190), `SessionManager.handleEngineEvent` (session-manager.service.ts:344)
 - `subscribe(name, handler)` · L26
-  - chamado por: `EventFanout.onModuleInit` (event-fanout.ts:48), `EventsController.stream` (events.controller.ts:14), `MessagePersister.onModuleInit` (message-persister.service.ts:24), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:27), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:31)
+  - chamado por: `EventFanout.onModuleInit` (event-fanout.ts:48), `EventsController.stream` (events.controller.ts:14), `MessagePersister.onModuleInit` (message-persister.service.ts:24), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:27), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `ConnectLinkService.onModuleInit` (connect-link.service.ts:125), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:31)
 - `unsubscribe(name, handler)` · L30
   - chamado por: `EventsController.stream` (events.controller.ts:14)
 - `subscribeAll(handler)` · L34
@@ -195,7 +195,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `totals` = `new Map<string, number>()` · L7
 - `recordProcessError(kind)` · L9
-  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:409), `AuditInterceptor.record` (audit.interceptor.ts:66), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1375), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:905), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1349), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1287)
+  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:409), `AuditInterceptor.record` (audit.interceptor.ts:71), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1375), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:905), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1349), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1287)
 - `processErrorTotals()` · L13
   - chamado por: `MetricsService.refresh` (metrics.service.ts:112)
 
@@ -289,7 +289,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `PHOTO_MAX_BYTES` = `10 * 1024 * 1024` · L202
 - `fetchImageByUrl(raw, policy)` · L204 · async
   - chama: `egressPolicyFromEnv` L23, `safeFetch` L235
-  - chamado por: `GroupsController.photo` (groups.controller.ts:213), `SessionsController.profilePhoto` (sessions.controller.ts:270)
+  - chamado por: `GroupsController.photo` (groups.controller.ts:213), `SessionsController.profilePhoto` (sessions.controller.ts:273)
 - `safeFetch(raw, opts)` · L235 · async
   - chama: `assertEgressAllowed` L133, `constructor` L192, `constructor` L39, `parseEgressUrl` L104
   - chamado por: `fetchMedia` (campaign-queue.ts:42), `MessagesController.sendMediaUrl` (messages.controller.ts:715), `fetchImageByUrl` L204
@@ -315,8 +315,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `shared-kernel/ulid.ts`
 
 5 linhas · caminho: `apps/gateway/src/shared-kernel/ulid.ts`
-- importado por: `infra/directory/contact-directory.service.ts`, `infra/redis/event-fanout.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/infrastructure/prisma-inbox.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/messaging/infrastructure/prisma-reaction.repository.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/session-event.logger.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`
+- importado por: `infra/directory/contact-directory.service.ts`, `infra/redis/event-fanout.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/messaging/application/send-intent.service.ts`, `modules/messaging/infrastructure/prisma-inbox.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/messaging/infrastructure/prisma-reaction.repository.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/session-event.logger.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `newId()` · L4
-  - chamado por: `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.upsertChunk` (contact-directory.service.ts:115), `EventFanout.instanceId` (event-fanout.ts:40), `CampaignRepository.create` (campaign.repository.ts:37), `GuardrailService.apply` (guardrail.service.ts:329), `GuardrailService.emit` (guardrail.service.ts:190), `GuardrailService.getState` (guardrail.service.ts:216), `GuardrailService.recordHardSignal` (guardrail.service.ts:549), `ApiKeyService.create` (api-key.service.ts:25), `AuthSessionService.issue` (auth-session.service.ts:123), `AuthSessionService.login` (auth-session.service.ts:57), `AuthSessionService.refresh` (auth-session.service.ts:85), `UserService.create` (user.service.ts:50), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26), `PrismaAuditRepository.create` (prisma-audit.repository.ts:14), `SendIntentService.reserve` (send-intent.service.ts:26), `PrismaInboxRepository.markIgnored` (prisma-inbox.repository.ts:174), `PrismaMessageRepository.save` (prisma-message.repository.ts:42), `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:84), `PrismaReactionRepository.upsert` (prisma-reaction.repository.ts:19), `ReplyRateService.computeFor` (reply-rate.service.ts:93), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `PrismaProxyRepository.create` (prisma-proxy.repository.ts:85), `SessionConfigService.get` (session-config.service.ts:20), `SessionConfigService.update` (session-config.service.ts:28), `SessionManager.handleEngineEvent` (session-manager.service.ts:274), `SessionsController.create` (sessions.controller.ts:99), `WebhookQueue.toDeadLetter` (webhook-queue.ts:191), `WebhooksController.create` (webhooks.controller.ts:60), `WebhooksController.test` (webhooks.controller.ts:133)
+  - chamado por: `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.upsertChunk` (contact-directory.service.ts:115), `EventFanout.instanceId` (event-fanout.ts:40), `CampaignRepository.create` (campaign.repository.ts:37), `GuardrailService.apply` (guardrail.service.ts:329), `GuardrailService.emit` (guardrail.service.ts:190), `GuardrailService.getState` (guardrail.service.ts:216), `GuardrailService.recordHardSignal` (guardrail.service.ts:549), `ApiKeyService.create` (api-key.service.ts:25), `AuthSessionService.issue` (auth-session.service.ts:123), `AuthSessionService.login` (auth-session.service.ts:57), `AuthSessionService.refresh` (auth-session.service.ts:85), `UserService.create` (user.service.ts:50), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26), `PrismaAuditRepository.create` (prisma-audit.repository.ts:14), `SendIntentService.reserve` (send-intent.service.ts:26), `PrismaInboxRepository.markIgnored` (prisma-inbox.repository.ts:174), `PrismaMessageRepository.save` (prisma-message.repository.ts:42), `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:84), `PrismaReactionRepository.upsert` (prisma-reaction.repository.ts:19), `ReplyRateService.computeFor` (reply-rate.service.ts:93), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `PrismaProxyRepository.create` (prisma-proxy.repository.ts:85), `ConnectLinkService.create` (connect-link.service.ts:144), `SessionConfigService.get` (session-config.service.ts:20), `SessionConfigService.update` (session-config.service.ts:28), `SessionManager.handleEngineEvent` (session-manager.service.ts:344), `SessionsController.create` (sessions.controller.ts:102), `WebhookQueue.toDeadLetter` (webhook-queue.ts:191), `WebhooksController.create` (webhooks.controller.ts:60), `WebhooksController.test` (webhooks.controller.ts:133)

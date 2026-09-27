@@ -2,20 +2,34 @@ import { Module } from '@nestjs/common';
 import { GuardrailModule } from '../guardrail/guardrail.module';
 import { IamModule } from '../iam/iam.module';
 import { ProxiesModule } from '../proxies/proxies.module';
+import { ConnectLinkService } from './application/connect-link.service';
 import { SessionConfigService } from './application/session-config.service';
 import { SessionManager } from './application/session-manager.service';
+import { CONNECT_LINK_REPOSITORY } from './domain/connect-link.repository';
 import { SESSION_REPOSITORY } from './domain/session.repository';
 import { EngineFactory } from './infrastructure/engine.factory';
+import { PrismaConnectLinkRepository } from './infrastructure/prisma-connect-link.repository';
 import { PrismaSessionRepository } from './infrastructure/prisma-session.repository';
+import { ConnectLinkTokenGuard } from './interface/connect-link-token.guard';
+import { ConnectLinksController } from './interface/connect-links.controller';
+import { PublicConnectController } from './interface/public-connect.controller';
 import { SessionRefPipe } from './interface/session-ref.pipe';
 import { SessionsController } from './interface/sessions.controller';
 
 @Module({
   imports: [IamModule, ProxiesModule, GuardrailModule], // + GuardrailService (health/override/filtro G7)
-  controllers: [SessionsController],
+  // E27: link público de conexão (ConnectLinksController autenticado + PublicConnectController).
+  controllers: [
+    SessionsController,
+    ConnectLinksController,
+    PublicConnectController,
+  ],
   providers: [
     SessionManager,
     SessionConfigService,
+    ConnectLinkService,
+    ConnectLinkTokenGuard,
+    { provide: CONNECT_LINK_REPOSITORY, useClass: PrismaConnectLinkRepository },
     EngineFactory,
     SessionRefPipe,
     { provide: SESSION_REPOSITORY, useClass: PrismaSessionRepository },

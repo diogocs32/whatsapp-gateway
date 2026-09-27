@@ -1,7 +1,18 @@
 import 'reflect-metadata';
 import { connect } from 'node:net';
-import { Controller, Get, Param, Post } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import {
+  Body,
+  CanActivate,
+  Controller,
+  ExecutionContext,
+  Get,
+  HttpCode,
+  Injectable,
+  Param,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import {
@@ -153,5 +164,151 @@ describe('AuditInterceptor pela rota resolvida (P-053)', () => {
       expect(await raw(port, 'POST', alvo), alvo).toBe(400);
     }
     expect(log).not.toHaveBeenCalled();
+  });
+});
+
+// E27 · P-086 — quem é o ator. Ordem: usuário (JWT) > API key > `auditActor` (posto pelo guard do
+// link público: `link:<id> (de <quem criou>)`, teto 200) > `login:<nome>` SÓ na rota de login >
+// 'anônimo'. Antes, qualquer mutação anônima com `username` no corpo gravava "login:<nome>" — ator
+// forjado pelo cliente (ex.: POST público do link com {"username":"admin"}).
+
+// Guard de teste: põe no req as credenciais que os guards reais poriam, a partir de headers.
+@Injectable()
+class StubCredentialsGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest<{
+      headers: Record<string, string | undefined>;
+      user?: { sub: string; username: string; role: string };
+      apiKey?: { id: string; name: string };
+      auditActor?: string;
+    }>();
+    const h = req.headers;
+    if (h['x-test-user'])
+      req.user = { sub: 'u1', username: h['x-test-user'], role: 'ADMIN' };
+    if (h['x-test-key']) req.apiKey = { id: 'k1', name: h['x-test-key'] };
+    if (h['x-test-actor']) req.auditActor = h['x-test-actor'];
+    return true;
+  }
+}
+
+@Controller('public/connect')
+class PublicConnectStub {
+  @Post('new-qr')
+  @HttpCode(200)
+  newQr(): { ok: boolean } {
+    return { ok: true };
+  }
+}
+
+@Controller('auth')
+class AuthLoginStub {
+  // Login recusado (401): a tentativa também entra na trilha, pelo catchError do interceptor.
+  @Post('login')
+  login(@Body() _body: unknown): never {
+    throw new UnauthorizedException('Credenciais inválidas');
+  }
+}
+
+describe('AuditInterceptor — ator da trilha (E27 · P-086)', () => {
+  let app: NestFastifyApplication;
+  const log = vi.fn<(e: AuditEntry) => Promise<void>>(async () => undefined);
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [PublicConnectStub, AuthLoginStub],
+      providers: [
+        { provide: AuditService, useValue: { log } },
+        { provide: APP_GUARD, useClass: StubCredentialsGuard },
+        { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+      ],
+    }).compile();
+    app = moduleRef.createNestApplication<NestFastifyApplication>(
+      buildFastifyAdapter(),
+      { bodyParser: false, logger: false },
+    );
+    app.setGlobalPrefix('api');
+    await app.init();
+    await app.getHttpAdapter().getInstance().ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => log.mockClear());
+
+  const post = async (
+    url: string,
+    headers: Record<string, string> = {},
+    body?: unknown,
+  ) => {
+    const res = await app.inject({
+      method: 'POST',
+      url,
+      headers: {
+        ...headers,
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      payload: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return res.statusCode;
+  };
+  const actors = () => log.mock.calls.map(([e]) => e.actor);
+
+  it('sem usuário nem API key, o ator é o auditActor do guard (com teto de 200 caracteres)', async () => {
+    expect(
+      await post('/api/public/connect/new-qr', {
+        'x-test-actor': 'link:cl_123 (de admin)',
+      }),
+    ).toBe(200);
+    const longo = `link:${'x'.repeat(295)}`; // 300 caracteres
+    expect(
+      await post('/api/public/connect/new-qr', { 'x-test-actor': longo }),
+    ).toBe(200);
+    expect(actors()).toEqual(['link:cl_123 (de admin)', longo.slice(0, 200)]);
+    expect(actors()[1]).toHaveLength(200);
+    expect(log.mock.calls[0][0]).toMatchObject({
+      method: 'POST',
+      path: '/api/public/connect/new-qr',
+      statusCode: 200,
+    });
+  });
+
+  it('usuário (JWT) e API key têm precedência sobre o auditActor', async () => {
+    const actor = { 'x-test-actor': 'link:cl_1 (de admin)' };
+    await post('/api/public/connect/new-qr', {
+      ...actor,
+      'x-test-user': 'maria',
+      'x-test-key': 'integracao',
+    });
+    await post('/api/public/connect/new-qr', {
+      ...actor,
+      'x-test-key': 'integracao',
+    });
+    expect(actors()).toEqual(['maria (ADMIN)', 'key:integracao']);
+  });
+
+  it('username no corpo fora da rota de login não forja ator: fica "anônimo"', async () => {
+    for (const url of [
+      '/api/public/connect/new-qr',
+      '/%61pi/public/connect/new-qr',
+    ]) {
+      expect(await post(url, {}, { username: 'admin' }), url).toBe(200);
+    }
+    expect(actors()).toEqual(['anônimo', 'anônimo']);
+  });
+
+  it('username no corpo da rota /api/auth/login continua "login:<nome>" (inclusive %-encoding e falha 401)', async () => {
+    for (const url of ['/api/auth/login', '/api/auth/%6Cogin']) {
+      expect(
+        await post(url, {}, { username: 'admin', password: 'x' }),
+        url,
+      ).toBe(401);
+    }
+    expect(actors()).toEqual(['login:admin', 'login:admin']);
+    expect(log.mock.calls[0][0]).toMatchObject({
+      path: '/api/auth/login',
+      statusCode: 401,
+    });
   });
 });

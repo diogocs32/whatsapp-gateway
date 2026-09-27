@@ -247,6 +247,19 @@ Após mexer em deps: confirmar `node_modules/<pkg>` e, se faltar declarada, `npm
   (invisível com `LOG_LEVEL=info`), `warn`/`error` → mesmo nível. Não use `console.*` no código
   do gateway; libs (libsignal, BullMQ) caem aí.
 
+### 6.14 — QR do Baileys fica em memória depois de expirar e depois de lido (E27)
+
+- A engine só zera `qrBase64` no `open`, no 401, no stop/shutdown/logout. No close 408 ("QR refs
+  attempts ended") e no 515 pós-leitura, o status vira `DEGRADED` **só em memória** e o banco
+  continua `SCAN_QR_CODE`: por até ~30 s o `GET /sessions/:id/qr` devolve um QR já morto (o modal
+  mostra — P-094). Quem precisar decidir "QR válido agora" usa o estado **vivo** da engine
+  (`SessionManager.liveView`), como a página pública do link de conexão (`publicPhase`).
+- `new-qr` apaga credenciais sem guarda de estado: nunca chame a partir de fluxo não autenticado sem
+  exigir sessão parada e sem `creds.account` (D-037). `creds.me` sozinho não prova pareamento (o
+  pedido de código de pareamento grava `me`); `creds.account` só nasce no pair-success.
+- `SessionManager` tem lock de ciclo de vida por sessão (`runExclusive`): de dentro de uma operação,
+  chame as versões `*Unlocked` — chamar `start()`/`stop()` públicos de dentro do lock trava.
+
 ## 6B. GARGALOS DE DEPLOY EM PRODUÇÃO (Dokploy) ⚠️
 
 > Saga de subir em produção (2026-06-21). Passo a passo completo em `docs/deploy-dokploy.md`.

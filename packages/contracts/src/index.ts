@@ -83,6 +83,9 @@ export interface SessionDto {
   status: SessionStatus;
   meJid: string | null;
   mePushName: string | null;
+  // E27 (aditivo): último número que esteve conectado — o `meJid` zera quando o celular desconecta
+  // (401), este não. Serve para achar a sessão caída pelo número e pré-preencher o link de conexão.
+  lastMeJid: string | null;
   phoneNumber: string | null;
   autostart: boolean;
   lastError: string | null;
@@ -152,6 +155,114 @@ export interface QrResponse {
 export interface PairingCodeResponse {
   code: string;
 }
+
+// ---- Link público de conexão por QR (E27 · P-086 · D-037) ----
+// O operador (login do painel, OPERATOR+) cria um link temporário para outra pessoa conectar a
+// sessão lendo o QR de outra tela. Só sessões BAILEYS nesta versão. O token aparece UMA vez e vai no
+// FRAGMENTO da URL do painel (`/conectar#<token>`); a página o envia em `Authorization: Bearer`.
+export type ConnectLinkState =
+  | 'ACTIVE'
+  | 'CONNECTED' // conectou pelo link há até 15 min (depois vira USED)
+  | 'USED'
+  | 'REVOKED'
+  | 'EXPIRED';
+
+export type ConnectLinkRevokedReason =
+  | 'MANUAL'
+  | 'REPLACED' // outro link foi criado para a mesma sessão
+  | 'SESSION_STOPPED' // o operador parou/deslogou a sessão
+  | 'WRONG_NUMBER'; // leram o QR com um WhatsApp diferente do número esperado
+
+export interface ConnectLinkDto {
+  id: string;
+  sessionId: string;
+  state: ConnectLinkState;
+  createdAt: string;
+  expiresAt: string;
+  createdBy: string;
+  expectedPhone: string | null; // só dígitos; null = qualquer número aceito
+  lastSeenAt: string | null; // última vez que a página foi aberta (gravado no máx. 1×/min)
+  newQrCount: number;
+  newQrMax: number;
+  consumedAt: string | null;
+  revokedAt: string | null;
+  revokedReason: ConnectLinkRevokedReason | null;
+}
+
+// POST /api/sessions/:id/connect-link
+export interface CreateConnectLinkRequest {
+  ttlMinutes?: number; // 10..4320 (72 h); padrão 1440 (24 h)
+  expectedPhone?: string | null; // número que deve conectar (DDI+DDD+número); ausente = qualquer um
+}
+
+export interface ConnectLinkCreatedResponse {
+  link: ConnectLinkDto;
+  token: string; // mostrado só nesta resposta
+  path: string; // '/conectar#<token>' — prefixar com a origem do painel
+}
+
+// GET /api/sessions/:id/connect-link — o link mais recente da sessão (ativo ou não).
+export interface ConnectLinkCurrentResponse {
+  link: ConnectLinkDto | null;
+}
+
+// DELETE /api/sessions/:id/connect-link
+export interface ConnectLinkRevokeResponse {
+  ok: true;
+  revoked: number; // 0 = não havia link ativo
+}
+
+// Fase da página pública, calculada no servidor a partir do estado VIVO da engine.
+export type PublicConnectPhase =
+  | 'QR' // QR válido agora
+  | 'PREPARING' // gerando/renovando o QR ou finalizando uma leitura — aguardar
+  | 'IDLE' // sem QR: a pessoa pode pedir um (POST /api/public/connect/new-qr)
+  | 'PAIRING' // conexão por código de pareamento em andamento
+  | 'UNAVAILABLE'; // precisa de quem enviou o link (falha, login salvo, engine não suportada)
+
+export interface PublicConnectNewQrState {
+  available: boolean;
+  remaining: number;
+  max: number;
+  retryAfterSeconds: number; // 0 = pode pedir já
+}
+
+// GET /api/public/connect (Authorization: Bearer <token do link>)
+export type PublicConnectResponse =
+  | {
+      state: 'ACTIVE';
+      phase: PublicConnectPhase;
+      qr: string | null; // data URL PNG só quando phase = 'QR'
+      expiresAt: string;
+      expectedPhoneHint: string | null; // 2 últimos dígitos do número esperado
+      newQr: PublicConnectNewQrState;
+    }
+  | { state: 'CONNECTED'; connectedAt: string };
+
+// POST /api/public/connect/new-qr
+export interface PublicConnectNewQrResponse {
+  ok: true;
+  newQr: PublicConnectNewQrState;
+}
+
+// `code` dos erros das rotas de link (corpo `{statusCode, error, code, message}`). O gateway tem a
+// própria const (CommonJS não importa valor deste pacote); esta lista é só para o painel.
+export const CONNECT_LINK_ERROR_CODES = [
+  'CONNECT_LINK_NOT_FOUND', // 404: token ausente/inválido/desconhecido
+  'CONNECT_LINK_USED', // 410
+  'CONNECT_LINK_REVOKED', // 410
+  'CONNECT_LINK_EXPIRED', // 410
+  'CONNECT_LINK_WRONG_NUMBER', // 410: conectaram outro número; a conexão foi desfeita
+  'CONNECT_LINK_SESSION_WORKING', // 409 (criar)
+  'CONNECT_LINK_SESSION_PAIRED', // 409 (criar): sessão com login salvo — use Reiniciar
+  'CONNECT_LINK_ENGINE_UNSUPPORTED', // 409 (criar): só Baileys nesta versão
+  'CONNECT_LINK_NEW_QR_UNAVAILABLE', // 409: fase atual não permite pedir QR
+  'CONNECT_LINK_NEW_QR_LIMIT', // 409: tentativas do link esgotadas
+  'CONNECT_LINK_NEW_QR_COOLDOWN', // 429 com retryAfterSeconds
+  'CONNECT_LINK_BUSY', // 409: outra operação na sessão em andamento
+  'CONNECT_LINK_NEW_QR_FAILED', // 503
+] as const;
+export type ConnectLinkErrorCode = (typeof CONNECT_LINK_ERROR_CODES)[number];
 
 // ---- Mensagens (F2) ----
 // `type` da mensagem: text | image | video | audio | document | sticker | location | contact | poll |
