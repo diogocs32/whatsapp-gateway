@@ -31,6 +31,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
+| `gateway/test/proxy-suggestion.e2e-spec.ts` | 618 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 131 |
 | `gateway/test/sessions.e2e-spec.ts` | 179 |
 | `gateway/test/setup-app.ts` | 191 |
@@ -499,6 +500,39 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “proxyId inexistente → 400 sem criar sessão” · L122
   - it “sessão SEM proxyId continua nascendo sem atribuição (comportamento antigo intacto)” · L136
 
+## `gateway/test/proxy-suggestion.e2e-spec.ts`
+
+618 linhas · caminho: `apps/gateway/test/proxy-suggestion.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/sessions/domain/session.repository.ts`, `gateway/test/setup-app.ts`
+
+- describe “Sugestão de proxy ao recriar sessão com o mesmo nome (e2e, E26)” · L20
+  - describe “carimbo no DELETE /api/sessions/:id” · L215
+    - it “sessão SINGLE apagada → carimba releasedSessionName (nome exato) e releasedAt, preservando o proxy” · L216
+    - it “sessão SEM proxy apagada → não há atribuição nem carimbo” · L239
+    - it “sessão com mode NONE apagada → órfã sem carimbo e sem sugestão” · L253
+    - it “sessão RANGE apagada (mesmo com currentProxyId herdado) → órfã sem carimbo e sem sugestão” · L268
+    - it “exclusão que FALHA (manager.remove lança) → sessão segue viva e nada é carimbado” · L292
+    - it “falha no carimbo (repo.markReleased rejeita) NÃO bloqueia o DELETE → 200 e sessão apagada” · L316
+  - describe “GET /api/proxies/suggestion” · L338
+    - it “devolve o proxy da sessão apagada com esse nome, disponível” · L339
+    - it “caixa diferente (pedido em MAIÚSCULAS) → mesma sugestão, fromSession com o nome original” · L364
+    - it “entre nomes que só diferem na caixa, prefere a caixa idêntica; sem idêntica, a mais recente” · L381
+    - it “sem curinga: apagar "…-a-1" e pedir "…-a_1" → {suggestion: null}” · L403
+    - it “duas exclusões seguidas do mesmo nome com proxies diferentes → a mais recente” · L414
+    - it “IN_USE: outra sessão viva criada com o proxy sugerido → available:false e inUseBySession” · L430
+    - it “DEAD: proxy sugerido marcado DEAD → available:false, reason DEAD” · L448
+    - it “DISABLED: proxy sugerido desabilitado → available:false, reason DISABLED” · L465
+    - it “REMOVED: proxy sugerido excluído do pool → proxy null, reason REMOVED” · L484
+    - it “PUT /api/sessions/<ULID apagado>/proxy numa órfã carimbada → 200, carimbo zerado e a sugestão some” · L505
+    - it “carimbo numa sessão AINDA viva é ignorado (só sessões que não existem mais)” · L523
+    - it “nome sem histórico → {suggestion: null}” · L535
+    - it “recriar com o proxy sugerido → 201; a linha antiga segue carimbada e a sugestão vira IN_USE pela própria sess…” · L541
+  - describe “validação e acesso” · L575
+    - it “sem sessionName → 400” · L576
+    - it “sessionName repetido na query (array) → 400” · L598
+    - it “sem login → 401” · L607
+    - it “OPERATOR → 403 (rota é ADMIN)” · L612
+
 ## `gateway/test/session-status-dedup.e2e-spec.ts`
 
 131 linhas · caminho: `apps/gateway/test/session-status-dedup.e2e-spec.ts`
@@ -531,7 +565,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 191 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12

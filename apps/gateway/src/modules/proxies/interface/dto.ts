@@ -47,3 +47,11 @@ export const setAssignmentSchema = z
       path: ['rangeStart'],
     },
   );
+
+// E26 (P-084): mesmo formato do nome na criação de sessão (sessions/interface/dto.ts).
+export const proxySuggestionQuerySchema = z
+  .string({ message: 'sessionName é obrigatório' })
+  .trim()
+  .min(1, 'sessionName é obrigatório')
+  .max(64)
+  .regex(/^[a-zA-Z0-9_-]+$/, 'Use apenas letras, números, _ ou -');

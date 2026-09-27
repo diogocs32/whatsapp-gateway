@@ -65,7 +65,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E23   | 8    | Conversas fiéis — painel: balões e mídia (imagem/áudio/vídeo por blob, sem link que muda a cada 2,5 s) no Inbox e no Atendimento (P-067) + tiques ✓/✓✓ (P-072)                                                                       | `feature/onda8-conversas`         | **antes:** decidir P-074 (decidido: entra)                                                                                                                         | ✅ 25/09           |
 | E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`         | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão)                                                                                | ✅ 26/09           |
 | E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`         | PR #7 mergeado; **deploy G manual pendente**                                                                                                                       | ✅ 26/09           |
-| E26   | 9    | Sugerir o proxy da sessão apagada ao recriar uma sessão com o mesmo nome — sugere, não bloqueia (P-084, pedido do dono em 26/09)                                                                                                     | `feature/onda9-proxy-sugestao`    | merge ao fim; deploy manual posterior (migration aditiva pequena)                                                                                                  | ⬜                 |
+| E26   | 9    | Sugerir o proxy da sessão apagada ao recriar uma sessão com o mesmo nome — sugere, não bloqueia (P-084, pedido do dono em 26/09)                                                                                                     | `feature/onda9-proxy-sugestao`    | merge ao fim; deploy manual posterior (migration aditiva pequena)                                                                                                  | ✅ código 27/09    |
 | E27   | 9    | Link público temporário para conectar uma sessão por QR de outro local — expira ao conectar, prazo máximo, revogação, token opaco (P-086) + filtro de sessões por nome/status/número (P-089), pedidos do dono em 26–27/09            | `feature/onda9-link-conexao-qr`   | merge ao fim; **deploy manual dos 2 apps** (gateway antes do painel; migration aditiva) + aceite com chip ([how-to/link-conexao-qr.md](how-to/link-conexao-qr.md)) | ✅ 27/09 · 27a7dee |
 
 **Ordem e porquê:** a Onda 1 vem antes de tudo porque o stop-first (B-004) só é seguro depois das
@@ -303,6 +303,16 @@ Itens (abordagem A): migration ADITIVA com releasedSessionName + releasedAt (+ �
 No fim: atualize o roteiro, abra o PR da onda 9 com CI verde, e me dê a mensagem da próxima etapa e a lista do que eu preciso fazer.
 ```
 
+### E13 — exclusividade de sessão entre processos (P-056) — abre a Onda 3
+
+```text
+Etapa E13 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-056 — exclusividade de sessão entre processos (lease/fencing + auth store em transação). Hoje, no deploy start-first (B-004), dois containers abrem a mesma conta: disputa de 440, dois escritores do auth store (keys.set sem transação, saveCreds concorrente) e de wa_sessions.status.
+Siga as "Regras de toda etapa". Branch: feature/onda3-e13-exclusividade criada da origin/main atualizada (depois do merge do PR da E26). Passo 0 (engine): conferir versões novas de Baileys/wwebjs (npm view … dist-tags) e a doc oficial/código da versão instalada antes de mexer no auth store.
+LEIA ANTES: a P-056 em docs/PENDENCIAS.md, B-004 (start-first), MAPA-CODIGO §3.4 (shutdown/deploy e consequências do overlap), §3.11 e §5.1 P-056, o aviso E27 em SESSOES (o SessionManager já tem lock de ciclo de vida POR PROCESSO — runExclusive; toda operação dentro do lock precisa de teto) e a D-038 (E26) sobre as limitações de start-first já documentadas.
+Itens: lease por sessão antes da reidratação/start (Redis SET NX com TTL renovado, ou epoch/fencing no Postgres — decidir com documentação oficial e registrar D-xxx); processo sem lease não grava auth/status nem envia (engines em "draining" até soltar); auth store com keys.set em transação e saveCreds encadeado com authEpoch (migration aditiva); DEGRADED com retentativa lenta só para queda de rede. Sem mudança de contrato /api (R0); nada de conta/QR real — provas com dois SessionManagers no mesmo banco/Redis nos e2e.
+No fim: atualize o roteiro, abra o PR com CI verde, faça o merge e me dê a mensagem da próxima etapa e a lista do que eu preciso fazer.
+```
+
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09
 
 ```text
@@ -345,6 +355,17 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064              |
 
 ## Diário de execução
+
+- **27/09 — E26/P-084 (`e26-proxy-sugestao`, branch `feature/onda9-proxy-sugestao` da
+  `origin/main=1fc2f34`; D-038):** apagar sessão com proxy fixo guarda o nome na atribuição órfã e o
+  painel sugere esse proxy ao recriar com o mesmo nome. O que as próximas etapas precisam saber: (1)
+  **as órfãs carimbadas de `session_proxy_assignments` são registro intencional** — nada pode
+  apagá-las (`retention.service.spec.ts` trava); (2) busca sem caixa pelo Prisma (`mode:
+'insensitive'`) vira ILIKE e o `_` do nome é curinga — use `lower(col) = lower($1)` em `$queryRaw`;
+  (3) `setAssignment` (PUT) zera o carimbo; (4) `GET/PUT /sessions/:id/proxy` não resolvem nome
+  (P-097); (5) o formulário "Nova sessão" deriva a escolha do proxy (`lib/proxy-suggestion.ts`,
+  `decideAfterHold`) — mantenha "o que se vê é o que se envia"; (6) harness headless do painel com
+  gateway falso (puppeteer) no scratchpad desta sessão (`dash-e26`) — volátil, recriar se precisar.
 
 - **27/09 — E27/P-086 + P-089 (`e27-link-conexao-qr`, branch `feature/onda9-link-conexao-qr` da
   `origin/main=11e28cb`; PR #17, código `27a7dee`, CI verde no run `36296938202`; D-037):** link público de conexão por QR (só Baileys; criado no painel por

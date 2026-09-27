@@ -10,7 +10,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/application/connect-link.service.ts` | 545 |
 | `modules/sessions/application/engine.port.ts` | 441 |
 | `modules/sessions/application/session-config.service.ts` | 65 |
-| `modules/sessions/application/session-manager.lifecycle.spec.ts` | 772 |
+| `modules/sessions/application/session-manager.lifecycle.spec.ts` | 799 |
 | `modules/sessions/application/session-manager.pairing.spec.ts` | 60 |
 | `modules/sessions/application/session-manager.service.ts` | 1032 |
 | `modules/sessions/application/session-status-order.spec.ts` | 163 |
@@ -61,7 +61,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/interface/dto.ts` | 61 |
 | `modules/sessions/interface/public-connect.controller.ts` | 44 |
 | `modules/sessions/interface/session-ref.pipe.ts` | 30 |
-| `modules/sessions/interface/sessions.controller.ts` | 424 |
+| `modules/sessions/interface/sessions.controller.ts` | 428 |
 | `modules/sessions/sessions.module.ts` | 47 |
 
 ## `modules/sessions/application/connect-link.service.spec.ts`
@@ -423,7 +423,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/sessions/application/session-manager.lifecycle.spec.ts`
 
-772 linhas · caminho: `apps/gateway/src/modules/sessions/application/session-manager.lifecycle.spec.ts`
+799 linhas · caminho: `apps/gateway/src/modules/sessions/application/session-manager.lifecycle.spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/domain/session-status.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/application/session-manager.service.ts`
 
 - describe “SessionManager — lock de ciclo de vida (E27/D-037)” · L206
@@ -441,18 +441,20 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “start da engine nova falhando dentro do newQrForConnectLink propaga o erro e libera o lock” · L516
   - it “isBusy: true durante a operação e na fila, false quando tudo assenta; por sessão” · L533
   - it “logo após o await de uma operação, o failFast do link público não vê a sessão ocupada” · L547
-- describe “SessionManager.requestPairingCode dentro do lock (E27, revisão do diff)” · L558
-  - it “pedido de código pendurado estoura em 45 s (409 na rota) e libera o stop que esperava” · L566
-- describe “SessionManager.rejectConnectedAccount (E27/P-086)” · L595
-  - it “sem engine no mapa (réplica não dona) é no-op” · L596
-  - it “com engine: logout, sai do mapa, persiste e publica STOPPED com o motivo e restaura lastMeJid” · L608
-  - it “publica um único STOPPED (com o motivo): o STOPPED sem motivo do próprio logout é descartado” · L652
-  - it “logout que falha não impede a rejeição (sai do mapa, STOPPED com motivo, lastMeJid)” · L684
-  - it “entra na fila do lock (sem failFast): espera a operação em andamento” · L699
-- describe “SessionManager — leituras do link (E27/P-086)” · L719
-  - it “liveView devolve status+qr da mesma instância e null sem engine; hasEngine acompanha” · L720
-  - it “isRehydrated: false antes do bootstrap, true depois sem candidatos” · L744
-  - it “isRehydrated com candidatos: só vira true quando o laço termina, mesmo com falha no start” · L753
+- describe “SessionManager.remove — ordem para o carimbo de proxy (E26/D-038)” · L558
+  - it “só resolve depois de repo.delete e rejeita se ele rejeitar” · L563
+- describe “SessionManager.requestPairingCode dentro do lock (E27, revisão do diff)” · L585
+  - it “pedido de código pendurado estoura em 45 s (409 na rota) e libera o stop que esperava” · L593
+- describe “SessionManager.rejectConnectedAccount (E27/P-086)” · L622
+  - it “sem engine no mapa (réplica não dona) é no-op” · L623
+  - it “com engine: logout, sai do mapa, persiste e publica STOPPED com o motivo e restaura lastMeJid” · L635
+  - it “publica um único STOPPED (com o motivo): o STOPPED sem motivo do próprio logout é descartado” · L679
+  - it “logout que falha não impede a rejeição (sai do mapa, STOPPED com motivo, lastMeJid)” · L711
+  - it “entra na fila do lock (sem failFast): espera a operação em andamento” · L726
+- describe “SessionManager — leituras do link (E27/P-086)” · L746
+  - it “liveView devolve status+qr da mesma instância e null sem engine; hasEngine acompanha” · L747
+  - it “isRehydrated: false antes do bootstrap, true depois sem candidatos” · L771
+  - it “isRehydrated com candidatos: só vira true quando o laço termina, mesmo com falha no start” · L780
 
 ## `modules/sessions/application/session-manager.pairing.spec.ts`
 
@@ -547,7 +549,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - banco: `waAuthKey.deleteMany`, `waSession.updateMany`
 - `newQr(sessionId)` · L581
   - chama: `newQrUnlocked` L651, `runExclusive` L303
-  - chamado por: `SessionsController.newQr` (sessions.controller.ts:382)
+  - chamado por: `SessionsController.newQr` (sessions.controller.ts:386)
 - `newQrForConnectLink(sessionId, check)` · L589
   - chama: `IEngine.getStatus` (engine.port.ts:383), `constructor` L55, `newQrUnlocked` L651, `runExclusive` L303
   - chamado por: `ConnectLinkService.requestNewQr` (connect-link.service.ts:386)
@@ -566,13 +568,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `remove` L672
 - `getQr(sessionId)` · L691
   - chama: `IEngine.getQrBase64` (engine.port.ts:379)
-  - chamado por: `SessionsController.qr` (sessions.controller.ts:366)
+  - chamado por: `SessionsController.qr` (sessions.controller.ts:370)
 - `getPairingCode(sessionId)` · L695
   - chama: `IEngine.getPairingCode` (engine.port.ts:382)
-  - chamado por: `SessionsController.qr` (sessions.controller.ts:366)
+  - chamado por: `SessionsController.qr` (sessions.controller.ts:370)
 - `requestPairingCode(sessionId, phoneNumber)` · L699
   - chama: `requestPairingCodeUnlocked` L705, `runExclusive` L303
-  - chamado por: `SessionsController.pairingCode` (sessions.controller.ts:389)
+  - chamado por: `SessionsController.pairingCode` (sessions.controller.ts:393)
 - `requestPairingCodeUnlocked(sessionId, phoneNumber)` · L705 · private · async
   - chama: `IEngine.getStatus` (engine.port.ts:383), `IEngine.requestPairingCode` (engine.port.ts:340), `IEngine.start` (engine.port.ts:329), `getOrCreateEngine` L165, `rejectAfter` L751, `startWithTimeout` L470, `SessionRepository.findById` (session.repository.ts:33)
   - chamado por: `requestPairingCode` L699
@@ -850,7 +852,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 57 linhas · caminho: `apps/gateway/src/modules/sessions/domain/session.repository.ts`
 - importa (interno): `modules/sessions/domain/session-status.ts`, `modules/sessions/domain/session.entity.ts`
-- importado por: `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`
+- importado por: `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `SESSION_REPOSITORY` = `Symbol('SESSION_REPOSITORY')` · L56
@@ -865,7 +867,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - chamado por: `SessionsController.create` (sessions.controller.ts:102)
   - `SessionRepository.findById(id)` · L33
     - implementado por: `PrismaSessionRepository.findById` (prisma-session.repository.ts:72)
-    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:705), `SessionManager.startUnlocked` (session-manager.service.ts:459), `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:102), `SessionsController.ensure` (sessions.controller.ts:418)
+    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:705), `SessionManager.startUnlocked` (session-manager.service.ts:459), `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:102), `SessionsController.ensure` (sessions.controller.ts:422)
   - `SessionRepository.findByName(name)` · L34
     - implementado por: `PrismaSessionRepository.findByName` (prisma-session.repository.ts:77)
     - chamado por: `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:102)
@@ -2430,7 +2432,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/sessions/interface/sessions.controller.ts`
 
-424 linhas · caminho: `apps/gateway/src/modules/sessions/interface/sessions.controller.ts`
+428 linhas · caminho: `apps/gateway/src/modules/sessions/interface/sessions.controller.ts`
 - importa (interno): `shared-kernel/safe-fetch.ts`, `shared-kernel/ulid.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/license.service.ts`, `modules/proxies/application/proxy.service.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.decorator.ts`, `modules/iam/interface/roles.guard.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/interface/dto.ts`
 - importado por: `modules/sessions/sessions.module.ts`
 
@@ -2438,11 +2440,11 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `repo: @Inject(SESSION_REPOSITORY) SessionRepository` · `manager: SessionManager` · `license: LicenseService` · `guardrail: GuardrailService` · `sessionConfig: SessionConfigService` · `proxies: ProxyService` · `connectLinks: ConnectLinkService`
 - `constructor(repo, manager, license, guardrail, sessionConfig, proxies, …)` · L92
 - `create(body)` · L102 · async · @Post · @MinRole('ADMIN')
-  - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:232), `ProxyService.ensureAvailable` (proxy.service.ts:218), `SessionManager.start` (session-manager.service.ts:455), `SessionRepository.create` (session.repository.ts:32), `SessionRepository.delete` (session.repository.ts:48), `SessionRepository.findById` (session.repository.ts:33), `SessionRepository.findByName` (session.repository.ts:34), `SessionRepository.list` (session.repository.ts:35), `toDto` L46, `newId` (ulid.ts:4)
+  - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:247), `ProxyService.ensureAvailable` (proxy.service.ts:233), `SessionManager.start` (session-manager.service.ts:455), `SessionRepository.create` (session.repository.ts:32), `SessionRepository.delete` (session.repository.ts:48), `SessionRepository.findById` (session.repository.ts:33), `SessionRepository.findByName` (session.repository.ts:34), `SessionRepository.list` (session.repository.ts:35), `toDto` L46, `newId` (ulid.ts:4)
 - `list(state)` · L159 · async · @Get
   - chama: `GuardrailService.statesFor` (guardrail.service.ts:617), `SessionRepository.list` (session.repository.ts:35), `toDto` L46
 - `get(id)` · L179 · async · @Get(':id')
-  - chama: `ensure` L418, `toDto` L46
+  - chama: `ensure` L422, `toDto` L46
 - `health(id)` · L185 · async · @Get(':id/health')
   - chama: `GuardrailService.health` (guardrail.service.ts:591), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20)
 - `getConfig(id)` · L194 · async · @Get(':id/config')
@@ -2469,24 +2471,24 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `GuardrailService.setManualState` (guardrail.service.ts:575)
   - chamado por: `activate` L311, `pause` L316, `quarantine` L301, `warmup` L306
 - `start(id)` · L326 · async · @Post(':id/start')
-  - chama: `SessionManager.start` (session-manager.service.ts:455), `ensure` L418
+  - chama: `SessionManager.start` (session-manager.service.ts:455), `ensure` L422
 - `stop(id)` · L333 · async · @Post(':id/stop')
-  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.stop` (session-manager.service.ts:532), `ensure` L418
+  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.stop` (session-manager.service.ts:532), `ensure` L422
 - `restart(id)` · L343 · async · @Post(':id/restart')
-  - chama: `SessionManager.restart` (session-manager.service.ts:540), `ensure` L418
+  - chama: `SessionManager.restart` (session-manager.service.ts:540), `ensure` L422
 - `logout(id)` · L350 · async · @Post(':id/logout')
-  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.logout` (session-manager.service.ts:548), `ensure` L418
+  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.logout` (session-manager.service.ts:548), `ensure` L422
 - `remove(id)` · L358 · async · @Delete(':id') · @MinRole('ADMIN')
-  - chama: `MinRole` (roles.decorator.ts:8), `SessionManager.remove` (session-manager.service.ts:672), `ensure` L418
-- `qr(id)` · L366 · async · @Get(':id/qr')
-  - chama: `SessionManager.getPairingCode` (session-manager.service.ts:695), `SessionManager.getQr` (session-manager.service.ts:691), `ensure` L418
-- `newQr(id)` · L382 · async · @Post(':id/new-qr')
-  - chama: `SessionManager.newQr` (session-manager.service.ts:581), `ensure` L418
-- `pairingCode(id, body)` · L389 · async · @Post(':id/pairing-code')
-  - chama: `SessionManager.requestPairingCode` (session-manager.service.ts:699), `ensure` L418
-- `ensure(id)` · L418 · private · async
+  - chama: `MinRole` (roles.decorator.ts:8), `ProxyService.markReleased` (proxy.service.ts:285), `SessionManager.remove` (session-manager.service.ts:672), `ensure` L422
+- `qr(id)` · L370 · async · @Get(':id/qr')
+  - chama: `SessionManager.getPairingCode` (session-manager.service.ts:695), `SessionManager.getQr` (session-manager.service.ts:691), `ensure` L422
+- `newQr(id)` · L386 · async · @Post(':id/new-qr')
+  - chama: `SessionManager.newQr` (session-manager.service.ts:581), `ensure` L422
+- `pairingCode(id, body)` · L393 · async · @Post(':id/pairing-code')
+  - chama: `SessionManager.requestPairingCode` (session-manager.service.ts:699), `ensure` L422
+- `ensure(id)` · L422 · private · async
   - chama: `SessionRepository.findById` (session.repository.ts:33)
-  - chamado por: `get` L179, `logout` L350, `newQr` L382, `pairingCode` L389, `qr` L366, `remove` L358, `restart` L343, `start` L326, `stop` L333
+  - chamado por: `get` L179, `logout` L350, `newQr` L386, `pairingCode` L393, `qr` L370, `remove` L358, `restart` L343, `start` L326, `stop` L333
 
 **Funções e constantes de topo**
 - `toDto(s)` · L46

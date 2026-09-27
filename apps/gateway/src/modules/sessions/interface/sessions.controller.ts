@@ -358,8 +358,12 @@ export class SessionsController {
   @Delete(':id')
   @MinRole('ADMIN')
   async remove(@Param('id', SessionRefPipe) id: string) {
-    await this.ensure(id);
+    const session = await this.ensure(id);
     await this.manager.remove(id);
+    // E26 (P-084, D-038): guarda o proxy fixo da sessão apagada para sugerir ao recriar com o mesmo
+    // nome. DEPOIS de apagar (a atribuição não tem FK e sobrevive): se a exclusão falhar, não fica
+    // carimbo em sessão viva. Nunca lança nem muda a resposta.
+    await this.proxies.markReleased(id, session.name);
     return { ok: true };
   }
 

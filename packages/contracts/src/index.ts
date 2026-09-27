@@ -624,6 +624,24 @@ export interface ProxyDto {
   enabled: boolean;
 }
 
+// E26 (P-084, D-038) — GET /api/proxies/suggestion?sessionName=X: o proxy fixo (SINGLE) que a sessão
+// apagada com esse nome usava (nome igual sem diferenciar caixa; prefere a mesma caixa e a exclusão
+// mais recente). O painel pré-seleciona quando `available`; senão só avisa.
+export type ProxySuggestionReason = 'IN_USE' | 'DEAD' | 'DISABLED' | 'REMOVED';
+
+export interface ProxySuggestionDto {
+  proxy: ProxyDto | null; // null só com reason REMOVED (proxy excluído do pool)
+  fromSession: string; // nome como a sessão foi apagada
+  releasedAt: string;
+  available: boolean;
+  reason: ProxySuggestionReason | null;
+  inUseBySession: string | null; // com IN_USE: a sessão viva que está com o proxy
+}
+
+export interface ProxySuggestionResponse {
+  suggestion: ProxySuggestionDto | null;
+}
+
 export interface CreateProxyRequest {
   label?: string;
   protocol?: ProxyProtocol;

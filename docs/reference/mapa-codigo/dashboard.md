@@ -21,8 +21,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/components/chat/Ticks.tsx` | 29 |
 | `dashboard/components/chat/use-media.ts` | 66 |
 | `dashboard/components/sessions/ConnectLinkDialog.tsx` | 505 |
-| `dashboard/lib/api.spec.ts` | 164 |
-| `dashboard/lib/api.ts` | 577 |
+| `dashboard/lib/api.spec.ts` | 212 |
+| `dashboard/lib/api.ts` | 589 |
 | `dashboard/lib/auth.tsx` | 90 |
 | `dashboard/lib/branding.tsx` | 129 |
 | `dashboard/lib/connect-link-memory.spec.ts` | 53 |
@@ -44,6 +44,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/media.ts` | 32 |
 | `dashboard/lib/message-format.spec.ts` | 440 |
 | `dashboard/lib/message-format.ts` | 426 |
+| `dashboard/lib/proxy-suggestion.spec.ts` | 427 |
+| `dashboard/lib/proxy-suggestion.ts` | 223 |
 | `dashboard/lib/public-connect.spec.ts` | 243 |
 | `dashboard/lib/public-connect.ts` | 133 |
 | `dashboard/lib/send-feedback.spec.ts` | 61 |
@@ -69,7 +71,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/routes/Login.tsx` | 81 |
 | `dashboard/routes/Monitor.tsx` | 137 |
 | `dashboard/routes/Proxies.tsx` | 635 |
-| `dashboard/routes/Sessions.tsx` | 655 |
+| `dashboard/routes/Sessions.tsx` | 956 |
 | `dashboard/routes/Users.tsx` | 259 |
 | `dashboard/routes/Webhooks.tsx` | 257 |
 
@@ -316,7 +318,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/lib/api.spec.ts`
 
-164 linhas · caminho: `apps/dashboard/src/lib/api.spec.ts`
+212 linhas · caminho: `apps/dashboard/src/lib/api.spec.ts`
 - importa (interno): `dashboard/lib/api.ts`
 
 - describe “api.sessions.forward” · L17
@@ -329,48 +331,52 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - describe “api.sessions.connectLink” · L112
   - it “get/create/revoke: rota com o id codificado, método e corpo certos, cookie” · L113
   - it “409 do criar chega com o code” · L142
+- describe “api.proxies.suggestion” · L166
+  - it “GET com o nome codificado na query, cookie, sem Content-Type e com o signal de quem chama” · L167
+  - it “sem init: no-store do mesmo jeito; init do chamador pode sobrescrever” · L191
+  - it “403 (OPERATOR) chega como ApiError para quem chama engolir” · L202
 
 ## `dashboard/lib/api.ts`
 
-577 linhas · caminho: `apps/dashboard/src/lib/api.ts`
+589 linhas · caminho: `apps/dashboard/src/lib/api.ts`
 - importa (interno): `contracts/index.ts`
 - importado por: `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.spec.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/media.ts`, `dashboard/lib/public-connect.spec.ts`, `dashboard/lib/public-connect.ts`, `dashboard/lib/use-live-stream.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
 
-**class `ApiError`** L62 · `extends Error`
+**class `ApiError`** L63 · `extends Error`
 - injeta (construtor): `status: number` · `message: string (param)` · `code: string` · `body: unknown`
-- `constructor(status, message, code, body)` · L63
-  - chamado por: `parseError` L129
+- `constructor(status, message, code, body)` · L64
+  - chamado por: `parseError` L130
 
 **Funções e constantes de topo**
-- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L57
+- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L58
   - env: `VITE_API_URL`
-- `setUnauthorizedHandler(fn)` · L83
+- `setUnauthorizedHandler(fn)` · L84
   - chamado por: `AuthProvider` (auth.tsx:24)
-- `isAuthEndpoint(path)` · L88
-  - chamado por: `coreFetch` L112
-- `tryRefresh()` · L96
-  - chamado por: `coreFetch` L112
-- `coreFetch(path, init, allowRefresh)` · L112 · async
-  - chama: `isAuthEndpoint` L88, `tryRefresh` L96
-  - chamado por: `request` L146, `requestBlob` L165, `requestForm` L172
-- `parseError(res)` · L129 · async
-  - chama: `constructor` L63
-  - chamado por: `request` L146, `requestBlob` L165, `requestForm` L172
-- `request(path, init)` · L146 · async
-  - chama: `coreFetch` L112, `parseError` L129
-  - chamado por: `api` L180
-- `requestBlob(path, signal)` · L165 · async
-  - chama: `coreFetch` L112, `parseError` L129
-  - chamado por: `api` L180
-- `requestForm(path, form)` · L172 · async
-  - chama: `coreFetch` L112, `parseError` L129
-  - chamado por: `api` L180
-- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L180
-  - chama: `request` L146, `requestBlob` L165, `requestForm` L172
-  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${encodeURIComponent(id)}/connect-link`, `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIC…`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
+- `isAuthEndpoint(path)` · L89
+  - chamado por: `coreFetch` L113
+- `tryRefresh()` · L97
+  - chamado por: `coreFetch` L113
+- `coreFetch(path, init, allowRefresh)` · L113 · async
+  - chama: `isAuthEndpoint` L89, `tryRefresh` L97
+  - chamado por: `request` L147, `requestBlob` L166, `requestForm` L173
+- `parseError(res)` · L130 · async
+  - chama: `constructor` L64
+  - chamado por: `request` L147, `requestBlob` L166, `requestForm` L173
+- `request(path, init)` · L147 · async
+  - chama: `coreFetch` L113, `parseError` L130
+  - chamado por: `api` L181
+- `requestBlob(path, signal)` · L166 · async
+  - chama: `coreFetch` L113, `parseError` L130
+  - chamado por: `api` L181
+- `requestForm(path, form)` · L173 · async
+  - chama: `coreFetch` L113, `parseError` L130
+  - chamado por: `api` L181
+- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L181
+  - chama: `request` L147, `requestBlob` L166, `requestForm` L173
+  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/suggestion?sessionName=${encodeURIComponent(sess…`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${encodeURIComponent(id)}/connect-link`, `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIC…`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
 
 **Tipos**
-- type `Ok` L178
+- type `Ok` L179
 
 ## `dashboard/lib/auth.tsx`
 
@@ -381,9 +387,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `AuthContext` = `createContext<AuthState | null>(null)` · L22
 - `AuthProvider({ children })` · L24
-  - chama: `setUnauthorizedHandler` (api.ts:83), `clearRememberedLinkUrls` (connect-link-memory.ts:43), `isPublicPath` (connect-path.ts:5), `MediaCache.clear` (media-cache.ts:51)
+  - chama: `setUnauthorizedHandler` (api.ts:84), `clearRememberedLinkUrls` (connect-link-memory.ts:43), `isPublicPath` (connect-path.ts:5), `MediaCache.clear` (media-cache.ts:51)
 - `useAuth()` · L85
-  - chamado por: `Protected` (App.tsx:50), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:256), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
+  - chamado por: `Protected` (App.tsx:50), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:306), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
 
 **Tipos**
 - interface `AuthState` L15 · 4 propriedade(s)
@@ -834,7 +840,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `stripDevice(jid)` · L6
   - chamado por: `ChatThread` (ChatThread.tsx:39), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
 - `numberFromJid(jid)` · L11
-  - chamado por: `who` (Reactions.tsx:8), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `sessionNumbers` (session-filter.ts:100), `Atendimento` (Atendimento.tsx:73), `Sessions` (Sessions.tsx:256)
+  - chamado por: `who` (Reactions.tsx:8), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `sessionNumbers` (session-filter.ts:100), `Atendimento` (Atendimento.tsx:73), `Sessions` (Sessions.tsx:306)
 - `isPhoneJid(jid)` · L16
   - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54, `sendTarget` L22
 - `isGroupJid(jid)` · L18
@@ -1146,6 +1152,88 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `ContactCard` L190 · 2 propriedade(s)
 - type `BubbleContent` L249
 
+## `dashboard/lib/proxy-suggestion.spec.ts`
+
+427 linhas · caminho: `apps/dashboard/src/lib/proxy-suggestion.spec.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/time-format.ts`
+
+- describe “isValidSessionName (mesma regex do create no gateway)” · L69
+  - it “aceita letras, números, _ e -, de 1 a 64” · L70
+  - it “recusa vazio, >64, espaço, acento e outros símbolos” · L76
+- describe “suggestionView (E26)” · L83
+  - it “sem sugestão: só a lista, sem proxy, sem aviso” · L84
+  - it “disponível e na lista: pré-seleciona com o texto de sugestão” · L95
+  - it “lista chegando DEPOIS da sugestão: pré-seleciona do mesmo jeito” · L108
+  - it “available fora da lista (lista velha): vira opção extra, na ordem de posição, pré-selecionada” · L118
+  - it “nome mudando desfaz a pré-seleção (resposta de outro nome é ignorada)” · L125
+  - it “forName diferente ignorado mesmo com o proxy fora da lista (sem opção extra)” · L133
+  - it “escolha manual preservada: sugerido livre vira aviso + "Usar este proxy"” · L144
+  - it “choice '' (dono escolheu Sem proxy) é preservada” · L156
+  - it “dono aplicou a sugestão (choice = sugerido): fica selecionado, sem botão” · L165
+  - it “manualChoiceLost: escolha manual saiu da lista → Sem proxy + aviso” · L172
+  - it “manualChoiceLost com sugerido livre: os dois avisos e o botão” · L182
+  - it “IN_USE: cita a sessão que está com o proxy; sem nome, "outra sessão"” · L192
+  - it “DEAD e DISABLED: avisam sem pré-selecionar” · L215
+  - it “REMOVED com proxy null: frase sem #N (nunca lê proxy.*)” · L240
+  - it “proxy null mesmo com available:true (defensivo) não quebra nem pré-seleciona” · L254
+  - it “label null: só "#N"” · L262
+  - it “diferença de caixa: pré-seleciona, cita o nome como foi apagado e avisa” · L273
+  - it “create segurado (held): pede para conferir e criar de novo” · L284
+  - it “tempo: "agora", horas e, depois de 24 h, data e hora” · L291
+  - it “data null (sem memória ou erro): nada muda” · L305
+- describe “mustHoldCreate (E26)” · L312
+  - it “segura: automático, nome válido e a sugestão desse nome ainda não chegou” · L315
+  - it “não segura com escolha do dono (manual ou Sem proxy)” · L320
+  - it “não segura se a sugestão já resolveu para esse nome” · L325
+  - it “não segura com nome inválido ou já em uso” · L329
+- describe “decideAfterHold (E26 — "Criar" segurado depois da consulta)” · L336
+  - it “sugestão pré-selecionável (via "Sem proxy" no clique) → segura” · L359
+  - it “sugestão null, indisponível ou REMOVED → cria com ""” · L363
+  - it “erro ou teto SEM mudança na tela → cria com o que está na tela” · L375
+  - it “erro ou teto COM mudança (o debounce pré-selecionou na espera) → segura” · L386
+  - it “o dono via o sugerido (resposta velha) e agora está IN_USE → segura” · L392
+  - it “pré-seleção igual à vista no clique → cria com ela” · L401
+  - it “escolha manual feita durante a espera → cria com a escolha” · L408
+  - it “nome mudado durante a espera → não cria” · L418
+
+## `dashboard/lib/proxy-suggestion.ts`
+
+223 linhas · caminho: `apps/dashboard/src/lib/proxy-suggestion.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/time-format.ts`
+- importado por: `dashboard/lib/proxy-suggestion.spec.ts`, `dashboard/routes/Sessions.tsx`
+
+**Funções e constantes de topo**
+- `SESSION_NAME_RE` = `/^[a-zA-Z0-9_-]{1,64}$/` · L13
+- `isValidSessionName(trimmed)` · L15
+  - chamado por: `mustHoldCreate` L178, `Sessions` (Sessions.tsx:306)
+- `proxyShortLabel(p)` · L65
+  - chamado por: `suggestionView` L111, `unavailableText` L92
+- `releasedText(releasedAt, now)` · L72
+  - chama: `fullDateTime` (time-format.ts:13), `since` (time-format.ts:32)
+  - chamado por: `sessionRef` L79
+- `sessionRef(data, trimmedName, now)` · L79
+  - chama: `releasedText` L72
+  - chamado por: `suggestionView` L111
+- `unavailableText(data, ref)` · L92
+  - chama: `proxyShortLabel` L65
+  - chamado por: `suggestionView` L111
+- `suggestionView(input)` · L111
+  - chama: `proxyShortLabel` L65, `sessionRef` L79, `unavailableText` L92
+  - chamado por: `Sessions` (Sessions.tsx:306)
+- `mustHoldCreate(input)` · L178
+  - chama: `isValidSessionName` L15
+  - chamado por: `Sessions` (Sessions.tsx:306)
+- `decideAfterHold(input)` · L205
+  - chamado por: `Sessions` (Sessions.tsx:306)
+
+**Tipos**
+- interface `SuggestionState` L20 · 2 propriedade(s)
+- type `SuggestionTone` L25
+- interface `SuggestionNote` L27 · 2 propriedade(s)
+- interface `SuggestionViewInput` L32 · 6 propriedade(s)
+- interface `SuggestionView` L43 · 7 propriedade(s)
+- type `HoldDecision` L200
+
 ## `dashboard/lib/public-connect.spec.ts`
 
 243 linhas · caminho: `apps/dashboard/src/lib/public-connect.spec.ts`
@@ -1245,12 +1333,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `parseSessionFilter` L44
 - `parseSessionFilter(params)` · L44
   - chama: `isStatusFilter` L36
-  - chamado por: `Sessions` (Sessions.tsx:256)
+  - chamado por: `Sessions` (Sessions.tsx:306)
 - `sessionFilterToParams(filter, base)` · L56
-  - chamado por: `Sessions` (Sessions.tsx:256)
+  - chamado por: `Sessions` (Sessions.tsx:306)
 - `isSessionFilterActive(filter)` · L71
   - chama: `digitsOf` L82
-  - chamado por: `filterSessions` L135, `Sessions` (Sessions.tsx:256)
+  - chamado por: `filterSessions` L135, `Sessions` (Sessions.tsx:306)
 - `fold(text)` · L78
   - chamado por: `matchesSessionFilter` L114
 - `digitsOf(text)` · L82
@@ -1265,7 +1353,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `filterSessions` L135
 - `filterSessions(sessions, filter)` · L135
   - chama: `isSessionFilterActive` L71, `matchesSessionFilter` L114
-  - chamado por: `Sessions` (Sessions.tsx:256)
+  - chamado por: `Sessions` (Sessions.tsx:306)
 
 **Tipos**
 - type `SessionStatusFilter` L19
@@ -1284,18 +1372,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `dashboard/lib/time-format.ts`
 
 40 linhas · caminho: `apps/dashboard/src/lib/time-format.ts`
-- importado por: `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/time-format.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
+- importado por: `dashboard/components/chat/MessageBubble.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/proxy-suggestion.spec.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/time-format.spec.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`
 
 **Funções e constantes de topo**
 - `clock(iso)` · L5
   - chamado por: `MessageBubble` (MessageBubble.tsx:30), `dayTime` (connect-link.ts:44), `successView` (connect-link.ts:308), `listTime` L24, `Atendimento` (Atendimento.tsx:73)
 - `fullDateTime(iso)` · L13
-  - chamado por: `MessageBubble` (MessageBubble.tsx:30)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30), `releasedText` (proxy-suggestion.ts:72)
 - `listTime(iso, now)` · L24
   - chama: `clock` L5
   - chamado por: `Inbox` (Inbox.tsx:19)
 - `since(iso, now)` · L32
-  - chamado por: `lastSeenLabel` (connect-link.ts:615), `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `lastSeenLabel` (connect-link.ts:615), `releasedText` (proxy-suggestion.ts:72), `Atendimento` (Atendimento.tsx:73)
 
 ## `dashboard/lib/use-live-stream.ts`
 
@@ -1489,14 +1577,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/routes/Sessions.tsx`
 
-655 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/session-filter.ts`
+956 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/session-filter.ts`
 
 **Funções e constantes de topo**
-- `StatusBadge({ status })` · L37
-- `ConnectModal({ session, onClose, onOpenLink, })` · L46
-- `Sessions()` · L256
-  - chama: `useAuth` (auth.tsx:85), `numberFromJid` (jid.ts:11), `filterSessions` (session-filter.ts:135), `isSessionFilterActive` (session-filter.ts:71), `parseSessionFilter` (session-filter.ts:44), `sessionFilterToParams` (session-filter.ts:56)
+- `suggestionWithCap(sessionName)` · L70 · async
+  - chamado por: `Sessions` L306
+- `StatusBadge({ status })` · L87
+- `ConnectModal({ session, onClose, onOpenLink, })` · L96
+- `Sessions()` · L306
+  - chama: `useAuth` (auth.tsx:85), `numberFromJid` (jid.ts:11), `decideAfterHold` (proxy-suggestion.ts:205), `isValidSessionName` (proxy-suggestion.ts:15), `mustHoldCreate` (proxy-suggestion.ts:178), `suggestionView` (proxy-suggestion.ts:111), `filterSessions` (session-filter.ts:135), `isSessionFilterActive` (session-filter.ts:71), `parseSessionFilter` (session-filter.ts:44), `sessionFilterToParams` (session-filter.ts:56), `suggestionWithCap` L70
 
 ## `dashboard/routes/Users.tsx`
 

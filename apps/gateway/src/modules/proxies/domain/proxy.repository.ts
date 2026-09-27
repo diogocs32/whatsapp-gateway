@@ -1,4 +1,5 @@
 import type { Proxy, ProxyAssignment } from './proxy.entity';
+import type { ReleasedAssignment } from './proxy-suggestion';
 import type {
   ProxyMode,
   ProxyProtocol,
@@ -58,6 +59,19 @@ export interface ProxyRepository {
   // Ids de proxies "em uso" = currentProxyId de assignment de sessão EXISTENTE (mode ≠ NONE).
   // session_proxy_assignments não tem FK p/ wa_sessions — assignments órfãos não contam.
   usedProxyIds(): Promise<string[]>;
+  // Nome da sessão viva que usa o proxy (mesma régua do usedProxyIds) — ou null.
+  proxyOwnerName(proxyId: string): Promise<string | null>;
+
+  // E26 (P-084, D-038) — carimbo da atribuição SINGLE com proxy de uma sessão já apagada.
+  // Devolve quantas linhas carimbou (0 = a sessão não tinha proxy fixo).
+  markReleased(
+    sessionId: string,
+    sessionName: string,
+    at: Date,
+  ): Promise<number>;
+  // Carimbos com o nome igual sem diferenciar caixa (igualdade exata em minúsculas — nunca
+  // padrão/ILIKE), só SINGLE com proxy e de sessões que não existem mais; mais recentes primeiro.
+  findReleasedByName(name: string): Promise<ReleasedAssignment[]>;
 }
 
 export const PROXY_REPOSITORY = Symbol('PROXY_REPOSITORY');

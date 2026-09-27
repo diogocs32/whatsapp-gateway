@@ -555,6 +555,33 @@ describe('SessionManager — erro e fila (E27/D-037)', () => {
   });
 });
 
+describe('SessionManager.remove — ordem para o carimbo de proxy (E26/D-038)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  // O SessionsController carimba a atribuição de proxy DEPOIS de `manager.remove` resolver: a
+  // premissa é que remove só resolve com a linha de wa_sessions já apagada (e rejeita se não).
+  it('só resolve depois de repo.delete e rejeita se ele rejeitar', async () => {
+    const h = harness();
+    await h.startEngine('STOPPED');
+    const gate = deferred();
+    h.repo.delete.mockImplementationOnce(async () => {
+      await gate.promise;
+    });
+    let done = false;
+    const removing = h.manager.remove(SID).then(() => {
+      done = true;
+    });
+    await flush();
+    expect(done).toBe(false);
+    gate.resolve();
+    await removing;
+    expect(done).toBe(true);
+
+    h.repo.delete.mockRejectedValueOnce(new Error('banco fora'));
+    await expect(h.manager.remove(SID)).rejects.toThrow('banco fora');
+  });
+});
+
 describe('SessionManager.requestPairingCode dentro do lock (E27, revisão do diff)', () => {
   afterEach(() => {
     vi.useRealTimers();

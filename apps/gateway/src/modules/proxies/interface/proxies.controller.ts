@@ -8,8 +8,10 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import type { ProxySuggestionResponse } from '@whatsapp-gateway/contracts';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
 import { RolesGuard } from '../../iam/interface/roles.guard';
@@ -18,6 +20,7 @@ import type { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import {
   bulkImportSchema,
   createProxySchema,
+  proxySuggestionQuerySchema,
   setAssignmentSchema,
 } from './dto';
 
@@ -66,6 +69,31 @@ export class ProxiesController {
   @Get('proxies/available')
   async listAvailable() {
     return (await this.service.listAvailable()).map(toDto);
+  }
+
+  // E26 (P-084, D-038): o proxy que a sessão apagada com esse nome usava — o painel sugere na
+  // criação. `{suggestion: null}` quando não há memória. ADMIN (como criar/apagar sessão).
+  @Get('proxies/suggestion')
+  async suggestion(
+    @Query('sessionName') sessionName: unknown,
+  ): Promise<ProxySuggestionResponse> {
+    const parsed = proxySuggestionQuerySchema.safeParse(sessionName);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'sessionName inválido',
+      );
+    }
+    const s = await this.service.suggestionFor(parsed.data);
+    return {
+      suggestion: s && {
+        proxy: s.proxy ? toDto(s.proxy) : null,
+        fromSession: s.fromSession,
+        releasedAt: s.releasedAt.toISOString(),
+        available: s.available,
+        reason: s.reason,
+        inUseBySession: s.inUseBySession,
+      },
+    };
   }
 
   @Get('proxies/webshare/status')
