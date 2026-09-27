@@ -478,6 +478,17 @@ describe('Baileys — versão por conexão (E9/P-049)', () => {
 
     await engine.start();
     expect(versionMocks.makeSocket).toHaveBeenCalledOnce();
+    expect(versionMocks.makeSocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        countryCode: 'BR',
+        msgRetryCounterCache: expect.objectContaining({
+          getStats: expect.any(Function),
+        }),
+        userDevicesCache: expect.objectContaining({
+          getStats: expect.any(Function),
+        }),
+      }),
+    );
     await onConnectionUpdate({ connection: 'open' });
     expect(engine.getStatus()).toBe('WORKING');
     events.length = 0;

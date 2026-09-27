@@ -17,6 +17,7 @@ export const fakeSessionManager = {
   newQr: async () => undefined,
   remove: async () => undefined,
   getQr: () => null,
+  getPairingCode: () => null,
   requestPairingCode: async () => '12345678',
   sendText: async () => ({
     keyId: 'fake-key',

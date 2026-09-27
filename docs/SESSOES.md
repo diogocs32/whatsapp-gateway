@@ -8,14 +8,23 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                      | Início      | Objetivo                                                                                                      | Escopo                                                        | Branch                    |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------- |
+| lid-envio-wwebjs        | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs              | fix/lid-envio-wwebjs      |
+| e12-baileys-pairing-lid | 26/09 22:31 | E12/P-052: guarda do pairing, LID do roster, medição de caches e pre-keys                                     | `modules/sessions` (Baileys/manager/controller/testes) + docs | feature/onda2-baileys-e12 |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **26/09 · e12-baileys-pairing-lid (E12/P-052 em código; sem deploy):**
+  `POST /pairing-code` passa a 409 para WORKING ou credenciais `me` existentes e espera
+  `connecting`/primeiro QR por até 10 s em sessão nova; o payload de sucesso não muda.
+  Roster Baileys lê `phoneNumber` e só usa `lidMapping` local quando falta PN. Caches de retry e
+  devices são medidos por socket (log agregado a cada 15 min) junto com pre-keys por sessão;
+  nenhuma externalização foi feita. `countryCode: BR` é só coerência. Quem mexer em pairing,
+  grupo ou observabilidade deve preservar essas regras. P-087 permanece independente.
 
 - **26/09 · e11-baileys-patch (E11/P-051, PR #15 integrado à `main`; sem deploy):**
   a rc14 agora recebe patch-package para `Curve.verify`, domínio hosted por device e stream HTTP

@@ -1,7 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
-import { createTestApp, inject, login } from './setup-app';
+import { BaileysCacheObserver } from '../src/modules/sessions/infrastructure/baileys/baileys-cache-observer';
+import { createTestApp, fakeSessionManager, inject, login } from './setup-app';
 
 describe('Sessions (e2e)', () => {
   let app: NestFastifyApplication;
@@ -96,6 +97,73 @@ describe('Sessions (e2e)', () => {
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().ok).toBe(true);
+  });
+
+  it('POST /pairing-code de sessão WORKING → 409 sem código (socket sintético)', async () => {
+    const name = 'e2e-' + Math.random().toString(36).slice(2, 8);
+    const create = await inject(app, {
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { ...auth(), 'content-type': 'application/json' },
+      payload: { name, engine: 'BAILEYS' },
+    });
+    expect(create.statusCode).toBe(201);
+    await prisma.waSession.update({
+      where: { id: create.json().id as string },
+      data: { status: 'WORKING' },
+    });
+    const pairing = vi
+      .spyOn(fakeSessionManager, 'requestPairingCode')
+      .mockRejectedValueOnce(
+        new Error('Sessão já pareada; código de pareamento indisponível'),
+      );
+    try {
+      const res = await inject(app, {
+        method: 'POST',
+        url: `/api/sessions/${name}/pairing-code`,
+        headers: { ...auth(), 'content-type': 'application/json' },
+        payload: { phoneNumber: '5511999999999' },
+      });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().message).toContain('já pareada');
+      expect(pairing).toHaveBeenCalledOnce();
+    } finally {
+      pairing.mockRestore();
+    }
+  });
+
+  it('conta pre-keys só da sessão escolhida, sem incluir outros tipos ou sessões', async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const name = 'e2e-' + Math.random().toString(36).slice(2, 8);
+      const created = await inject(app, {
+        method: 'POST',
+        url: '/api/sessions',
+        headers: { ...auth(), 'content-type': 'application/json' },
+        payload: { name, engine: 'BAILEYS' },
+      });
+      expect(created.statusCode).toBe(201);
+      ids.push(created.json().id as string);
+    }
+    await prisma.waAuthKey.createMany({
+      data: [
+        { sessionId: ids[0], type: 'pre-key', keyId: '1', data: {} },
+        { sessionId: ids[0], type: 'pre-key', keyId: '2', data: {} },
+        { sessionId: ids[0], type: 'lid-mapping', keyId: '3', data: {} },
+        { sessionId: ids[1], type: 'pre-key', keyId: '4', data: {} },
+      ],
+    });
+    const info = vi.fn();
+    const observer = new BaileysCacheObserver(ids[0], prisma, {
+      info,
+      warn: vi.fn(),
+    } as never);
+    await observer.snapshot('open');
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: ids[0], preKeys: 2 }),
+      'Baileys: caches e pre-keys da sessão',
+    );
+    observer.close('close');
   });
 
   it('nome inválido → 400 (validação zod)', async () => {

@@ -111,7 +111,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `recordDisconnect` L10
 - `recordDisconnect(engine, code)` · L10
   - chama: `disconnectCodeLabel` L6
-  - chamado por: `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:876)
+  - chamado por: `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:905)
 - `disconnectTotals()` · L18
   - chamado por: `MetricsService.refresh` (metrics.service.ts:112)
 
@@ -195,7 +195,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `totals` = `new Map<string, number>()` · L7
 - `recordProcessError(kind)` · L9
-  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:409), `AuditInterceptor.record` (audit.interceptor.ts:66), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1342), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:876), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1316), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1254)
+  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:409), `AuditInterceptor.record` (audit.interceptor.ts:66), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1375), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:905), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1349), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1287)
 - `processErrorTotals()` · L13
   - chamado por: `MetricsService.refresh` (metrics.service.ts:112)
 

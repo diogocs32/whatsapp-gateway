@@ -544,12 +544,31 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   ): Promise<string> {
     const session = await this.repo.findById(sessionId);
     if (!session) throw new Error('Sessão não encontrada');
+    if (session.status === 'WORKING') {
+      throw new Error('Sessão já pareada; código de pareamento indisponível');
+    }
     const engine = this.getOrCreateEngine(sessionId, session.engine);
+    if (engine.getStatus() === 'WORKING') {
+      throw new Error('Sessão já pareada; código de pareamento indisponível');
+    }
+    if (session.engine === 'BAILEYS') {
+      // Uma sessão pareada por QR pode manter creds.registered=false na rc14. Conferir me antes
+      // de iniciar um socket parado evita reconectar a conta só para recusar o pedido de código.
+      const row = await this.prisma.waSession.findUnique({
+        where: { id: sessionId },
+        select: { creds: true },
+      });
+      const creds = row?.creds;
+      if (creds && typeof creds === 'object' && 'me' in creds && creds.me) {
+        throw new Error('Sessão já pareada; código de pareamento indisponível');
+      }
+    }
     if (engine.getStatus() === 'STOPPED') {
       // Mesmo teto do start normal — sem ele, um wwebjs preso no initialize pendurava a rota.
       await this.startWithTimeout(sessionId, engine.start());
-      await new Promise((r) => setTimeout(r, 1500));
     }
+    // O Baileys espera connection.update('connecting') ou o primeiro QR na própria engine,
+    // com teto. O wwebjs já espera a inicialização do Client no start().
     return engine.requestPairingCode(phoneNumber);
   }
 

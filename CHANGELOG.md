@@ -6,9 +6,15 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido — pairing e roster LID do Baileys (26/09 — E12/P-052; deploy B pendente)
+
+- `POST /pairing-code` passa a devolver 409 antes de tocar o Baileys para sessão WORKING ou com `creds.me`/`sock.user`; a espera após start observa `connecting` ou o primeiro QR por até 10 s, sem sleep fixo. A resposta `{code}` e os DTOs não mudam.
+- O roster da rc14 grava `phoneNumber` junto do LID; quando o número falta, consulta apenas `lidMapping` local e normaliza o JID sem device. Os caches de retry/devices conservam TTLs da rc14 e ganham medidas agregadas por socket; o log conta pre-keys por sessão. A externalização depende de medições no canário. `countryCode: BR` é coerência da frota, sem alegação anti-ban.
+- Testes com socket e banco sintéticos cobrem guarda/espera/409, roster e contagem isolada; nenhum chip, QR em aparelho, mensagem, mídia ou deploy foi usado. P-087 continua separada.
+
 ### Corrigido — validação e stream do Baileys rc14 (26/09 — E11/P-051; PR #15 integrado, sem deploy)
 
-- Patch-package mínimo no JS compilado da rc14 faz `Curve.verify` rejeitar assinaturas inválidas de 64 bytes e calcula o domínio hosted por device, conforme o PR oficial #2751. O download cifrado usa `pipeline` para levar erro do corpo HTTP ao consumidor e encerrar a fonte em cancelamento; o #2815 foi fechado como duplicado do #2716. Testes usam a biblioteca real e stream sintético. Postinstall e guardas exigem os dois patches no gateway; o painel continua sem engines. Nenhuma rota, payload ou migration mudou. O listener de reupload da P-087 continua aberto; E12 seguirá em branch/PR próprios, com canário/deploy B manuais depois de seu merge.
+- Patch-package mínimo no JS compilado da rc14 faz `Curve.verify` rejeitar assinaturas inválidas de 64 bytes e calcula o domínio hosted por device, conforme o PR oficial #2751. O download cifrado usa `pipeline` para levar erro do corpo HTTP ao consumidor e encerrar a fonte em cancelamento; o #2815 foi fechado como duplicado do #2716. Testes usam a biblioteca real e stream sintético. Postinstall e guardas exigem os dois patches no gateway; o painel continua sem engines. Nenhuma rota, payload ou migration mudou. O listener de reupload da P-087 continua aberto; E12 está em branch/PR próprios, com canário/deploy B manuais depois de seu merge.
 
 ### Integrado — branches históricas M2 e observador WWEBJS (26/09 — D-035/P-088; sem deploy)
 

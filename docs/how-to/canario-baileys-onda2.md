@@ -3,21 +3,21 @@ tipo: runbook
 dono: Diogo Santos
 revisado_em: 2026-09-26
 validade: 2026-10-26
-status: preparado — não executado; aguardar E12, merge de seu PR e deploy B por ordem do dono
+status: preparado — não executado; aguardar merge da E12 e deploy B por ordem do dono
 origem: E7/P-047, E8/P-048, E9/P-049, E10/P-050/P-075
 ---
 
-# Canário da Onda 2 — fila offline, restrição, desconexão, mídia e patch Baileys (E7–E11)
+# Canário da Onda 2 — Baileys E7–E12
 
-> Revisado em 26/09/2026 após a E11. Preparação para a janela de deploy B, depois da E12 e do merge de seu PR. Não foi executado
-> na E7–E11. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
+> Revisado em 26/09/2026 para incluir a E12. Preparação para a janela de deploy B, após merge
+> do PR da E12. Não foi executado na E7–E12. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
 > residencial dedicado. Não reiniciar contas da frota para simular queda.
 
 ## Antes da janela
 
 1. Concluir backup com restore testado (B-005) e acertar `stop-first` do gateway (B-004). Confirmar
    qual imagem/SHA está rodando e guardar o rollback; seguir `how-to/rollback-gateway.md`.
-2. Conferir que os PRs da Onda 2 (E7–E10 #11, E11 #15 e futuro E12) estão mergeados e com CI verde, as migrations aditivas da E8
+2. Conferir que os PRs da Onda 2 (E7–E10 #11, E11 #15 e E12) estão mergeados e com CI verde, as migrations aditivas da E8
    (`20260926164000_restricao_temporaria`) e E9
    (`20260926175800_baileys_disconnect_details`) e as posteriores aplicadas por `prisma migrate deploy`,
    `/health` saudável e sessão canário `WORKING` após deploy manual. Antes de conectar o chip,
@@ -141,6 +141,28 @@ origem: E7/P-047, E8/P-048, E9/P-049, E10/P-050/P-075
    metadados sem `mediaKey`, sem crash do gateway; se não ocorrer falha, o teste sintético é a
    prova desse ramo. Confirmar bytes e saída pelo proxy conforme a E10. P-087 permanece: o patch
    de stream **não** encerra o listener interno de `messages.media-update` durante reupload.
+
+## Verificação da E12 na janela
+
+1. Antes do chip, conferir CI verde para `baileys.pairing-roster.spec.ts`,
+   `session-manager.pairing.spec.ts`, `baileys-cache-observer.spec.ts` e
+   `sessions.e2e-spec.ts`: WORKING/`creds.me` devolvem 409 sem chamar a rc14; `connecting`,
+   primeiro QR e teto de 10 s usam socket falso; roster usa `phoneNumber` ou só o
+   `lidMapping` local; o banco de teste conta pre-keys por sessão. Nenhuma dessas provas
+   substitui o teste com aparelho.
+2. Usar apenas a sessão/chip de teste da janela. Antes de parear, pedir código uma vez e
+   registrar se a sessão alcançou `PAIRING_CODE` ou se veio 409 por não ficar pronta em 10 s.
+   Após `WORKING`, repetir `POST /api/sessions/:id/pairing-code` para a **mesma sessão de teste**:
+   esperar 409 "já pareada" e estabilidade da conexão/credenciais. Não repetir na frota.
+3. Num grupo de teste que exponha um participante `@lid`, conferir `GET …/groups/:g/leads`:
+   `phone` só aparece se o roster trouxer `phoneNumber` ou se houver par no `lidMapping` local.
+   Sem par, `phone:null` é esperado; não solicitar resolução de número pela rede para preencher.
+4. Observar o log `Baileys: caches e pre-keys da sessão` do canário em `open`, depois de pelo menos
+   15 min e em `close`: anotar `sessionId`, `ageMs`, `msgRetry`/`userDevices` (keys, hits,
+   misses e tamanhos) e `preKeys`. O número de pre-keys é a contagem de linhas de
+   `wa_auth_keys` com `type='pre-key'` para aquele `sessionId`, sem ler o conteúdo das chaves.
+   Comparar conexões antes de decidir se os caches precisam de armazenamento externo; a E12
+   não os externaliza. `countryCode: BR` é coerência com a frota, sem prova de efeito anti-ban.
 
 ## Resposta ao 405: protocolo recusado
 

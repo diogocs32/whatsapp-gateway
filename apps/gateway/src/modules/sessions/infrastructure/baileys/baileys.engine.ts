@@ -76,6 +76,7 @@ import { recordProcessError } from '../../../../shared-kernel/process-errors';
 import { recordDisconnect } from '../../../../shared-kernel/disconnect-stats';
 import type { SessionErrorDetails } from '../../domain/session.entity';
 import { classifyDisconnect, disconnectDetails } from './disconnect-policy';
+import { BaileysCacheObserver } from './baileys-cache-observer';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -360,29 +361,29 @@ function buildMediaContent(input: SendMediaInput): AnyMessageContent {
 type RawParticipant = {
   id: string;
   admin?: 'admin' | 'superadmin' | null;
-  jid?: string; // telefone (@s.whatsapp.net) quando o Baileys resolve
-  lid?: string; // identificador anônimo (@lid)
-  phoneNumber?: string;
+  lid?: string; // a rc14 fornece quando id é PN
+  phoneNumber?: string; // a rc14 fornece quando id é @lid
   name?: string;
   notify?: string;
 };
 
-// Resolve o telefone do participante: prefere o jid explícito; senão tenta o cache LID→PN
-// aprendido das mensagens. Em grupos novos (addressingMode 'lid') o WhatsApp esconde o número
-// por privacidade — quando não dá pra resolver, fica null (a UI cai pro nome ou pro LID).
+// O roster rc14 expõe phoneNumber (não jid) quando id é @lid. Sem número no roster,
+// só o cache aprendido das mensagens ou o lidMapping local pode preencher o telefone.
 function resolveParticipantPhone(
   p: RawParticipant,
   lidToPn: Map<string, string>,
 ): string | null {
-  const fromJid = p.jid ?? p.phoneNumber;
-  if (fromJid?.includes('@s.whatsapp.net')) return fromJid.split('@')[0];
-  if (p.id.endsWith('@s.whatsapp.net')) return p.id.split('@')[0];
+  const fromRoster =
+    p.phoneNumber ?? (p.id.endsWith('@s.whatsapp.net') ? p.id : null);
+  if (fromRoster?.endsWith('@s.whatsapp.net'))
+    return jidNormalizedUser(fromRoster).split('@')[0];
   const lidKey = p.lid ?? (p.id.endsWith('@lid') ? p.id : null);
   if (lidKey) {
     const pn = lidToPn.get(jidNormalizedUser(lidKey)) ?? lidToPn.get(lidKey);
-    if (pn) return pn.split('@')[0];
+    if (pn?.endsWith('@s.whatsapp.net') || pn?.endsWith('@hosted'))
+      return jidNormalizedUser(pn).split('@')[0];
   }
-  return fromJid ? fromJid.split('@')[0] : null;
+  return null;
 }
 type RawGroup = {
   id: string;
@@ -413,7 +414,7 @@ function dirNameFor(
   return (
     names.get(p.id) ??
     (p.lid ? names.get(p.lid) : undefined) ??
-    (p.jid ? names.get(p.jid) : undefined) ??
+    (p.phoneNumber ? names.get(p.phoneNumber) : undefined) ??
     (phone ? names.get(phone) : undefined)
   );
 }
@@ -507,6 +508,8 @@ function cappingCycleEnd(value: string | undefined): Date | undefined {
 export class BaileysEngine implements IEngine {
   readonly engineName = 'baileys' as const;
   private sock: WASocket | null = null;
+  private cacheObserver: BaileysCacheObserver | null = null;
+  private pairingReadySock: WASocket | null = null;
   // Um Dispatcher por mídia permite destruir só a requisição pendurada, sem afetar outros
   // downloads da sessão. O fetch da rc14 ignora AbortSignal; Promise.race sozinho não o cancela.
   private createMediaDispatcher: (() => Dispatcher) | null = () =>
@@ -607,6 +610,9 @@ export class BaileysEngine implements IEngine {
     if (this.stopped) return;
     if (this.sock) {
       this.detachSocketListeners();
+      this.cacheObserver?.close('close');
+      this.cacheObserver = null;
+      this.pairingReadySock = null;
       try {
         this.sock.end(undefined);
       } catch {
@@ -674,53 +680,71 @@ export class BaileysEngine implements IEngine {
       return;
     }
 
-    const sock = makeWASocket({
-      // Espalha condicionalmente: `version: undefined` sobrescreveria a default embutida do
-      // Baileys no merge de config (spread), quebrando o handshake.
-      ...(version ? { version } : {}),
-      // Envolve o key store do Postgres num cache em memória (write-through). Sem isso, cada
-      // leitura/escrita de chave Signal bate direto no banco de forma assíncrona e leituras
-      // concorrentes podem ver estado obsoleto → o ratchet dessincroniza e o destinatário não
-      // descriptografa ("Aguardando mensagem"). Recomendado pelo Baileys p/ qualquer auth store de DB.
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(
-          state.keys,
-          this.deps.logger as never,
-        ),
-      },
-      logger: this.deps.logger as never,
-      // Fingerprint realista e estável por sessão (ver browser-fingerprint.ts). Substitui o antigo
-      // ['WhatsApp Gateway','Chrome','1.0.0'], que aparecia como "WhatsApp Gateway" em Aparelhos
-      // Conectados e denunciava automação.
-      browser: browserFingerprint(this.deps.sessionId),
-      markOnlineOnConnect: false,
-      syncFullHistory: false,
-      // Sob carga (campanhas), o commit do key store no Postgres pode falhar transitoriamente.
-      // Mais tentativas de commit evitam perder a escrita de uma chave Signal — o que dessincroniza
-      // o ratchet e gera "Aguardando mensagem". Espelha o Evolution (whatsapp.baileys.service.ts:676);
-      // o default do Baileys é mais baixo (maxCommitRetries=5, delayBetweenTriesMs=1000).
-      transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
-      // O Baileys tipa agent/fetchAgent como https.Agent; nossos agents (socks/https-proxy)
-      // são http.Agent em runtime e funcionam — daí o cast (downcast seguro).
-      agent: agent as HttpsAgent | undefined,
-      fetchAgent: agent as HttpsAgent | undefined,
-      getMessage: async (key) => this.loadMessageForRetry(key),
-      // WA-12: envio a grupo reaproveita a metadata (participantes) por GROUP_META_TTL_MS em vez
-      // de consultá-la a cada mensagem. Miss → busca 1× e guarda; eventos de grupo invalidam.
-      cachedGroupMetadata: async (jid) => {
-        const hit = this.groupMetaCache.get(jid);
-        if (hit && Date.now() - hit.at < GROUP_META_TTL_MS) return hit.md;
-        try {
-          const md = await sock.groupMetadata(jid);
-          this.cacheGroupMeta(md);
-          return md;
-        } catch {
-          return hit?.md; // stale > nada: a lib consulta de novo se undefined
-        }
-      },
-    });
+    const cacheObserver = new BaileysCacheObserver(
+      this.deps.sessionId,
+      this.deps.prisma,
+      this.deps.logger,
+    );
+    let sock: WASocket;
+    try {
+      sock = makeWASocket({
+        // Espalha condicionalmente: `version: undefined` sobrescreveria a default embutida do
+        // Baileys no merge de config (spread), quebrando o handshake.
+        ...(version ? { version } : {}),
+        // Envolve o key store do Postgres num cache em memória (write-through). Sem isso, cada
+        // leitura/escrita de chave Signal bate direto no banco de forma assíncrona e leituras
+        // concorrentes podem ver estado obsoleto → o ratchet dessincroniza e o destinatário não
+        // descriptografa ("Aguardando mensagem"). Recomendado pelo Baileys p/ qualquer auth store de DB.
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(
+            state.keys,
+            this.deps.logger as never,
+          ),
+        },
+        logger: this.deps.logger as never,
+        // Fingerprint realista e estável por sessão (ver browser-fingerprint.ts). Substitui o antigo
+        // ['WhatsApp Gateway','Chrome','1.0.0'], que aparecia como "WhatsApp Gateway" em Aparelhos
+        // Conectados e denunciava automação.
+        browser: browserFingerprint(this.deps.sessionId),
+        // A frota usa números BR; a rc14 usa US por default. Coerência de configuração,
+        // sem alegar que este campo sozinho altere risco de banimento.
+        countryCode: 'BR',
+        markOnlineOnConnect: false,
+        syncFullHistory: false,
+        msgRetryCounterCache: cacheObserver.msgRetryCounterCache,
+        // A rc14 usa `await` no mget/mset, aceitando o retorno síncrono do próprio NodeCache,
+        // mas PossiblyExtendedCacheStore declara esses métodos apenas como Promise.
+        userDevicesCache: cacheObserver.userDevicesCache as never,
+        // Sob carga, um commit transitório do key store no Postgres não pode perder uma chave
+        // Signal e dessincronizar o ratchet. Os valores explícitos já são o default da rc14.
+        transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
+        // O Baileys tipa agent/fetchAgent como https.Agent; nossos agents (socks/https-proxy)
+        // são http.Agent em runtime e funcionam — daí o cast (downcast seguro).
+        agent: agent as HttpsAgent | undefined,
+        fetchAgent: agent as HttpsAgent | undefined,
+        getMessage: async (key) => this.loadMessageForRetry(key),
+        // WA-12: envio a grupo reaproveita a metadata (participantes) por GROUP_META_TTL_MS em vez
+        // de consultá-la a cada mensagem. Miss → busca 1× e guarda; eventos de grupo invalidam.
+        cachedGroupMetadata: async (jid) => {
+          const hit = this.groupMetaCache.get(jid);
+          if (hit && Date.now() - hit.at < GROUP_META_TTL_MS) return hit.md;
+          try {
+            const md = await sock.groupMetadata(jid);
+            this.cacheGroupMeta(md);
+            return md;
+          } catch {
+            return hit?.md; // stale > nada: a lib consulta de novo se undefined
+          }
+        },
+      });
+    } catch (err) {
+      cacheObserver.close('erro');
+      throw err;
+    }
     this.sock = sock;
+    this.cacheObserver = cacheObserver;
+    this.pairingReadySock = null;
     this.groupMetaCache.clear(); // socket novo: participantes podem ter mudado offline
     if (persistStartingStatus) this.setStatus('STARTING');
     else this.status = 'STARTING'; // 440: não pisar no WORKING de outra réplica antes do open
@@ -730,12 +754,17 @@ export class BaileysEngine implements IEngine {
     sock.ev.on('creds.update', () =>
       this.safe(() => saveCreds(), 'creds.update'),
     );
-    sock.ev.on('connection.update', (u) =>
+    sock.ev.on('connection.update', (u) => {
+      // O evento pode chegar antes de a operação HTTP voltar do start(). Marcar no callback
+      // síncrono evita perder o primeiro 'connecting' ao entrar na espera limitada abaixo.
+      if (u.connection === 'connecting' || !!u.qr) this.pairingReadySock = sock;
+      else if (u.connection === 'close' && this.pairingReadySock === sock)
+        this.pairingReadySock = null;
       this.safe(
         () => this.serialize(() => this.onConnectionUpdate(u, sock)),
         'connection.update',
-      ),
-    );
+      );
+    });
     sock.ev.on('messages.upsert', (u) =>
       this.safe(() => this.onMessagesUpsert(u), 'messages.upsert'),
     );
@@ -930,6 +959,7 @@ export class BaileysEngine implements IEngine {
     }
 
     if (connection === 'open') {
+      void this.cacheObserver?.snapshot('open');
       this.qrBase64 = null;
       this.reconnectAttempts = 0;
       this.replacedRetryUsed = false;
@@ -946,6 +976,9 @@ export class BaileysEngine implements IEngine {
     }
 
     if (connection === 'close') {
+      this.cacheObserver?.close('close');
+      this.cacheObserver = null;
+      this.pairingReadySock = null;
       const details = disconnectDetails(lastDisconnect?.error);
       const decision = classifyDisconnect(details.code, details.reason);
       recordDisconnect('baileys', details.code);
@@ -2110,15 +2143,61 @@ export class BaileysEngine implements IEngine {
     if (records.length) this.deps.contacts?.recordMany(records);
   }
 
-  private recordGroupParticipants(md: RawGroup): void {
-    const recs: ContactRecord[] = (md.participants ?? []).map((p) => ({
-      waId: p.id,
-      jid: p.jid ?? (p.id.endsWith('@s.whatsapp.net') ? p.id : null),
-      lid: p.lid ?? (p.id.endsWith('@lid') ? p.id : null),
-      name: p.name ?? null,
-      pushName: p.notify ?? null,
-      source: 'group',
-    }));
+  private async recordGroupParticipants(groups: RawGroup[]): Promise<void> {
+    const participants = groups.flatMap((md) => md.participants ?? []);
+    const unresolved = new Set<string>();
+    for (const p of participants) {
+      const lid = p.lid ?? (p.id.endsWith('@lid') ? p.id : null);
+      const pn =
+        p.phoneNumber ?? (p.id.endsWith('@s.whatsapp.net') ? p.id : null);
+      if (!lid) continue;
+      const key = jidNormalizedUser(lid);
+      if (pn?.endsWith('@s.whatsapp.net')) {
+        this.lidToPn.set(key, jidNormalizedUser(pn));
+      } else if (!this.lidToPn.has(key) && key.endsWith('@lid')) {
+        unresolved.add(key);
+      }
+    }
+    if (unresolved.size) {
+      try {
+        // rc14: getPNsForLIDs consulta apenas mappingCache e auth.keys('lid-mapping').
+        // Não usar getLIDForPN/USync, que podem consultar a rede.
+        const mappings =
+          await this.sock?.signalRepository.lidMapping.getPNsForLIDs([
+            ...unresolved,
+          ]);
+        for (const pair of mappings ?? []) {
+          if (
+            pair.lid.endsWith('@lid') &&
+            (pair.pn.endsWith('@s.whatsapp.net') || pair.pn.endsWith('@hosted'))
+          ) {
+            this.lidToPn.set(
+              jidNormalizedUser(pair.lid),
+              jidNormalizedUser(pair.pn),
+            );
+          }
+        }
+      } catch (err) {
+        this.deps.logger.warn({ err }, 'fallback LID local do roster falhou');
+      }
+    }
+    const recs: ContactRecord[] = participants.map((p) => {
+      const lid = p.lid ?? (p.id.endsWith('@lid') ? p.id : null);
+      const pn =
+        p.phoneNumber ??
+        (p.id.endsWith('@s.whatsapp.net') ? p.id : null) ??
+        (lid ? this.lidToPn.get(jidNormalizedUser(lid)) : null);
+      const jid = pn ? jidNormalizedUser(pn) : null;
+      return {
+        waId: p.id,
+        jid,
+        lid: lid ? jidNormalizedUser(lid) : null,
+        phone: resolveParticipantPhone(p, this.lidToPn),
+        name: p.name ?? null,
+        pushName: p.notify ?? null,
+        source: 'group',
+      };
+    });
     if (recs.length) this.deps.contacts?.recordMany(recs);
   }
 
@@ -2133,7 +2212,7 @@ export class BaileysEngine implements IEngine {
       for (const p of g.participants ?? []) {
         if (p.id) keys.add(p.id);
         if (p.lid) keys.add(p.lid);
-        if (p.jid) keys.add(p.jid);
+        if (p.phoneNumber) keys.add(p.phoneNumber);
         const phone = resolveParticipantPhone(p, this.lidToPn);
         if (phone) keys.add(phone);
       }
@@ -2150,7 +2229,7 @@ export class BaileysEngine implements IEngine {
     const map = await this.sk().groupFetchAllParticipating();
     for (const md of Object.values(map)) this.cacheGroupMeta(md); // WA-12
     const raws = Object.values(map) as unknown as RawGroup[];
-    for (const g of raws) this.recordGroupParticipants(g);
+    await this.recordGroupParticipants(raws);
     const names = await this.resolveParticipantNames(raws);
     return raws.map((g) => toGroupInfo(g, this.lidToPn, names));
   }
@@ -2158,7 +2237,7 @@ export class BaileysEngine implements IEngine {
     const fresh = await this.sk().groupMetadata(toGroupJid(jid));
     this.cacheGroupMeta(fresh); // WA-12
     const md = fresh as unknown as RawGroup;
-    this.recordGroupParticipants(md);
+    await this.recordGroupParticipants([md]);
     const names = await this.resolveParticipantNames([md]);
     return toGroupInfo(md, this.lidToPn, names);
   }
@@ -2319,10 +2398,48 @@ export class BaileysEngine implements IEngine {
     await this.sk().newsletterUnfollow(jid);
   }
 
+  private async waitForPairingReady(sock: WASocket): Promise<void> {
+    if (this.pairingReadySock === sock) return;
+    await new Promise<void>((resolve, reject) => {
+      const finish = (error?: Error) => {
+        clearTimeout(timer);
+        sock.ev.off('connection.update', onUpdate);
+        if (error) reject(error);
+        else resolve();
+      };
+      const onUpdate = (update: Partial<ConnectionState>) => {
+        if (update.connection === 'close')
+          finish(new Error('Sessão desconectada antes do pareamento'));
+        else if (update.connection === 'connecting' || !!update.qr) finish();
+      };
+      sock.ev.on('connection.update', onUpdate);
+      const timer = setTimeout(
+        () =>
+          finish(
+            new Error('Sessão não ficou pronta para parear em 10 segundos'),
+          ),
+        10_000,
+      );
+      if (this.pairingReadySock === sock) finish();
+    });
+  }
+
   async requestPairingCode(phoneNumber: string): Promise<string> {
-    if (!this.sock) throw new Error('Sessão não iniciada');
+    const sock = this.sock;
+    if (!sock) throw new Error('Sessão não iniciada');
+    // A rc14 sobrescreve creds.me ANTES da requisição. registered=false também pode ser uma
+    // sessão já pareada por QR; user/creds.me e WORKING são os sinais conservadores.
+    if (this.getStatus() === 'WORKING' || sock.user || sock.authState?.creds.me)
+      throw new Error('Sessão já pareada; código de pareamento indisponível');
+    await this.waitForPairingReady(sock);
+    if (this.sock !== sock || this.stopped)
+      throw new Error('Sessão desconectada antes do pareamento');
+    if (this.getStatus() === 'WORKING' || sock.user || sock.authState?.creds.me)
+      throw new Error('Sessão já pareada; código de pareamento indisponível');
     const digits = phoneNumber.replace(/[^0-9]/g, '');
-    const code = await this.sock.requestPairingCode(digits);
+    const code = await sock.requestPairingCode(digits);
+    if (this.sock !== sock || this.stopped)
+      throw new Error('Sessão desconectada durante o pareamento');
     this.setStatus('PAIRING_CODE');
     return code;
   }
@@ -2337,6 +2454,9 @@ export class BaileysEngine implements IEngine {
   private async doStop(): Promise<void> {
     this.stopped = true;
     this.clearReconnectTimer();
+    this.cacheObserver?.close('close');
+    this.cacheObserver = null;
+    this.pairingReadySock = null;
     // Remove os listeners ANTES de encerrar o socket. Sem isto, o `end()` dispara um
     // connection.update 'close' tardio que reentra em onConnectionUpdate e re-emite status
     // (status fantasma após a parada). Espelha a limpeza feita no início de connect().
@@ -2377,6 +2497,9 @@ export class BaileysEngine implements IEngine {
   async shutdown(): Promise<void> {
     this.stopped = true;
     this.clearReconnectTimer();
+    this.cacheObserver?.close('close');
+    this.cacheObserver = null;
+    this.pairingReadySock = null;
     this.detachSocketListeners();
     try {
       this.sock?.end(undefined);
@@ -2396,6 +2519,9 @@ export class BaileysEngine implements IEngine {
   private async doLogout(): Promise<void> {
     this.stopped = true;
     this.clearReconnectTimer();
+    this.cacheObserver?.close('close');
+    this.cacheObserver = null;
+    this.pairingReadySock = null;
     try {
       await this.sock?.logout();
     } catch {

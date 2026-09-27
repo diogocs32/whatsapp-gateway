@@ -16,6 +16,12 @@ Sessões são referenciadas por **nome** (`campanha1`) ou ID — ambos funcionam
 > também `pairingCode` (aditivo) enquanto a sessão está em `PAIRING_CODE` — o código renovado não
 > vai mais para o log.
 
+> **Código de pareamento (E12, após o deploy B):** `POST /api/sessions/{id}/pairing-code`
+> continua a devolver `{code}` quando a sessão ainda não está pareada. Se ela estiver `WORKING`
+> ou já tiver credenciais de pareamento/QR (`creds.me`), devolve **409** antes de pedir código ao
+> Baileys. Uma sessão recém-iniciada espera até 10 s pelo primeiro `connecting` ou QR; se não
+> ficar pronta, também devolve 409 com o motivo. O formato da resposta de sucesso não mudou.
+
 > **Limite de requisições (desde 07/2026; regra do login revista em 25/09/2026 — P-053, D-025):**
 > **600/min por IP** em `/api/*` (`RATE_LIMIT_MAX` no gateway; `/health` fica de fora) e **10/min
 > por IP no `POST /api/auth/login`**, num contador **próprio** (o tráfego da API não consome o do
