@@ -4,7 +4,7 @@
 # ALTO em vez de gerar uma imagem ruim. Usado pelo apps/gateway/Dockerfile e pelo CI.
 # Rodar a partir da raiz do monorepo (ou da raiz do estágio de build da imagem, /app).
 #
-#   sh scripts/guardas-build.sh patches  → o patch do whatsapp-web.js está aplicado em node_modules
+#   sh scripts/guardas-build.sh patches  → os patches do wwebjs e Baileys estão aplicados
 #   sh scripts/guardas-build.sh dist     → o build do gateway gerou apps/gateway/dist/main.js
 #   sh scripts/guardas-build.sh deps <dir-dist>
 #                                        → todo pacote que o JS compilado usa resolve E carrega
@@ -35,7 +35,15 @@ case "${1:-}" in
       falha "patch do cache de versões do whatsapp-web.js NÃO aplicado"
     grep -q '_appStateSyncFlight' "node_modules/whatsapp-web.js/src/Client.js" ||
       falha "patch single-flight do whatsapp-web.js NÃO aplicado"
-    echo "[guardas-build] patches OK (whatsapp-web.js: Client.js + Utils.js + Puppeteer.js + LocalWebCache.js)"
+    baileys=node_modules/@whiskeysockets/baileys/lib/Utils
+    # Um marcador por correção do patch da rc14; os três são ausentes no tarball original.
+    grep -q 'return curve.verifySignature(generateSignalPubKey' "$baileys/crypto.js" ||
+      falha "patch Curve.verify do Baileys NÃO aplicado"
+    grep -q 'let domainType = userDomainType' "$baileys/signal.js" ||
+      falha "patch hosted device do Baileys NÃO aplicado"
+    grep -q 'pipeline(fetched, output' "$baileys/messages-media.js" ||
+      falha "patch do stream de mídia do Baileys NÃO aplicado"
+    echo "[guardas-build] patches OK (whatsapp-web.js e Baileys rc14)"
     ;;
   dist)
     # O entrypoint roda `node dist/main.js` (apps/gateway/docker-entrypoint.sh). Se o build mudar o

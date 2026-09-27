@@ -22,16 +22,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl \
 COPY package.json package-lock.json ./
 COPY apps/gateway/package.json apps/gateway/
 COPY packages/contracts/package.json packages/contracts/
-# patches/ ANTES do npm ci: o postinstall da raiz roda patch-package (fix `$1` do whatsapp-web.js,
-# B-002) e sem a pasta presente o install passaria SEM aplicar o patch — a lib subiria quebrada
-# nas builds novas do WA Web.
+# patches/ ANTES do npm ci: o postinstall da raiz roda patch-package (wwebjs e Baileys rc14).
+# Sem a pasta presente o install passaria sem as correções das duas engines.
 COPY patches ./patches
 RUN npm ci
 
 # P-055 — guardas de build: com stop-first (B-004) imagem quebrada vira indisponibilidade, então o
 # build FALHA ALTO. O postinstall roda `patch-package --error-on-fail` (fora de CI o patch-package
 # sai 0 mesmo quando o patch falha — node_modules/patch-package/dist/index.js) e aqui conferimos o
-# resultado: patch do whatsapp-web.js aplicado (depois do npm ci, antes do build).
+# resultado: patches do whatsapp-web.js e do Baileys aplicados (depois do npm ci, antes do build).
 COPY scripts/guardas-build.sh scripts/verificar-deps-runtime.cjs ./scripts/
 RUN sh scripts/guardas-build.sh patches
 
@@ -81,7 +80,7 @@ COPY --from=build /app/apps/gateway/package.json ./package.json
 COPY apps/gateway/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# P-055 — guardas na imagem FINAL (exatamente o que vai rodar): patch do wwebjs presente, entrypoint
+# P-055 — guardas na imagem FINAL (exatamente o que vai rodar): patches presentes, entrypoint
 # dist/main.js existe, todo pacote que o dist usa CARREGA com o node_modules copiado (pega no BUILD o
 # `Cannot find module 'zod'` de 16/08 — hoisting parcial + prune — que antes só aparecia no boot) e o
 # 1º comando do entrypoint (Prisma CLI + prisma.config.ts, fora do dist) funciona. Os scripts somem

@@ -3,21 +3,21 @@ tipo: runbook
 dono: Diogo Santos
 revisado_em: 2026-09-26
 validade: 2026-10-26
-status: preparado — não executado; aguardar E12, merge e deploy B por ordem do dono
+status: preparado — não executado; aguardar E12, merge de seu PR e deploy B por ordem do dono
 origem: E7/P-047, E8/P-048, E9/P-049, E10/P-050/P-075
 ---
 
-# Canário da Onda 2 — fila offline, restrição, desconexão e mídia Baileys (E7–E10)
+# Canário da Onda 2 — fila offline, restrição, desconexão, mídia e patch Baileys (E7–E11)
 
-> Preparação para a janela de deploy B, depois da E12 e do merge pelo dono. Não foi executado
-> na E7–E10. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
+> Revisado em 26/09/2026 após a E11. Preparação para a janela de deploy B, depois da E12 e do merge de seu PR. Não foi executado
+> na E7–E11. Produção `.cloud` não tem homologação; usar somente um chip/sessão de teste e um proxy
 > residencial dedicado. Não reiniciar contas da frota para simular queda.
 
 ## Antes da janela
 
 1. Concluir backup com restore testado (B-005) e acertar `stop-first` do gateway (B-004). Confirmar
    qual imagem/SHA está rodando e guardar o rollback; seguir `how-to/rollback-gateway.md`.
-2. Conferir que PR da Onda 2 está mergeado e CI verde, as migrations aditivas da E8
+2. Conferir que os PRs da Onda 2 (E7–E10 #11, E11 #15 e futuro E12) estão mergeados e com CI verde, as migrations aditivas da E8
    (`20260926164000_restricao_temporaria`) e E9
    (`20260926175800_baileys_disconnect_details`) e as posteriores aplicadas por `prisma migrate deploy`,
    `/health` saudável e sessão canário `WORKING` após deploy manual. Antes de conectar o chip,
@@ -123,6 +123,24 @@ origem: E7/P-047, E8/P-048, E9/P-049, E10/P-050/P-075
    possuir o arquivo. Não fabricar erro na CDN nem reutilizar mídia real para forçar o cenário.
    O teste automatizado é a prova do ramo de falha; o canário só acrescenta observação real se
    esse caso ocorrer espontaneamente.
+
+## Verificação da E11 na janela
+
+1. Antes de qualquer pareamento, conferir no SHA da imagem que `npm ci` aplicou
+   `@whiskeysockets+baileys+7.0.0-rc14.patch` e `whatsapp-web.js+1.34.7.patch` sem erro e que
+   `sh scripts/guardas-build.sh patches` passou no build e na imagem final. O CI deve ter
+   `baileys.patch.spec.ts` verde: assinatura válida/inválida na biblioteca real, domínio hosted
+   por device e stream cifrado sintético íntegro/com falha/cancelamento. Esses testes não provam
+   handshake, QR, código, reconexão nem mídia com aparelho.
+2. No **único chip/sessão de teste** da janela do dono, após E12, merge e deploy B, observar
+   handshake e conexão `WORKING`; registrar SHA, horário, versão efetiva do protocolo e eventual
+   erro bruto. Exercitar QR e código de pareamento apenas conforme a política da E12/B-007,
+   sem tocar as contas da frota. Reconectar a mesma sessão canário uma vez e conferir estabilidade
+   e ausência de erro de assinatura ou endereçamento.
+3. Na mídia de teste da E10, observar que falha espontânea do corpo da CDN fica como evento com
+   metadados sem `mediaKey`, sem crash do gateway; se não ocorrer falha, o teste sintético é a
+   prova desse ramo. Confirmar bytes e saída pelo proxy conforme a E10. P-087 permanece: o patch
+   de stream **não** encerra o listener interno de `messages.media-update` durante reupload.
 
 ## Resposta ao 405: protocolo recusado
 

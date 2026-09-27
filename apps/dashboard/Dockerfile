@@ -14,10 +14,9 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # Só os manifests da raiz, do dashboard e dos contracts entram: o `npm ci` NÃO instala o gateway
-# (nem o whatsapp-web.js). Por isso a pasta patches/ fica DE FORA de propósito (P-055, 25/09/2026):
-# o postinstall da raiz roda `patch-package --error-on-fail`, e com o patch do wwebjs presente e o
-# pacote ausente ele sai com erro ("Patch file found for package whatsapp-web.js which is not
-# present") — antes o erro era engolido. Sem a pasta: "No patch files found" e segue.
+# (nem whatsapp-web.js/Baileys). Por isso patches/ fica DE FORA (P-055): o postinstall da raiz
+# roda `patch-package --error-on-fail`, e patches de pacotes ausentes fariam o build falhar.
+# Sem a pasta: "No patch files found" e segue; o dashboard não executa nenhuma das engines.
 COPY package.json package-lock.json ./
 COPY apps/dashboard/package.json apps/dashboard/
 COPY packages/contracts/package.json packages/contracts/
