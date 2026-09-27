@@ -5,6 +5,31 @@ import type { SessionErrorDetails } from '../domain/session.entity';
 import type { SessionStatus } from '../domain/session-status';
 import { SessionManager } from './session-manager.service';
 
+function own(manager: SessionManager, repo: SessionRepository): void {
+  const internals = manager as unknown as {
+    lease: unknown;
+    owned: Map<string, unknown>;
+  };
+  internals.owned.set('s1', {
+    epoch: 1n,
+    until: new Date(Date.now() + 60_000),
+    active: true,
+  });
+  internals.lease = {
+    updateStatus: (
+      _id: string,
+      _epoch: bigint,
+      status: SessionStatus,
+      patch: unknown,
+    ) => repo.updateStatus(_id, status, patch as never),
+    updateLastErrorDetails: (
+      _id: string,
+      _epoch: bigint,
+      details: SessionErrorDetails,
+    ) => repo.updateLastErrorDetails(_id, details),
+  };
+}
+
 describe('SessionManager — ordem das escritas de status da mesma sessão', () => {
   it('espera o FAILED pendente antes de gravar WORKING do novo open', async () => {
     const writes: SessionStatus[] = [];
@@ -48,6 +73,7 @@ describe('SessionManager — ordem das escritas de status da mesma sessão', () 
       engineFactory as never,
       {} as never,
     );
+    own(manager, repo);
     (
       manager as unknown as {
         getOrCreateEngine: (id: string, engine: string) => unknown;
@@ -136,6 +162,7 @@ describe('SessionManager — ordem das escritas de status da mesma sessão', () 
       engineFactory as never,
       {} as never,
     );
+    own(manager, repo);
     (
       manager as unknown as {
         getOrCreateEngine: (id: string, engine: string) => unknown;

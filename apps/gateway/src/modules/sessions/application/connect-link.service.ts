@@ -398,8 +398,8 @@ export class ConnectLinkService implements OnModuleInit {
         this.checkAndReserve(link),
       );
     } catch (e) {
-      if (e instanceof HttpException) throw e;
       if (e instanceof SessionBusyError) throw this.busy();
+      if (e instanceof HttpException) throw e;
       const err = e as Error;
       if (err?.message === 'Sessão não encontrada') throw NOT_FOUND();
       this.logger.error(

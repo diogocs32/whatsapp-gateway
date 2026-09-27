@@ -142,6 +142,10 @@ model WaSession {
   phoneNumber      String?
   autostart        Boolean       @default(true)
   creds            Json?
+  // E13: posse por processo com prazo no relógio do Postgres; epoch só cresce a cada novo dono.
+  authEpoch        BigInt        @default(0)
+  leaseOwner       String?
+  leaseUntil       DateTime?     @db.Timestamptz(3)
   metadata         Json?
   lastError        String?
   lastErrorDetails Json?

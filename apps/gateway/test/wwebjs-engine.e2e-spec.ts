@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
@@ -39,6 +39,14 @@ function makeDeps(over: Partial<BaileysEngineDeps>): {
     sessionId: 'test-wwebjs-guard',
     deviceName: 'test',
     prisma: {} as unknown as BaileysEngineDeps['prisma'],
+    lease: {
+      fenced: async (
+        _id: string,
+        _epoch: bigint,
+        action: () => Promise<unknown>,
+      ) => action(),
+    } as unknown as BaileysEngineDeps['lease'],
+    authEpoch: 1n,
     logger,
     onEvent: (name, payload) => {
       if (name === 'session.status') events.push(payload as StatusEvent);
@@ -114,13 +122,15 @@ describe('mapInboundMediaType — tipo de mídia recebida (P0-3)', () => {
   });
 });
 
-describe('WWebJSEngine.purgeAuthDir — limpeza do LocalAuth em disco (P1-2/P1-3)', () => {
-  it('remove o perfil do Chromium da sessão do disco', async () => {
+describe('WWebJSEngine.detachAuthDir — limpeza do LocalAuth em disco (E13/P-056)', () => {
+  it('separa o perfil ativo e remove só o caminho descartado', async () => {
     const id = `test-purge-${Math.random().toString(36).slice(2)}`;
     const dir = authDirOf(id);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, 'creds.json'), '{}');
-    await WWebJSEngine.purgeAuthDir(id);
+    const detached = WWebJSEngine.detachAuthDir(id);
+    expect(detached).toBeTruthy();
+    await WWebJSEngine.purgeDetachedAuthDir(detached);
     // O dir não existe mais → access rejeita (ENOENT). Sem a purga, new-qr/remove vazavam o perfil.
     await expect(access(dir)).rejects.toBeTruthy();
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
@@ -128,7 +138,9 @@ describe('WWebJSEngine.purgeAuthDir — limpeza do LocalAuth em disco (P1-2/P1-3
 
   it('é no-op (não lança) para sessão sem perfil em disco', async () => {
     await expect(
-      WWebJSEngine.purgeAuthDir(`inexistente-${Math.random()}`),
+      WWebJSEngine.purgeDetachedAuthDir(
+        WWebJSEngine.detachAuthDir(`inexistente-${Math.random()}`),
+      ),
     ).resolves.toBeUndefined();
   });
 });
@@ -602,13 +614,13 @@ describe('WWebJSEngine — shutdown limpo do processo (P-015)', () => {
     expect(destroyed).toBe(1);
   });
 
-  it('shutdown() com destroy pendurado estoura o teto próprio e RESOLVE (não pendura o grace period)', async () => {
+  it('shutdown() com destroy pendurado estoura o teto e rejeita para não liberar o lease', async () => {
     const { warns, logger } = captureLogger();
     const { deps } = makeDeps({ logger });
     const engine = new WWebJSEngine(deps);
     internals(engine).destroyTimeoutMs = 20;
     internals(engine).client = { destroy: () => new Promise(() => undefined) };
-    await expect(engine.shutdown()).resolves.toBeUndefined();
+    await expect(engine.shutdown()).rejects.toThrow(/não confirmado/);
     // Estouro é logado como warn citando a P-015 — o diagnóstico em prod depende disto.
     expect(warns.join('\n')).toMatch(/P-015/);
   });
@@ -660,21 +672,33 @@ describe('WWebJSEngine — shutdown limpo do processo (P-015)', () => {
     }
   });
 
-  it('logout() numa página travada estoura o teto do client.logout() e segue para destroy+purga', async () => {
-    const { warns, logger } = captureLogger();
+  it('logout remoto pendente segura o fechamento até a promise terminar', async () => {
+    const { logger } = captureLogger();
     const { deps, events } = makeDeps({ logger });
     const engine = new WWebJSEngine(deps);
     let destroyed = 0;
     internals(engine).logoutTimeoutMs = 20;
+    let finish!: () => void;
+    const remote = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
     internals(engine).client = {
-      logout: () => new Promise(() => undefined), // evaluates pendurados na página travada
+      logout: () => remote, // page.evaluate ainda pendente na biblioteca
       destroy: async () => {
         destroyed++;
       },
     };
-    await engine.logout(); // antes do teto, pendurava 240s segurando o mutex ("Logout/Parar presos")
+    await expect(engine.logout()).rejects.toThrow(/pendente/);
+    expect(destroyed).toBe(0);
+    expect(events.at(-1)?.status).toBe('DEGRADED');
+    finish();
+    await vi.waitFor(() =>
+      expect(
+        (engine as unknown as { logoutPending: unknown }).logoutPending,
+      ).toBeNull(),
+    );
+    await engine.logout();
     expect(destroyed).toBe(1);
-    expect(warns.join('\n')).toMatch(/logout\(\) não completou/);
     expect(events.at(-1)?.status).toBe('STOPPED');
   });
 });

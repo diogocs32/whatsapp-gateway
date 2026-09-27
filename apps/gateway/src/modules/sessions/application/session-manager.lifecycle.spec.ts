@@ -137,6 +137,14 @@ function harness() {
       }),
     },
     waSession: {
+      findUnique: vi.fn(async () => ({
+        status: session.status,
+        autostart: true,
+        creds: null,
+      })),
+      delete: vi.fn(async () => {
+        log.push('repo.delete');
+      }),
       updateMany: vi.fn(async (_args: unknown) => {
         log.push('updateMany');
         return { count: 1 };
@@ -151,10 +159,12 @@ function harness() {
     ),
   };
   const purge = vi
-    .spyOn(WWebJSEngine, 'purgeAuthDir')
-    .mockImplementation(async () => {
+    .spyOn(WWebJSEngine, 'detachAuthDir')
+    .mockImplementation(() => {
       log.push('purge');
+      return null;
     });
+  vi.spyOn(WWebJSEngine, 'purgeDetachedAuthDir').mockResolvedValue();
   const loggerError = vi
     .spyOn(Logger.prototype, 'error')
     .mockImplementation(() => undefined);
@@ -173,6 +183,48 @@ function harness() {
     engineFactory as never,
     {} as never,
   );
+  // O teste antigo exercita o lock local sem banco. E13 injeta um lease falso no mesmo manager;
+  // os e2e de P-056 usam o Postgres real para provar concorrência e fencing.
+  (manager as unknown as { lease: unknown }).lease = {
+    fenced: vi.fn(
+      async (
+        _id: string,
+        _epoch: bigint,
+        action: (tx: typeof prisma) => Promise<unknown>,
+      ) => action(prisma),
+    ),
+    acquire: vi.fn(async () => ({
+      epoch: 1n,
+      until: new Date(Date.now() + 60_000),
+    })),
+    renew: vi.fn(async () => new Date(Date.now() + 60_000)),
+    release: vi.fn(async () => undefined),
+    isCurrent: vi.fn(async () => true),
+    updateStatus: vi.fn(
+      async (
+        _id: string,
+        _epoch: bigint,
+        status: SessionStatus,
+        patch?: unknown,
+      ) => {
+        await repo.updateStatus(_id, status, patch as never);
+      },
+    ),
+    updateLastErrorDetails: vi.fn(async () => undefined),
+    setLastMeJid: vi.fn(
+      async (id: string, _epoch: bigint, jid: string | null) => {
+        await repo.setLastMeJid(id, jid);
+      },
+    ),
+    clearAuth: vi.fn(async (_id: string, epoch: bigint) => {
+      await prisma.waAuthKey.deleteMany({ where: { sessionId: _id } });
+      await prisma.waSession.updateMany({
+        where: { id: _id },
+        data: { creds: Prisma.DbNull },
+      });
+      return epoch + 1n;
+    }),
+  };
   // Sobe a engine #1 pelo start público e deixa a sessão sem operação em andamento.
   const startEngine = async (status: SessionStatus): Promise<FakeEngine> => {
     await manager.start(SID);
@@ -204,6 +256,29 @@ afterEach(() => {
 });
 
 describe('SessionManager — lock de ciclo de vida (E27/D-037)', () => {
+  it('renovação atrasada do ciclo antigo não encerra a engine nova', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const h = harness();
+    await h.startEngine('WORKING');
+    let finishRenew!: (value: Date | null) => void;
+    const renew = vi.fn(
+      () =>
+        new Promise<Date | null>((resolve) => {
+          finishRenew = resolve;
+        }),
+    );
+    (h.manager as unknown as { lease: { renew: typeof renew } }).lease.renew =
+      renew;
+    await vi.advanceTimersByTimeAsync(8_000);
+    expect(renew).toHaveBeenCalledOnce();
+    await h.manager.stop(SID);
+    await h.manager.start(SID);
+    const current = h.manager.liveView(SID);
+    finishRenew(null);
+    await flush();
+    expect(h.manager.liveView(SID)).toEqual(current);
+    expect(h.manager.hasEngine(SID)).toBe(true);
+  });
   it('dois newQr concorrentes não se sobrepõem: o 2º espera o 1º terminar e cada engine nova sobe 1 vez', async () => {
     const h = harness();
     const startGate = h.hold('start');
@@ -271,7 +346,7 @@ describe('SessionManager — lock de ciclo de vida (E27/D-037)', () => {
     expect(h.log.slice(-2)).toEqual(['start#2', 'stop#2']);
     expect(a.stop).toHaveBeenCalledOnce();
     expect(b.stop).toHaveBeenCalledOnce();
-    expect(h.manager.liveView(SID)).toEqual({ status: 'STOPPED', qr: null });
+    expect(h.manager.liveView(SID)).toBeNull(); // stop libera o lease e descarta o epoch antigo
   });
 
   it.each([
@@ -326,14 +401,14 @@ describe('SessionManager — lock de ciclo de vida (E27/D-037)', () => {
       'create#1',
       'start#1',
       'stop#1',
-      'stop#1',
-      'start#1',
-      'stop#1',
+      'create#2',
+      'start#2',
+      'stop#2',
     ]);
-    expect(h.manager.liveView(SID)).toEqual({ status: 'STOPPED', qr: null });
+    expect(h.manager.liveView(SID)).toBeNull();
   });
 
-  it('stop pendurado não prende o lock: após o teto de 10 s o restart segue para o start', async () => {
+  it('stop pendurado libera o lock após 10 s, mas não solta o lease nem relança a engine viva', async () => {
     vi.useFakeTimers();
     const h = harness();
     const a = await (async () => {
@@ -348,10 +423,11 @@ describe('SessionManager — lock de ciclo de vida (E27/D-037)', () => {
     expect(a.start).toHaveBeenCalledOnce();
 
     await vi.advanceTimersByTimeAsync(1);
-    await restarting;
-    expect(a.start).toHaveBeenCalledTimes(2);
-    await after; // a operação seguinte da fila também roda
-    expect(a.stop).toHaveBeenCalledTimes(2);
+    await expect(restarting).rejects.toBeInstanceOf(SessionBusyError);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(after).rejects.toBeInstanceOf(SessionBusyError);
+    expect(a.start).toHaveBeenCalledOnce();
+    expect(a.stop).toHaveBeenCalledOnce();
   });
 });
 
@@ -502,7 +578,6 @@ describe('SessionManager — erro e fila (E27/D-037)', () => {
       'create#1',
       'start#1',
       'stop#1',
-      'stop#1',
       'deleteMany',
       'updateMany',
       'purge',
@@ -560,11 +635,11 @@ describe('SessionManager.remove — ordem para o carimbo de proxy (E26/D-038)', 
 
   // O SessionsController carimba a atribuição de proxy DEPOIS de `manager.remove` resolver: a
   // premissa é que remove só resolve com a linha de wa_sessions já apagada (e rejeita se não).
-  it('só resolve depois de repo.delete e rejeita se ele rejeitar', async () => {
+  it('só resolve depois do delete cercado pelo lease e rejeita se ele rejeitar', async () => {
     const h = harness();
     await h.startEngine('STOPPED');
     const gate = deferred();
-    h.repo.delete.mockImplementationOnce(async () => {
+    h.prisma.waSession.delete.mockImplementationOnce(async () => {
       await gate.promise;
     });
     let done = false;
@@ -577,7 +652,7 @@ describe('SessionManager.remove — ordem para o carimbo de proxy (E26/D-038)', 
     await removing;
     expect(done).toBe(true);
 
-    h.repo.delete.mockRejectedValueOnce(new Error('banco fora'));
+    h.prisma.waSession.delete.mockRejectedValueOnce(new Error('banco fora'));
     await expect(h.manager.remove(SID)).rejects.toThrow('banco fora');
   });
 });
@@ -738,7 +813,8 @@ describe('SessionManager.rejectConnectedAccount (E27/P-086)', () => {
 
     stopGate.resolve();
     await Promise.all([stopping, rejecting]);
-    expect(h.log.slice(2, 4)).toEqual(['stop#1', 'logout#1']);
+    expect(h.log[2]).toBe('stop#1');
+    expect(a.logout).not.toHaveBeenCalled(); // o stop soltou a engine/lease antes da rejeição
     expect(h.repo.setLastMeJid).toHaveBeenCalledWith(SID, EXPECTED_JID);
   });
 });
@@ -782,6 +858,7 @@ describe('SessionManager — leituras do link (E27/P-086)', () => {
     h.repo.findAutostart.mockResolvedValueOnce([
       { ...h.session, status: 'WORKING' },
     ]);
+    h.session.status = 'WORKING';
     const startGate = h.hold('start');
 
     await h.manager.onApplicationBootstrap();

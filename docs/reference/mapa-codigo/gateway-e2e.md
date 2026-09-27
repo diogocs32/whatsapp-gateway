@@ -8,10 +8,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `gateway/test/audit.e2e-spec.ts` | 98 |
 | `gateway/test/auth.e2e-spec.ts` | 335 |
-| `gateway/test/baileys-disconnect.e2e-spec.ts` | 155 |
+| `gateway/test/baileys-disconnect.e2e-spec.ts` | 166 |
 | `gateway/test/baileys-offline.e2e-spec.ts` | 250 |
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
-| `gateway/test/baileys-restriction.e2e-spec.ts` | 271 |
+| `gateway/test/baileys-restriction.e2e-spec.ts` | 296 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
 | `gateway/test/connect-links.e2e-spec.ts` | 1301 |
@@ -22,7 +22,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/f6.e2e-spec.ts` | 99 |
 | `gateway/test/g4.e2e-spec.ts` | 107 |
 | `gateway/test/g5.e2e-spec.ts` | 82 |
-| `gateway/test/g6.e2e-spec.ts` | 95 |
+| `gateway/test/g6.e2e-spec.ts` | 98 |
 | `gateway/test/g7.e2e-spec.ts` | 114 |
 | `gateway/test/g8.e2e-spec.ts` | 151 |
 | `gateway/test/health.e2e-spec.ts` | 24 |
@@ -32,12 +32,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/proxy-suggestion.e2e-spec.ts` | 618 |
-| `gateway/test/session-status-dedup.e2e-spec.ts` | 131 |
+| `gateway/test/session-lease.e2e-spec.ts` | 467 |
+| `gateway/test/session-status-dedup.e2e-spec.ts` | 149 |
 | `gateway/test/sessions.e2e-spec.ts` | 179 |
 | `gateway/test/setup-app.ts` | 191 |
 | `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
-| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1020 |
+| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1042 |
 
 ## `gateway/test/audit.e2e-spec.ts`
 
@@ -73,7 +74,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/baileys-disconnect.e2e-spec.ts`
 
-155 linhas · caminho: `apps/gateway/test/baileys-disconnect.e2e-spec.ts`
+166 linhas · caminho: `apps/gateway/test/baileys-disconnect.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/observability/metrics.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
 
 - describe “E9 — 405 persiste diagnóstico, alerta integrador e conta métrica” · L21
@@ -100,11 +101,11 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/baileys-restriction.e2e-spec.ts`
 
-271 linhas · caminho: `apps/gateway/test/baileys-restriction.e2e-spec.ts`
+296 linhas · caminho: `apps/gateway/test/baileys-restriction.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
 
 - describe “E8 — restrição Baileys pausa, alerta e retoma sem envio real” · L23
-  - it “463 sai da engine, persiste prazo, enfileira alerta e devolve 423 até expirar” · L119
+  - it “463 sai da engine, persiste prazo, enfileira alerta e devolve 423 até expirar” · L140
 
 ## `gateway/test/browser-fingerprint.e2e-spec.ts`
 
@@ -355,7 +356,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/g6.e2e-spec.ts`
 
-95 linhas · caminho: `apps/gateway/test/g6.e2e-spec.ts`
+98 linhas · caminho: `apps/gateway/test/g6.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/guardrail/guardrail.service.ts`, `modules/sessions/application/engine.port.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/setup-app.ts`
 
 - describe “G6 eventos guard-rail + dead-letter (e2e)” · L12
@@ -533,17 +534,33 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “sem login → 401” · L607
     - it “OPERATOR → 403 (rota é ADMIN)” · L612
 
+## `gateway/test/session-lease.e2e-spec.ts`
+
+467 linhas · caminho: `apps/gateway/test/session-lease.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/baileys/postgres-auth-state.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `gateway/test/setup-app.ts`
+
+- describe “E13/P-056 — posse e fencing entre processos” · L24
+  - it “só um manager inicia; após soltar, o outro assume e auth/status do epoch velho não escrevem” · L147
+  - it “dois starts simultâneos elegem um único dono e uma única engine” · L257
+  - it “standby assume no boot após shutdown do dono e ignora uma sessão que virou STOPPED” · L280
+  - it “réplica sem lease não consome a reserva de QR do link” · L338
+  - it “logout wwebjs permite que LocalAuth use seu próprio fence sem deadlock” · L350
+  - it “restart após crash assume sessão FAILED sem engine; concorrente recebe 409” · L365
+  - it “réplica antiga não emite RPC após o epoch mudar no banco” · L381
+  - it “LocalAuth atrasado não apaga o perfil do novo dono; limpeza tardia só atinge o descartado” · L398
+  - it “renovação impede outro dono; expiração incrementa epoch e release velho não apaga a nova posse” · L451
+
 ## `gateway/test/session-status-dedup.e2e-spec.ts`
 
-131 linhas · caminho: `apps/gateway/test/session-status-dedup.e2e-spec.ts`
+149 linhas · caminho: `apps/gateway/test/session-status-dedup.e2e-spec.ts`
 - importa (interno): `modules/sessions/application/session-manager.service.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/domain/session-status.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`
 
-- describe “SessionManager — dedup de session.status (alertas zap/telegram)” · L77
-  - it “não republica WORKING repetido (reconexão transitória que não muda nada)” · L78
-  - it “republica em transição real e volta a deduplicar no novo patamar” · L89
-  - it “mesmo status com erro diferente é informação nova — republica” · L98
-  - it “dedup é isolado por sessão — uma não silencia a outra” · L106
-  - it “não deduplica eventos que não são session.status (message.ack sempre passa)” · L115
+- describe “SessionManager — dedup de session.status (alertas zap/telegram)” · L95
+  - it “não republica WORKING repetido (reconexão transitória que não muda nada)” · L96
+  - it “republica em transição real e volta a deduplicar no novo patamar” · L107
+  - it “mesmo status com erro diferente é informação nova — republica” · L116
+  - it “dedup é isolado por sessão — uma não silencia a outra” · L124
+  - it “não deduplica eventos que não são session.status (message.ack sempre passa)” · L133
 
 ## `gateway/test/sessions.e2e-spec.ts`
 
@@ -565,7 +582,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 191 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
@@ -607,77 +624,77 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/wwebjs-engine.e2e-spec.ts`
 
-1020 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
+1042 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
 - importa (interno): `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`
 
-- describe “WWebJSEngine — guard WA_REQUIRE_PROXY (P0-2)” · L51
-  - it “recusa conectar sem proxy quando requireProxy=true (não vaza IP, não sobe Chromium)” · L52
-- describe “WWebJSEngine — rótulo da engine (P1-1)” · L71
-  - it “expõe engineName "wwebjs" (fonte do rótulo do envelope de webhook)” · L72
-- describe “groupFlags — announce/restrict reais do grupo (P-012)” · L78
-  - it “lê os valores reais de groupMetadata” · L82
-  - it “metadata ausente → false (fallback sem regressão)” · L93
-- describe “mapInboundMediaType — tipo de mídia recebida (P0-3)” · L101
-  - it “mapeia os tipos do wwebjs para o mediaType público” · L102
-  - it “mídia desconhecida cai em document (recuperável no GET /media)” · L111
-- describe “WWebJSEngine.purgeAuthDir — limpeza do LocalAuth em disco (P1-2/P1-3)” · L117
-  - it “remove o perfil do Chromium da sessão do disco” · L118
-  - it “é no-op (não lança) para sessão sem perfil em disco” · L129
-- describe “WWebJSEngine — grupos/contatos/canais implementados (W4/P-010)” · L136
-  - it “createGroup vai à lib (sem client → "Sessão não conectada", não mais "não suportado")” · L141
-  - it “checkNumbers e setBlock idem (implementados, não mais nope)” · L149
-  - it “followChannel idem (canais beta implementados)” · L160
-- describe “WWebJSEngine — mensagens ricas (W5): reações e menções” · L169
-  - it “sendReaction vai à lib (sem client → "Sessão não conectada")” · L170
-  - it “sendText com menções não quebra o caminho (sem client → "Sessão não conectada")” · L178
-  - it “sendLocation vai à lib (sem client → "Sessão não conectada")” · L188
-  - it “sendPoll vai à lib (sem client → "Sessão não conectada")” · L200
-  - it “setProfileStatus/setProfileName vão à lib (sem client → "Sessão não conectada")” · L211
-- describe “WWebJSEngine — W8 grupos avançados (membership/settings/foto)” · L226
-  - it “groupMembershipRequests/Action e setGroupSetting/Photo vão à lib (sem client)” · L227
-- describe “WWebJSEngine — W7 inbox/histórico (listChats/fetchChatHistory)” · L245
-  - it “vão à lib (sem client → "Sessão não conectada", não são no-op)” · L246
-- describe “WWebJSEngine — W7 gestão de chat (setChatFlag)” · L256
-  - it “todos os flags vão à lib (sem client → "Sessão não conectada")” · L257
-- describe “buildAuthProxyUrl — upstream do forwarder local (proxy autenticado)” · L268
-  - it “injeta as credenciais na URL do proxy” · L269
-  - it “percent-encoda credenciais com caracteres especiais (@ : /) sem quebrar a URL” · L279
-- describe “proxy-chain — forwarder local p/ proxy autenticado (ERR_TUNNEL_CONNECTION_FAILED)” · L287
-  - it “anonymizeProxy devolve URL local sem credencial e closeAnonymizedProxy libera a porta” · L292
-- describe “userAgentFor — UA anti-flag estável por sessão (P-012)” · L303
-  - it “é DETERMINÍSTICO por sessão (mesmo id → mesmo UA entre reconexões)” · L315
-  - it “é um UA de Chrome/Linux plausível e recente (não o Chrome/101 default do wwebjs)” · L321
-  - it “varia entre sessões diferentes (frota não usa UA idêntico)” · L331
-  - it “WWEBJS_USER_AGENT força um override global explícito” · L340
-- describe “raceStoreOp + withStoreReady com teto (P-014 — página do Store travada)” · L353
-  - it “raceStoreOp: operação rápida passa; pendurada estoura com mensagem acionável + teto” · L369
-  - it “raceStoreOp: rejeição TARDIA da promise órfã é engolida (sem unhandled rejection)” · L376
-  - it “probe detecta página que não responde ANTES da operação pesada (fn nem é chamado)” · L385
-  - it “operação pendurada estoura o teto próprio (não os 240s do CDP) SEM retry” · L407
-  - it “retry do Store-ainda-injetando continua funcionando (regressão do fluxo original)” · L427
-  - it “mensagem de erro inclui o percent do loading_screen quando houve progresso (diagnóstico)” · L450
-  - it “sem client: comportamento antigo preservado (probe não roda, erro "Sessão não conectada")” · L460
-- describe “resolveParticipantsBatch SEM getContacts + auto-heal (P-014, 14/08)” · L467
-  - it “participantes resolvem phone/nome SEM chamar getContacts (getContacts ausente no client não explode)” · L491
-  - it “probe de página morta dispara o auto-heal (pupPage.reload) com cooldown single-flight” · L520
-- describe “WWebJSEngine — shutdown limpo do processo (P-015)” · L553
-  - it “shutdown() fecha o Chromium POR FORA do mutex (fila de ciclo de vida presa não impede o destroy)” · L589
-  - it “shutdown() com destroy pendurado estoura o teto próprio e RESOLVE (não pendura o grace period)” · L605
-  - it “destroy limpo grava o marcador no perfil; o start seguinte o consome SEM warn de sujo” · L616
-  - it “shutdown() sem client aberto NÃO grava o marcador (não mascara um fechamento sujo anterior)” · L647
-  - it “logout() numa página travada estoura o teto do client.logout() e segue para destroy+purga” · L663
-- describe “patch `$1` do WhatsApp Web aplicado na lib (B-002)” · L682
-  - it “Utils.js instalado contém o helper getMsgKeyId e Puppeteer.js o guard de exposeFunction” · L687
-- describe “P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)” · L707
-  - it “sendText numa página travada falha em segundos com erro acionável e dispara o heal (P-016)” · L733
-  - it “mídia acima do teto NÃO baixa: emite metadados com fileSize e não toca downloadMedia (P-017)” · L763
-  - it “mídia dentro do teto segue o fluxo normal de download (regressão)” · L792
-  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L823
-- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L853
-  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L866
-  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L879
-  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L913
-- describe “P-019 — watchdog de sync: fim do WORKING falso” · L943
-  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L956
-  - it “página volta a responder → status retorna a WORKING sozinho” · L988
-  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1011
+- describe “WWebJSEngine — guard WA_REQUIRE_PROXY (P0-2)” · L59
+  - it “recusa conectar sem proxy quando requireProxy=true (não vaza IP, não sobe Chromium)” · L60
+- describe “WWebJSEngine — rótulo da engine (P1-1)” · L79
+  - it “expõe engineName "wwebjs" (fonte do rótulo do envelope de webhook)” · L80
+- describe “groupFlags — announce/restrict reais do grupo (P-012)” · L86
+  - it “lê os valores reais de groupMetadata” · L90
+  - it “metadata ausente → false (fallback sem regressão)” · L101
+- describe “mapInboundMediaType — tipo de mídia recebida (P0-3)” · L109
+  - it “mapeia os tipos do wwebjs para o mediaType público” · L110
+  - it “mídia desconhecida cai em document (recuperável no GET /media)” · L119
+- describe “WWebJSEngine.detachAuthDir — limpeza do LocalAuth em disco (E13/P-056)” · L125
+  - it “separa o perfil ativo e remove só o caminho descartado” · L126
+  - it “é no-op (não lança) para sessão sem perfil em disco” · L139
+- describe “WWebJSEngine — grupos/contatos/canais implementados (W4/P-010)” · L148
+  - it “createGroup vai à lib (sem client → "Sessão não conectada", não mais "não suportado")” · L153
+  - it “checkNumbers e setBlock idem (implementados, não mais nope)” · L161
+  - it “followChannel idem (canais beta implementados)” · L172
+- describe “WWebJSEngine — mensagens ricas (W5): reações e menções” · L181
+  - it “sendReaction vai à lib (sem client → "Sessão não conectada")” · L182
+  - it “sendText com menções não quebra o caminho (sem client → "Sessão não conectada")” · L190
+  - it “sendLocation vai à lib (sem client → "Sessão não conectada")” · L200
+  - it “sendPoll vai à lib (sem client → "Sessão não conectada")” · L212
+  - it “setProfileStatus/setProfileName vão à lib (sem client → "Sessão não conectada")” · L223
+- describe “WWebJSEngine — W8 grupos avançados (membership/settings/foto)” · L238
+  - it “groupMembershipRequests/Action e setGroupSetting/Photo vão à lib (sem client)” · L239
+- describe “WWebJSEngine — W7 inbox/histórico (listChats/fetchChatHistory)” · L257
+  - it “vão à lib (sem client → "Sessão não conectada", não são no-op)” · L258
+- describe “WWebJSEngine — W7 gestão de chat (setChatFlag)” · L268
+  - it “todos os flags vão à lib (sem client → "Sessão não conectada")” · L269
+- describe “buildAuthProxyUrl — upstream do forwarder local (proxy autenticado)” · L280
+  - it “injeta as credenciais na URL do proxy” · L281
+  - it “percent-encoda credenciais com caracteres especiais (@ : /) sem quebrar a URL” · L291
+- describe “proxy-chain — forwarder local p/ proxy autenticado (ERR_TUNNEL_CONNECTION_FAILED)” · L299
+  - it “anonymizeProxy devolve URL local sem credencial e closeAnonymizedProxy libera a porta” · L304
+- describe “userAgentFor — UA anti-flag estável por sessão (P-012)” · L315
+  - it “é DETERMINÍSTICO por sessão (mesmo id → mesmo UA entre reconexões)” · L327
+  - it “é um UA de Chrome/Linux plausível e recente (não o Chrome/101 default do wwebjs)” · L333
+  - it “varia entre sessões diferentes (frota não usa UA idêntico)” · L343
+  - it “WWEBJS_USER_AGENT força um override global explícito” · L352
+- describe “raceStoreOp + withStoreReady com teto (P-014 — página do Store travada)” · L365
+  - it “raceStoreOp: operação rápida passa; pendurada estoura com mensagem acionável + teto” · L381
+  - it “raceStoreOp: rejeição TARDIA da promise órfã é engolida (sem unhandled rejection)” · L388
+  - it “probe detecta página que não responde ANTES da operação pesada (fn nem é chamado)” · L397
+  - it “operação pendurada estoura o teto próprio (não os 240s do CDP) SEM retry” · L419
+  - it “retry do Store-ainda-injetando continua funcionando (regressão do fluxo original)” · L439
+  - it “mensagem de erro inclui o percent do loading_screen quando houve progresso (diagnóstico)” · L462
+  - it “sem client: comportamento antigo preservado (probe não roda, erro "Sessão não conectada")” · L472
+- describe “resolveParticipantsBatch SEM getContacts + auto-heal (P-014, 14/08)” · L479
+  - it “participantes resolvem phone/nome SEM chamar getContacts (getContacts ausente no client não explode)” · L503
+  - it “probe de página morta dispara o auto-heal (pupPage.reload) com cooldown single-flight” · L532
+- describe “WWebJSEngine — shutdown limpo do processo (P-015)” · L565
+  - it “shutdown() fecha o Chromium POR FORA do mutex (fila de ciclo de vida presa não impede o destroy)” · L601
+  - it “shutdown() com destroy pendurado estoura o teto e rejeita para não liberar o lease” · L617
+  - it “destroy limpo grava o marcador no perfil; o start seguinte o consome SEM warn de sujo” · L628
+  - it “shutdown() sem client aberto NÃO grava o marcador (não mascara um fechamento sujo anterior)” · L659
+  - it “logout remoto pendente segura o fechamento até a promise terminar” · L675
+- describe “patch `$1` do WhatsApp Web aplicado na lib (B-002)” · L704
+  - it “Utils.js instalado contém o helper getMsgKeyId e Puppeteer.js o guard de exposeFunction” · L709
+- describe “P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)” · L729
+  - it “sendText numa página travada falha em segundos com erro acionável e dispara o heal (P-016)” · L755
+  - it “mídia acima do teto NÃO baixa: emite metadados com fileSize e não toca downloadMedia (P-017)” · L785
+  - it “mídia dentro do teto segue o fluxo normal de download (regressão)” · L814
+  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L845
+- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L875
+  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L888
+  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L901
+  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L935
+- describe “P-019 — watchdog de sync: fim do WORKING falso” · L965
+  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L978
+  - it “página volta a responder → status retorna a WORKING sozinho” · L1010
+  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1033

@@ -50,6 +50,8 @@ function harness() {
     sessionId: 'e9-disconnect',
     deviceName: 'test',
     prisma: {} as never,
+    lease: {} as never,
+    authEpoch: 1n,
     logger: { info() {}, warn, error() {}, debug() {}, trace() {} } as never,
     onEvent: (name: string, payload: unknown) =>
       events.push({ name, payload: payload as Record<string, unknown> }),
@@ -417,6 +419,8 @@ describe('Baileys — versão por conexão (E9/P-049)', () => {
       sessionId: 'version-stop-during-proxy',
       deviceName: 'test',
       prisma: {} as never,
+      lease: {} as never,
+      authEpoch: 1n,
       logger: {
         info() {},
         warn() {},
@@ -458,6 +462,8 @@ describe('Baileys — versão por conexão (E9/P-049)', () => {
       sessionId: 'version-quiet-440',
       deviceName: 'test',
       prisma: {} as never,
+      lease: {} as never,
+      authEpoch: 1n,
       logger: {
         info() {},
         warn() {},
@@ -538,6 +544,8 @@ describe('Baileys — versão por conexão (E9/P-049)', () => {
         sessionId,
         deviceName: 'test',
         prisma: {} as never,
+        lease: {} as never,
+        authEpoch: 1n,
         logger: { info, warn, error() {}, debug() {}, trace() {} } as never,
         onEvent: () => undefined,
         baileysProtocolCanarySessionId: canarySessionId,

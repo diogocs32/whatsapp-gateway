@@ -78,6 +78,21 @@ describe('E8 — restrição Baileys pausa, alerta e retoma sem envio real', () 
       {} as never,
       guardrail,
     );
+    const lease = (
+      manager as unknown as {
+        lease: {
+          acquire: (
+            id: string,
+          ) => Promise<{ epoch: bigint; until: Date } | null>;
+        };
+      }
+    ).lease;
+    const fence = await lease.acquire(sessionId);
+    if (!fence) throw new Error('lease de teste indisponível');
+    (manager as unknown as { owned: Map<string, unknown> }).owned.set(
+      sessionId,
+      { ...fence, active: true },
+    );
     const engine = {
       engineName: 'baileys',
       getStatus: () => 'WORKING',
@@ -111,6 +126,12 @@ describe('E8 — restrição Baileys pausa, alerta e retoma sem envio real', () 
   });
 
   afterAll(async () => {
+    const internals = manager as unknown as {
+      lease: { release: (id: string, epoch: bigint) => Promise<void> };
+      owned: Map<string, { epoch: bigint }>;
+    };
+    const epoch = internals.owned.get(sessionId)?.epoch;
+    if (epoch !== undefined) await internals.lease.release(sessionId, epoch);
     await prisma.webhook.deleteMany({ where: { id: webhookId } });
     await removeSession(app, sessionId);
     await app.close();
@@ -252,6 +273,10 @@ describe('E8 — restrição Baileys pausa, alerta e retoma sem envio real', () 
       .spyOn(Date, 'now')
       .mockReturnValue(end.getTime() + 1);
     try {
+      // O relógio sintético avança além do TTL local; o lease real do Postgres continua válido.
+      (manager as unknown as { owned: Map<string, { until: Date }> }).owned.get(
+        sessionId,
+      )!.until = new Date(end.getTime() + 60_000);
       const resumed = await postText('depois');
       expect(resumed.statusCode).toBe(201);
       expect(sendText).toHaveBeenCalledTimes(2);

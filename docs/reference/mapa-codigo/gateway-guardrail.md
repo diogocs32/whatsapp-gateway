@@ -139,14 +139,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `apply` L329, `canSendCold` L419, `canSendMessage` L438, `recordHardSignal` L549, `recordReachoutRestriction` L456
 - `canSendCold(sessionId)` · L419 · async
   - chama: `canSendMessage` L438, `emit` L190, `emitFailed` L409, `getState` L216
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142), `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.assertColdAllowed` (messages.controller.ts:257)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:146), `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.assertColdAllowed` (messages.controller.ts:257)
 - `canSendMessage(sessionId)` · L438 · async
   - chama: `emit` L190, `emitFailed` L409
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:142), `canSendCold` L419, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:887)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:146), `canSendCold` L419, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:1365)
   - banco: `sessionGuardrail.findUnique`
 - `recordReachoutRestriction(sessionId, signal, options)` · L456 · async
   - chama: `emit` L190, `emitFailed` L409, `recordHardSignal` L549
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
   - banco: `sessionGuardrail.updateMany`
 - `recordHardSignal(sessionId, signal)` · L549 · async
   - chama: `apply` L329, `emit` L190, `emitFailed` L409, `newId` (ulid.ts:4)
@@ -185,7 +185,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **class `SessionQuarantinedException`** L5 · `extends HttpException`
 - injeta (construtor): `state: string (param)` · `reason: string | null (param)`
 - `constructor(state, reason)` · L6
-  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:257), `SessionManager.sending` (session-manager.service.ts:887)
+  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:257), `SessionManager.sending` (session-manager.service.ts:1365)
 
 ## `modules/guardrail/undelivered-detector.service.spec.ts`
 

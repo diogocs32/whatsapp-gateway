@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido — exclusividade de sessão entre processos (27/09 — E13/P-056, D-039; sem deploy)
+
+- Lease por sessão no PostgreSQL, renovada e com `authEpoch` crescente: só a réplica dona inicia/reidrata, grava auth/status e envia; a antiga drena ao perder a posse. O boot em espera assume após shutdown do dono e não religa uma sessão que virou `STOPPED`. Migration aditiva `20260927124000_session_lease_fencing` aplicada apenas no banco local.
+- Auth store Baileys lê e grava sob o mesmo fence; `keys.set` tem um commit para todas as chaves e `saveCreds` conserva a ordem dos snapshots. Logout/new-QR giram o epoch. O LocalAuth WWEBJS renomeia o perfil sob lock e remove só o caminho descartado fora da transação; fechamento inconclusivo do Chromium impede a liberação da lease. Campanha que perde posse ou recebe 409 transitório reprograma o destinatário sem FAILED; DEGRADED só faz nova tentativa lenta para queda de rede.
+- Sem rota/payload novo, conta real ou deploy. O primeiro deploy precisa de B-004 `stop-first` confirmado porque o container antigo não conhece a lease; WWEBJS mantém stop-first por causa do perfil/Chromium compartilhado. Resíduos de perfil descartado após falha de limpeza ficam em P-098.
+
 ### Adicionado — sugerir o proxy da sessão apagada ao recriar com o mesmo nome (27/09 — E26/P-084, D-038; deploy manual dos 2 apps pendente)
 
 - Ao apagar uma sessão com proxy fixo, o gateway guarda o nome dela na atribuição órfã; ao criar de novo uma sessão com o mesmo nome (sem diferenciar maiúsculas), o painel pré-seleciona aquele proxy com "Sugestão: #N · rótulo era o proxy da sessão …" — ou só avisa se ele estiver em uso (por qual sessão), fora do ar, desabilitado ou excluído. Não bloqueia escolher outro; Enter logo depois de digitar o nome espera a sugestão (até 1,5 s) para ninguém criar sem vê-la.

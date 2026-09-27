@@ -14,8 +14,12 @@ import {
 } from '../../../shared-kernel/safe-fetch';
 import { GuardrailService } from '../../guardrail/guardrail.service';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
+import { LeaseLostError } from '../../sessions/application/session-lease.error';
 import type { MediaSendType } from '../../sessions/application/engine.port';
-import { SessionManager } from '../../sessions/application/session-manager.service';
+import {
+  SessionBusyError,
+  SessionManager,
+} from '../../sessions/application/session-manager.service';
 import { CampaignRepository } from './campaign.repository';
 
 export interface CampaignJob {
@@ -258,7 +262,13 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       }
       await this.repo.markRecipientSent(r.id, keyId);
     } catch (e) {
-      if (e instanceof SessionQuarantinedException) {
+      if (
+        e instanceof SessionQuarantinedException ||
+        e instanceof LeaseLostError ||
+        e instanceof SessionBusyError
+      ) {
+        // O Worker também roda na réplica sem lease durante start-first. Não transformar uma
+        // disputa transitória de posse em FAILED definitivo para o destinatário.
         await this.repo.releaseRecipient(r.id);
         await this.requeue(data);
         return;

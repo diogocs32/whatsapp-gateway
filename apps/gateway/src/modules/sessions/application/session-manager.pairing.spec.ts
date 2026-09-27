@@ -14,12 +14,15 @@ function harness(status: string, creds: unknown = null) {
     prisma: unknown;
     getOrCreateEngine: () => unknown;
     startWithTimeout: (_id: string, promise: Promise<void>) => Promise<void>;
+    ensureLease: (_id: string) => Promise<bigint>;
   };
   internals.repo = { findById };
   internals.prisma = { waSession: { findUnique } };
   internals.getOrCreateEngine = () => engine;
   internals.startWithTimeout = async (_id, promise) => promise;
-  return { manager, findUnique, start, requestPairingCode };
+  const ensureLease = vi.fn(async () => 1n);
+  internals.ensureLease = ensureLease;
+  return { manager, findUnique, start, requestPairingCode, ensureLease };
 }
 
 describe('SessionManager.requestPairingCode (E12)', () => {
@@ -30,6 +33,7 @@ describe('SessionManager.requestPairingCode (E12)', () => {
     ).rejects.toThrow('já pareada');
     expect(h.findUnique).not.toHaveBeenCalled();
     expect(h.start).not.toHaveBeenCalled();
+    expect(h.ensureLease).not.toHaveBeenCalled();
     expect(h.requestPairingCode).not.toHaveBeenCalled();
   });
 
@@ -46,6 +50,7 @@ describe('SessionManager.requestPairingCode (E12)', () => {
       select: { creds: true },
     });
     expect(h.start).not.toHaveBeenCalled();
+    expect(h.ensureLease).not.toHaveBeenCalled();
   });
 
   it('inicia sessão sem credenciais e encaminha o pedido sem sleep', async () => {

@@ -469,6 +469,14 @@ POST /api/sessions/{sessao}/contacts/block     { "jid": "5511999999999", "action
 
 ## 11. Sessões — criar já com proxy livre (opcional, D-008)
 
+**Exclusividade de sessão (E13/P-056):** durante uma troca de container, só a réplica com lease
+ativa aceita start, QR e envio da sessão. Uma operação de ciclo de vida que encontra a sessão em
+outra réplica responde conflito 409; aguarde a liberação e consulte o status antes de repetir.
+O gateway não muda rotas nem payloads de sucesso. O primeiro deploy desta versão exige a
+configuração operacional B-004 `stop-first`, porque o container antigo não respeita a lease.
+Para sessões WWEBJS, manter `stop-first` também nas versões seguintes: o Chromium usa um perfil
+compartilhado que não pode ser cercado por uma transação do Postgres durante todo o lançamento.
+
 ```
 GET  /api/proxies/available     # proxies LIVRES: enabled, não-DEAD e sem sessão usando
 POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "proxyId": "<id de um livre>" }

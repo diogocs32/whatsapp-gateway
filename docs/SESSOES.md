@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                | Início      | Objetivo                                                                                                      | Escopo                                                | Branch                          |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------- |
+| lid-envio-wwebjs  | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs      | fix/lid-envio-wwebjs            |
+| e13-exclusividade | 27/09 12:36 | P-056: lease/epoch entre processos e auth transacional; sem deploy                                            | `modules/sessions/`, `schema.prisma`, migration, docs | feature/onda3-e13-exclusividade |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
