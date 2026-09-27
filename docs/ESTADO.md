@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 no PR #8 e E6/P-060 no PR #10 mergeadas (deploy W pendente). **E7–E10 estão na `main` pelo PR #11; E11/P-051 foi integrada pelo PR #15, criado de `origin/main=960471e`, sem deploy; E12/P-052 continua pendente e seguirá em nova branch/PR da `origin/main` atualizada.** O PR #13 (`2f02f02`) reconciliou as pontas restantes das branches M2/Mac e integrou o observador WWEBJS D-035/P-088, desligado por padrão e sem ação de guardrail. O dono autorizou os merges #7, #8, #10, #11 e #13 e, em 26/09, orientou fazer merge ao fim de cada etapa após CI verde; o PR #15 integra a E11, sem Deploy. Deploys manuais A/G/W e futuro B, mais canários, seguem pendentes. P-084 e P-086 são pedidos futuros; P-087 registra o listener interno do reupload sem cancelamento na rc14. Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1 mergeada (deploy A pendente); Onda 8 E22–E25 mergeada no PR #7 (deploy G pendente); E5/P-059/P-073 no PR #8 e E6/P-060 no PR #10 mergeadas (deploy W pendente). **E7–E10 estão na `main` pelo PR #11; E11/P-051 foi integrada pelo PR #15 e E12/P-052 foi implementada no PR #16, criado de `origin/main=119635c`, para merge ao fim após CI verde. A Onda 2 fecha em código com a E12; deploy B e canário continuam pendentes.** O PR #13 (`2f02f02`) reconciliou as pontas restantes das branches M2/Mac e integrou o observador WWEBJS D-035/P-088, desligado por padrão e sem ação de guardrail. O dono autorizou os merges #7, #8, #10, #11 e #13 e, em 26/09, orientou fazer merge ao fim de cada etapa após CI verde; o PR #15 integrou a E11, sem deploy. Deploys manuais A/G/W e futuro B, mais canários, seguem pendentes. P-084 e P-086 são pedidos futuros; P-087 registra o listener interno do reupload sem cancelamento na rc14. Auto Deploy consta desligado por D-027, sem conferência ao vivo do toggle nesta sessão. Mapa do código: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,16 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **26/09/2026 (E12/P-052, PR #16 — sem deploy):** a rc14 instalada foi confirmada
+> na tag oficial antes da mudança. Pairing recusa WORKING/`creds.me`/`sock.user` com 409 e
+> espera `connecting` ou primeiro QR por até 10 s; o roster usa `phoneNumber` e só consulta
+> `lidMapping` local se faltar PN. Caches de retry/devices são medidos por socket e as pre-keys
+> contadas por sessão; externalização aguarda as medidas do canário. `countryCode: BR` é apenas
+> coerência de configuração. Testes sintéticos locais, postinstall, guardas e ambos os
+> Dockerfiles passaram; CI do PR #16 é o gate do merge. P-087 permanece separada.
+> Não houve conta, QR em aparelho, mídia/mensagem real, deploy nem canário. O último SHA de
+> produção **documentado** é `768fb26`, sem verificação ao vivo nesta sessão.
 
 > **26/09/2026 (E11/P-051, PR #15 integrado — sem deploy):** patch-package da rc14
 > corrige `Curve.verify`, domínio hosted por device e erro do stream cifrado (D-036).

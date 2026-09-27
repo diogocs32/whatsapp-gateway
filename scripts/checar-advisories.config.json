@@ -59,6 +59,11 @@
       "pacotes": ["@whiskeysockets/baileys"]
     },
     {
+      "repo": "jaredwray/cacheable",
+      "tipo": "npm",
+      "pacotes": ["@cacheable/node-cache"]
+    },
+    {
       "repo": "wwebjs/whatsapp-web.js",
       "tipo": "npm",
       "pacotes": ["whatsapp-web.js"]

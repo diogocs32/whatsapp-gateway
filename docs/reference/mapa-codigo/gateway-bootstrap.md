@@ -89,7 +89,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `buildFastifyAdapter(maxFileBytes)` · L11
   - chama: `rejectAmbiguousAbsoluteForm` (route-url.ts:39), `stampRouteUrl` (route-url.ts:20)
-  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:92)
+  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:93)
 
 ## `bootstrap/http-logger.spec.ts`
 

@@ -31,8 +31,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 131 |
-| `gateway/test/sessions.e2e-spec.ts` | 111 |
-| `gateway/test/setup-app.ts` | 181 |
+| `gateway/test/sessions.e2e-spec.ts` | 179 |
+| `gateway/test/setup-app.ts` | 182 |
 | `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1020 |
@@ -453,41 +453,43 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/sessions.e2e-spec.ts`
 
-111 linhas · caminho: `apps/gateway/test/sessions.e2e-spec.ts`
-- importa (interno): `infra/prisma/prisma.service.ts`, `gateway/test/setup-app.ts`
+179 linhas · caminho: `apps/gateway/test/sessions.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `modules/sessions/infrastructure/baileys/baileys-cache-observer.ts`, `gateway/test/setup-app.ts`
 
-- describe “Sessions (e2e)” · L6
-  - it “GET /api/sessions sem auth → 401” · L25
-  - it “POST /start com body vazio + content-type json NÃO retorna 400” · L32
-  - it “cria sessão (201) e ela aparece na listagem” · L42
-  - it “POST /new-qr sem auth → 401” · L66
-  - it “POST /new-qr de sessão inexistente → 404” · L74
-  - it “POST /new-qr de sessão existente → 200 {ok:true}” · L83
-  - it “nome inválido → 400 (validação zod)” · L101
+- describe “Sessions (e2e)” · L7
+  - it “GET /api/sessions sem auth → 401” · L26
+  - it “POST /start com body vazio + content-type json NÃO retorna 400” · L33
+  - it “cria sessão (201) e ela aparece na listagem” · L43
+  - it “POST /new-qr sem auth → 401” · L67
+  - it “POST /new-qr de sessão inexistente → 404” · L75
+  - it “POST /new-qr de sessão existente → 200 {ok:true}” · L84
+  - it “POST /pairing-code de sessão WORKING → 409 sem código (socket sintético)” · L102
+  - it “conta pre-keys só da sessão escolhida, sem incluir outros tipos ou sessões” · L135
+  - it “nome inválido → 400 (validação zod)” · L169
 
 ## `gateway/test/setup-app.ts`
 
-181 linhas · caminho: `apps/gateway/test/setup-app.ts`
+182 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
 - importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
-- `createTestApp(managerOverride)` · L92 · async
+- `createTestApp(managerOverride)` · L93 · async
   - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts)
-- `inject(app, opts)` · L128
-  - chamado por: `login` L152
-- `readSetCookie(res, name)` · L140
-- `login(app)` · L152 · async
-  - chama: `inject` L128
-- `seedSession(app, name)` · L165 · async
+- `inject(app, opts)` · L129
+  - chamado por: `login` L153
+- `readSetCookie(res, name)` · L141
+- `login(app)` · L153 · async
+  - chama: `inject` L129
+- `seedSession(app, name)` · L166 · async
   - banco: `waSession.create`, `waSession.deleteMany`
-- `removeSession(app, name)` · L174 · async
+- `removeSession(app, name)` · L175 · async
   - banco: `waSession.deleteMany`
 
 **Tipos**
-- interface `InjectOpts` L114 · 4 propriedade(s)
-- interface `InjectResponse` L121 · 4 propriedade(s)
+- interface `InjectOpts` L115 · 4 propriedade(s)
+- interface `InjectResponse` L122 · 4 propriedade(s)
 
 ## `gateway/test/undelivered-observer.e2e-spec.ts`
 
