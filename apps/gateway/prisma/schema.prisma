@@ -546,16 +546,23 @@ model Proxy {
 }
 
 // Atribuição de proxy por sessão (§7.3): modo + faixa de posições + estratégia.
+// Sem FK para wa_sessions: ao apagar a sessão a linha fica órfã (não segura o proxy — D-008). Desde a
+// E26 (P-084, D-038) a órfã de SINGLE ganha o carimbo `releasedSessionName`/`releasedAt` e vira a
+// memória "que proxy essa sessão usava" para sugerir ao recriar com o mesmo nome — registro
+// intencional: nada pode limpar essas linhas.
 model SessionProxyAssignment {
-  sessionId      String        @id
-  mode           ProxyMode     @default(NONE)
-  rangeStart     Int?
-  rangeEnd       Int?
-  strategy       ProxyStrategy @default(STICKY)
-  currentProxyId String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  sessionId           String        @id
+  mode                ProxyMode     @default(NONE)
+  rangeStart          Int?
+  rangeEnd            Int?
+  strategy            ProxyStrategy @default(STICKY)
+  currentProxyId      String?
+  releasedSessionName String?
+  releasedAt          DateTime?     @db.Timestamptz(3)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
+  @@index([releasedSessionName])
   @@map("session_proxy_assignments")
 }
 

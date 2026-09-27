@@ -161,3 +161,51 @@ describe('api.sessions.connectLink', () => {
     });
   });
 });
+
+// E26/P-084 — sugestão de proxy na criação de sessão.
+describe('api.proxies.suggestion', () => {
+  it('GET com o nome codificado na query, cookie, sem Content-Type e com o signal de quem chama', async () => {
+    const fetchMock = vi.fn(async (..._args: unknown[]) =>
+      json(200, { suggestion: null }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const ctrl = new AbortController();
+    const out = await api.proxies.suggestion('Vendas_01 &x', {
+      signal: ctrl.signal,
+    });
+    expect(out).toEqual({ suggestion: null });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      `${BASE}/api/proxies/suggestion?sessionName=Vendas_01%20%26x`,
+    );
+    expect(init.method ?? 'GET').toBe('GET');
+    expect(init.credentials).toBe('include');
+    expect(init.signal).toBe(ctrl.signal);
+    // Sem cache HTTP (o GET do "Criar" segurado não fica atrás do GET do debounce).
+    expect(init.cache).toBe('no-store');
+    expect(
+      (init.headers as Record<string, string>)['Content-Type'],
+    ).toBeUndefined();
+  });
+
+  it('sem init: no-store do mesmo jeito; init do chamador pode sobrescrever', async () => {
+    const fetchMock = vi.fn(async (..._args: unknown[]) =>
+      json(200, { suggestion: null }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await api.proxies.suggestion('vendas');
+    await api.proxies.suggestion('vendas', { cache: 'default' });
+    const calls = fetchMock.mock.calls as [string, RequestInit][];
+    expect(calls.map(([, i]) => i.cache)).toEqual(['no-store', 'default']);
+  });
+
+  it('403 (OPERATOR) chega como ApiError para quem chama engolir', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json(403, { statusCode: 403, message: 'Forbidden' })),
+    );
+    const err = await api.proxies.suggestion('vendas').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ status: 403 });
+  });
+});

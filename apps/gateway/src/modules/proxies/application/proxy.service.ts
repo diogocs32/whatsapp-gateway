@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import type { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import {
+  pickReleased,
+  suggestionAvailability,
+  type ProxySuggestionReason,
+} from '../domain/proxy-suggestion';
+import {
   PROXY_REPOSITORY,
   type ProxyRepository,
 } from '../domain/proxy.repository';
@@ -34,6 +39,16 @@ export interface TestResult {
   // Motivo quando DEAD (ex.: PROXY_AUTH = credencial recusada com 407) — ajuda a diferenciar
   // "proxy fora do ar" de "senha errada" sem precisar olhar o log do Chromium.
   reason: string | null;
+}
+
+// E26 (P-084): o proxy que a sessão apagada com esse nome usava, e se ainda dá para escolher.
+export interface ProxySuggestion {
+  proxy: Proxy | null; // null só com reason REMOVED (proxy excluído do pool)
+  fromSession: string; // nome como a sessão foi apagada
+  releasedAt: Date;
+  available: boolean;
+  reason: ProxySuggestionReason | null;
+  inUseBySession: string | null;
 }
 
 export interface SetAssignmentData {
@@ -263,6 +278,49 @@ export class ProxyService implements OnApplicationBootstrap {
       assignment.currentProxyId = null;
     }
     return assignment;
+  }
+
+  // E26 (P-084, D-038): chamado DEPOIS de apagar a sessão (a linha de atribuição não tem FK e
+  // sobrevive). Nunca lança — a exclusão já aconteceu; sem o carimbo só se perde a sugestão.
+  async markReleased(sessionId: string, sessionName: string): Promise<void> {
+    try {
+      const n = await this.repo.markReleased(
+        sessionId,
+        sessionName,
+        new Date(),
+      );
+      if (n > 0) {
+        this.logger.log(
+          `Proxy da sessão apagada "${sessionName}" guardado para sugerir ao recriar`,
+        );
+      }
+    } catch (e) {
+      const err = e as Error;
+      this.logger.error(
+        `não guardei o proxy da sessão apagada ${sessionId}: ${err.message}`,
+        err.stack,
+      );
+    }
+  }
+
+  async suggestionFor(sessionName: string): Promise<ProxySuggestion | null> {
+    const row = pickReleased(
+      await this.repo.findReleasedByName(sessionName),
+      sessionName,
+    );
+    if (!row?.currentProxyId) return null;
+    const proxy = await this.repo.findById(row.currentProxyId);
+    const owner = proxy ? await this.repo.proxyOwnerName(proxy.id) : null;
+    const a = suggestionAvailability(proxy, owner !== null);
+    return {
+      proxy,
+      fromSession: row.releasedSessionName,
+      releasedAt: row.releasedAt,
+      available: a.available,
+      reason: a.reason,
+      // Só com IN_USE (contrato): com o proxy excluído não há dono.
+      inUseBySession: a.reason === 'IN_USE' ? owner : null,
+    };
   }
 
   webshareConfigured(): boolean {

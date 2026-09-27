@@ -11,6 +11,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/observability/observability.controller.ts` | 45 |
 | `modules/observability/observability.module.ts` | 22 |
 | `modules/observability/reply-rate.service.ts` | 205 |
+| `modules/observability/retention.service.spec.ts` | 39 |
 | `modules/observability/retention.service.ts` | 105 |
 | `modules/observability/session-event.logger.ts` | 53 |
 
@@ -122,11 +123,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `ReplyRateResult` L11 · 12 propriedade(s)
 - interface `RawRow` L33 · 5 propriedade(s)
 
+## `modules/observability/retention.service.spec.ts`
+
+39 linhas · caminho: `apps/gateway/src/modules/observability/retention.service.spec.ts`
+- importa (interno): `modules/observability/retention.service.ts`
+
+- describe “RetentionService.sweep — invariante D-038” · L8
+  - it “não acessa session_proxy_assignments (modelo nem SQL cru)” · L11
+
 ## `modules/observability/retention.service.ts`
 
 105 linhas · caminho: `apps/gateway/src/modules/observability/retention.service.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`
-- importado por: `modules/observability/observability.module.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`
+- importado por: `modules/observability/observability.module.ts`, `modules/observability/retention.service.spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`
 
 **class `RetentionService`** L12 · @Injectable · `implements OnApplicationBootstrap`
 - injeta (construtor): `prisma: PrismaService`

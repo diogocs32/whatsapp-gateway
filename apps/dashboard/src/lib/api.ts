@@ -40,6 +40,7 @@ import type {
   ProfilePictureDto,
   ProxyAssignmentDto,
   ProxyDto,
+  ProxySuggestionResponse,
   ProxyTestResult,
   QrResponse,
   SendTextResponse,
@@ -413,6 +414,17 @@ export const api = {
     list: () => request<ProxyDto[]>('/api/proxies'),
     // Proxies livres p/ o dropdown da criação de sessão (D-008).
     listAvailable: () => request<ProxyDto[]>('/api/proxies/available'),
+    // E26/P-084 — proxy que a sessão apagada com esse nome usava (sugestão na criação). ADMIN
+    // (OPERATOR leva 403). `init` leva o `signal` (debounce e teto do "Criar"). `no-store`: sem
+    // passar pelo cache HTTP — o GET do "Criar" segurado tem a mesma URL do GET do debounce e o
+    // Chrome o enfileirava atrás dele (trava do cache), gastando o teto de 1,5 s. MDN
+    // Request.cache: "fetches the resource from the remote server without first looking in the
+    // cache"; sem preflight CORS (conferido no Chrome 146, cross-origin com credenciais).
+    suggestion: (sessionName: string, init?: RequestInit) =>
+      request<ProxySuggestionResponse>(
+        `/api/proxies/suggestion?sessionName=${encodeURIComponent(sessionName)}`,
+        { cache: 'no-store', ...init },
+      ),
     create: (body: CreateProxyRequest) =>
       request<ProxyDto>('/api/proxies', {
         method: 'POST',

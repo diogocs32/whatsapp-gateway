@@ -6,6 +6,11 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Adicionado — sugerir o proxy da sessão apagada ao recriar com o mesmo nome (27/09 — E26/P-084, D-038; deploy manual dos 2 apps pendente)
+
+- Ao apagar uma sessão com proxy fixo, o gateway guarda o nome dela na atribuição órfã; ao criar de novo uma sessão com o mesmo nome (sem diferenciar maiúsculas), o painel pré-seleciona aquele proxy com "Sugestão: #N · rótulo era o proxy da sessão …" — ou só avisa se ele estiver em uso (por qual sessão), fora do ar, desabilitado ou excluído. Não bloqueia escolher outro; Enter logo depois de digitar o nome espera a sugestão (até 1,5 s) para ninguém criar sem vê-la.
+- Rota aditiva `GET /api/proxies/suggestion?sessionName=` (ADMIN) e tipos `ProxySuggestion*` em contracts; migration aditiva `20260927100000_proxy_sugestao`; `DELETE /api/sessions/:id` e `POST /api/sessions` com a mesma resposta de antes. `PUT /api/sessions/:id/proxy` numa sessão já apagada apaga a memória. Achado à parte: P-097 (rota de proxy por sessão não resolve o nome).
+
 ### Adicionado — link público para conectar sessão por QR e filtro de sessões (27/09 — E27/P-086/P-089, D-037; deploy manual dos 2 apps pendente)
 
 - O operador (login do painel, OPERATOR+) gera na tela de Sessões um **link temporário** (1 h, 24 h ou 72 h) para outra pessoa conectar a sessão lendo o QR **em outra tela**. A página pública `/conectar` mostra só a fase (QR, preparando, pedir QR, conectado), orienta a abrir em outro aparelho, pede consentimento e deixa pedir até 5 QRs (30 s entre eles). Só sessões Baileys; o link nunca apaga login salvo nem derruba conta conectada; morre ao conectar, ao gerar outro, ao revogar, ao parar/deslogar a sessão ou ao vencer.

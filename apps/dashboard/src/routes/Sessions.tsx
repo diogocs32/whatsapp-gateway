@@ -1,6 +1,18 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
-import type { ProxyDto, SessionDto, SessionStatus } from '@contracts';
+import type {
+  ProxyDto,
+  ProxySuggestionDto,
+  SessionDto,
+  SessionStatus,
+} from '@contracts';
 import {
   CONNECT_LINK_WWEBJS_REASON,
   ConnectLinkDialog,
@@ -8,6 +20,14 @@ import {
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { numberFromJid } from '../lib/jid';
+import {
+  decideAfterHold,
+  isValidSessionName,
+  mustHoldCreate,
+  suggestionView,
+  type SuggestionState,
+  type SuggestionTone,
+} from '../lib/proxy-suggestion';
 import {
   EMPTY_SESSION_FILTER,
   SESSION_STATUSES,
@@ -33,6 +53,36 @@ const STATUS_META: Record<SessionStatus, { label: string; cls: string }> = {
   FAILED: { label: 'Falhou', cls: 'bg-red-500/15 text-red-400' },
   DEGRADED: { label: 'Degradado', cls: 'bg-orange-500/15 text-orange-400' },
 };
+
+// E26/P-084 — cor do aviso da sugestão de proxy (o texto já leva o prefixo "Sugestão:"/"Atenção:").
+const NOTE_CLS: Record<SuggestionTone, string> = {
+  suggest: 'text-emerald-300',
+  warn: 'text-amber-300',
+  info: 'text-zinc-300',
+};
+
+// E26/P-084 — teto da consulta feita no "Criar" quando a sugestão do nome ainda não chegou.
+const HOLD_CAP_MS = 1_500;
+
+// Sugestão com teto: AbortController + setTimeout, sem AbortSignal.timeout/any (Safari antigo —
+// mesmo motivo de lib/public-connect.ts). O abort cobre também a leitura do corpo. undefined =
+// erro ou estouro (403 do OPERATOR incluso): quem chama cria normalmente.
+async function suggestionWithCap(
+  sessionName: string,
+): Promise<ProxySuggestionDto | null | undefined> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), HOLD_CAP_MS);
+  try {
+    const r = await api.proxies.suggestion(sessionName, {
+      signal: ctrl.signal,
+    });
+    return r.suggestion;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function StatusBadge({ status }: { status: SessionStatus }) {
   const m = STATUS_META[status];
@@ -259,9 +309,26 @@ export function Sessions() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [engine, setEngine] = useState<'BAILEYS' | 'WWEBJS'>('BAILEYS');
-  // D-008 — proxy opcional na criação: '' = sem proxy; senão, id de um proxy LIVRE.
-  const [proxyId, setProxyId] = useState('');
+  // D-008 — proxy opcional na criação, só entre os LIVRES. E26/P-084: `proxyChoice` null =
+  // automático (aceita a sugestão), '' = o dono escolheu "Sem proxy", id = escolha manual. O valor
+  // do seletor é DERIVADO (`view.selectValue`): o que se vê é o que se envia.
+  const [proxyChoice, setProxyChoice] = useState<string | null>(null);
   const [availableProxies, setAvailableProxies] = useState<ProxyDto[]>([]);
+  // E26/P-084 — resposta da sugestão junto do nome consultado (só vale se o campo tiver esse nome)
+  // e do conjunto de sessões da consulta (`key`): entrou/saiu sessão → o "Criar" confere de novo.
+  const [suggestion, setSuggestion] = useState<
+    (SuggestionState & { key: string }) | null
+  >(null);
+  // 'hold' = conferindo a sugestão antes de criar; 'create' = POST em andamento.
+  const [submitting, setSubmitting] = useState<'hold' | 'create' | null>(null);
+  // Nome cujo "Criar" foi segurado para mostrar a sugestão (texto "confira e clique em Criar").
+  const [heldFor, setHeldFor] = useState<string | null>(null);
+  // Sobe quando o create falha (ex.: "Proxy já está em uso"): recarrega a lista de livres.
+  const [reloadTick, setReloadTick] = useState(0);
+  const proxySelectRef = useRef<HTMLSelectElement>(null);
+  const submittingRef = useRef(false);
+  // Muda ao fechar o formulário ou sair da tela: um "Criar" segurado não cria mais.
+  const formGen = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [connect, setConnect] = useState<SessionDto | null>(null);
   // E27/P-086 — diálogo do link; guarda o id para o diálogo receber a versão viva da lista.
@@ -306,31 +373,213 @@ export function Sessions() {
     return () => clearInterval(id);
   }, []);
 
-  // Carrega os proxies livres ao abrir o formulário (a lista muda conforme sessões usam proxies).
+  // E26/P-084 — derivados do formulário "Nova sessão".
+  const trimmed = name.trim();
+  const nameValid = isValidSessionName(trimmed);
+  // Igual ao @unique de wa_sessions.name (o 409 do create): exato, na lista COMPLETA (nunca a
+  // filtrada do P-089). Quando o dono apaga a sessão, vira false e a consulta sai sozinha.
+  const nameTaken = sessions.some((s) => s.name === trimmed);
+  // Muda só quando entra/sai sessão (o polling de 3 s traz um array novo a cada volta).
+  const sessionsKey = sessions
+    .map((s) => s.id)
+    .sort()
+    .join(',');
+  const view = suggestionView({
+    trimmedName: trimmed,
+    suggestion: nameTaken ? null : suggestion,
+    availableProxies,
+    choice: proxyChoice,
+    now: Date.now(),
+    held: heldFor === trimmed,
+  });
+  const suggestedId = view.suggestedId;
+  // Estado atual para o "Criar" segurado reler depois do await (o dono pode mexer na espera).
+  const latest = useRef({
+    trimmed,
+    engine,
+    proxyChoice,
+    availableProxies,
+    sessionsKey,
+    selectValue: view.selectValue,
+  });
+  useLayoutEffect(() => {
+    latest.current = {
+      trimmed,
+      engine,
+      proxyChoice,
+      availableProxies,
+      sessionsKey,
+      selectValue: view.selectValue,
+    };
+  });
+  useEffect(
+    () => () => {
+      formGen.current += 1; // saiu da tela: "Criar" segurado não cria
+    },
+    [],
+  );
+
+  // Proxies livres (D-008). E26: recarrega também quando entra/sai sessão (apagar a antiga libera o
+  // proxy dela) e depois de um create que falhou (`reloadTick`). Falha em silêncio MANTENDO a
+  // última lista boa (um 502 momentâneo não derruba a escolha manual; o POST revalida no gateway);
+  // na 1ª carga depois de abrir a lista já é [] (estado inicial / closeForm).
   useEffect(() => {
     if (!creating) return;
+    let cancelled = false;
     api.proxies
       .listAvailable()
-      .then(setAvailableProxies)
-      .catch(() => setAvailableProxies([]));
-  }, [creating]);
+      .then((list) => {
+        if (!cancelled) setAvailableProxies(list);
+      })
+      .catch(() => {
+        /* mantém a última lista boa */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [creating, sessionsKey, reloadTick]);
 
-  async function onCreate(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
+  // E26/P-084 — sugestão 300 ms depois da última tecla, só com o formulário aberto e nome válido e
+  // livre; refaz quando entra/sai sessão. O cleanup aborta a consulta e descarta a resposta velha
+  // (nome mudou, formulário fechou, execução dupla do StrictMode). Erro (403 do OPERATOR, rede) =
+  // "sem sugestão" em silêncio: nunca o aviso vermelho da página.
+  useEffect(() => {
+    if (!creating || !nameValid || nameTaken) return;
+    let cancelled = false;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      api.proxies
+        .suggestion(trimmed, { signal: ctrl.signal })
+        .then((r) => {
+          if (!cancelled)
+            setSuggestion({
+              forName: trimmed,
+              data: r.suggestion,
+              key: sessionsKey,
+            });
+        })
+        .catch(() => {
+          if (!cancelled)
+            setSuggestion({ forName: trimmed, data: null, key: sessionsKey });
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [creating, trimmed, nameValid, nameTaken, sessionsKey]);
+
+  function openForm() {
+    setCreating(true);
+  }
+
+  // E26: fechar (e criar com sucesso) zera nome, escolha de proxy e sugestão; o cleanup dos efeitos
+  // cancela a consulta em andamento e `formGen` invalida um "Criar" segurado.
+  function closeForm() {
+    formGen.current += 1;
+    setCreating(false);
+    setName('');
+    setProxyChoice(null);
+    setSuggestion(null);
+    setHeldFor(null);
+    setAvailableProxies([]);
+  }
+
+  async function createSession(
+    sessionName: string,
+    sessionEngine: 'BAILEYS' | 'WWEBJS',
+    proxyId: string,
+  ) {
+    setSubmitting('create');
     try {
       const s = await api.sessions.create({
-        name: name.trim(),
-        engine,
+        name: sessionName,
+        engine: sessionEngine,
         ...(proxyId ? { proxyId } : {}),
       });
-      setName('');
-      setProxyId('');
-      setCreating(false);
+      closeForm();
       await refresh();
       setConnect(s);
     } catch (e) {
       setError((e as Error).message);
+      // Ex.: 400 "Proxy já está em uso" (outra sessão pegou o proxy): recarrega os livres e as
+      // sessões — se entrou sessão, o `sessionsKey` muda, a sugestão é refeita e o próximo "Criar"
+      // volta a conferir (sem repetir o POST com o proxy ocupado).
+      setReloadTick((n) => n + 1);
+      void refresh();
+    }
+  }
+
+  async function onCreate(e: FormEvent) {
+    e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setError(null);
+    const gen = formGen.current;
+    const t = trimmed;
+    const shown = view.selectValue; // o que o dono via no seletor ao clicar
+    try {
+      // E26/P-084 — Enter logo depois de digitar: a sugestão desse nome ainda não chegou. Consulta
+      // na hora (teto 1,5 s); se houver proxy para pré-selecionar, mostra em vez de criar.
+      if (
+        mustHoldCreate({
+          trimmedName: t,
+          choice: proxyChoice,
+          // Resposta de antes de entrar/sair sessão (ex.: IN_USE e o dono apagou quem usava o
+          // proxy) não conta como resolvida: a nova consulta pode estar no debounce.
+          resolvedFor:
+            suggestion?.key === sessionsKey ? suggestion.forName : null,
+          nameTaken,
+        })
+      ) {
+        setSubmitting('hold');
+        const data = await suggestionWithCap(t);
+        if (gen !== formGen.current) return; // fechou o formulário (ou saiu da tela) na espera
+        const cur = latest.current;
+        // undefined = erro (403 do OPERATOR, rede) ou teto: não mexe na sugestão guardada (a do
+        // debounce pode ter chegado na espera e já estar na tela).
+        const fresh =
+          data === undefined
+            ? null
+            : { forName: t, data, key: cur.sessionsKey };
+        const decision = decideAfterHold({
+          shown,
+          trimmed: t,
+          currentTrimmed: cur.trimmed,
+          data,
+          cur,
+          view: fresh
+            ? suggestionView({
+                trimmedName: t,
+                suggestion: fresh,
+                availableProxies: cur.availableProxies,
+                choice: cur.proxyChoice,
+                now: Date.now(),
+              })
+            : null,
+        });
+        if (decision.action === 'abort') return; // mudou o nome na espera
+        if (decision.action === 'hold') {
+          // NÃO cria: a view derivada mostra o novo valor, o aviso pede "confira e clique em Criar
+          // de novo" e o foco vai ao seletor. flushSync: DOM (valor + aviso) já atualizado antes
+          // do focus() (react.dev/reference/react-dom/flushSync). O próximo "Criar" cria direto
+          // (a sugestão deste nome já resolveu).
+          flushSync(() => {
+            if (fresh) setSuggestion(fresh);
+            setHeldFor(t);
+          });
+          proxySelectRef.current?.focus();
+          return;
+        }
+        if (fresh) setSuggestion(fresh);
+        await createSession(t, cur.engine, decision.proxyId);
+        return;
+      }
+      await createSession(t, engine, view.selectValue);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(null);
     }
   }
 
@@ -370,7 +619,9 @@ export function Sessions() {
               : `${sessions.length} sessão(ões)`}
           </p>
           <button
-            onClick={() => setCreating((v) => !v)}
+            type="button"
+            onClick={creating ? closeForm : openForm}
+            aria-expanded={creating}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
           >
             + Nova sessão
@@ -380,53 +631,103 @@ export function Sessions() {
         {creating && (
           <form
             onSubmit={onCreate}
-            className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
+            className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
           >
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-400">
-                Nome (a-z, 0-9, _ , -)
-              </span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="vendas-01"
-                className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-400">Engine</span>
-              <select
-                value={engine}
-                onChange={(e) =>
-                  setEngine(e.target.value as 'BAILEYS' | 'WWEBJS')
-                }
-                className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="space-y-1">
+                <span className="text-xs text-zinc-400">
+                  Nome (letras, números, _ ou -)
+                </span>
+                {/* E26: sem maiúscula/correção automática do teclado do celular ("vendas" ≠ "Vendas"). */}
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="vendas-01"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  maxLength={64}
+                  aria-invalid={nameTaken || undefined}
+                  aria-describedby="nome-sessao-aviso"
+                  className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-zinc-400">Engine</span>
+                <select
+                  value={engine}
+                  onChange={(e) =>
+                    setEngine(e.target.value as 'BAILEYS' | 'WWEBJS')
+                  }
+                  className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                >
+                  <option value="BAILEYS">Baileys (recomendado)</option>
+                  <option value="WWEBJS">WhatsApp Web.js</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-zinc-400">
+                  Proxy (só os livres aparecem)
+                </span>
+                <select
+                  ref={proxySelectRef}
+                  value={view.selectValue}
+                  // '' (Sem proxy) também é escolha explícita do dono: não volta a pré-selecionar.
+                  onChange={(e) => setProxyChoice(e.target.value)}
+                  aria-describedby="proxy-sugestao"
+                  className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                >
+                  <option value="">Sem proxy (padrão)</option>
+                  {view.options.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      #{p.position} · {p.label ?? `${p.host}:${p.port}`}
+                      {p.country ? ` · ${p.country}` : ''} · {p.status}
+                      {p.id === suggestedId ? ' · sugerido' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="submit"
+                disabled={submitting !== null}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
               >
-                <option value="BAILEYS">Baileys (recomendado)</option>
-                <option value="WWEBJS">WhatsApp Web.js</option>
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-400">
-                Proxy (só os livres aparecem)
-              </span>
-              <select
-                value={proxyId}
-                onChange={(e) => setProxyId(e.target.value)}
-                className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                {submitting === 'hold'
+                  ? 'Conferindo proxy…'
+                  : submitting === 'create'
+                    ? 'Criando…'
+                    : 'Criar e conectar'}
+              </button>
+            </div>
+            {/* E26/P-084 — regiões vivas SEMPRE montadas com o formulário aberto (vazias sem aviso;
+                a região precisa existir antes do texto para ser anunciada), fora dos <label>. */}
+            <p
+              id="nome-sessao-aviso"
+              role="status"
+              aria-live="polite"
+              className="mt-3 text-xs text-amber-300 empty:mt-0"
+            >
+              {nameTaken
+                ? 'Já existe uma sessão com esse nome — apague-a ou escolha outro.'
+                : null}
+            </p>
+            <p
+              id="proxy-sugestao"
+              role="status"
+              aria-live="polite"
+              className={`mt-3 text-xs empty:mt-0 ${NOTE_CLS[view.note?.tone ?? 'info']}`}
+            >
+              {view.note ? view.note.text : null}
+            </p>
+            {view.canApplySuggestion && suggestedId && (
+              <button
+                type="button"
+                onClick={() => setProxyChoice(suggestedId)}
+                className="mt-2 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800"
               >
-                <option value="">Sem proxy (padrão)</option>
-                {availableProxies.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    #{p.position} · {p.label ?? `${p.host}:${p.port}`}
-                    {p.country ? ` · ${p.country}` : ''} · {p.status}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">
-              Criar e conectar
-            </button>
+                Usar este proxy
+              </button>
+            )}
           </form>
         )}
 

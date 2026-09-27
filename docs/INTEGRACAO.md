@@ -480,7 +480,36 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
 - Erros (HTTP 400, mensagem clara): proxy inexistente, desabilitado, `DEAD` ou **já em uso** — nesse
   caso a sessão NÃO é criada (sem sessão órfã).
 - A exclusividade vale para o fluxo `SINGLE`; os modos `RANGE`/`GLOBAL_ROUND_ROBIN` (configurados via
-  `PUT /api/sessions/{sessao}/proxy`) seguem podendo usar qualquer proxy do pool em runtime.
+  `PUT /api/sessions/{id}/proxy`) seguem podendo usar qualquer proxy do pool em runtime. Nessa rota
+  use o **`id` (ULID) da sessão** — o nome NÃO é resolvido ali: um PUT pelo nome responde 200 mas
+  grava uma atribuição que nenhuma sessão lê (P-097).
+
+### Sugerir o proxy da sessão apagada ao recriar com o mesmo nome (E26 · P-084 · D-038)
+
+```
+GET /api/proxies/suggestion?sessionName=vendas-02   # ADMIN — { "suggestion": ProxySuggestionDto | null }
+```
+
+- Ao **apagar** uma sessão (`DELETE /api/sessions/{sessao}`) que tinha proxy **fixo** (modo `SINGLE`),
+  o gateway guarda na atribuição órfã o nome da sessão e a data — a resposta do DELETE não muda.
+  Modos `NONE`, `RANGE` e `GLOBAL_ROUND_ROBIN` não guardam nada. Exclusões feitas antes do deploy da
+  E26 (ou atendidas pelo container antigo durante a sobreposição start-first, B-004) não geram
+  sugestão.
+- A rota devolve o proxy que a sessão apagada **com esse nome** usava — nome igual **sem diferenciar
+  maiúsculas/minúsculas** (prefere a mesma caixa; entre iguais, a exclusão mais recente). Sem memória:
+  `{ "suggestion": null }`.
+- **`ProxySuggestionDto`**: `proxy` (`ProxyDto`, ou `null` só quando o proxy foi excluído do pool),
+  `fromSession` (nome como foi apagada), `releasedAt`, `available` (mesma régua do
+  `/proxies/available`: existe, habilitado, não-DEAD e sem outra sessão viva usando) e `reason`
+  (`IN_USE` · `DEAD` · `DISABLED` · `REMOVED` quando indisponível — `IN_USE` tem prioridade: um proxy
+  preso a outra sessão viva sai como `IN_USE` mesmo se estiver DEAD ou desabilitado),
+  `inUseBySession` (só com `IN_USE`: a sessão que está com o proxy).
+- A rota responde sobre a **última sessão apagada** com esse nome — não confere se já existe uma
+  sessão viva com o mesmo nome (nesse caso o proxy dela aparece como `IN_USE` pela própria sessão).
+- É só uma sugestão: o `POST /api/sessions` **não muda** — quem cria escolhe (ou não) o `proxyId`, e
+  a exclusividade continua validada na criação (D-008).
+- Um `PUT /api/sessions/{id}/proxy` sobre a atribuição de uma sessão já apagada apaga essa memória.
+- Erros: 400 (`sessionName` ausente ou fora de `[a-zA-Z0-9_-]{1,64}`); 401/403 (só ADMIN).
 
 ### Diagnóstico de desconexão Baileys (E9)
 

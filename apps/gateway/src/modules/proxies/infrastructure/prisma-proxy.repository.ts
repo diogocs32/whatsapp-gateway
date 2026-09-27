@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { newId } from '../../../shared-kernel/ulid';
 import { Proxy, ProxyAssignment } from '../domain/proxy.entity';
+import type { ReleasedAssignment } from '../domain/proxy-suggestion';
 import type {
   CreateProxyInput,
   ProxyRepository,
@@ -195,6 +196,10 @@ export class PrismaProxyRepository implements ProxyRepository {
         rangeStart: input.rangeStart,
         rangeEnd: input.rangeEnd,
         strategy: input.strategy,
+        // E26: gravar atribuição explicitamente numa linha a desfaz como "memória" — um PUT numa
+        // órfã (aba velha, API) diria que a sessão apagada usava um proxy que ela nunca usou.
+        releasedSessionName: null,
+        releasedAt: null,
       },
     });
     return toAssignment(row);
@@ -219,5 +224,46 @@ export class PrismaProxyRepository implements ProxyRepository {
     return assignments
       .filter((a) => alive.has(a.sessionId))
       .map((a) => a.currentProxyId as string);
+  }
+
+  async proxyOwnerName(proxyId: string): Promise<string | null> {
+    const assignments = await this.prisma.sessionProxyAssignment.findMany({
+      where: { currentProxyId: proxyId, mode: { not: 'NONE' } },
+      select: { sessionId: true },
+    });
+    if (assignments.length === 0) return null;
+    const owner = await this.prisma.waSession.findFirst({
+      where: { id: { in: assignments.map((a) => a.sessionId) } },
+      select: { name: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return owner?.name ?? null;
+  }
+
+  async markReleased(
+    sessionId: string,
+    sessionName: string,
+    at: Date,
+  ): Promise<number> {
+    const { count } = await this.prisma.sessionProxyAssignment.updateMany({
+      where: { sessionId, mode: 'SINGLE', currentProxyId: { not: null } },
+      data: { releasedSessionName: sessionName, releasedAt: at },
+    });
+    return count;
+  }
+
+  async findReleasedByName(name: string): Promise<ReleasedAssignment[]> {
+    // Igualdade em minúsculas (não o `mode: 'insensitive'` do Prisma, que vira ILIKE e faria o `_`
+    // do nome casar qualquer caractere). Nomes são ASCII ([a-zA-Z0-9_-]): lower() do Postgres =
+    // toLowerCase() do JS. Sessões ainda vivas ficam de fora antes do LIMIT.
+    return this.prisma.$queryRaw<ReleasedAssignment[]>`
+      SELECT spa."sessionId", spa."releasedSessionName", spa."releasedAt", spa."currentProxyId"
+        FROM "session_proxy_assignments" spa
+       WHERE lower(spa."releasedSessionName") = lower(${name})
+         AND spa."mode" = 'SINGLE'
+         AND spa."currentProxyId" IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM "wa_sessions" w WHERE w."id" = spa."sessionId")
+       ORDER BY spa."releasedAt" DESC, spa."sessionId" DESC
+       LIMIT 20`;
   }
 }
