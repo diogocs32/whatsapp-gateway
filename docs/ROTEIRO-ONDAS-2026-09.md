@@ -66,7 +66,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E24   | 8    | Encaminhar — API e engines (Baileys `forward` com original guardada; wwebjs `Message.forward` com eco correlacionado) (P-068)                                                                                                        | `feature/onda8-conversas`         | **antes:** confirmar limites (5 destinos, 1 se "com frequência", só a mesma sessão)                                                                                | ✅ 26/09           |
 | E25   | 8    | Encaminhar — interface fiel ao WhatsApp Web (menu ⌄ → Encaminhar → seletor → ➤, selos) (P-068) → fecha a Onda 8                                                                                                                      | `feature/onda8-conversas`         | PR #7 mergeado; **deploy G manual pendente**                                                                                                                       | ✅ 26/09           |
 | E26   | 9    | Sugerir o proxy da sessão apagada ao recriar uma sessão com o mesmo nome — sugere, não bloqueia (P-084, pedido do dono em 26/09)                                                                                                     | `feature/onda9-proxy-sugestao`    | merge ao fim; deploy manual posterior (migration aditiva pequena)                                                                                                  | ⬜                 |
-| E27   | 9    | Link público temporário para conectar uma sessão por QR de outro local — expira ao conectar, prazo máximo, revogação, token opaco (P-086) + filtro de sessões por nome/status/número (P-089), pedidos do dono em 26–27/09            | `feature/onda9-link-conexao-qr`   | merge ao fim; **deploy manual dos 2 apps** (gateway antes do painel; migration aditiva) + aceite com chip ([how-to/link-conexao-qr.md](how-to/link-conexao-qr.md)) | ✅ código 27/09    |
+| E27   | 9    | Link público temporário para conectar uma sessão por QR de outro local — expira ao conectar, prazo máximo, revogação, token opaco (P-086) + filtro de sessões por nome/status/número (P-089), pedidos do dono em 26–27/09            | `feature/onda9-link-conexao-qr`   | merge ao fim; **deploy manual dos 2 apps** (gateway antes do painel; migration aditiva) + aceite com chip ([how-to/link-conexao-qr.md](how-to/link-conexao-qr.md)) | ✅ 27/09 · 27a7dee |
 
 **Ordem e porquê:** a Onda 1 vem antes de tudo porque o stop-first (B-004) só é seguro depois das
 guardas de build (P-055) e porque o Nest de produção tem advisory high (P-054). A Onda 6 (wwebjs)
@@ -347,7 +347,7 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 ## Diário de execução
 
 - **27/09 — E27/P-086 + P-089 (`e27-link-conexao-qr`, branch `feature/onda9-link-conexao-qr` da
-  `origin/main=11e28cb`; D-037):** link público de conexão por QR (só Baileys; criado no painel por
+  `origin/main=11e28cb`; PR #17, código `27a7dee`, CI verde no run `36296938202`; D-037):** link público de conexão por QR (só Baileys; criado no painel por
   OPERATOR+; token no `#` da URL do painel e em `Authorization: Bearer`; página `/conectar`) e filtro de
   sessões. O que as próximas etapas precisam saber: (1) **`SessionManager` tem lock de ciclo de vida
   por sessão** (`runExclusive`): de dentro de uma operação chame as versões `*Unlocked`; toda operação
