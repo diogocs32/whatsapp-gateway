@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **E13/P-056 (Onda 3, D-039) entregue em código nesta branch:** lease/fencing e auth transacional; migration só no Postgres local, PR/CI/merge desta etapa a registrar no encerramento. O primeiro deploy com E13 exige B-004 `stop-first` confirmado, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **E13/P-056 (Onda 3, D-039) no PR #19:** lease/fencing e auth transacional; migration só no Postgres local, sem deploy. O PR integra esta etapa após CI verde. O primeiro deploy com E13 exige B-004 `stop-first` confirmado, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -22,7 +22,7 @@
 
 ## Estado de produção
 
-> **27/09/2026 (E13/P-056, D-039 — código local; sem deploy):** a migration aditiva `20260927124000_session_lease_fencing` inclui `authEpoch`/`leaseOwner`/`leaseUntil`; dois SessionManagers disputam uma única posse no Postgres, com escrita de auth/status cercada, drenagem após perda e retry lento de rede em DEGRADED. `keys.set` é transacional e `saveCreds` encadeado. Testes usam engines falsas, sem conta/QR/envio real. O primeiro deploy precisa de **B-004 stop-first** antes da transição do container antigo; merge/CI não comprovam proteção em produção. Último SHA de produção **documentado**: `768fb26`.
+> **27/09/2026 (E13/P-056, D-039 — PR #19; sem deploy):** a migration aditiva `20260927124000_session_lease_fencing` inclui `authEpoch`/`leaseOwner`/`leaseUntil`; dois SessionManagers disputam uma única posse no Postgres, com escrita de auth/status cercada, drenagem após perda e retry lento de rede em DEGRADED. `keys.set` é transacional e `saveCreds` encadeado. Testes usam engines falsas, sem conta/QR/envio real. O primeiro deploy precisa de **B-004 stop-first** antes da transição do container antigo; WWEBJS mantém stop-first pelo perfil/Chromium compartilhado. Merge/CI não comprovam proteção em produção. Último SHA de produção **documentado**: `768fb26`.
 
 > **27/09/2026 (E26/P-084, D-038 — sem deploy):** ao apagar uma sessão com proxy fixo, o gateway
 > guarda o nome na atribuição órfã (depois do delete; nunca bloqueia a exclusão) e o painel sugere

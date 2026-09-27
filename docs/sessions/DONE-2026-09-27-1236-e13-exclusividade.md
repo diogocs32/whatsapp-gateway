@@ -32,8 +32,31 @@ etapa: E13 / P-056
 
 ## BLOQUEADO EM VOCÊ
 
-- Nenhum para implementar. Deploy manual e aceite com chip continuam exclusivamente com o dono após a Onda 3.
+- Nenhum para merge/código. Antes do primeiro deploy da E13: confirmar B-004 `stop-first` no
+  `UpdateConfig` e `RollbackConfig` do serviço, backup/restore B-005 e janela controlada com chip
+  B-007. Manter WWEBJS em stop-first depois da E13. Deploy C/aceite real só após E15, pelo dono.
 
 ## DOCS TOCADAS
 
-- Este arquivo; `SESSOES.md`, `ROTEIRO-ONDAS-2026-09.md` (abertura). Encerramento pendente.
+- Este DONE; `docs/ESTADO.md`, `docs/SESSOES.md`, `docs/PENDENCIAS.md`,
+  `docs/ROTEIRO-ONDAS-2026-09.md`, `docs/DECISOES.md` (D-039), `docs/MAPA-CODIGO.md`,
+  `docs/reference/mapa-codigo/`, `docs/ARQUITETURA.md`, `docs/INTEGRACAO.md`, `CHANGELOG.md`.
+
+## Checkpoint R9
+
+- **Entregue:** P-056/E13 em `feature/onda3-e13-exclusividade`, PR #19: lease PostgreSQL por sessão
+  (`authEpoch`/owner/prazo), auth Baileys e status cercados por transação, `FencedLocalAuth` por
+  epoch/geração e rename do perfil sob lock, drenagem após perda, 409 transitório para ciclo de
+  vida em outra réplica e campanha reprogramada sem FAILED. P-096 corrigida; resíduo de perfil
+  descartado vira P-098. Nenhum contrato `/api` de sucesso mudou.
+- **Prova local:** migration aditiva aplicada só ao Postgres local e `prisma migrate status` em dia;
+  2 SessionManagers sobre o mesmo Postgres/Redis com engine falsa; 1.303/1.303 testes gateway e
+  292/292 painel; typecheck, depcruise, builds dos 2 apps, mapa e lint/formato dos arquivos tocados
+  verdes. `npm run lint`/`format:check` globais enxergam apenas os dois arquivos `seed-mock`
+  não versionados pré-existentes; foram preservados fora do PR.
+- **Limite:** sem conta, QR, mensagem ou deploy real. No primeiro deploy, N-1 não reconhece a lease;
+  para WWEBJS o Chromium/perfil compartilhado exige stop-first mesmo após esta etapa. O fencing
+  SQL impede a escrita velha no banco, mas não cancela RPC ao WhatsApp já iniciado.
+- **Reconciliação (R3):** §3.3/3.4/3.11 e P-056 do MAPA-CODIGO deixaram de dizer que não havia
+  lease/auth transacional; P-096 foi fechada no quadro e P-098 foi aberta. Integração, arquitetura,
+  estado, roteiro e changelog distinguem merge de deploy. Aviso E13 foi deixado em SESSOES para E14.
