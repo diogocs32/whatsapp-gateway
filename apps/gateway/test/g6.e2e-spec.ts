@@ -82,6 +82,9 @@ describe('G6 eventos guard-rail + dead-letter (e2e)', () => {
         webhookId: 'g6-wh',
         url: 'http://e2e-webhook.test/dl',
         body: { hello: 'world' },
+        // A reconciliação pega os 100 pendentes mais antigos; deixa este fixture primeiro mesmo
+        // quando o banco local conserva dead-letters órfãs de execuções anteriores.
+        failedAt: new Date('2000-01-01T00:00:00.000Z'),
       },
     });
     const res = await queue.redeliverDeadLetters();

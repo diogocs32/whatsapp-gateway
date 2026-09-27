@@ -52,7 +52,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E10   | 2    | Baileys: download de mídia com timeout, proxy e reupload (P-050/P-075)                                                                                                                                                               | `feature/onda2-baileys`           | PR #11 mergeado `8291c17`; sem deploy B; canário após E12                                                                                                          | ✅ 26/09 · b489b21 |
 | E11   | 2    | Baileys rc14: patch mínimo de Curve.verify e domainType (#2751), stream de mídia (#2716; #2815 duplicado), P-051                                                                                                                     | `feature/onda2-baileys-e11-e12`   | PR #15; merge ao encerrar esta etapa; sem deploy B                                                                                                                 | ✅ 26/09 · 9e82ec7 |
 | E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys-e12`       | PR #16; merge após CI verde; depois **deploy B manual**                                                                                                            | ✅ código 26/09    |
-| E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-e13-exclusividade` | PR e merge ao fim; sem deploy C                                                                                                                                    | ⬜                 |
+| E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-e13-exclusividade` | PR #19 mergeado; sem deploy C                                                                                                                                      | ✅ 27/09           |
 | E14   | 3    | Campanhas: sem rajada ao retomar, sem FAILED no boot (P-057)                                                                                                                                                                         | `feature/onda3-e14-campanhas`     | PR e merge ao fim; sem deploy C                                                                                                                                    | ⬜                 |
 | E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-e15-proxy`         | PR e merge ao fim; **deploy C manual** depois + B-001                                                                                                              | ⬜                 |
 | E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`       | merge ao fim; **deploy D manual** depois                                                                                                                           | ⬜                 |
@@ -313,6 +313,15 @@ Itens: lease por sessão antes da reidratação/start (Redis SET NX com TTL reno
 No fim: atualize o roteiro, abra o PR com CI verde, faça o merge e me dê a mensagem da próxima etapa e a lista do que eu preciso fazer.
 ```
 
+### E14 — campanhas sem rajada ou FAILED no boot (P-057)
+
+```text
+Etapa E14 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-057 — campanhas sem rajada ao retomar e sem destinatário FAILED durante a reidratação de sessão.
+Siga as "Regras de toda etapa". Crie feature/onda3-e14-campanhas de origin/main atualizada após o merge da E13; um PR para a etapa, CI verde e merge ao fim. Leia o DONE da E13, a D-039, P-056/P-057 em PENDENCIAS e MAPA-CODIGO §3.3 (boot), §3.6 (campanhas) e §5.1 P-057. Preserve o lease/fencing da E13: campanha em réplica sem posse ou durante shutdown libera a reserva e reagenda, sem FAILED.
+Itens: eliminar o laço de jobs PAUSED reenfileirados a cada 30 s; retomar com espaçamento e limite global do Worker; só iniciar o consumo após reidratação das sessões; tratar sessão temporariamente fora de WORKING com liberação da reserva e backoff, sem FAILED permanente. Conferir doc oficial da versão instalada do BullMQ 5 antes de alterar limiter/Worker. Provar com e2e de efeito no mesmo Redis/Postgres: pausa, retomada sem rajada, boot antes da sessão WORKING, disputa de lease e destinatários preservados. Sem conta, QR ou envio real; sem quebra de /api.
+No fim: atualize o roteiro, abra PR com CI verde, faça merge, e me dê a mensagem da E15 e a lista do que eu preciso fazer.
+```
+
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09
 
 ```text
@@ -355,6 +364,20 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064              |
 
 ## Diário de execução
+
+- **27/09 — E13/P-056 (`e13-exclusividade`, branch `feature/onda3-e13-exclusividade` da
+  `origin/main=78d0f27`):** D-039 escolhe Postgres 18 como árbitro da lease/epoch (30 s, renovação
+  8 s), com auth Baileys/status transacionais e `keys.set` atômico. Boot/manual só abrem engine sob
+  posse; perda drena; campanha em réplica sem posse ou em shutdown reprograma sem FAILED. WWEBJS
+  cerca o LocalAuth por epoch e geração, renomeia o perfil sob lock e apaga apenas o descartado;
+  logout/Chromium inconclusivo não libera a posse. E2E com dois managers no Postgres/Redis e engines
+  falsas: disputa, takeover, TTL, logout, restart pós-crash, RPC antigo bloqueado e isolamento do
+  perfil. Local: 915 unit gateway + 292 painel, 1304 gateway total + 292 painel, typecheck,
+  depcruise, ambos builds e mapa gerado verdes. `npm run lint`/`format:check` globais enxergam
+  `seed-mock.js`/`apps/gateway/prisma/seed-mock.ts` pré-existentes fora desta branch; escopo tocado
+  passou. Sem conta/QR/envio real ou deploy. **Primeiro deploy requer B-004 stop-first; WWEBJS mantém
+  stop-first** porque o Chromium/perfil não é cercado inteiramente pelo Postgres. Resíduo de perfil
+  descartado após falha de limpeza: P-098. PR #19 e merge registrados no DONE da sessão.
 
 - **27/09 — E26/P-084 (`e26-proxy-sugestao`, branch `feature/onda9-proxy-sugestao` da
   `origin/main=1fc2f34`; PR #18, código `036f333`, CI verde no run `36324262323`; D-038):** apagar sessão com proxy fixo guarda o nome na atribuição órfã e o

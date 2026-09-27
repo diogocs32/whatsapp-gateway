@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 324 arquivos · 1756 símbolos (métodos/funções/assinaturas/constantes) · 1792 chamadas resolvidas · 1132 testes (it/test)
+- 327 arquivos · 1791 símbolos (métodos/funções/assinaturas/constantes) · 1886 chamadas resolvidas · 1146 testes (it/test)
 
 ## Áreas
 
@@ -14,10 +14,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | packages/contracts | 1 | 839 | [contracts.md](contracts.md) |
 | Dashboard (React) | 68 | 18275 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1895 | [gateway-bootstrap.md](gateway-bootstrap.md) |
-| módulo `campaigns` | 6 | 993 | [gateway-campaigns.md](gateway-campaigns.md) |
+| módulo `campaigns` | 6 | 1026 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 32 | 9760 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 33 | 10327 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
@@ -28,7 +28,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `observability` | 8 | 675 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 16 | 2176 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 156 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 57 | 20892 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 59 | 21912 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 17 | 1315 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
@@ -167,10 +167,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Tipo | Fila / chamada | Onde | jobId |
 | --- | --- | --- | --- |
-| add | `this.queue.add('send')` | `CampaignQueue.enqueueSend` (campaign-queue.ts:121) | `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)` |
-| Queue | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:87) |  |
-| Worker | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:90) |  |
-| add | `this.queue.add('send')` | `CampaignQueue.requeue` (campaign-queue.ts:134) | — |
+| add | `this.queue.add('send')` | `CampaignQueue.enqueueSend` (campaign-queue.ts:125) | `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)` |
+| Queue | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:91) |  |
+| Worker | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:94) |  |
+| add | `this.queue.add('send')` | `CampaignQueue.requeue` (campaign-queue.ts:138) | — |
 | add | `this.queue.add('deliver')` | `WebhookQueue.enqueue` (webhook-queue.ts:140) | `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)` |
 | Queue | `webhooks` | `WebhookQueue.onModuleInit` (webhook-queue.ts:81) |  |
 | Worker | `webhooks` | `WebhookQueue.onModuleInit` (webhook-queue.ts:94) |  |
@@ -188,7 +188,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Evento (`name`) | Publicado por | Assinado por |
 | --- | --- | --- |
-| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:208), `SessionManager.handleEngineEvent` (session-manager.service.ts:392) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `ConnectLinkService.onModuleInit` (connect-link.service.ts:127), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
+| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:208), `SessionManager.handleEngineEvent` (session-manager.service.ts:658) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `ConnectLinkService.onModuleInit` (connect-link.service.ts:127), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
 | `'wa.event.remote'` | `EventFanout.onRemote` (event-fanout.ts:80) | `EventsController.stream` (events.controller.ts:39), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:38) |
 
 ## Banco (Prisma) — quem lê e quem escreve
@@ -211,12 +211,12 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `user` | `PrismaUserRepository.create`, `PrismaUserRepository.delete`, `PrismaUserRepository.updatePassword`, `PrismaUserRepository.update` | `PrismaUserRepository.countByRole`, `PrismaUserRepository.count`, `PrismaUserRepository.findById`, `PrismaUserRepository.findByUsername`, `PrismaUserRepository.list` |
 | `waApiKey` | `PrismaApiKeyRepository.create`, `PrismaApiKeyRepository.revoke`, `PrismaApiKeyRepository.touch` | `PrismaApiKeyRepository.findByHash`, `PrismaApiKeyRepository.list` |
 | `waAuditLog` | `PrismaAuditRepository.create`, `RetentionService.sweep` | `PrismaAuditRepository.list` |
-| `waAuthKey` | `BaileysEngine.clearCredentials`, `SessionManager.logoutUnlocked`, `SessionManager.newQrUnlocked`, `usePostgresAuthState` | `BaileysCacheObserver.snapshot`, `usePostgresAuthState` |
+| `waAuthKey` | `PostgresSessionLease.clearAuth`, `usePostgresAuthState` | `BaileysCacheObserver.snapshot`, `usePostgresAuthState` |
 | `waBranding` | `PrismaBrandingRepository.set` | `PrismaBrandingRepository.get` |
 | `waContact` | `ContactDirectory.record` | `ContactDirectory.lidMap`, `ContactDirectory.list`, `ContactDirectory.namesFor` |
 | `waLicense` | `PrismaLicenseRepository.clear`, `PrismaLicenseRepository.set` | `PrismaLicenseRepository.get` |
 | `waMessage` | `BaileysEngine.markMessage`, `BaileysEngine.mergeLidMessages`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.save`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `BaileysEngine.loadMessageForRetry`, `BaileysEngine.mergeKnownLids`, `BaileysEngine.onMessagesUpsert`, `BaileysEngine.prepareForward`, `MetricsService.counters`, `PrismaInboxRepository.findLastInbound`, `PrismaMessageRepository.findByIdempotencyKey`, `PrismaMessageRepository.findByKeyId`, `PrismaMessageRepository.findByRef`, `PrismaMessageRepository.findInboundChat`, `PrismaMessageRepository.listByChat`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.searchMessages`, `WWebJSEngine.mergeExistingLids` |
-| `waSession` | `BaileysEngine.clearCredentials`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.logoutUnlocked`, `SessionManager.newQrUnlocked`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `usePostgresAuthState` |
+| `waSession` | `PostgresSessionLease.clearAuth`, `PostgresSessionLease.setLastMeJid`, `PostgresSessionLease.updateLastErrorDetails`, `PostgresSessionLease.updateStatus`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.removeUnlocked`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `SessionManager.startUnlocked`, `usePostgresAuthState` |
 | `waSessionEvent` | `RetentionService.sweep`, `SessionEventLogger.onModuleInit` | `MetricsService.timeline`, `PrismaConnectLinkRepository.hasWorkingSince` |
 | `webhook` | `PrismaWebhookRepository.create`, `PrismaWebhookRepository.delete`, `PrismaWebhookRepository.setEnabled` | `PrismaWebhookRepository.findById`, `PrismaWebhookRepository.listEnabled`, `PrismaWebhookRepository.list`, `WebhookQueue.redeliverDeadLetters` |
 | `webhookDeadLetter` | `WebhookQueue.redeliverDeadLetters`, `WebhookQueue.toDeadLetter` | `WebhookQueue.listDeadLetters`, `WebhookQueue.redeliverDeadLetters` |

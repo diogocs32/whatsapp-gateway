@@ -49,6 +49,24 @@ function makeManager(): {
     {} as never, // engineFactory
     {} as never, // guardrail
   );
+  const internals = manager as unknown as {
+    lease: unknown;
+    owned: Map<string, unknown>;
+  };
+  for (const id of ['s1', 's2'])
+    internals.owned.set(id, {
+      epoch: 1n,
+      until: new Date(Date.now() + 60_000),
+      active: true,
+    });
+  internals.lease = {
+    updateStatus: (
+      _id: string,
+      _epoch: bigint,
+      status: SessionStatus,
+      patch: StatusPatch,
+    ) => repo.updateStatus(_id, status, patch),
+  };
   return { manager, published, statusWrites };
 }
 

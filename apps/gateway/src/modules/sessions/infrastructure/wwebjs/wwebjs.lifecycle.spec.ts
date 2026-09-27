@@ -47,7 +47,10 @@ class FakeClient extends EventEmitter {
 vi.mock('whatsapp-web.js', () => ({
   Client: FakeClient,
   LocalAuth: class {
-    constructor(_: unknown) {}
+    clientId?: string;
+    constructor(opts: { clientId?: string }) {
+      this.clientId = opts.clientId;
+    }
   },
   MessageMedia: class {},
   Location: class {},
@@ -81,6 +84,14 @@ function makeDeps(sessionId: string) {
     sessionId,
     deviceName: 'test',
     prisma: {},
+    lease: {
+      fenced: async (
+        _id: string,
+        _epoch: bigint,
+        action: () => Promise<unknown>,
+      ) => action(),
+    },
+    authEpoch: 1n,
     logger,
     onEvent: (name: string, payload: unknown) => {
       if (name === 'session.status') events.push(payload as StatusEvent);
@@ -207,6 +218,33 @@ describe('WWebJSEngine — ciclo de vida com teto (WA-08/WA-09/P-025)', () => {
     expect(engine.getStatus()).toBe('STOPPED');
   });
 
+  it('destroy sem confirmação rejeita stop/shutdown; uma segunda tentativa confirmada libera a engine', async () => {
+    FakeClient.mode = 'ready';
+    const Engine = await loadEngine();
+    const { deps } = makeDeps('lc-unconfirmed-destroy');
+    const engine = new Engine(deps as never);
+    await engine.start();
+    await waitFor(() => engine.getStatus() === 'WORKING');
+    const client = FakeClient.instances[0]!;
+    client.destroy.mockRejectedValueOnce(new Error('browser travado'));
+    await expect(engine.stop()).rejects.toThrow(/não confirmado/);
+    expect(engine.getStatus()).not.toBe('STOPPED');
+    await engine.stop();
+    expect(client.destroy).toHaveBeenCalledTimes(2);
+    expect(engine.getStatus()).toBe('STOPPED');
+
+    const second = new Engine(
+      makeDeps('lc-unconfirmed-shutdown').deps as never,
+    );
+    await second.start();
+    await waitFor(() => second.getStatus() === 'WORKING');
+    FakeClient.instances
+      .at(-1)!
+      .destroy.mockRejectedValueOnce(new Error('browser travado'));
+    await expect(second.shutdown()).rejects.toThrow(/não confirmado/);
+    await second.shutdown();
+  });
+
   it('sem requireProxy, inicia com fake sem subir Chromium (P-073)', async () => {
     FakeClient.mode = 'ready';
     const Engine = await loadEngine();
@@ -273,7 +311,14 @@ describe('WWebJSEngine — ciclo de vida com teto (WA-08/WA-09/P-025)', () => {
     const engine = new Engine(deps as never);
     await engine.start();
     await waitFor(() => engine.getStatus() === 'WORKING');
-    FakeClient.instances.at(-1)!.emit('disconnected', reason);
+    const client = FakeClient.instances.at(-1)!;
+    client.emit('disconnected', reason);
+    if (reason === 'LOGOUT') {
+      // A lib faz isto no listener framenavigated depois de emitir DISCONNECTED.
+      await (
+        client.opts as { authStrategy: { logout: () => Promise<void> } }
+      ).authStrategy.logout();
+    }
     await waitFor(() => engine.getStatus() !== 'WORKING');
     expect(engine.getStatus()).toBe(
       reason.includes('TOS_BLOCK') ? 'FAILED' : 'STOPPED',

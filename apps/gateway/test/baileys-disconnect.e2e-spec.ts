@@ -67,6 +67,16 @@ describe('E9 — 405 persiste diagnóstico, alerta integrador e conta métrica',
       {} as never,
       {} as never,
     );
+    const internals = manager as unknown as {
+      lease: {
+        acquire: (id: string) => Promise<{ epoch: bigint; until: Date } | null>;
+        release: (id: string, epoch: bigint) => Promise<void>;
+      };
+      owned: Map<string, unknown>;
+    };
+    const fence = await internals.lease.acquire(sessionId);
+    if (!fence) throw new Error('lease de teste indisponível');
+    internals.owned.set(sessionId, { ...fence, active: true });
     const pending: Promise<void>[] = [];
     const handle = (
       manager as unknown as {
@@ -150,5 +160,6 @@ describe('E9 — 405 persiste diagnóstico, alerta integrador e conta métrica',
     expect(scrape).toMatch(
       /wa_disconnects_total\{engine="baileys",code="405"\} [1-9]\d*/,
     );
+    await internals.lease.release(sessionId, fence.epoch);
   });
 });

@@ -47,16 +47,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `resolveBaileysTransport` L146, `resolveProxyConfig` L127
 - `reportFailure(sessionId, reason)` · L104 · async
   - chama: `ProxyRepository.findById` (proxy.repository.ts:46), `ProxyRepository.getAssignment` (proxy.repository.ts:56), `ProxyRepository.updateTest` (proxy.repository.ts:49)
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
 - `resolveProxyConfig(sessionId)` · L127 · async
   - chama: `resolve` L35
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
 - `resolveBaileysTransport(sessionId)` · L146 · async
   - chama: `resolve` L35, `ProxyRepository.getAssignment` (proxy.repository.ts:56), `buildMediaDispatcher` (proxy-agent.factory.ts:25), `buildProxyAgent` (proxy-agent.factory.ts:15)
-  - chamado por: `resolveAgent` L182, `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
+  - chamado por: `resolveAgent` L182, `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
 - `resolveAgent(sessionId)` · L182 · async
   - chama: `resolveBaileysTransport` L146
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:165)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
 
 **Funções e constantes de topo**
 - `hashString(s)` · L16

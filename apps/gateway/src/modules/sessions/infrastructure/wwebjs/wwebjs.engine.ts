@@ -16,8 +16,11 @@ import type {
 import * as QRCode from 'qrcode';
 import { anonymizeProxy, closeAnonymizedProxy } from 'proxy-chain';
 import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { renameSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import type { BaileysEngineDeps } from '../baileys/baileys.engine';
+import { LeaseLostError } from '../../application/session-lease.error';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import {
   pageResolvePnToLid,
@@ -81,6 +84,50 @@ import { isWwebjsVersionMode } from '../../domain/wwebjs-version';
 const CHROME_PATH =
   process.env.WWEBJS_CHROME_PATH || '/usr/bin/google-chrome-stable';
 const AUTH_PATH = process.env.WWEBJS_DATA_PATH || 'auth/wwebjs';
+
+// LocalAuth.logout() da biblioteca remove o diretório depois de operações assíncronas do browser.
+// A geração antiga poderia apagar o perfil criado pelo novo dono. A troca de nome é síncrona
+// enquanto o lock da linha está retido; a remoção posterior só toca o nome exclusivo descartado.
+export class FencedLocalAuth extends LocalAuth {
+  constructor(
+    sessionId: string,
+    private readonly lease: NonNullable<BaileysEngineDeps['lease']>,
+    private readonly epoch: bigint,
+    private readonly isCurrentClient: () => boolean,
+    private readonly mayInitialize: () => boolean,
+    private readonly onLogout: () => void,
+  ) {
+    super({ clientId: sessionId, dataPath: AUTH_PATH });
+  }
+
+  override beforeBrowserInitialized = async (): Promise<void> => {
+    if (!this.isCurrentClient() || !this.mayInitialize()) return;
+    await this.lease.fenced(this.clientId!, this.epoch, async () => {
+      if (this.isCurrentClient() && this.mayInitialize())
+        await LocalAuth.prototype.beforeBrowserInitialized.call(this);
+    });
+  };
+
+  override logout = async (): Promise<void> => {
+    if (!this.isCurrentClient()) return;
+    this.onLogout();
+    try {
+      const detached = await this.lease.fenced(
+        this.clientId!,
+        this.epoch,
+        async () =>
+          this.isCurrentClient()
+            ? WWebJSEngine.detachAuthDir(this.clientId!)
+            : null,
+      );
+      await WWebJSEngine.purgeDetachedAuthDir(detached);
+    } catch (error) {
+      // A própria lib invoca logout em um listener async de framenavigated sem catch.
+      // Após takeover, o callback velho apenas para: jamais toca o perfil novo.
+      if (!(error instanceof LeaseLostError)) throw error;
+    }
+  };
+}
 
 // Versão do WhatsApp Web a FIXAR. Sem fixar, o wwebjs baixa a versão "ao vivo" do web.whatsapp.com a
 // cada conexão e a renegocia (é o "fica atualizando muito tempo") — e uma build ruim do WhatsApp Web
@@ -275,9 +322,9 @@ const FORWARD_ECHO_GRACE_MS = 20_000;
 // — e o withStoreReady repetiria esse erro 8× (casa "Evaluation failed").
 const WWEBJS_MSG_ID = /^(true|false)_[^_]+_[^_]+(_[^_]+)?$/;
 
-// P-015 — teto do `client.logout()` no doLogout: numa página travada os evaluates do logout
-// penduram até o protocolTimeout (240s) SEGURANDO o mutex de ciclo de vida — o Parar/shutdown
-// enfileira atrás e nunca roda. Estourou → seguimos para destroy+purge (que garantem a limpeza).
+// P-015 — teto do `client.logout()` no doLogout. O timeout NÃO cancela a promise da lib:
+// LocalAuth.logout() pode remover o perfil DEPOIS de page.evaluate/browser.close. Se estourar,
+// a engine recusa stop/start até a promise terminar; o manager mantém a lease nesse intervalo.
 const LOGOUT_TIMEOUT_MS = 8_000;
 // WA-08 / P-025 (auditoria 09/2026) — teto do `client.initialize()`. A lib faz `page.goto(...,
 // timeout: 0)` ANTES do gate de autenticação (30s): com proxy/rede que nunca responde, o
@@ -348,6 +395,8 @@ export async function raceStoreOp<T>(
 export class WWebJSEngine implements IEngine {
   readonly engineName = 'wwebjs' as const;
   private client: Client | null = null;
+  private logoutPending: Promise<void> | null = null;
+  private logoutAttempted = false;
   private status: SessionStatus = 'STOPPED';
   private qrBase64: string | null = null;
   private stopped = false;
@@ -688,16 +737,22 @@ export class WWebJSEngine implements IEngine {
     );
   }
 
-  // Remove o perfil do Chromium (credenciais do LocalAuth) desta sessão do DISCO. As credenciais do
-  // wwebjs não ficam no Postgres (o SessionManager limpa lá é o store do Baileys) — ficam aqui.
-  // Chamado por new-qr/logout/remove no SessionManager DEPOIS de parar a engine (Chromium já morto),
-  // para: (a) o new-qr recuperar de verdade (creds mortas em disco → QR novo, antes era no-op); (b) o
-  // DELETE não deixar o perfil (dezenas–centenas de MB) órfão no volume. Seguro para qualquer sessão:
-  // se o dir não existe (sessão Baileys), é no-op.
-  static async purgeAuthDir(sessionId: string): Promise<void> {
-    await rm(authDirOf(sessionId), { recursive: true, force: true }).catch(
-      () => {},
-    );
+  // Chamar DENTRO de lease.fenced: renameSync termina antes de soltar o lock da linha. Mesmo
+  // se o rm posterior demorar, seu caminho único nunca será o perfil do próximo proprietário.
+  static detachAuthDir(sessionId: string): string | null {
+    const dir = authDirOf(sessionId);
+    const detached = `${dir}.discard-${randomUUID()}`;
+    try {
+      renameSync(dir, detached);
+      return detached;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  }
+
+  static async purgeDetachedAuthDir(detached: string | null): Promise<void> {
+    if (detached) await rm(detached, { recursive: true, force: true });
   }
 
   start(): Promise<void> {
@@ -715,7 +770,9 @@ export class WWebJSEngine implements IEngine {
   // attempt limita os retries internos (fallback de proxy / de webVersion) — nunca recursão infinita.
   // forceLive=true refaz o start SEM fixar a webVersion (retry pós-falha com versão fixa).
   private async doStart(attempt = 0, forceLive = false): Promise<void> {
+    if (this.logoutPending) throw new Error('Logout remoto ainda pendente');
     if (this.client) return;
+    this.logoutAttempted = false;
     this.stopped = false;
 
     // P-015 — diagnóstico: perfil presente sem marca de "fechado limpo" = último encerramento sujo.
@@ -834,11 +891,22 @@ export class WWebJSEngine implements IEngine {
       }
     }
 
-    const client = new Client({
-      authStrategy: new LocalAuth({
-        clientId: this.deps.sessionId,
-        dataPath: AUTH_PATH,
-      }),
+    if (!this.deps.lease || this.deps.authEpoch === undefined)
+      throw new Error('wwebjs sem lease de auth');
+    const nextGen = this.generation + 1;
+    const current = (): boolean =>
+      this.client === client && this.generation === nextGen;
+    const client: Client = new Client({
+      authStrategy: new FencedLocalAuth(
+        this.deps.sessionId,
+        this.deps.lease,
+        this.deps.authEpoch,
+        () => this.generation === nextGen,
+        () => current() && !this.stopped && !this.logoutAttempted,
+        () => {
+          this.stopped = true;
+        },
+      ),
       ...(webVersion
         ? {
             webVersion,
@@ -895,10 +963,9 @@ export class WWebJSEngine implements IEngine {
       browserName: 'Chrome',
     });
     this.client = client;
-    const gen = ++this.generation;
+    this.generation = nextGen;
     // Callbacks só valem para a geração viva (WA-08/09): um initialize que estourou o teto e
     // "acorda" depois, ou um destroy pendurado, não podem mexer em status/QR do client novo.
-    const current = () => this.client === client && this.generation === gen;
     this.lastLoadingPct = null; // página nova: progresso de sincronização recomeça do zero
     this.lastQrAt = null;
     this.lastPairingCode = null;
@@ -1330,7 +1397,7 @@ export class WWebJSEngine implements IEngine {
       await this.closeAnonProxy();
     }
 
-    if (this.stopped) {
+    if (this.stopped && this.logoutAttempted) {
       this.setStatus('STOPPED', { error: null });
       return;
     }
@@ -1342,6 +1409,10 @@ export class WWebJSEngine implements IEngine {
       this.setStatus('STOPPED', {
         error: `${code}: reconexão automática suspensa; confira o aparelho e inicie manualmente`,
       });
+      return;
+    }
+    if (this.stopped) {
+      this.setStatus('STOPPED', { error: null });
       return;
     }
     if (code === 'TOS_BLOCK' || code === 'SMB_TOS_BLOCK') {
@@ -1506,10 +1577,22 @@ export class WWebJSEngine implements IEngine {
 
   private async doStop(): Promise<void> {
     this.stopped = true;
+    if (this.logoutPending)
+      throw new Error(
+        'Logout remoto ainda pendente; fechamento não confirmado',
+      );
     const hadClient = this.client !== null;
     const clean = await this.destroyWithTimeout();
-    this.client = null;
     await this.closeAnonProxy();
+    if (!clean) {
+      this.setStatus('DEGRADED', {
+        error: 'Fechamento do Chromium não confirmado',
+      });
+      throw new Error(
+        'Fechamento do Chromium não confirmado; sessão permanece em draining',
+      );
+    }
+    this.client = null;
     if (hadClient && clean) await this.markCleanShutdown(); // P-015: diagnóstico no próximo start
     this.qrBase64 = null; // não servir um QR morto de sessão parada via getQrBase64()
     this.lastPairingCode = null;
@@ -1527,27 +1610,31 @@ export class WWebJSEngine implements IEngine {
   // impediria a sessão de voltar no container novo.
   async shutdown(): Promise<void> {
     this.stopped = true;
+    if (this.logoutPending)
+      throw new Error(
+        'Logout remoto ainda pendente; fechamento não confirmado',
+      );
     this.stopSyncWatchdog();
     this.stopMemoryProfile();
     const startedAt = Date.now();
     const hadClient = this.client !== null;
     const clean = await this.destroyWithTimeout();
-    this.client = null;
     await this.closeAnonProxy();
+    if (!clean) {
+      this.deps.logger.warn(
+        { elapsedMs: Date.now() - startedAt },
+        'wwebjs: shutdown estourou o teto do destroy — fechamento não confirmado; o Chromium pode invalidar o LocalAuth (P-015)',
+      );
+      throw new Error('Fechamento do Chromium não confirmado no shutdown');
+    }
+    this.client = null;
     if (!hadClient) return; // nada estava aberto — sem browser, sem marcador, sem log
     if (clean) await this.markCleanShutdown();
     const elapsedMs = Date.now() - startedAt;
-    if (clean) {
-      this.deps.logger.info(
-        { elapsedMs },
-        'wwebjs: shutdown fechou o Chromium limpo',
-      );
-    } else {
-      this.deps.logger.warn(
-        { elapsedMs },
-        'wwebjs: shutdown estourou o teto do destroy — o Chromium pode morrer sujo com o container e invalidar o LocalAuth (P-015)',
-      );
-    }
+    this.deps.logger.info(
+      { elapsedMs },
+      'wwebjs: shutdown fechou o Chromium limpo',
+    );
   }
 
   logout(): Promise<void> {
@@ -1557,37 +1644,69 @@ export class WWebJSEngine implements IEngine {
 
   private async doLogout(): Promise<void> {
     this.stopped = true;
-    if (this.client) {
+    if (this.logoutPending)
+      throw new Error(
+        'Logout remoto ainda pendente; fechamento não confirmado',
+      );
+    if (this.client && !this.logoutAttempted) {
+      this.logoutAttempted = true;
+      let settled = false;
+      const remote = Promise.resolve()
+        .then(() => this.client!.logout())
+        .then(
+          () => {
+            settled = true;
+          },
+          (e: unknown) => {
+            settled = true;
+            throw e;
+          },
+        );
+      this.logoutPending = remote;
+      void remote
+        .finally(() => {
+          if (this.logoutPending === remote) this.logoutPending = null;
+        })
+        .catch(() => undefined);
       try {
         // logout() do wwebjs faz o round-trip com o WhatsApp E remove o userDataDir (LocalAuth).
-        // Com TETO (P-015): numa página travada os evaluates penduram 240s segurando o mutex — o
-        // Parar/shutdown enfileirava atrás e o painel via "Logout/Parar presos".
         await raceStoreOp(
-          this.client.logout(),
+          remote,
           this.logoutTimeoutMs,
           'logout do WhatsApp não respondeu',
         );
       } catch (e) {
-        // Creds mortas (ok) ou teto estourado (página travada) — nos dois casos o destroy+purga
-        // abaixo garantem a limpeza; fica só o registro do motivo.
+        if (!settled) {
+          this.setStatus('DEGRADED', { error: 'Logout remoto ainda pendente' });
+          throw new Error(
+            'Logout remoto ainda pendente; fechamento não confirmado',
+            { cause: e },
+          );
+        }
+        // Falha já encerrada: não resta operação tardia que possa remover o perfil novo.
         this.deps.logger.warn(
           { err: e },
-          'wwebjs: logout() não completou — seguindo para destroy+purga',
+          'wwebjs: logout() falhou — seguindo para destroy+purga',
         );
       }
     }
-    await this.destroyWithTimeout();
+    if (!(await this.destroyWithTimeout())) {
+      this.setStatus('DEGRADED', {
+        error: 'Fechamento do Chromium não confirmado',
+      });
+      throw new Error('Fechamento do Chromium não confirmado no logout');
+    }
     this.client = null;
     await this.closeAnonProxy();
     this.qrBase64 = null;
     this.lastPairingCode = null;
-    // Garante a limpeza do perfil em disco MESMO se o logout() acima lançou (antes o catch vazio
-    // deixava a credencial no volume). Idempotente com o rm que o próprio logout() já faz.
-    await WWebJSEngine.purgeAuthDir(this.deps.sessionId);
+    // O manager separa e limpa o perfil sob a lease; FencedLocalAuth faz o mesmo no callback
+    // interno da biblioteca, inclusive no evento framenavigated/LOGOUT.
     this.setStatus('STOPPED', { error: null });
   }
 
   async requestPairingCode(phoneNumber: string): Promise<string> {
+    if (this.logoutPending) throw new Error('Logout remoto ainda pendente');
     const code = await this.req().requestPairingCode(
       phoneNumber.replace(/\D/g, ''),
     );

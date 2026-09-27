@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
+import { LeaseLostError } from '../../sessions/application/session-lease.error';
+import { SessionBusyError } from '../../sessions/application/session-manager.service';
 import { CampaignQueue } from './campaign-queue';
 
 function harness() {
@@ -104,5 +106,26 @@ describe('CampaignQueue — restrição temporária da sessão', () => {
     expect(h.add).toHaveBeenCalledOnce();
     expect(h.markRecipientFailed).not.toHaveBeenCalled();
     expect(h.updateStatus).not.toHaveBeenCalled();
+  });
+
+  it('worker na réplica sem lease libera a reserva e reagenda sem FAILED', async () => {
+    const h = harness();
+    h.setAllowed(true);
+    h.sendText.mockRejectedValueOnce(new LeaseLostError());
+    await h.process();
+    expect(h.releaseRecipient).toHaveBeenCalledWith('recipient-1');
+    expect(h.add).toHaveBeenCalledOnce();
+    expect(h.markRecipientFailed).not.toHaveBeenCalled();
+    expect(h.updateStatus).not.toHaveBeenCalled();
+  });
+
+  it('shutdown da réplica libera a reserva e reagenda sem FAILED', async () => {
+    const h = harness();
+    h.setAllowed(true);
+    h.sendText.mockRejectedValueOnce(new SessionBusyError());
+    await h.process();
+    expect(h.releaseRecipient).toHaveBeenCalledWith('recipient-1');
+    expect(h.add).toHaveBeenCalledOnce();
+    expect(h.markRecipientFailed).not.toHaveBeenCalled();
   });
 });

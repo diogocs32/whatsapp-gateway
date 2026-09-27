@@ -23,7 +23,7 @@ import type { Agent } from 'node:http';
 import type { Agent as HttpsAgent } from 'node:https';
 import type { Logger } from 'pino';
 import { Agent as UndiciAgent, type Dispatcher } from 'undici';
-import { PrismaService, Prisma } from '../../../../infra/prisma/prisma.service';
+import { PrismaService } from '../../../../infra/prisma/prisma.service';
 import type { ContactRecord } from '../../../../infra/directory/contact-directory.service';
 import type { AnyMessageContent } from '@whiskeysockets/baileys';
 import type {
@@ -60,6 +60,7 @@ import {
 } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 import { usePostgresAuthState } from './postgres-auth-state';
+import type { PostgresSessionLease } from '../postgres-session-lease';
 import { browserFingerprint } from './browser-fingerprint';
 import {
   formatLocation,
@@ -82,6 +83,9 @@ export interface BaileysEngineDeps {
   sessionId: string;
   deviceName: string;
   prisma: PrismaService;
+  lease?: PostgresSessionLease;
+  authEpoch?: bigint;
+  onAuthEpoch?: (epoch: bigint) => void;
   logger: Logger;
   onEvent: EngineEventHandler;
   // E8: sinal LOCAL para o SessionManager gravar a pausa no guardrail; não usa EventBus remoto.
@@ -621,9 +625,14 @@ export class BaileysEngine implements IEngine {
       this.sock = null;
     }
 
+    if (!this.deps.lease || this.deps.authEpoch === undefined) {
+      throw new Error('Baileys sem lease de auth');
+    }
     const { state, saveCreds } = await usePostgresAuthState(
       this.deps.prisma,
       this.deps.sessionId,
+      this.deps.lease,
+      this.deps.authEpoch,
     );
     if (this.stopped) return;
     const canaryOverride =
@@ -1110,6 +1119,11 @@ export class BaileysEngine implements IEngine {
         error: `Falha ao reconectar após ${MAX_RECONNECT} tentativas (${details.code ?? 'sem código'})`,
         lastErrorDetails: details,
       });
+      // Só quedas de transporte/serviço seguem tentando devagar depois do orçamento. 500 pode
+      // ser badSession e código desconhecido exige investigação; 401/403/405/411/440/515 já são
+      // tratados antes e nunca entram aqui. stop/shutdown invalida o timer por geração.
+      if (details.code === 408 || details.code === 428 || details.code === 503)
+        this.scheduleReconnect(300_000, details, true);
       return;
     }
     const delay =
@@ -2555,13 +2569,14 @@ export class BaileysEngine implements IEngine {
   // Apaga as credenciais persistidas (chaves Signal + creds do handshake). Idempotente;
   // updateMany: se a sessão já foi removida, não lança P2025 (segue como no-op).
   private async clearCredentials(): Promise<void> {
-    await this.deps.prisma.waAuthKey.deleteMany({
-      where: { sessionId: this.deps.sessionId },
-    });
-    await this.deps.prisma.waSession.updateMany({
-      where: { id: this.deps.sessionId },
-      data: { creds: Prisma.DbNull },
-    });
+    if (!this.deps.lease || this.deps.authEpoch === undefined)
+      throw new Error('Baileys sem lease de auth');
+    const next = await this.deps.lease.clearAuth(
+      this.deps.sessionId,
+      this.deps.authEpoch,
+    );
+    this.deps.authEpoch = next;
+    this.deps.onAuthEpoch?.(next);
   }
 }
 
