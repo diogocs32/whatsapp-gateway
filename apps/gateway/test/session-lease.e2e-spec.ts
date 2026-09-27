@@ -33,6 +33,7 @@ describe('E13/P-056 — posse e fencing entre processos', () => {
   const removeId = 'e13-lease-remove';
   const logoutId = 'e13-lease-logout';
   const restartId = 'e13-lease-restart';
+  const stopId = 'e13-lease-stop';
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -46,6 +47,7 @@ describe('E13/P-056 — posse e fencing entre processos', () => {
     await removeSession(app, removeId);
     await removeSession(app, logoutId);
     await removeSession(app, restartId);
+    await removeSession(app, stopId);
     await seedSession(app, sessionId);
     await seedSession(app, ttlId);
     await seedSession(app, raceId);
@@ -55,6 +57,7 @@ describe('E13/P-056 — posse e fencing entre processos', () => {
     await seedSession(app, removeId);
     await seedSession(app, logoutId);
     await seedSession(app, restartId);
+    await seedSession(app, stopId);
   });
 
   afterAll(async () => {
@@ -67,6 +70,7 @@ describe('E13/P-056 — posse e fencing entre processos', () => {
     await removeSession(app, removeId);
     await removeSession(app, logoutId);
     await removeSession(app, restartId);
+    await removeSession(app, stopId);
     await app.close();
   });
 
@@ -376,6 +380,21 @@ describe('E13/P-056 — posse e fencing entre processos', () => {
     expect(a.starts).toHaveBeenCalledOnce();
     expect(b.starts).not.toHaveBeenCalled();
     await a.instance.stop(restartId);
+  });
+
+  it('stop após crash assume sessão WORKING sem engine e grava STOPPED', async () => {
+    await prisma.waSession.update({
+      where: { id: stopId },
+      data: { status: 'WORKING' },
+    });
+    const a = manager();
+    await a.instance.stop(stopId);
+    const row = await prisma.waSession.findUniqueOrThrow({
+      where: { id: stopId },
+    });
+    expect(row.status).toBe('STOPPED');
+    expect(row.leaseOwner).toBeNull();
+    expect(a.starts).not.toHaveBeenCalled();
   });
 
   it('réplica antiga não emite RPC após o epoch mudar no banco', async () => {

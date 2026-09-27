@@ -172,7 +172,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `chromiumProcessTree(rootPid)` · L17
-  - chamado por: `WWebJSEngine.destroyWithTimeout` (wwebjs.engine.ts:1473), `chromiumTreePss` L43
+  - chamado por: `WWebJSEngine.destroyWithTimeout` (wwebjs.engine.ts:1474), `chromiumTreePss` L43
 - `chromiumTreePss(rootPid)` · L43
   - chama: `chromiumProcessTree` L17
   - chamado por: `WWebJSEngine.recordMemoryProfile` (wwebjs.engine.ts:530)

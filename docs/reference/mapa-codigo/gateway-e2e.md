@@ -32,13 +32,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/proxy-suggestion.e2e-spec.ts` | 618 |
-| `gateway/test/session-lease.e2e-spec.ts` | 467 |
+| `gateway/test/session-lease.e2e-spec.ts` | 486 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 149 |
 | `gateway/test/sessions.e2e-spec.ts` | 179 |
 | `gateway/test/setup-app.ts` | 191 |
 | `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
-| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1042 |
+| `gateway/test/wwebjs-engine.e2e-spec.ts` | 1044 |
 
 ## `gateway/test/audit.e2e-spec.ts`
 
@@ -536,19 +536,20 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/session-lease.e2e-spec.ts`
 
-467 linhas · caminho: `apps/gateway/test/session-lease.e2e-spec.ts`
+486 linhas · caminho: `apps/gateway/test/session-lease.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/baileys/postgres-auth-state.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `gateway/test/setup-app.ts`
 
 - describe “E13/P-056 — posse e fencing entre processos” · L24
-  - it “só um manager inicia; após soltar, o outro assume e auth/status do epoch velho não escrevem” · L147
-  - it “dois starts simultâneos elegem um único dono e uma única engine” · L257
-  - it “standby assume no boot após shutdown do dono e ignora uma sessão que virou STOPPED” · L280
-  - it “réplica sem lease não consome a reserva de QR do link” · L338
-  - it “logout wwebjs permite que LocalAuth use seu próprio fence sem deadlock” · L350
-  - it “restart após crash assume sessão FAILED sem engine; concorrente recebe 409” · L365
-  - it “réplica antiga não emite RPC após o epoch mudar no banco” · L381
-  - it “LocalAuth atrasado não apaga o perfil do novo dono; limpeza tardia só atinge o descartado” · L398
-  - it “renovação impede outro dono; expiração incrementa epoch e release velho não apaga a nova posse” · L451
+  - it “só um manager inicia; após soltar, o outro assume e auth/status do epoch velho não escrevem” · L151
+  - it “dois starts simultâneos elegem um único dono e uma única engine” · L261
+  - it “standby assume no boot após shutdown do dono e ignora uma sessão que virou STOPPED” · L284
+  - it “réplica sem lease não consome a reserva de QR do link” · L342
+  - it “logout wwebjs permite que LocalAuth use seu próprio fence sem deadlock” · L354
+  - it “restart após crash assume sessão FAILED sem engine; concorrente recebe 409” · L369
+  - it “stop após crash assume sessão WORKING sem engine e grava STOPPED” · L385
+  - it “réplica antiga não emite RPC após o epoch mudar no banco” · L400
+  - it “LocalAuth atrasado não apaga o perfil do novo dono; limpeza tardia só atinge o descartado” · L417
+  - it “renovação impede outro dono; expiração incrementa epoch e release velho não apaga a nova posse” · L470
 
 ## `gateway/test/session-status-dedup.e2e-spec.ts`
 
@@ -624,7 +625,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/wwebjs-engine.e2e-spec.ts`
 
-1042 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
+1044 linhas · caminho: `apps/gateway/test/wwebjs-engine.e2e-spec.ts`
 - importa (interno): `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`
 
 - describe “WWebJSEngine — guard WA_REQUIRE_PROXY (P0-2)” · L59
@@ -683,18 +684,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “destroy limpo grava o marcador no perfil; o start seguinte o consome SEM warn de sujo” · L628
   - it “shutdown() sem client aberto NÃO grava o marcador (não mascara um fechamento sujo anterior)” · L659
   - it “logout remoto pendente segura o fechamento até a promise terminar” · L675
-- describe “patch `$1` do WhatsApp Web aplicado na lib (B-002)” · L704
-  - it “Utils.js instalado contém o helper getMsgKeyId e Puppeteer.js o guard de exposeFunction” · L709
-- describe “P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)” · L729
-  - it “sendText numa página travada falha em segundos com erro acionável e dispara o heal (P-016)” · L755
-  - it “mídia acima do teto NÃO baixa: emite metadados com fileSize e não toca downloadMedia (P-017)” · L785
-  - it “mídia dentro do teto segue o fluxo normal de download (regressão)” · L814
-  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L845
-- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L875
-  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L888
-  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L901
-  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L935
-- describe “P-019 — watchdog de sync: fim do WORKING falso” · L965
-  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L978
-  - it “página volta a responder → status retorna a WORKING sozinho” · L1010
-  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1033
+- describe “patch `$1` do WhatsApp Web aplicado na lib (B-002)” · L706
+  - it “Utils.js instalado contém o helper getMsgKeyId e Puppeteer.js o guard de exposeFunction” · L711
+- describe “P-016/P-017 — probe no envio, teto de mídia e heal em crash (14/08)” · L731
+  - it “sendText numa página travada falha em segundos com erro acionável e dispara o heal (P-016)” · L757
+  - it “mídia acima do teto NÃO baixa: emite metadados com fileSize e não toca downloadMedia (P-017)” · L787
+  - it “mídia dentro do teto segue o fluxo normal de download (regressão)” · L816
+  - it “crash do renderer no download dispara o heal imediato (P-017b)” · L847
+- describe “P-017c — página CRASHADA (rejeita rápido) também dispara o heal” · L877
+  - it “isPageCrashError reconhece as assinaturas de crash e ignora o resto” · L890
+  - it “probe: getState rejeitando com Target crashed → erro + heal (antes o catch mascarava)” · L903
+  - it “operação que morre com Target crashed dispara o heal (probe passou antes do crash)” · L937
+- describe “P-019 — watchdog de sync: fim do WORKING falso” · L967
+  - it “3 falhas seguidas do probe rebaixam WORKING → DEGRADED com instrução de re-scan + heal” · L980
+  - it “página volta a responder → status retorna a WORKING sozinho” · L1012
+  - it “watchdog liga no WORKING e desliga no STOPPED (ciclo pelo setStatus)” · L1035

@@ -50,7 +50,7 @@ etapa: E13 / P-056
   vida em outra réplica e campanha reprogramada sem FAILED. P-096 corrigida; resíduo de perfil
   descartado vira P-098. Nenhum contrato `/api` de sucesso mudou.
 - **Prova local:** migration aditiva aplicada só ao Postgres local e `prisma migrate status` em dia;
-  2 SessionManagers sobre o mesmo Postgres/Redis com engine falsa; 1.303/1.303 testes gateway e
+  2 SessionManagers sobre o mesmo Postgres/Redis com engine falsa; 1.304/1.304 testes gateway e
   292/292 painel; typecheck, depcruise, builds dos 2 apps, mapa e lint/formato dos arquivos tocados
   verdes. `npm run lint`/`format:check` globais enxergam apenas os dois arquivos `seed-mock`
   não versionados pré-existentes; foram preservados fora do PR.
@@ -60,3 +60,5 @@ etapa: E13 / P-056
 - **Reconciliação (R3):** §3.3/3.4/3.11 e P-056 do MAPA-CODIGO deixaram de dizer que não havia
   lease/auth transacional; P-096 foi fechada no quadro e P-098 foi aberta. Integração, arquitetura,
   estado, roteiro e changelog distinguem merge de deploy. Aviso E13 foi deixado em SESSOES para E14.
+- **Integração:** PR #19 com checks `ci` e `imagens` verdes, merge na `main` ao encerrar a etapa;
+  nenhum deploy foi executado.

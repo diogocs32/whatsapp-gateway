@@ -869,11 +869,15 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   ): Promise<void> {
     const engine = this.engines.get(sessionId);
     if (!engine) {
-      if (!this.isOwner(sessionId)) {
-        const session = await this.repo.findById(sessionId);
-        if (session && session.status !== 'STOPPED')
-          throw new SessionBusyError();
-      }
+      // Após crash o banco ainda pode dizer WORKING/DEGRADED sem engine em nenhuma réplica.
+      // A posse no banco, não esse status antigo, decide se podemos parar a sessão.
+      const epoch = await this.ensureLease(sessionId);
+      await this.lease.updateStatus(sessionId, epoch, 'STOPPED', {
+        meJid: null,
+        mePushName: null,
+        lastError: null,
+        lastErrorDetails: null,
+      });
       if (!keepLease) await this.releaseLease(sessionId);
       return;
     }

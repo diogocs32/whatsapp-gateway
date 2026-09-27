@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 327 arquivos · 1791 símbolos (métodos/funções/assinaturas/constantes) · 1885 chamadas resolvidas · 1145 testes (it/test)
+- 327 arquivos · 1791 símbolos (métodos/funções/assinaturas/constantes) · 1886 chamadas resolvidas · 1146 testes (it/test)
 
 ## Áreas
 
@@ -17,7 +17,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `campaigns` | 6 | 1026 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 33 | 10306 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 33 | 10327 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
@@ -28,7 +28,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `observability` | 8 | 675 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 16 | 2176 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 156 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 59 | 21907 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 59 | 21912 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 17 | 1315 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
