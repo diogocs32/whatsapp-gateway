@@ -362,7 +362,7 @@ Deploys C/D/E e canários permanecem manuais. Atualize docs/mapa, prepare checkl
 ### E19 — Vitest 5 e preparação do TypeScript (P-062 parte 4)
 
 ```text
-Execute E19/P-062 parte 4 seguindo as Regras de toda etapa: Vitest 5 e tsconfig preparado para TS 6, mantendo TypeScript 5.9.3 e CLI/schematics 11. Crie feature/onda5d-vitest5 da origin/main atualizada após o merge da E18; um PR, CI verde e merge ao fim.
+Execute E19/P-062 parte 4 seguindo as Regras de toda etapa: Vitest 5 e tsconfig preparado para TS 6, mantendo TypeScript 5.9.3 e CLI/schematics 11. Crie feature/onda5d-vitest5 da origin/main atualizada após o merge da E18/PR #24; um PR, CI verde e merge ao fim.
 Leia DONE E18, D-039 a D-044, P-062/P-099/P-100 e os gates E16/E17/E18. Confirme versões, peers e guia oficial do Vitest 5 antes de editar; preserve SWC/decorators, separação unit/e2e, execução serial dos e2e e coverage. Não usar nest upgrade nem prisma@latest; outras majors e Prisma 8 não entram nesta etapa.
 Preserve Nest 12.1.x/runtime CommonJS, identidade única do DI, Fastify 5.12.5, BullMQ 6/ioredis 5/ULID 3, contratos n8n, auth/rate-limit/auditoria, épocas/8 s/lease/reservas e provas de shutdown. P-100 tem falhas reproduzidas também em v5: não forçar close nem reduzir retries; subprocesso encerrado pelo harness não é shutdown aprovado.
 Reexecute instalação estrita, patches/guardas, unit/e2e/coverage, typechecks/builds/imagens e smokes relevantes. Atualize docs/mapa e prepare a mensagem da próxima etapa. Deploys C/D/E/F e canários permanecem manuais; nenhuma conta, QR, envio real ou limpeza de filas.
@@ -414,7 +414,7 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 
 ## Diário de execução
 
-- **29/09 · E18/P-062 parte 3 (D-044), sem deploy:** Nest 12.1.1 e companions
+- **29/09 · E18/P-062 parte 3 (D-044, PR #24), sem deploy:** Nest 12.1.1 e companions
   compatíveis; CLI/schematics 11 e TS 5.9.3 preservados. Fastify 5.12.5 remove
   os sete aceites de advisories; guardas de identidade DI e CommonJS após prune.
   Contrato n8n/auth/rate-limit/auditoria e ordem de shutdown provados com fakes;

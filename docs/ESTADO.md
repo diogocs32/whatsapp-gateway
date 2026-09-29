@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. Ondas 1, 2, 3, 6, 8 e 9 integradas; deploys/canários manuais anteriores continuam pendentes. E13/E14/E15 pelos PRs #19/#20/#21 (D-039/D-040/D-041), E16/P-062 parte 1 pelo [PR #22](https://github.com/diogocs32/whatsapp-gateway/pull/22), merge `7d547fc`, CI verde confirmado em 29/09 (D-042). **E17/P-062 parte 2 (D-043), [PR #23](https://github.com/diogocs32/whatsapp-gateway/pull/23), em código na `feature/onda5b-bullmq6`, base `7d547fc`:** BullMQ 6.3.10 com ioredis 5.11.1 e ULID 3.0.2; provas de dois workers, jobs N-1, webhook/retry/DLQ/reconexão e CommonJS na imagem final. CI verde e merge são gates do PR da etapa; [deploy E/rollback manual](how-to/deploy-e-bullmq6.md) exige conferência de repeat/pausa global e aceite prévio C/D. Próxima etapa de código: E18 (Nest 12 runtime), branch/PR próprios. B-004 stop-first/B-005/B-007 preservados, P-099 sem drenar filas e P-100 como investigação de shutdown com Redis em voo. Produção no último SHA **documentado** `768fb26`, sem verificação ao vivo; Auto Deploy consta desligado por D-027. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. Ondas 1, 2, 3, 6, 8 e 9 integradas; deploys/canários manuais anteriores continuam pendentes. E13/E14/E15 pelos PRs #19/#20/#21 (D-039/D-040/D-041), E16 pelo PR #22 (`7d547fc`, D-042) e E17 pelo [PR #23](https://github.com/diogocs32/whatsapp-gateway/pull/23), merge `4de87fe`/CI verde conferidos em 29/09 (D-043). **E18/P-062 parte 3 (D-044) em código no [PR #24](https://github.com/diogocs32/whatsapp-gateway/pull/24), `feature/onda5c-nest12` da base `4de87fe`:** Nest 12.1.1/runtime CommonJS, companions compatíveis e Fastify 5.12.5, mantendo CLI/schematics 11, TS 5.9.3 e BullMQ 6/ioredis 5/ULID 3. Provas de contrato n8n/auth/rate-limit/auditoria e ordem de shutdown com fakes; P-100 diferenciada nas duas versões, ainda aberta. CI verde e merge são gates rastreados no PR. [Deploy F/rollback](how-to/deploy-f-nest12.md) manual após aceites C/D/E. Próxima etapa de código: **E19/Vitest 5 + preparação TS 6 sem subir TS**, branch/PR próprios após o merge E18. B-004 stop-first/B-005/B-007 e P-099 sem drenar filas preservados. Produção no último SHA **documentado** `768fb26`, sem verificação ao vivo; Auto Deploy consta desligado por D-027. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,18 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **29/09/2026 (E18/P-062 parte 3, D-044 — PR #24, sem deploy):** Nest 12.1.1 runtime
+> com Config 12.0.1/JWT 12.0.2/pino 5.2.1 e Fastify 5.12.5; sete aceites corrigidos
+> removidos. CLI 11/TS 5.9.3, BullMQ 6/ioredis 5/ULID 3, contratos e gates E16/E17
+> preservados. 1.425 gateway + 292 painel locais, imagens/smokes e guardas DI/CJS.
+> P-100 continua aberta: EVAL principal resolve ao recuperar a rede, mas disconnect
+> bloqueante já em reconnecting continua esperando end na janela observada; reproduzido
+> em BullMQ 5/6. Sem force-close/retries reduzidos; SIGTERM do subprocesso só limpa a
+> falha. Gate webhook E17 ganhou barreira dos dois slots após reprodução de prefetch.
+> Sem migration/env/payload novo, conta/QR/envio real ou operação no Dokploy.
+> [Deploy F](how-to/deploy-f-nest12.md)/canário manuais após C/D/E, mantendo
+> B-004/B-005/B-007/P-099. Último SHA produtivo documentado `768fb26`, sem consulta ao vivo.
 
 > **29/09/2026 (E17/P-062 parte 2, D-043 — sem deploy):** BullMQ 6.3.10 mantendo
 > ioredis 5.11.1; ULID 3.0.2. Slot da campanha adaptado a `getBackend().client`, sem
