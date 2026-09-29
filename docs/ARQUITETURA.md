@@ -6,7 +6,7 @@
 
 ## Visão
 
-- Monorepo npm workspaces: `apps/gateway` (NestJS 11 + Fastify) · `apps/dashboard` (React 19) · `packages/contracts` (tipos compartilhados)
+- Monorepo npm workspaces: `apps/gateway` (NestJS 12 no runtime, CLI 11 + Fastify 5; D-044) · `apps/dashboard` (React 19) · `packages/contracts` (tipos compartilhados)
 - Cada módulo em `apps/gateway/src/modules/` é um bounded context NestJS
 - Layout de referência (módulos novos/tocados migram para ele): `domain/ · application/ · infrastructure/ · interface/` — exemplo real: `proxies`
 - Módulos mais antigos ainda são flat (controller + service + module) — padronização INCREMENTAL, nunca big-bang

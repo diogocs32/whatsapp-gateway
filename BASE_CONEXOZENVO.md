@@ -33,7 +33,7 @@ Detecte o cenário e execute o modo correspondente do R18:
 ## STACK REAL — NÃO SUGERIR ALTERNATIVAS
 
 - Monorepo npm workspaces: `apps/gateway` · `apps/dashboard` · `packages/contracts`
-- Backend: NestJS 11 + Fastify 5 · Node >=22 (dev em Node 26/WSL) · TypeScript
+- Backend: NestJS 12 (runtime; CLI 11) + Fastify 5 · Node >=22 (dev em Node 26/WSL) · TypeScript
   com OVERRIDE fixo **5.9.3** (TS 6 transitivo QUEBRA o `nest build` — não subir)
 - ORM: Prisma 7 (`@prisma/adapter-pg`, client em `src/generated`) · PostgreSQL 18
 - Filas/eventos: BullMQ 6 + Redis (ioredis 5) · EventBus próprio no shared-kernel

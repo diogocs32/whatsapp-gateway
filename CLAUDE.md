@@ -17,7 +17,7 @@ Encerramento de sessão (R9): reconciliação documental (diff × mapa de gatilh
 
 ## Stack (não sugerir alternativas)
 
-- Monorepo npm workspaces: `apps/gateway` (NestJS 11 + Fastify 5) · `apps/dashboard` (React 19 + RR7 + Vite + Tailwind 4) · `packages/contracts`
+- Monorepo npm workspaces: `apps/gateway` (NestJS 12 (runtime; CLI 11) + Fastify 5) · `apps/dashboard` (React 19 + RR7 + Vite + Tailwind 4) · `packages/contracts`
 - Node >=22 (dev em Node 26/WSL) · TypeScript com **override fixo 5.9.3** (TS 6 transitivo QUEBRA o `nest build`)
 - Prisma 7 (adapter pg, client gerado em `src/generated` — rodar `prisma generate` antes de buildar) · PostgreSQL 18 · BullMQ 6 + Redis (ioredis 5)
 - Engines: Baileys 7.0.0-rc14 (principal) · whatsapp-web.js 1.34.7 (Store/leads) · zod nas bordas · Vitest 4 (e2e) · ESLint 10 + Prettier 3

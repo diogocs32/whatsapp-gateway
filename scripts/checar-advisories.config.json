@@ -346,48 +346,5 @@
       "nota": "pgsty/minio redireciona para pgsty/silo; o fork publica correções nas release notes, não em advisories (0 em 25/09)"
     }
   ],
-  "aceitos": [
-    {
-      "ghsa": "GHSA-w2qp-rph6-63g4",
-      "pacote": "fastify",
-      "motivo": "Só afeta rota com schema Fastify de body PRIMITIVO na raiz (coerção). O gateway não declara schema de rota Fastify — valida com zod nos controllers (grep schema:/RouteSchema/addSchema em apps/gateway/src = 0). Fix exige fastify ≥ 5.12.1, que só vem com Nest 12 (P-062/E18).",
-      "revisarAte": "2026-11-30"
-    },
-    {
-      "ghsa": "GHSA-3m5p-2c4r-xxw2",
-      "pacote": "fastify",
-      "motivo": "Só vale para trustProxy NUMÉRICO (hop-count). O gateway usa trustProxy: true booleano (apps/gateway/src/bootstrap/fastify-adapter.ts:13). Fix exige fastify ≥ 5.12.1, que só vem com Nest 12 (P-062/E18).",
-      "revisarAte": "2026-11-30"
-    },
-    {
-      "ghsa": "GHSA-p68q-wchp-6fh7",
-      "pacote": "fastify",
-      "motivo": "Exige not-found handlers encapsulados por prefixo (setNotFoundHandler em plugins irmãos). O gateway não chama setNotFoundHandler; o Nest registra um único not-found na raiz (routes-resolver registerNotFoundHandler → 404 'Cannot GET …', sem dado protegido). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
-      "revisarAte": "2026-11-30"
-    },
-    {
-      "ghsa": "GHSA-hwr6-493r-vm6h",
-      "pacote": "fastify",
-      "motivo": "Exige schema de rota Fastify = false (deny-all) em body/querystring/params/headers. O gateway não declara schema de rota Fastify (zod nos controllers). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
-      "revisarAte": "2026-11-30"
-    },
-    {
-      "ghsa": "GHSA-9q9j-q6p8-xq58",
-      "pacote": "fastify",
-      "motivo": "Exige schema Fastify de headers com dependencies/subschemas. O gateway não declara schema de rota Fastify (zod nos controllers). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
-      "revisarAte": "2026-11-30"
-    },
-    {
-      "ghsa": "GHSA-667r-xxjv-c9mm",
-      "pacote": "fastify",
-      "motivo": "Exige schema de request com $async. O gateway não declara schema de rota Fastify nem usa $async (grep em apps/gateway/src = 0). Fix exige fastify ≥ 5.12.2, que só vem com Nest 12 (P-062/E18).",
-      "revisarAte": "2026-11-30"
-    },
-    {
-      "ghsa": "GHSA-4mh8-r7rc-xpvc",
-      "pacote": "fastify",
-      "motivo": "Exige HTTP/2 (http2: true) + reply.trailer(). O gateway sobe HTTP/1.1 (FastifyAdapter só com trustProxy) e não usa .trailer( (grep em apps/gateway/src = 0). Fix exige fastify ≥ 5.12.5, que só vem com Nest 12 (P-062/E18).",
-      "revisarAte": "2026-11-30"
-    }
-  ]
+  "aceitos": []
 }

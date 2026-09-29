@@ -57,7 +57,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-e15-proxy`         | PR #21; **deploy C manual** pelo runbook, B-001 depois                                                                                                             | ✅ 29/09 · 0cf2cd4        |
 | E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`       | PR #22 mergeado `7d547fc`; **deploy D manual** depois                                                                                                              | ✅ 29/09 · ce7ada0        |
 | E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`          | PR #23; merge ao fim; **deploy E manual** depois                                                                                                                   | ✅ código 29/09 · bd4e699 |
-| E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`           | merge ao fim; **deploy F manual** depois                                                                                                                           | ⬜                        |
+| E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`           | merge ao fim; **deploy F manual** depois                                                                                                                           | ✅ 29/09 (D-044)          |
 | E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`          | merge (só CI/dev)                                                                                                                                                  | ⬜                        |
 | E20   | 7    | Métricas e regras de produto que reduzem risco: destinatários novos sem resposta em 30 dias, cota em `/contacts/check`, inventário pessoal × Business, A/B de leads Baileys × wwebjs (P-064 parte código + P-061)                    | `feature/onda7-metricas-produto`  | decisão sobre canal oficial (P-064) fica com o dono                                                                                                                | ⬜                        |
 | E21   | —    | Backlog anterior: triagem e execução do que ainda vale (P-001 resto, P-018, P-022, P-023, P-013, P-005, P-036, P-044..P-046 …) — pode virar mais de um chat                                                                          | definir no chat                   | —                                                                                                                                                                  | ⬜                        |
@@ -359,6 +359,15 @@ Prove contrato /api consumido pelo n8n, auth/rate-limit/auditoria e ordem real d
 Deploys C/D/E e canários permanecem manuais. Atualize docs/mapa, prepare checklist F e mensagem E19.
 ```
 
+### E19 — Vitest 5 e preparação do TypeScript (P-062 parte 4)
+
+```text
+Execute E19/P-062 parte 4 seguindo as Regras de toda etapa: Vitest 5 e tsconfig preparado para TS 6, mantendo TypeScript 5.9.3 e CLI/schematics 11. Crie feature/onda5d-vitest5 da origin/main atualizada após o merge da E18; um PR, CI verde e merge ao fim.
+Leia DONE E18, D-039 a D-044, P-062/P-099/P-100 e os gates E16/E17/E18. Confirme versões, peers e guia oficial do Vitest 5 antes de editar; preserve SWC/decorators, separação unit/e2e, execução serial dos e2e e coverage. Não usar nest upgrade nem prisma@latest; outras majors e Prisma 8 não entram nesta etapa.
+Preserve Nest 12.1.x/runtime CommonJS, identidade única do DI, Fastify 5.12.5, BullMQ 6/ioredis 5/ULID 3, contratos n8n, auth/rate-limit/auditoria, épocas/8 s/lease/reservas e provas de shutdown. P-100 tem falhas reproduzidas também em v5: não forçar close nem reduzir retries; subprocesso encerrado pelo harness não é shutdown aprovado.
+Reexecute instalação estrita, patches/guardas, unit/e2e/coverage, typechecks/builds/imagens e smokes relevantes. Atualize docs/mapa e prepare a mensagem da próxima etapa. Deploys C/D/E/F e canários permanecem manuais; nenhuma conta, QR, envio real ou limpeza de filas.
+```
+
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09
 
 ```text
@@ -391,6 +400,7 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Antes do deploy C (E15)     | Confirmar B-004 `stop-first` em Update/Rollback Config, backup fora da VPS + restore B-005 e janela/canário B-007. Medir `wait`/`delayed` da fila de campanhas antes/depois (P-099); não drenar toda a fila.                                | B-004 · B-005 · B-007 · P-099                |
 | Depois do deploy C (E15)    | Ligar `WA_REQUIRE_PROXY=true` (se ainda não) e Redeploy                                                                                                                                                                                     | B-001                                        |
 | Depois do merge E16         | Deploy D manual dos dois apps, conferência Node/nginx/Chromium, smoke e navegação; cumprir primeiro pré-requisitos C se pendentes                                                                                                           | [checklist D](how-to/deploy-d-manutencao.md) |
+| Depois do merge E18         | Deploy F manual do gateway após aceites C/D/E; observar shutdown/P-100 e canário n8n, mantendo stop-first                                                                                                                                   | [checklist F](how-to/deploy-f-nest12.md)     |
 | Quando puder (Onda 4)       | Traefik → v3.7.13 (se 3.6.x) · Redis com AOF (Custom Command completo com `--requirepass`, depois do deploy A — bullmq 5.81.5; nota E3 na análise §8) · Postgres pinado na minor                                                            | B-007 · análise §8                           |
 | Antes da E22 (Onda 8)       | Responder: reação fora do evento `message` do webhook + contando no reply-rate (recomendado) — confira se algum fluxo n8n usa o tipo `other`                                                                                                | P-066                                        |
 | Quando puder (Onda 8)       | Checagens do diagnóstico §3: SQL só leitura dos tipos em `wa_messages` (7 dias), logs de mídia, `canPlayType` do áudio no seu navegador (Safari × Chrome)                                                                                   | P-066/P-067                                  |
@@ -403,6 +413,14 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064                                        |
 
 ## Diário de execução
+
+- **29/09 · E18/P-062 parte 3 (D-044), sem deploy:** Nest 12.1.1 e companions
+  compatíveis; CLI/schematics 11 e TS 5.9.3 preservados. Fastify 5.12.5 remove
+  os sete aceites de advisories; guardas de identidade DI e CommonJS após prune.
+  Contrato n8n/auth/rate-limit/auditoria e ordem de shutdown provados com fakes;
+  P-100 diferenciada em v5/v6, sem close forçado/retries alterados. E17/PR #23
+  confirmado mergeado `4de87fe` com checks verdes. [Checklist F](how-to/deploy-f-nest12.md)
+  manual após C/D/E; B-004/B-005/B-007/P-099 permanecem. E19 segue em branch/PR próprios.
 
 - **29/09 · E17/P-062 parte 2 (D-043), sem deploy:** BullMQ 6.3.10 com ioredis 5.11.1
   e ULID 3.0.2; troca de `Queue.client` por `getBackend().client`. Épocas, lease,

@@ -123,7 +123,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 293 linhas · caminho: `apps/gateway/src/modules/webhooks/infrastructure/webhook-queue.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `shared-kernel/safe-fetch.ts`, `shared-kernel/ulid.ts`
-- importado por: `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `modules/webhooks/webhooks.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/webhook-bullmq6.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/interface/webhooks.controller.ts`, `modules/webhooks/webhooks.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`, `gateway/test/webhook-bullmq6.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **class `WebhookQueue`** L66 · @Injectable · `implements OnModuleInit`, `implements OnModuleDestroy`
 - injeta (construtor): `config: ConfigService<Env, true>` · `prisma: PrismaService`

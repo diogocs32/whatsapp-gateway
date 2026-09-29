@@ -81,6 +81,52 @@ for (const [spec, arq] of pacotes) {
   }
 }
 
+// E18: npm pode manter Nest 11 hoisted para peers amplos e instalar Nest 12 no
+// workspace. Isso passa npm ls, mas divide tokens/classes do DI. Conferir a
+// identidade a partir de cada consumidor, no node_modules FINAL após prune.
+try {
+  const fromGateway = createRequire(path.resolve(dir, 'main.js'));
+  const common = fromGateway('@nestjs/common');
+  const core = fromGateway('@nestjs/core');
+  for (const name of [
+    '@nestjs/common',
+    '@nestjs/core',
+    '@nestjs/platform-fastify',
+  ]) {
+    let folder = path.dirname(fromGateway.resolve(name));
+    while (!fs.existsSync(path.join(folder, 'package.json'))) {
+      const parent = path.dirname(folder);
+      if (parent === folder) throw new Error(`package.json ausente: ${name}`);
+      folder = parent;
+    }
+    const { version } = JSON.parse(
+      fs.readFileSync(path.join(folder, 'package.json'), 'utf8'),
+    );
+    // A linha autorizada é 12.1.x; ela já está acima do piso 12.0.4.
+    if (!/^12\.1\.\d+$/.test(version)) {
+      throw new Error(`${name}@${version}: esperado 12.1.x (piso 12.0.4)`);
+    }
+  }
+  for (const name of [
+    '@nestjs/core',
+    '@nestjs/platform-fastify',
+    '@nestjs/config',
+    '@nestjs/jwt',
+    'nestjs-pino',
+  ]) {
+    const fromConsumer = createRequire(fromGateway.resolve(name));
+    if (fromConsumer('@nestjs/common') !== common) {
+      throw new Error(`${name} resolve outra cópia de @nestjs/common`);
+    }
+    if (fromConsumer('@nestjs/core') !== core) {
+      throw new Error(`${name} resolve outra cópia de @nestjs/core`);
+    }
+  }
+  console.log('[verificar-deps-runtime] Nest 12.1.x e identidade do DI OK');
+} catch (e) {
+  falhas.push(`Nest runtime: ${String(e && e.message).split('\n')[0]}`);
+}
+
 // Exercita o mesmo require emitido pelo Nest no runtime, inclusive a entropia do ULID 3.
 try {
   const arq = path.resolve(dir, 'shared-kernel/ulid.js');

@@ -13,6 +13,7 @@ import { AuthController } from '../modules/iam/interface/auth.controller';
 import { ConnectLinkService } from '../modules/sessions/application/connect-link.service';
 import { PublicConnectController } from '../modules/sessions/interface/public-connect.controller';
 import { buildFastifyAdapter } from './fastify-adapter';
+import { LoggingExceptionFilter } from './logging-exception.filter';
 import {
   PUBLIC_CONNECT_NEW_QR_RATE_LIMIT,
   PUBLIC_CONNECT_READ_RATE_LIMIT,
@@ -95,6 +96,9 @@ describe('rate-limit pela rota resolvida (P-053)', () => {
       buildFastifyAdapter(),
       { bodyParser: false, logger: false },
     );
+    // Mesma borda de main.ts: Nest 12 deixou de reconhecer Error+statusCode
+    // genérico; o filtro do gateway conserva o 429/corpo do plugin.
+    app.useGlobalFilters(new LoggingExceptionFilter(app.getHttpAdapter()));
     await registerRateLimit(app, 600);
     app.setGlobalPrefix('api', {
       exclude: [{ path: 'health', method: RequestMethod.GET }],
@@ -129,7 +133,7 @@ describe('rate-limit pela rota resolvida (P-053)', () => {
     }
     const decimo1 = await login(
       port,
-      `http://127.0.0.1:${port}/api/auth/%6Cogin`,
+      `HTTP://127.0.0.1:${port}/api/auth/%6Cogin`,
     );
     expect(decimo1.status).toBe(429);
   });
@@ -163,13 +167,16 @@ describe('rate-limit pela rota resolvida (P-053)', () => {
       expect(res.status, alvo).toBe(200);
       expect(res.headers['x-ratelimit-limit'], alvo).toBeUndefined();
     }
-    // Esquema maiúsculo: o router do fastify 5.11.3 não casa (404) — sem rota, sem limitador.
+    // Fastify 5.12.5 reconhece esquema sem distinguir caixa: mesma rota e teto.
     const maiusculo = await login(
       port,
       `HTTP://127.0.0.1:${port}/api/auth/login`,
     );
-    expect(maiusculo.status).toBe(404);
-    expect(maiusculo.headers['x-ratelimit-limit']).toBeUndefined();
+    expect(maiusculo.status).toBe(401);
+    expect(maiusculo.headers['x-ratelimit-limit']).toBe('10');
+    const inexistente = await raw(port, 'GET', '/rota-inexistente');
+    expect(inexistente.status).toBe(404);
+    expect(inexistente.headers['x-ratelimit-limit']).toBeUndefined();
   });
 
   // P-071: `http://h?x=/api/auth/login` — o router casava a rota da QUERY (find-my-way) enquanto o
@@ -226,6 +233,7 @@ describe('rate-limit das rotas públicas do link de conexão (E27 · P-086)', ()
       buildFastifyAdapter(),
       { bodyParser: false, logger: false },
     );
+    a.useGlobalFilters(new LoggingExceptionFilter(a.getHttpAdapter()));
     await registerRateLimit(a, 600);
     a.setGlobalPrefix('api');
     await a.init();

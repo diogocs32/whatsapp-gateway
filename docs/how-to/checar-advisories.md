@@ -1,7 +1,7 @@
 ---
 tipo: runbook
 dono: Diogo
-revisado_em: 2026-09-25
+revisado_em: 2026-09-29
 validade: 2026-12-25
 status: ativo
 origem: P-054 (etapa E3 — patches de segurança sem major)
@@ -98,9 +98,9 @@ em `aceitos` do config:
 - `pacote` = nome npm; no runtime, `undici`; em infra com `producao`, o `owner/repo`.
 - `revisarAte` (AAAA-MM-DD, vale o dia inteiro): **vencido ou inválido volta a falhar**. Prazo curto
   (≤ ~2 meses) — o objetivo é revisar, não esquecer.
-- Motivo técnico **verificável**, não "baixo risco". Os 7 aceites do fastify 5.11.3 (25/09) citam o
-  grep/arquivo que prova que o gatilho não existe no gateway; fix exige fastify ≥ 5.12.x, que só vem
-  com Nest 12 (P-062/E18).
+- Motivo técnico **verificável**, não "baixo risco". Os sete aceites de Fastify 5.11.3
+  foram removidos na E18 (D-044): Fastify 5.12.5 cobre as versões corrigidas conferidas
+  nos advisories oficiais. O JSON acima é apenas exemplo, não aceite vigente.
 - Aceite sem achado correspondente aparece em **Avisos** → remova do config.
 
 ## 5. Infra: reconhecer e, depois da B-007, preencher `producao`

@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Atualizado — Nest 12 no runtime (29/09 — E18/P-062 parte 3, D-044; sem deploy)
+
+- Nest 12.1.1 com companions compatíveis e Fastify 5.12.5; CLI/schematics 11 e TS 5.9.3 preservados. CommonJS, BullMQ 6/ioredis 5/ULID 3, pins, patches e instalação estrita mantidos.
+- Guarda da imagem final exige uma única identidade Nest no DI. Sete aceites de advisories Fastify removidos por correção upstream. Contrato `/api` consumido pelo n8n, auth, rate-limit, auditoria e shutdown provados com fakes/infra local.
+- P-100 investigada por comparação v5/v6, sem forçar close nem alterar retries. Deploy F e canários manuais após C/D/E, pelo [checklist F](docs/how-to/deploy-f-nest12.md); nenhuma migration, env ou rota nova.
+
 ### Atualizado — BullMQ 6 e ULID 3 com compatibilidade das filas (29/09 — E17/P-062 parte 2, D-043; sem deploy)
 
 - BullMQ 6.3.10 com ioredis 5.11.1 e ULID 3.0.2; slot Redis da campanha adaptado para `getBackend().client`, preservando épocas, reidratação, intervalo global de 8 s, lease e backoff sem FAILED transitório. Nenhum contrato, migration ou env novo.

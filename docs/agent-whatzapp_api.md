@@ -43,7 +43,7 @@ e compara com o **Evolution API** (referência open-source que usa Baileys) quan
 
 | Camada     | Tecnologia                                                                    |
 | ---------- | ----------------------------------------------------------------------------- |
-| Backend    | NestJS 11 + Fastify                                                           |
+| Backend    | NestJS 12 no runtime + Fastify 5; CLI 11 e TS 5.9.3 (E18/D-044)               |
 | WhatsApp   | **@whiskeysockets/baileys 7.0.0-rc13** (era 6.7.23 — ver §7)                  |
 | DB         | PostgreSQL 18 + **Prisma 7** (client gerado em `apps/gateway/src/generated/`) |
 | Cache/Fila | Redis 7 + BullMQ                                                              |
