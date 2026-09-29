@@ -38,20 +38,19 @@ concurrency:
 
 jobs:
   advisories:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (node24)
         with:
           persist-credentials: false
 
       # O Node do runner só EXECUTA o script: o undici avaliado é o do Node fixado no FROM de
-      # apps/gateway/Dockerfile. check-latest (sem ele o setup-node usa um 26.x em cache no runner)
-      # só importa se o Dockerfile voltar a uma tag móvel — aí o script cai no Node do runner.
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      # apps/gateway/Dockerfile. A versão exata mantém o runner em paridade com as imagens (E16).
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0 (node24)
         with:
-          node-version: 26
-          check-latest: true
+          node-version: '26.10.0'
+          package-manager-cache: false
 
       - name: Autoteste do comparador de faixas (offline)
         run: node scripts/checar-advisories.mjs --autoteste
@@ -62,4 +61,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MODO: ${{ github.event_name == 'pull_request' && '--informativo' || '' }}
-        run: node scripts/checar-advisories.mjs $MODO
+        run: |
+          if [ -n "$MODO" ]; then
+            node scripts/checar-advisories.mjs "$MODO"
+          else
+            node scripts/checar-advisories.mjs
+          fi

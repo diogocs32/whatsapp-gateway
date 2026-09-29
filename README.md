@@ -50,20 +50,26 @@ Blueprint completo do produto: **[`PROMPT-MESTRE-WHATSAPP-GATEWAY.md`](./PROMPT-
 
 ## Pré-requisitos
 
-- **Node 26** (mínimo técnico Node ≥ 22.12). No WSL, via nvm:
+- **Node 26.10.0 / npm 11.19.1** (versões do CI e das imagens; mínimo técnico Node ≥ 22.12). No WSL, via nvm:
   ```bash
-  nvm install 26 && nvm alias default 26 && nvm use 26
-  node -v   # v26.x
+  nvm install 26.10.0 && nvm alias default 26.10.0 && nvm use 26.10.0
+  node -v   # v26.10.0
   ```
 - **Docker** + Docker Compose (para Postgres/Redis/MinIO).
 
 ---
 
+O `allowScripts` da raiz registra cada script de instalação por versão. Dependência nova
+ou atualizada exige revisão dessa lista; o CI e os Dockerfiles recusam script sem decisão.
+O download automático do Puppeteer está negado: WWEBJS usa Chromium instalado separadamente
+via `WWEBJS_CHROME_PATH` (a imagem já configura `/usr/bin/chromium`). No ensaio sintético
+`scripts/medir-wwebjs-memoria-local.mjs`, informe esse caminho para usar o Chrome local.
+
 ## Subir o ambiente (rodar no terminal WSL)
 
 ```bash
 # 1. Instalar dependências (npm workspaces)
-npm install
+npm ci --strict-allow-scripts
 
 # 2. Subir infraestrutura local (Postgres + Redis + MinIO)
 npm run infra:up

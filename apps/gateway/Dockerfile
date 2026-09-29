@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 # Gateway (NestJS + Fastify) — Node 26.10.0 FIXADO nos 2 estágios (undici embutido 8.10.2; P-054), multi-stage.
-# Inclui Chromium para a engine WWEBJS (whatsapp-web.js). Se for usar SOMENTE a engine
-# Baileys, remova `chromium` e `fonts-liberation` do apt-get (mantenha curl) — imagem bem menor.
+# E16: digest do índice multiarch nos 2 estágios; atualização deliberada em PR com smoke.
+# Inclui Chromium para WWEBJS (D-021: as duas engines permanecem disponíveis).
 #
 # Dokploy:  Dockerfile Path = apps/gateway/Dockerfile  |  Context = . (raiz do monorepo)
 
 # ============================ Stage 1: build =================================
-FROM node:26.10.0-bookworm-slim AS build
+FROM node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS build
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 # DATABASE_URL dummy: o prisma.config.ts exige a var, mas `prisma generate` NÃO conecta ao banco.
@@ -25,7 +25,7 @@ COPY packages/contracts/package.json packages/contracts/
 # patches/ ANTES do npm ci: o postinstall da raiz roda patch-package (wwebjs e Baileys rc14).
 # Sem a pasta presente o install passaria sem as correções das duas engines.
 COPY patches ./patches
-RUN npm ci
+RUN npm ci --strict-allow-scripts
 
 # P-055 — guardas de build: com stop-first (B-004) imagem quebrada vira indisponibilidade, então o
 # build FALHA ALTO. O postinstall roda `patch-package --error-on-fail` (fora de CI o patch-package
@@ -46,11 +46,11 @@ RUN npm run gateway:generate && npm run gateway:build && sh scripts/guardas-buil
 RUN npm prune --omit=dev && mkdir -p apps/gateway/node_modules
 
 # ============================ Stage 2: runtime ==============================
-FROM node:26.10.0-bookworm-slim AS production
+FROM node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS production
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
-# curl = healthcheck (sempre). chromium/fonts/tini = engine WWEBJS (remova se só Baileys).
+# curl = healthcheck. chromium/fonts/tini = engine WWEBJS (preservar, D-021).
 # openssl = libssl p/ o `prisma migrate deploy` no entrypoint (schema engine nativo).
 # gosu = queda de privilégio no entrypoint (item 17): o container inicia como root SÓ para
 # corrigir o dono do volume persistente e desce para o usuário `node` antes de rodar qualquer
@@ -93,7 +93,7 @@ RUN cd /app && sh /tmp/guardas/guardas-build.sh patches \
     && rm -rf /tmp/guardas
 
 EXPOSE 3000
-# Healthcheck do container. No Dokploy, configure também o Swarm Health Check (ver docs/deploy-dokploy.md).
+# Healthcheck da imagem. Manter Health Check do Swarm VAZIO (B-004; docs/deploy-dokploy.md).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -fsS http://127.0.0.1:3000/health || exit 1
 

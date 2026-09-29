@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **E13/P-056 (Onda 3, D-039) integrada pelo PR #19; E14/P-057 (D-040) integrada pelo PR #20 (`b56ff27`):** lease/fencing, auth transacional e campanhas com retomada espaçada e retry transitório. **E15/P-058 (D-041) no PR #21 (`0cf2cd4`):** afinidade do proxy, falha explícita sem fallback direto, PUT validado e nome vivo resolvido (P-097). Onda 3 com deploy C manual pendente; migrations só no Postgres local. O primeiro deploy com E13 exige B-004 `stop-first` confirmado, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **Onda 3 integrada:** E13/P-056 (D-039) pelo PR #19, E14/P-057 (D-040) pelo PR #20 (`b56ff27`) e E15/P-058 (D-041) pelo PR #21 (`54c659a`, CI verde confirmado em 29/09). **E16/P-062 parte 1 (D-042), [PR #22](https://github.com/diogocs32/whatsapp-gateway/pull/22), concluída em código na `feature/onda5a-manutencao`, base `54c659a`:** imagens por digest, Actions node24 por SHA, scripts de instalação revisados e manutenção de React/tooling. CI/merge são gates do PR da etapa; [deploy D manual](how-to/deploy-d-manutencao.md) pendente. Próxima etapa de código: E17 (BullMQ 6/ioredis 5/ulid 3), em branch/PR próprios. O deploy C continua pendente; primeiro deploy com E13 exige B-004 `stop-first`, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,17 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **29/09/2026 (E16/P-062 parte 1, D-042 — PR #22, sem deploy):** Node 26.10.0 e nginx 1.30.5
+> pinados por digest multiarch; Actions node24/Ubuntu 24.04, npm ci estrito, Puppeteer sem
+> download e ts-node sem uso removido. React 19.3/Router e tooling atualizados sem major de
+> runtime. Patches, TS 5.9.3, engines e contratos preservados; sem migration/env nova.
+> Prova local: 1.394 gateway + 292 painel, ambos Dockerfiles e guardas, HTTP/SPA/assets,
+> 12 cenários no Chrome com APIs falsas, autenticação e rate-limit na imagem isolada.
+> Mutações da política de instalação e nginx falharam como esperado. CI verde e merge
+> são gates do PR; [deploy D](how-to/deploy-d-manutencao.md) é manual e herda pré-requisitos
+> C/B-004/B-005/B-007 e observação P-099 se ainda pendentes. Nenhuma conta, QR ou envio real.
+> Produção permanece no último SHA **documentado** `768fb26`, sem conferência ao vivo.
 
 > **29/09/2026 (E15/P-058, D-041 — PR #21, sem deploy):** currentProxyId elegível é mantido em
 > RANGE/GLOBAL; SINGLE inválido e pool vazio falham antes do socket/Chromium, mesmo com
