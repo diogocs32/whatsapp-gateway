@@ -36,7 +36,7 @@ Detecte o cenário e execute o modo correspondente do R18:
 - Backend: NestJS 11 + Fastify 5 · Node >=22 (dev em Node 26/WSL) · TypeScript
   com OVERRIDE fixo **5.9.3** (TS 6 transitivo QUEBRA o `nest build` — não subir)
 - ORM: Prisma 7 (`@prisma/adapter-pg`, client em `src/generated`) · PostgreSQL 18
-- Filas/eventos: BullMQ 5 + Redis (ioredis) · EventBus próprio no shared-kernel
+- Filas/eventos: BullMQ 6 + Redis (ioredis 5) · EventBus próprio no shared-kernel
   · fan-out multi-réplica via canal Redis `wa:events`
   · GOTCHA: jobId do BullMQ NÃO aceita `:` — usar `-` (24h de webhooks mudos)
 - Engines WhatsApp: Baileys 7.0.0-rc13 (principal) · whatsapp-web.js 1.34.7

@@ -8,7 +8,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `modules/campaigns/application/campaign.service.ts` | 127 |
 | `modules/campaigns/campaigns.module.ts` | 17 |
-| `modules/campaigns/infrastructure/campaign-queue.ts` | 423 |
+| `modules/campaigns/infrastructure/campaign-queue.ts` | 426 |
 | `modules/campaigns/infrastructure/campaign-restriction.spec.ts` | 169 |
 | `modules/campaigns/infrastructure/campaign.repository.ts` | 300 |
 | `modules/campaigns/interface/campaigns.controller.ts` | 200 |
@@ -17,7 +17,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 127 linhas · caminho: `apps/gateway/src/modules/campaigns/application/campaign.service.ts`
 - importa (interno): `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`
-- importado por: `modules/campaigns/campaigns.module.ts`, `modules/campaigns/interface/campaigns.controller.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
+- importado por: `modules/campaigns/campaigns.module.ts`, `modules/campaigns/interface/campaigns.controller.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
 
 **class `CampaignService`** L12 · @Injectable
 - injeta (construtor): `repo: CampaignRepository` · `queue: CampaignQueue`
@@ -76,9 +76,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/campaigns/infrastructure/campaign-queue.ts`
 
-423 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`
+426 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/redis/redis-connection.ts`, `shared-kernel/safe-fetch.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/session-lease.error.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`
-- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
+- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
 
 **class `SendSlotUnavailableError`** L89 · `extends Error`
 
@@ -88,34 +88,34 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `closing` · L105 · private · campo
 - `constructor(config, repo, manager, guardrail)` · L107
 - `onModuleInit()` · L114 · async
-  - chama: `redisConnection` (redis-connection.ts:21), `process` L232
+  - chama: `redisConnection` (redis-connection.ts:21), `process` L235
 - `onApplicationBootstrap()` · L150
   - chama: `SessionManager.whenRehydrated` (session-manager.service.ts:342)
 - `enqueueSend(data, delayMs, jobId)` · L168
   - chamado por: `CampaignService.schedulePending` (campaign.service.ts:58)
   - enfileira: `this.queue.add('send')` L174 · jobId = `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)`
 - `delay(job, token, delayMs)` · L183 · private · async
-  - chamado por: `process` L232, `retrySession` L195
+  - chamado por: `process` L235, `retrySession` L195
 - `retrySession(job, token)` · L195 · private · async
   - chama: `delay` L183, `randInt` L59
-  - chamado por: `process` L232
+  - chamado por: `process` L235
 - `waitForGlobalSendSlot()` · L207 · private · async
   - chama: `new SendSlotUnavailableError`, `sleep` L62
-  - chamado por: `process` L232
-- `process(job, token)` · L232 · private · async
+  - chamado por: `process` L235
+- `process(job, token)` · L235 · private · async
   - chama: `delay` L183, `retrySession` L195, `waitForGlobalSendSlot` L207, `fetchMedia` L69, `randInt` L59, `sleep` L62, `CampaignRepository.findById` (campaign.repository.ts:69), `CampaignRepository.markRecipientFailed` (campaign.repository.ts:251), `CampaignRepository.markRecipientSent` (campaign.repository.ts:244), `CampaignRepository.pauseIfRunning` (campaign.repository.ts:118), `CampaignRepository.refreshCounts` (campaign.repository.ts:270), `CampaignRepository.releaseRecipient` (campaign.repository.ts:224), `CampaignRepository.reserveRecipient` (campaign.repository.ts:154), `GuardrailService.canSendCold` (guardrail.service.ts:419), `GuardrailService.canSendMessage` (guardrail.service.ts:438), `SessionManager.sendMedia` (session-manager.service.ts:1275), `SessionManager.sendPresence` (session-manager.service.ts:1299), `SessionManager.sendText` (session-manager.service.ts:1265)
   - chamado por: `onModuleInit` L114
-- `onModuleDestroy()` · L405 · async
+- `onModuleDestroy()` · L408 · async
 
 **Funções e constantes de topo**
 - `SEND_SLOT_SCRIPT` = `` local now = tonumber(ARGV[1]) local interval = tonumber(ARGV[2]) lo…` · L47
 - `randInt(min, max)` · L59
-  - chamado por: `process` L232, `retrySession` L195
+  - chamado por: `process` L235, `retrySession` L195
 - `sleep(ms)` · L62
-  - chamado por: `process` L232, `waitForGlobalSendSlot` L207
+  - chamado por: `process` L235, `waitForGlobalSendSlot` L207
 - `fetchMedia(url, fallbackMime, maxBytes)` · L69 · async
   - chama: `egressPolicyFromEnv` (safe-fetch.ts:23), `safeFetch` (safe-fetch.ts:235)
-  - chamado por: `process` L232
+  - chamado por: `process` L235
 
 **Tipos**
 - interface `CampaignJob` L34 · 4 propriedade(s)
@@ -136,7 +136,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 300 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign.repository.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/local-day.ts`, `shared-kernel/ulid.ts`
-- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
+- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
 
 **class `CampaignRepository`** L37 · @Injectable
 - injeta (construtor): `prisma: PrismaService`
@@ -146,7 +146,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignService.create` (campaign.service.ts:31)
   - banco: `campaign.create`
 - `findById(id)` · L69
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `findByIdOrThrow` L73
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `findByIdOrThrow` L73
   - banco: `campaign.findUnique`
 - `findByIdOrThrow(id)` · L73 · async
   - chama: `findById` L69
@@ -166,26 +166,26 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignService.cancel` (campaign.service.ts:117), `CampaignService.pause` (campaign.service.ts:95)
   - banco: `campaign.update`
 - `pauseIfRunning(id, scheduleEpoch)` · L118
-  - chamado por: `CampaignService.scheduleOrPause` (campaign.service.ts:80), `CampaignQueue.process` (campaign-queue.ts:232)
+  - chamado por: `CampaignService.scheduleOrPause` (campaign.service.ts:80), `CampaignQueue.process` (campaign-queue.ts:235)
   - banco: `campaign.updateMany`
 - `transitionToRunning(id, startedAt)` · L127 · async
   - chamado por: `CampaignService.resume` (campaign.service.ts:103), `CampaignService.start` (campaign.service.ts:40)
   - banco: `campaign.findUniqueOrThrow`, `campaign.updateMany`
 - `reserveRecipient(campaignId, recipientId, opts)` · L154 · async
   - chama: `sessionTimezone` L231, `startOfLocalDay` (local-day.ts:8)
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235)
   - banco: `campaignRecipient.count`, `campaignRecipient.findUnique`, `campaignRecipient.update`
 - `releaseRecipient(id, reservedAt)` · L224
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235)
   - banco: `campaignRecipient.updateMany`
 - `sessionTimezone(tx, campaignId)` · L231 · private · async
   - chamado por: `reserveRecipient` L154
   - banco: `campaign.findUnique`
 - `markRecipientSent(id, keyId)` · L244
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235)
   - banco: `campaignRecipient.update`
 - `markRecipientFailed(id, error)` · L251
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235)
   - banco: `campaignRecipient.update`
 - `cancelPending(campaignId)` · L258
   - chamado por: `CampaignService.cancel` (campaign.service.ts:117)
@@ -194,7 +194,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignService.remove` (campaign.service.ts:123)
   - banco: `campaign.delete`
 - `refreshCounts(campaignId)` · L270 · async
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235)
   - banco: `campaign.findUnique`, `campaign.update`, `campaignRecipient.groupBy`
 
 **Tipos**

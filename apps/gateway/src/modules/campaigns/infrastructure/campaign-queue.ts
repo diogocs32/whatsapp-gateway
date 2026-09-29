@@ -40,7 +40,7 @@ export interface CampaignJob {
 
 const QUEUE_NAME = 'campaigns';
 const RETRY_MIN_MS = 30_000;
-// Um início de job a cada 8 s em TODAS as réplicas da fila (limiter Redis do BullMQ 5).
+// Um início de job a cada 8 s em TODAS as réplicas da fila (limiter Redis do BullMQ).
 // O espaçamento de cada campanha continua sendo minDelaySec/maxDelaySec.
 const GLOBAL_JOB_INTERVAL_MS = 8_000;
 const SEND_SLOT_KEY = 'bull:campaigns:send-slot';
@@ -207,9 +207,12 @@ export class CampaignQueue
   private async waitForGlobalSendSlot(): Promise<void> {
     if (!this.queue) return; // testes unitários do processor, sem Redis
     try {
-      // A instância instalada (BullMQ 5.81.5) encapsula ioredis em um Proxy que encaminha
-      // comandos nativos; IRedisClient declara apenas o subconjunto usado pelo BullMQ.
-      const client = (await this.queue.client) as unknown as Redis;
+      // BullMQ 6 expõe o cliente no backend Redis. O adapter ioredis encaminha TIME/EVAL
+      // nativos; IRedisClient declara apenas o subconjunto usado pelo BullMQ.
+      const client = (await this.queue.getBackend().client) as unknown as Pick<
+        Redis,
+        'time' | 'eval'
+      >;
       const [seconds, microseconds] = await client.time();
       const now =
         Number(seconds) * 1000 + Math.floor(Number(microseconds) / 1000);

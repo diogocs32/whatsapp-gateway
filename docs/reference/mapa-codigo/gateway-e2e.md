@@ -13,6 +13,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/baileys-restriction.e2e-spec.ts` | 296 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
+| `gateway/test/bullmq-redis-compat.e2e-spec.ts` | 261 |
+| `gateway/test/campaign-bullmq6.e2e-spec.ts` | 454 |
 | `gateway/test/campaign-recovery.e2e-spec.ts` | 480 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
 | `gateway/test/connect-links.e2e-spec.ts` | 1301 |
@@ -39,6 +41,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/sessions.e2e-spec.ts` | 179 |
 | `gateway/test/setup-app.ts` | 191 |
 | `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
+| `gateway/test/webhook-bullmq6.e2e-spec.ts` | 498 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1044 |
 
@@ -119,6 +122,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “nunca contém o rótulo antigo "WhatsApp Gateway"” · L13
   - it “devolve [plataforma, navegador, versão] plausível” · L26
   - it “distribui entre sessões diferentes (não é tudo o mesmo valor)” · L33
+
+## `gateway/test/bullmq-redis-compat.e2e-spec.ts`
+
+261 linhas · caminho: `apps/gateway/test/bullmq-redis-compat.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/redis/redis-connection.ts`, `gateway/test/setup-app.ts`
+
+- describe “E17 — compatibilidade Redis N-1 e recuperação BullMQ 6” · L29
+  - it “v6 retoma fila pausada pela v5 e rollback v5 consome job atrasado pela v6” · L77
+  - it “worker volta a consumir após perda das duas conexões, sem perder ou duplicar jobs” · L179
+  - it “shutdown encerra o worker ocioso mesmo com Redis indisponível” · L231
+
+## `gateway/test/campaign-bullmq6.e2e-spec.ts`
+
+454 linhas · caminho: `apps/gateway/test/campaign-bullmq6.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/sessions/application/session-manager.service.ts`, `gateway/test/setup-app.ts`
+
+- describe “E17/P-062 — campanhas BullMQ 6 e dados N-1” · L46
+  - it “dois workers aceitam wait/delayed da v5 na época zero e preservam reidratação e 8 s” · L209
+  - it “legado PAUSED termina sem requeue e resume invalida época zero sem duplicar” · L298
+  - it “shutdown espera o job ativo, libera reserva cercada e deixa o segundo worker retomar” · L341
+  - it “worker v5 consome job delayed produzido pela v6 e conclui o efeito no Postgres” · L411
 
 ## `gateway/test/campaign-recovery.e2e-spec.ts`
 
@@ -612,7 +636,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 191 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
@@ -639,6 +663,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 - describe “observador de não-entrega (SQL real, sem sinal)” · L9
   - it “só observa WWEBJS com 5 mensagens em 3 chats e nunca marca banida” · L79
+
+## `gateway/test/webhook-bullmq6.e2e-spec.ts`
+
+498 linhas · caminho: `apps/gateway/test/webhook-bullmq6.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/domain/webhook.entity.ts`, `modules/webhooks/domain/webhook.repository.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `shared-kernel/event-bus/event-bus.ts`
+
+- describe “E17 — Worker real de webhooks com BullMQ 6” · L54
+  - it “duas réplicas + eventos local/remoto entregam uma vez, com HMAC e headers protegidos” · L262
+  - it “HTTP 500 usa o backoff de produção e a segunda tentativa conclui sem DLQ” · L330
+  - it “HTTP 400 esgota tentativas em DLQ; reentrega concorrente usa a config atual uma vez” · L348
+  - it “egress bloqueado é irrecuperável: uma tentativa, nenhuma conexão HTTP e DLQ” · L420
+  - it “consome jobs waiting/delayed serializados pelo BullMQ 5.81.5 sem drenar a fila” · L434
+  - it “shutdown espera a entrega em voo e conserva o próximo job para outro worker” · L471
 
 ## `gateway/test/webhooks.e2e-spec.ts`
 

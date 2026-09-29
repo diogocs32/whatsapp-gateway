@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **Onda 3 integrada:** E13/P-056 (D-039) pelo PR #19, E14/P-057 (D-040) pelo PR #20 (`b56ff27`) e E15/P-058 (D-041) pelo PR #21 (`54c659a`, CI verde confirmado em 29/09). **E16/P-062 parte 1 (D-042), [PR #22](https://github.com/diogocs32/whatsapp-gateway/pull/22), concluída em código na `feature/onda5a-manutencao`, base `54c659a`:** imagens por digest, Actions node24 por SHA, scripts de instalação revisados e manutenção de React/tooling. CI/merge são gates do PR da etapa; [deploy D manual](how-to/deploy-d-manutencao.md) pendente. Próxima etapa de código: E17 (BullMQ 6/ioredis 5/ulid 3), em branch/PR próprios. O deploy C continua pendente; primeiro deploy com E13 exige B-004 `stop-first`, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. Ondas 1, 2, 3, 6, 8 e 9 integradas; deploys/canários manuais anteriores continuam pendentes. E13/E14/E15 pelos PRs #19/#20/#21 (D-039/D-040/D-041), E16/P-062 parte 1 pelo [PR #22](https://github.com/diogocs32/whatsapp-gateway/pull/22), merge `7d547fc`, CI verde confirmado em 29/09 (D-042). **E17/P-062 parte 2 (D-043), [PR #23](https://github.com/diogocs32/whatsapp-gateway/pull/23), em código na `feature/onda5b-bullmq6`, base `7d547fc`:** BullMQ 6.3.10 com ioredis 5.11.1 e ULID 3.0.2; provas de dois workers, jobs N-1, webhook/retry/DLQ/reconexão e CommonJS na imagem final. CI verde e merge são gates do PR da etapa; [deploy E/rollback manual](how-to/deploy-e-bullmq6.md) exige conferência de repeat/pausa global e aceite prévio C/D. Próxima etapa de código: E18 (Nest 12 runtime), branch/PR próprios. B-004 stop-first/B-005/B-007 preservados, P-099 sem drenar filas e P-100 como investigação de shutdown com Redis em voo. Produção no último SHA **documentado** `768fb26`, sem verificação ao vivo; Auto Deploy consta desligado por D-027. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,16 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **29/09/2026 (E17/P-062 parte 2, D-043 — sem deploy):** BullMQ 6.3.10 mantendo
+> ioredis 5.11.1; ULID 3.0.2. Slot da campanha adaptado a `getBackend().client`, sem
+> mudar épocas, reidratação, PAUSED, lease, reserva cercada, limiter/slot de 8 s ou backoff.
+> Treze novos testes de efeito com v5/v6, dois workers e HTTP local; CommonJS do ULID
+> provado no build final, mutação recusada. Sem migration/env/contrato novo, conta/QR/envio
+> real ou Dokploy. [Deploy E](how-to/deploy-e-bullmq6.md) e canários manuais, após C/D;
+> repeat/pausa global exigem verificação antes de upgrade/rollback. P-100 delimita a
+> investigação de shutdown com comando Redis pendente; teste offline prova worker ocioso.
+> Último SHA de produção documentado continua `768fb26`, sem conferência ao vivo.
 
 > **29/09/2026 (E16/P-062 parte 1, D-042 — PR #22, sem deploy):** Node 26.10.0 e nginx 1.30.5
 > pinados por digest multiarch; Actions node24/Ubuntu 24.04, npm ci estrito, Puppeteer sem
