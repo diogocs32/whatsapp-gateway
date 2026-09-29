@@ -1,12 +1,13 @@
 # syntax=docker/dockerfile:1
 # Dashboard (React 19 + Vite 8) — build estático servido por Nginx.
+# E16: Node e nginx por digest multiarch; smoke HTTP obrigatório ao atualizar os pins.
 # IMPORTANTE: VITE_API_URL é BUILD-TIME (embutida no bundle). No Dokploy, passe-a como
 # "Build Time Argument". Mudar em runtime NÃO tem efeito.
 #
 # Dokploy:  Dockerfile Path = apps/dashboard/Dockerfile  |  Context = . (raiz do monorepo)
 
 # ============================ Stage 1: build =================================
-FROM node:26-bookworm-slim AS build
+FROM node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS build
 WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
@@ -20,13 +21,13 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json package-lock.json ./
 COPY apps/dashboard/package.json apps/dashboard/
 COPY packages/contracts/package.json packages/contracts/
-RUN npm ci
+RUN npm ci --strict-allow-scripts
 
 COPY . .
 RUN npm run dashboard:build
 
 # ============================ Stage 2: Nginx ================================
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS production
 COPY apps/dashboard/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/dashboard/dist /usr/share/nginx/html
 EXPOSE 80

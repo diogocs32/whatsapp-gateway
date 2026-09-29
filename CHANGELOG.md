@@ -6,6 +6,13 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Alterado — manutenção das imagens, CI e painel (29/09 — E16/P-062 parte 1, D-042; sem deploy)
+
+- Node 26.10.0 e nginx 1.30.5 fixados por digest multiarch; Actions node24 por SHA, Ubuntu 24.04 e versão Node exata no CI.
+- React/React DOM e tipos 19.3.0, Router 7.18.4, Vite 8.3.1 e minors/patches de tooling; ts-node removido por ausência de uso. Engines, TS 5.9.3 e majors de runtime preservados.
+- `allowScripts` por versão com fsevents aprovado e Puppeteer negado (Chromium externo); `npm ci --strict-allow-scripts` no CI/Docker. Patches e guardas mantidos.
+- Smoke da imagem do painel cobre SPA, assets, cache, gzip, headers e 404; POST protegido com chave falsa exige 401 na imagem do gateway. Deploy D manual no [checklist](docs/how-to/deploy-d-manutencao.md), sem migration ou alteração de contrato da E16.
+
 ### Corrigido — proxy mantido nas reconexões e falha sem saída direta (29/09 — E15/P-058, D-041; sem deploy)
 
 - RANGE/GLOBAL mantêm o proxy elegível da conta em todas as estratégias; configuração sem saída elegível falha explicitamente nas duas engines, sem fallback direto. NONE/sem atribuição preserva o comportamento existente, sujeito a WA_REQUIRE_PROXY.

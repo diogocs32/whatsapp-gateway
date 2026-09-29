@@ -1,5 +1,5 @@
 # CI (item 15 da auditoria 07/2026): lint + typecheck + e2e (contra a MESMA infra do dev, via
-# docker compose) + builds. O deploy continua no Dokploy (webhook, build no servidor).
+# docker compose) + builds. Deploy no Dokploy permanece manual (D-027).
 #
 # P-055 (25/09/2026) — guardas de build, pré-requisito do stop-first (B-004): o job `imagens`
 # constrói as MESMAS imagens que o Dokploy constrói (apps/dashboard/Dockerfile e
@@ -33,18 +33,20 @@ env:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (node24)
         with:
-          node-version: 26
+          persist-credentials: false
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0 (node24)
+        with:
+          node-version: '26.10.0'
           cache: npm
 
-      - name: Instalar dependências
-        run: npm ci
+      - name: Instalar dependências (allowScripts revisado — E16)
+        run: npm ci --strict-allow-scripts
 
       # O postinstall roda `patch-package --error-on-fail`; a guarda confere ambos os patches.
       - name: Guarda — patches do wwebjs e Baileys aplicados
@@ -106,16 +108,30 @@ jobs:
         run: npm run dashboard:build
 
   imagens:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (node24)
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0 (node24)
+        with:
+          node-version: '26.10.0'
+          package-manager-cache: false
 
       # Os dois apps do Dokploy são construídos com estes Dockerfiles (contexto = raiz). Quebra de
       # build aqui = PR vermelho, em vez de deploy travado no Dokploy (ex.: 25/09, o dashboard
       # quebraria com o `--error-on-fail` se a pasta patches/ continuasse no build dele).
       - name: Build da imagem do dashboard (apps/dashboard/Dockerfile — o mesmo do Dokploy)
         run: docker build -f apps/dashboard/Dockerfile -t dashboard:ci .
+
+      # E16 / R15: a troca de nginx exige servir os assets e as rotas da SPA de verdade.
+      - name: Smoke HTTP do dashboard (imagem pronta, sem conta/API)
+        run: |
+          docker run -d --name dashboard -p 127.0.0.1:8080:80 dashboard:ci
+          docker exec dashboard nginx -t
+          node scripts/smoke-dashboard.mjs http://127.0.0.1:8080
 
       # As guardas do gateway rodam DENTRO do build: se falharem, o `docker build` sai com erro.
       - name: Build da imagem do gateway (apps/gateway/Dockerfile — o mesmo do Dokploy)
@@ -153,6 +169,29 @@ jobs:
           echo "::error::o container não respondeu /health ok (banco, Redis e storage) em 120 s"
           docker logs gw 2>&1 | tail -100
           exit 1
+
+      - name: Smoke de autenticação da API (R15)
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST \
+            -H 'X-Api-Key: cz_smoke_invalida' -H 'content-type: application/json' \
+            -d '{}' http://127.0.0.1:3000/api/sessions)
+          test "$code" = 401 || { echo "::error::API key inválida retornou $code (esperado 401)"; exit 1; }
+          # Admin descartável criado neste runner. IP reservado separa este sucesso do teste
+          # do balde de 10 falhas abaixo (o adapter usa trustProxy:true). Login mantém 201
+          # do contrato atual; não mudar a rota para satisfazer o 200 genérico da R15.
+          docker exec -i gw node --input-type=module <<'JS'
+          const response = await fetch('http://127.0.0.1:3000/api/auth/login', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-forwarded-for': '192.0.2.16' },
+            body: JSON.stringify({ username: process.env.DASHBOARD_USERNAME, password: process.env.DASHBOARD_PASSWORD }),
+            signal: AbortSignal.timeout(10000),
+          });
+          await response.arrayBuffer();
+          if (response.status !== 201 || !response.headers.get('set-cookie')) {
+            throw new Error(`Login descartável retornou ${response.status} (esperado 201 com cookie)`);
+          }
+          console.log('login do painel: 201 com cookie; API key inválida: 401');
+          JS
 
       # P-053: o main.ts REAL da imagem limita o login pela rota resolvida — 10 tentativas alternando
       # origin-form, %-encoding e forma absoluta contam no MESMO balde e a 11ª é 429 (antes, as
