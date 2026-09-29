@@ -18,14 +18,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `bootstrap/log-redaction.ts` | 169 |
 | `bootstrap/logging-exception.filter.spec.ts` | 117 |
 | `bootstrap/logging-exception.filter.ts` | 154 |
-| `bootstrap/rate-limit.spec.ts` | 347 |
+| `bootstrap/rate-limit.spec.ts` | 355 |
 | `bootstrap/rate-limit.ts` | 48 |
 | `bootstrap/route-url.ts` | 54 |
 
 ## `bootstrap/config.ts`
 
 220 linhas · caminho: `apps/gateway/src/bootstrap/config.ts`
-- importado por: `app.module.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `infra/redis/redis.service.ts`, `infra/storage/media-storage.service.ts`, `main.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/undelivered-detector.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/license.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/auth.guard.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/observability/reply-rate.service.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/infrastructure/webshare.client.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/config.e2e-spec.ts`, `gateway/test/webhook-bullmq6.e2e-spec.ts`
+- importado por: `app.module.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `infra/redis/redis.service.ts`, `infra/storage/media-storage.service.ts`, `main.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/undelivered-detector.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/license.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/auth.guard.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/observability/reply-rate.service.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/infrastructure/webshare.client.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/config.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`, `gateway/test/webhook-bullmq6.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `TRUE_WORDS` = `new Set(['true', '1', 'yes', 'on'])` · L16
@@ -84,12 +84,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 45 linhas · caminho: `apps/gateway/src/bootstrap/fastify-adapter.ts`
 - importa (interno): `bootstrap/route-url.ts`
-- importado por: `bootstrap/fastify-adapter.absolute-form.spec.ts`, `bootstrap/http-logger.spec.ts`, `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/audit.interceptor.spec.ts`, `gateway/test/setup-app.ts`
+- importado por: `bootstrap/fastify-adapter.absolute-form.spec.ts`, `bootstrap/http-logger.spec.ts`, `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/audit.interceptor.spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`, `gateway/test/setup-app.ts`
 
 **Funções e constantes de topo**
 - `buildFastifyAdapter(maxFileBytes)` · L11
   - chama: `rejectAmbiguousAbsoluteForm` (route-url.ts:39), `stampRouteUrl` (route-url.ts:20)
-  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:102)
+  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:103)
 
 ## `bootstrap/http-logger.spec.ts`
 
@@ -193,7 +193,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 154 linhas · caminho: `apps/gateway/src/bootstrap/logging-exception.filter.ts`
 - importa (interno): `bootstrap/log-redaction.ts`
-- importado por: `bootstrap/logging-exception.filter.spec.ts`, `main.ts`, `gateway/test/setup-app.ts`
+- importado por: `bootstrap/logging-exception.filter.spec.ts`, `bootstrap/rate-limit.spec.ts`, `main.ts`, `gateway/test/setup-app.ts`
 
 **class `LoggingExceptionFilter`** L113 · @Catch · `extends BaseExceptionFilter`
 - `logger` · L115 · private · campo
@@ -218,27 +218,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `bootstrap/rate-limit.spec.ts`
 
-347 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.spec.ts`
-- importa (interno): `modules/iam/interface/auth.controller.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/interface/public-connect.controller.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/rate-limit.ts`
+355 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.spec.ts`
+- importa (interno): `modules/iam/interface/auth.controller.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/interface/public-connect.controller.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`
 
-- describe “rate-limit pela rota resolvida (P-053)” · L84
-  - it “o 11º login em 1 min é 429 mesmo alternando %-encoding e forma absoluta” · L111
-  - it “o login tem contador próprio: tráfego do mesmo IP não o esgota (D-025)” · L137
-  - it “/health fica fora do rate-limit em qualquer grafia; 404 não passa pelo limitador” · L154
-  - it “forma absoluta com ? ou # antes do caminho → 400 antes de qualquer rota (nem conta no limitador)” · L177
-- describe “rateLimitMaxFromEnv” · L192
-  - it “default 600; 0/negativo/inválido desligam” · L193
-- describe “rate-limit das rotas públicas do link de conexão (E27 · P-086)” · L206
-  - it “os tetos são 120/min (consulta) e 10/min (gerar QR)” · L252
-  - it “GET /api/public/connect: 121ª consulta em 1 min é 429; não gasta o balde do new-qr nem o global” · L263
-  - it “POST /api/public/connect/new-qr: 11º pedido em 1 min é 429; a consulta segue no próprio balde” · L294
-  - it “token inválido (404 no guard) também conta no balde da rota — o limitador roda antes do guard” · L317
-  - it “HEAD /api/public/connect → 405 sem chegar ao serviço (não vira 2º balde de leitura)” · L333
+- describe “rate-limit pela rota resolvida (P-053)” · L85
+  - it “o 11º login em 1 min é 429 mesmo alternando %-encoding e forma absoluta” · L115
+  - it “o login tem contador próprio: tráfego do mesmo IP não o esgota (D-025)” · L141
+  - it “/health fica fora do rate-limit em qualquer grafia; 404 não passa pelo limitador” · L158
+  - it “forma absoluta com ? ou # antes do caminho → 400 antes de qualquer rota (nem conta no limitador)” · L184
+- describe “rateLimitMaxFromEnv” · L199
+  - it “default 600; 0/negativo/inválido desligam” · L200
+- describe “rate-limit das rotas públicas do link de conexão (E27 · P-086)” · L213
+  - it “os tetos são 120/min (consulta) e 10/min (gerar QR)” · L260
+  - it “GET /api/public/connect: 121ª consulta em 1 min é 429; não gasta o balde do new-qr nem o global” · L271
+  - it “POST /api/public/connect/new-qr: 11º pedido em 1 min é 429; a consulta segue no próprio balde” · L302
+  - it “token inválido (404 no guard) também conta no balde da rota — o limitador roda antes do guard” · L325
+  - it “HEAD /api/public/connect → 405 sem chegar ao serviço (não vira 2º balde de leitura)” · L341
 
 ## `bootstrap/rate-limit.ts`
 
 48 linhas · caminho: `apps/gateway/src/bootstrap/rate-limit.ts`
-- importado por: `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/auth.controller.ts`, `modules/sessions/interface/public-connect.controller.ts`
+- importado por: `bootstrap/rate-limit.spec.ts`, `main.ts`, `modules/iam/interface/auth.controller.ts`, `modules/sessions/interface/public-connect.controller.ts`, `gateway/test/setup-app.ts`
 
 **Funções e constantes de topo**
 - `rateLimitMaxFromEnv(env)` · L6
@@ -247,7 +247,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `PUBLIC_CONNECT_READ_RATE_LIMIT` = `{ max: 120, timeWindow: '1 minute', } as const` · L25
 - `PUBLIC_CONNECT_NEW_QR_RATE_LIMIT` = `{ max: 10, timeWindow: '1 minute', } as const` · L29
 - `registerRateLimit(app, max)` · L36 · async
-  - chamado por: `bootstrap` (main.ts:16)
+  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:103)
 
 ## `bootstrap/route-url.ts`
 

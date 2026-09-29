@@ -919,3 +919,57 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
 - **Compatibilidade operacional:** não usamos repeat/debounce/flows/pausa global, APIs removidas ou alteradas pela v6. Conferir dados Redis antes do deploy e rollback: repeat vazio, flag meta.paused ausente e lista :paused vazia nas duas filas. A v5 faz RENAME de :paused sobre :wait; a v6 mantém espera em :wait e combina listas legadas, portanto não se deve misturar versões com pausa global. A pausa de campanha no PostgreSQL é independente. A prova N-1 limita-se aos jobs comuns do produto, sem promessa geral de downgrade. Não drenar filas; observar P-099.
 - **Fontes:** [package/peers v6.3.10](https://github.com/taskforcesh/bullmq/blob/v6.3.10/package.json), [guia v5→v6](https://github.com/taskforcesh/bullmq/blob/v6.3.10/docs/gitbook/guide/migrations/migrate-from-v5-to-v6.md), [backend](https://github.com/taskforcesh/bullmq/blob/v6.3.10/src/classes/queue-base.ts), [adapter ioredis](https://github.com/taskforcesh/bullmq/blob/v6.3.10/src/classes/ioredis-client.ts), [release shutdown 6.3.10](https://github.com/taskforcesh/bullmq/releases/tag/v6.3.10), [ULID 3.0.2 exports](https://github.com/ulid/javascript/blob/v3.0.2/package.json); registry, tags e Context7 conferidos em 29/09.
 - **Operação:** [deploy E manual](how-to/deploy-e-bullmq6.md), depois dos aceites C/D, mantendo B-004/B-005/B-007 e canários do dono. Nenhuma conta, QR, mensagem real ou operação no Dokploy nesta etapa. CI/merge não comprovam implantação.
+
+## D-044 — 2026-09-29 — Nest 12 no runtime com toolchain 11 e contrato preservado (P-062 parte 3/E18)
+
+- **Decisão:** common/core/platform-fastify/testing 12.1.1 exatos, acima do piso 12.0.4;
+  CLI 11.0.24, schematics 11.1.0 e TS 5.9.3 preservados. Config 12.0.1, JWT 12.0.2
+  e nestjs-pino 5.2.1 são companions necessários: as versões anteriores não aceitam
+  Nest 12 nos peers. Fastify 5.12.5 e find-my-way 9.9.0 ficam alinhados ao adapter.
+  Não usar `nest upgrade`: ele também atualiza CLI/TS. Prisma, Vitest, engines,
+  BullMQ 6.3.10/ioredis 5.11.1/ULID 3.0.2 e gates E16/E17 permanecem.
+- **Interop:** aplicação continua CommonJS; Node 26.10.0 carrega Nest ESM por
+  require(esm), sem mudar tsconfig. Instalação npm pode satisfazer peers amplos com
+  Nest 11 na raiz e Nest 12 no workspace; a guarda da imagem final agora exige
+  identidade única de common/core entre gateway, adapter, Config, JWT e logger.
+  Fastify precisa resolver também a partir dos plugins hoisted para suas extensões
+  de tipos. Lockfile não inclui atualizações alheias à migração.
+- **HTTP:** contrato `/api` do node n8n 0.4.1, auth/CSRF/RBAC, idempotência,
+  status/respostas, rate-limit e auditoria provados com AppModule/DB reais e
+  transporte falso. Não foi criada rota `/api/n8n`. O filtro global existente
+  preserva Error+statusCode dos plugins; harness de rate-limit passa a usá-lo como
+  main.ts. Com find-my-way 9.9, `HTTP://` também resolve a rota, com auth e mesmo
+  contador; URLs ambíguas continuam recusadas. Não introduz novo código de erro.
+- **Shutdown:** prova com AppModule, dois workers, engine falsa e escritas cercadas de status/diagnóstico
+  em voo: campanhas/webhooks antes de sessões, engine/diagnóstico antes da liberação
+  de lease, fan-out antes de Redis, infraestrutura antes de HTTP. Fechamento duplo
+  é deduplicado pelo Nest 12. HTTP permanece aberto até dispose como no Nest 11;
+  não se afirma bloqueio universal de entrada durante toda a drenagem. P-100 tem
+  prova diferencial própria; não se força close nem muda retries como contorno.
+- **Gate E17:** leitura Redis já admitida pode reservar um job durante a drenagem;
+  não prometer preservação de todo waiting. O teste de webhook agora ocupa os dois
+  slots com HTTPs controlados antes de closing; comprova que close espera ambos,
+  não inicia novo fetch e deixa o terceiro job para outro worker. Corrige uma corrida
+  do harness revelada por cobertura, sem mudar runtime ou reduzir concorrência.
+- **P-100 aberta:** seis casos em BullMQ 5.81.5/6.3.10 com ioredis 5.11.1 distinguem
+  EVAL de moveToActive pendente (resolve após restaurar a principal) de
+  RedisConnection.disconnect(true) esperando end da bloqueante já em reconnecting
+  (close continua pendente após a principal se recuperar, na janela observada).
+  Ociosidade só aprovou close imediato após o corte. SIGTERM do subprocesso é limpeza
+  posterior à prova da falha, nunca sucesso de shutdown. Não há regressão v5→v6
+  demonstrada, correção runtime nem ocorrência de produção verificada. Mecanismo,
+  fontes e limites no [DONE E18](sessions/DONE-2026-09-29-1501-e18-nest12.md).
+- **Segurança/operação:** removidos os sete aceites temporários de Fastify após
+  conferir as versões corrigidas nos advisories oficiais (todos cobertos por 5.12.5).
+  Sem migration/env/payload novo. [Deploy F e rollback](how-to/deploy-f-nest12.md)
+  manuais após C/D/E, com B-004/B-005/B-007/P-099 e canários preservados; rollback
+  alvo E17 conserva BullMQ 6. CI/merge não demonstram produção.
+- **Fontes verificadas em 29/09:** registry e tarballs instalados; Context7
+  `/nestjs/docs.nestjs.com`; [migração 11→12](https://docs.nestjs.com/migration-guide),
+  [Nest 12.1.1](https://github.com/nestjs/nest/releases/tag/v12.1.1),
+  [piso 12.0.4](https://github.com/nestjs/nest/releases/tag/v12.0.4),
+  [Config](https://github.com/nestjs/config/releases/tag/12.0.0),
+  [JWT](https://github.com/nestjs/jwt/releases/tag/12.0.0),
+  [pino v5](https://github.com/iamolegga/nestjs-pino/tree/5.2.1#migration),
+  [hooks](https://github.com/nestjs/nest/blob/v12.1.1/packages/core/hooks/on-module-destroy.hook.ts)
+  e [advisories Fastify](https://github.com/fastify/fastify/security/advisories).

@@ -78,7 +78,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 426 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/redis/redis-connection.ts`, `shared-kernel/safe-fetch.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/session-lease.error.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`
-- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
+- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`
 
 **class `SendSlotUnavailableError`** L89 · `extends Error`
 
@@ -136,7 +136,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 300 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign.repository.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/local-day.ts`, `shared-kernel/ulid.ts`
-- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
+- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`
 
 **class `CampaignRepository`** L37 · @Injectable
 - injeta (construtor): `prisma: PrismaService`

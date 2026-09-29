@@ -14,6 +14,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-restriction.e2e-spec.ts` | 296 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
 | `gateway/test/bullmq-redis-compat.e2e-spec.ts` | 261 |
+| `gateway/test/bullmq-shutdown-pending.e2e-spec.ts` | 401 |
 | `gateway/test/campaign-bullmq6.e2e-spec.ts` | 454 |
 | `gateway/test/campaign-recovery.e2e-spec.ts` | 480 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
@@ -32,6 +33,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/inbox-triage.e2e-spec.ts` | 375 |
 | `gateway/test/media.e2e-spec.ts` | 554 |
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
+| `gateway/test/nest12-contract.e2e-spec.ts` | 687 |
+| `gateway/test/nest12-shutdown.e2e-spec.ts` | 481 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-affinity.e2e-spec.ts` | 451 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
@@ -39,9 +42,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/session-lease.e2e-spec.ts` | 486 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 149 |
 | `gateway/test/sessions.e2e-spec.ts` | 179 |
-| `gateway/test/setup-app.ts` | 191 |
+| `gateway/test/setup-app.ts` | 197 |
 | `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
-| `gateway/test/webhook-bullmq6.e2e-spec.ts` | 498 |
+| `gateway/test/webhook-bullmq6.e2e-spec.ts` | 526 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1044 |
 
@@ -132,6 +135,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “v6 retoma fila pausada pela v5 e rollback v5 consome job atrasado pela v6” · L77
   - it “worker volta a consumir após perda das duas conexões, sem perder ou duplicar jobs” · L179
   - it “shutdown encerra o worker ocioso mesmo com Redis indisponível” · L231
+
+## `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`
+
+401 linhas · caminho: `apps/gateway/test/bullmq-shutdown-pending.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/redis/redis-connection.ts`, `gateway/test/setup-app.ts`
+
+- describe “E18/P-100 — shutdown diferencial BullMQ 5/6 com ioredis 5” · L35
+  - it “close aguarda a Promise EVAL de moveToActive em voo até Redis voltar” · L227
+  - it “close ocioso encerra offline quando a conexão principal não tem comandos” · L302
+  - it “perda das duas conexões em reconnecting deixa disconnectBlocking pendente após a rede voltar” · L321
 
 ## `gateway/test/campaign-bullmq6.e2e-spec.ts`
 
@@ -516,6 +529,32 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “20 requisições concorrentes com a mesma key → UM envio; as demais replay ou 409 "em voo"” · L302
     - it “falha no transporte marca a intenção failed e a MESMA key pode ser retentada” · L332
 
+## `gateway/test/nest12-contract.e2e-spec.ts`
+
+687 linhas · caminho: `apps/gateway/test/nest12-contract.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/crypto.ts`, `shared-kernel/ulid.ts`, `gateway/test/setup-app.ts`
+
+- describe “E18 — contrato /api consumido pelo n8n no runtime Nest 12” · L27
+  - it “teste da credential lista sessões; ID e nome devolvem o mesmo DTO sem auth/lease internos” · L143
+  - it “texto por nome e replay por ID preservam 201, id/to/deduped e UMA intenção durável” · L192
+  - it “parser, schema, auth e resolução recusam 400/401/404 antes do transporte ou da reserva” · L257
+  - it “pausa mantém 423 do n8n e libera a intenção para retry; cold=false continua 201” · L310
+  - it “POST sem corpo JSON do node mantém 201 e resolve nome antes de start” · L401
+  - it “histórico preserva keyId, datas ISO, query e read receipt com chave do WhatsApp” · L412
+  - it “cookie continua sujeito a CSRF; X-Api-Key e Bearer conservam acesso de integração” · L472
+  - it “papéis e rotas exclusivas do painel continuam fechados antes de qualquer efeito” · L503
+  - it “PATCH do node gera efeito e auditoria por API key em sucesso/400 na rota codificada” · L541
+  - it “revogar pelo painel invalida imediatamente a credential n8n no banco e no guard” · L588
+  - it “baldes de API/login são independentes, 429 mantém headers/corpo e não executa start” · L626
+
+## `gateway/test/nest12-shutdown.e2e-spec.ts`
+
+481 linhas · caminho: `apps/gateway/test/nest12-shutdown.e2e-spec.ts`
+- importa (interno): `app.module.ts`, `bootstrap/config.ts`, `bootstrap/fastify-adapter.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/event-fanout.ts`, `infra/redis/redis-connection.ts`, `infra/redis/redis.service.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/engine.factory.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`
+
+- describe “E18 — Nest 12 encerra o AppModule na ordem das dependências” · L49
+  - it “aguarda reidratação, drena efeitos e escritas cercadas, solta lease e só então fecha infra/HTTP uma vez” · L297
+
 ## `gateway/test/proxies.e2e-spec.ts`
 
 118 linhas · caminho: `apps/gateway/test/proxies.e2e-spec.ts`
@@ -634,27 +673,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/setup-app.ts`
 
-191 linhas · caminho: `apps/gateway/test/setup-app.ts`
-- importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+197 linhas · caminho: `apps/gateway/test/setup-app.ts`
+- importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
-- `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12
-- `createTestApp(managerOverride)` · L102 · async
-  - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts)
-- `inject(app, opts)` · L138
-  - chamado por: `login` L162
-- `readSetCookie(res, name)` · L150
-- `login(app)` · L162 · async
-  - chama: `inject` L138
-- `seedSession(app, name)` · L175 · async
+- `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L13
+- `createTestApp(managerOverride, options)` · L103 · async
+  - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts), `registerRateLimit` (rate-limit.ts:36)
+- `inject(app, opts)` · L144
+  - chamado por: `login` L168
+- `readSetCookie(res, name)` · L156
+- `login(app)` · L168 · async
+  - chama: `inject` L144
+- `seedSession(app, name)` · L181 · async
   - banco: `waSession.create`, `waSession.deleteMany`
-- `removeSession(app, name)` · L184 · async
+- `removeSession(app, name)` · L190 · async
   - banco: `waSession.deleteMany`
 
 **Tipos**
-- interface `InjectOpts` L124 · 4 propriedade(s)
-- interface `InjectResponse` L131 · 4 propriedade(s)
+- interface `InjectOpts` L130 · 4 propriedade(s)
+- interface `InjectResponse` L137 · 4 propriedade(s)
 
 ## `gateway/test/undelivered-observer.e2e-spec.ts`
 
@@ -666,16 +705,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/webhook-bullmq6.e2e-spec.ts`
 
-498 linhas · caminho: `apps/gateway/test/webhook-bullmq6.e2e-spec.ts`
+526 linhas · caminho: `apps/gateway/test/webhook-bullmq6.e2e-spec.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `modules/webhooks/domain/webhook.entity.ts`, `modules/webhooks/domain/webhook.repository.ts`, `modules/webhooks/infrastructure/webhook-queue.ts`, `shared-kernel/event-bus/event-bus.ts`
 
-- describe “E17 — Worker real de webhooks com BullMQ 6” · L54
-  - it “duas réplicas + eventos local/remoto entregam uma vez, com HMAC e headers protegidos” · L262
-  - it “HTTP 500 usa o backoff de produção e a segunda tentativa conclui sem DLQ” · L330
-  - it “HTTP 400 esgota tentativas em DLQ; reentrega concorrente usa a config atual uma vez” · L348
-  - it “egress bloqueado é irrecuperável: uma tentativa, nenhuma conexão HTTP e DLQ” · L420
-  - it “consome jobs waiting/delayed serializados pelo BullMQ 5.81.5 sem drenar a fila” · L434
-  - it “shutdown espera a entrega em voo e conserva o próximo job para outro worker” · L471
+- describe “E17 — Worker real de webhooks com BullMQ 6” · L55
+  - it “duas réplicas + eventos local/remoto entregam uma vez, com HMAC e headers protegidos” · L263
+  - it “HTTP 500 usa o backoff de produção e a segunda tentativa conclui sem DLQ” · L331
+  - it “HTTP 400 esgota tentativas em DLQ; reentrega concorrente usa a config atual uma vez” · L349
+  - it “egress bloqueado é irrecuperável: uma tentativa, nenhuma conexão HTTP e DLQ” · L421
+  - it “consome jobs waiting/delayed serializados pelo BullMQ 5.81.5 sem drenar a fila” · L435
+  - it “shutdown drena os dois slots ocupados e conserva o próximo job para outro worker” · L472
 
 ## `gateway/test/webhooks.e2e-spec.ts`
 

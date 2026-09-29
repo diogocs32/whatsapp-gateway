@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { buildFastifyAdapter } from '../src/bootstrap/fastify-adapter';
 import { LoggingExceptionFilter } from '../src/bootstrap/logging-exception.filter';
+import { registerRateLimit } from '../src/bootstrap/rate-limit';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { SessionManager } from '../src/modules/sessions/application/session-manager.service';
 
@@ -101,6 +102,7 @@ const fakeChannel = {
 
 export async function createTestApp(
   managerOverride: object = fakeSessionManager,
+  options: { rateLimitMax?: number } = {},
 ): Promise<NestFastifyApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(SessionManager)
@@ -111,6 +113,10 @@ export async function createTestApp(
     buildFastifyAdapter(),
     { bodyParser: false },
   );
+  // E18: permite provar a borda completa com o plugin do main, antes de registrar as rotas.
+  if (options.rateLimitMax !== undefined) {
+    await registerRateLimit(app, options.rateLimitMax);
+  }
   app.setGlobalPrefix('api', {
     exclude: [{ path: 'health', method: RequestMethod.GET }],
   });

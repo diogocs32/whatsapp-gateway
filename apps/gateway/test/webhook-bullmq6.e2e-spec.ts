@@ -12,6 +12,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { Queue, type Worker } from 'bullmq';
 import { Queue as LegacyQueue } from 'bullmq-v5';
 import { createHmac, randomUUID } from 'node:crypto';
+import { once } from 'node:events';
 import {
   createServer,
   type IncomingHttpHeaders,
@@ -468,26 +469,53 @@ describe('E17 — Worker real de webhooks com BullMQ 6', () => {
     }
   });
 
-  it('shutdown espera a entrega em voo e conserva o próximo job para outro worker', async () => {
-    const active = fixture();
-    active.hold = true;
+  it('shutdown drena os dois slots ocupados e conserva o próximo job para outro worker', async () => {
+    const active = [fixture(), fixture()];
+    for (const delivery of active) delivery.hold = true;
     const pending = fixture();
     const queue = await startQueue();
-    const activeId = ownJob(`${active.id}-active`);
-    await queue.enqueue(active.data, 1, activeId);
-    await expect.poll(() => active.received.length).toBe(1);
+    const worker = (queue as unknown as { worker: Worker }).worker;
+    expect(worker.opts.concurrency).toBe(2);
+    const activeIds = active.map((delivery) => ownJob(`${delivery.id}-active`));
+    await Promise.all(
+      active.map((delivery, index) =>
+        queue.enqueue(delivery.data, 1, activeIds[index]),
+      ),
+    );
+    // O mainLoop inclui fetches pendentes no limite de concurrency. Segurar só
+    // um HTTP deixava outro slot com moveToActive já admitido antes de close:
+    // esse fetch também é drenado e pode receber o job seguinte. Dois HTTPs
+    // realmente em voo ocupam ambos os slots antes da barreira de shutdown.
+    await expect
+      .poll(() => active.map((delivery) => delivery.received.length))
+      .toEqual([1, 1]);
+    expect(
+      await Promise.all(
+        activeIds.map(async (id) => (await inspect.getJob(id))?.getState()),
+      ),
+    ).toEqual(['active', 'active']);
+    const nextFetch = vi.spyOn(worker.getBackend(), 'moveToActive');
+    const closeStarted = once(worker, 'closing');
     let closed = false;
     const closing = queue.onModuleDestroy().then(() => {
       closed = true;
       queues.splice(queues.indexOf(queue), 1);
     });
+    await closeStarted;
+    expect(worker.closing).toBeTruthy();
     const pendingId = ownJob(`${pending.id}-pending`);
     await inspect.add('deliver', pending.data, { jobId: pendingId });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(await (await inspect.getJob(pendingId))?.getState()).toBe('waiting');
     expect(closed).toBe(false);
-    active.pending[0].end();
+    active[0].pending[0].end();
+    await finished(activeIds[0]);
+    expect(closed).toBe(false); // o segundo HTTP continua retido.
+    expect(await (await inspect.getJob(pendingId))?.getState()).toBe('waiting');
+    expect(pending.received).toHaveLength(0);
+    active[1].pending[0].end();
     await closing;
-    await finished(activeId);
+    await Promise.all(activeIds.map((id) => finished(id)));
+    expect(nextFetch).not.toHaveBeenCalled();
     expect(await (await inspect.getJob(pendingId))?.getState()).toBe('waiting');
     expect(pending.received).toHaveLength(0);
     await startQueue();
