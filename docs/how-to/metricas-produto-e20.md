@@ -22,6 +22,10 @@ Um destino individual entra se seu primeiro envio observado no histórico retido
 nos últimos 30 dias e não havia mensagem/reação recebida anterior. Cada destino conta uma
 vez, independentemente de `source`/`isCold`. Mensagem recebida ou reação posterior conta
 como resposta até o instante do cálculo; não há espera de maturação nem limite de 72h.
+Os timestamps de mensagem do WhatsApp têm precisão de segundos. Inbound com timestamp
+estritamente anterior exclui a relação; no mesmo timestamp do primeiro outbound, a política
+observacional conta a interação como resposta. A ordem causal dentro desse segundo é
+indeterminada; `createdAt` reflete persistência assíncrona/importação e não desempata essa ordem.
 O reply-rate G4 continua com sua semântica anterior e é a métrica usada por G5.
 Grupos, broadcast/status, newsletter e conversa consigo mesmo ficam fora.
 
@@ -29,8 +33,9 @@ JIDs de telefone `@c.us`/`@s.whatsapp.net` e sufixos de device são equivalentes
 só se junta ao telefone quando há um vínculo local unívoco no diretório da mesma sessão;
 nenhum número é consultado pela rede nem se infere o 9º dígito. LIDs sem vínculo são
 contados separadamente e indicados em `unresolvedLidRecipients`. Reação LID sem vínculo
-só herda o destinatário do alvo quando `targetKeyId` identifica uma única conversa;
-colisão de chave não atribui resposta a dois destinatários. Reações removidas ainda
+só herda o destinatário do alvo quando `targetKeyId` identifica uma única conversa entre
+mensagens recebidas e enviadas, incluindo self-chat, e há alvo outbound nessa conversa;
+colisão de chave não atribui resposta ao destino errado. Reações removidas ainda
 comprovam uma resposta, como na D-028; sua lápide permanece no banco.
 
 `coverage:'retained-history'` limita a interpretação: retenção e importação parcial podem

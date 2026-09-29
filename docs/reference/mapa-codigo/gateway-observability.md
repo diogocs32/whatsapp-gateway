@@ -8,7 +8,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `modules/observability/metrics.controller.ts` | 41 |
 | `modules/observability/metrics.service.ts` | 165 |
-| `modules/observability/new-recipients.service.ts` | 154 |
+| `modules/observability/new-recipients.service.ts` | 160 |
 | `modules/observability/observability.controller.ts` | 54 |
 | `modules/observability/observability.module.ts` | 24 |
 | `modules/observability/reply-rate.service.ts` | 205 |
@@ -65,7 +65,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/observability/new-recipients.service.ts`
 
-154 linhas · caminho: `apps/gateway/src/modules/observability/new-recipients.service.ts`
+160 linhas · caminho: `apps/gateway/src/modules/observability/new-recipients.service.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`
 - importado por: `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/new-recipients.e2e-spec.ts`
 

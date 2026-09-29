@@ -39,7 +39,11 @@ export class NewRecipientsService {
     // LID só se une a telefone por vínculo unívoco registrado em wa_contacts da MESMA sessão.
     // Nunca inferimos o 9º dígito nem consultamos o WhatsApp para completar o vínculo.
     // keyId não é UNIQUE: reação com LID desconhecido só usa o alvo se este pertence a um
-    // único destinatário canônico; duplicatas/eco no mesmo chat não tornam o alvo ambíguo.
+    // único destinatário canônico entre TODAS as mensagens, incluindo inbound e self-chat;
+    // duplicatas/eco no mesmo chat não tornam o alvo ambíguo.
+    // Timestamp do WhatsApp tem precisão de segundos. Entrada no mesmo timestamp conta como
+    // interação/resposta: a ordem é indeterminada, e createdAt é ingestão (inclusive backfill),
+    // não prova causalidade. Só timestamp estritamente anterior demonstra relação prévia.
     const [row] = await this.prisma.$queryRaw<RawMetric[]>`
       WITH contact_pairs AS (
         SELECT
@@ -66,18 +70,20 @@ export class NewRecipientsService {
         WHERE m."sessionId" = ${sessionId}
           AND m."timestamp" <= ${computedAt}
           AND m."chatJid" ~ '^[0-9]+(:[0-9]+)?@(s[.]whatsapp[.]net|c[.]us|lid)$'
-      ), messages AS (
+      ), all_messages AS (
         SELECT m.*, coalesce(a.jid, m.jid) AS recipient
         FROM normalized_messages m LEFT JOIN lid_aliases a ON a.lid = m.jid
+      ), messages AS (
+        SELECT m.* FROM all_messages m
         WHERE NOT EXISTS (
-          SELECT 1 FROM own_recipients o WHERE o.recipient = coalesce(a.jid, m.jid)
+          SELECT 1 FROM own_recipients o WHERE o.recipient = m.recipient
         )
       ), outbound_targets AS (
         SELECT "keyId", recipient, min("timestamp") AS "timestamp"
         FROM messages WHERE "fromMe" = true GROUP BY "keyId", recipient
       ), unambiguous_targets AS (
         SELECT "keyId", min(recipient) AS recipient
-        FROM outbound_targets GROUP BY "keyId" HAVING count(*) = 1
+        FROM all_messages GROUP BY "keyId" HAVING count(DISTINCT recipient) = 1
       ), normalized_reactions AS (
         SELECT x."targetKeyId", x."timestamp", x."createdAt",
           replace(regexp_replace(x."chatJid", ':[0-9]+@', '@'), '@c.us', '@s.whatsapp.net') AS jid
@@ -102,7 +108,7 @@ export class NewRecipientsService {
           AND NOT EXISTS (
             SELECT 1 FROM messages p
             WHERE p.recipient = f.recipient AND p."fromMe" = false
-              AND p."timestamp" <= f."firstAt"
+              AND p."timestamp" < f."firstAt"
           )
           AND NOT EXISTS (
             SELECT 1 FROM reactions x
@@ -114,12 +120,12 @@ export class NewRecipientsService {
         SELECT n.recipient, EXISTS (
           SELECT 1 FROM messages r
           WHERE r.recipient = n.recipient AND r."fromMe" = false
-            AND r."timestamp" > n."firstAt"
+            AND r."timestamp" >= n."firstAt"
         ) OR EXISTS (
           SELECT 1 FROM reactions x
           WHERE (
             (x."targetRecipient" = n.recipient AND x."targetTimestamp" >= n."firstAt")
-            OR (x.recipient = n.recipient AND x."timestamp" > n."firstAt")
+            OR (x.recipient = n.recipient AND x."timestamp" >= n."firstAt")
           )
           AND (CASE WHEN x."createdAt" > n."firstAt"
                     THEN LEAST(x."timestamp", x."createdAt")

@@ -39,8 +39,12 @@
 ## Validação final local
 
 - Instalação limpa Node26.10.0/npm11.19.1 `npm ci --strict-allow-scripts`, postinstall e patches verdes.
-- `npm run test:unit`: 996 gateway +292 painel. Coverage final gateway:1482/1482,99 arquivos;
+- `npm run test:unit`: 996 gateway +292 painel. Coverage final gateway:1489/1489,99 arquivos;
   73.82% statements,65.63% branches,71.8% functions,75.67% lines. Painel292/292,14 arquivos.
+- Revisão automática do PR acrescentou colisão de keyId com inbound/self-chat e empate no
+  mesmo segundo. Corrigidas com 25/25 fixtures focadas, revisão independente e coverage global
+  novo processo:1489/1489. createdAt não desempata causalidade; política informativa de empate
+  conta interação/resposta e está documentada. Rebuild/imagem/smoke SQL STOPPED repetidos verdes.
 - Três typechecks, lint/formato dos arquivos versionados +novos da etapa (seeds/untracked alheios
   preservados), depcruise/mapa e guardas/builds dos dois apps aprovados.
 - Dois Dockerfiles finais passaram; runtime final Node26.10.0, auth/API-key401/login201/10falhas→429,
@@ -51,6 +55,11 @@
   envio; geração de QR nessa tentativa não foi verificada. Corrigido harness para INSERT SQL
   STOPPED/autostart=false e somente GETs. Smoke final passou sem iniciar engine; shutdown143/semOOM
   com Redis saudável é prova ociosa, não resolve P-100. Containers/tmpfs removidos, infra dev preservada.
+- **Limpeza da repetição pós-review:** smoke HTTP/SQL passou, mas `compose down` deixou o gateway
+  ativo e removeu suas dependências antes dele. Redis foi restaurado para limpeza; stop com timeout
+  de 30s terminou em exit137/semOOM. Isso é falha de encerramento do harness, não gate de shutdown
+  aprovado nem nova atribuição causal à P-100. Container remanescente e infra descartável removidos;
+  o resultado143 acima refere-se apenas ao smoke anterior com Redis saudável. P-100 segue aberta.
 - Uma execução global durante correções misturou transforms anteriores com os novos testes;
   não foi aceita como gate. Coverage final em processo novo sobre diff congelado passou integralmente.
 - Artefatos locais: `/private/tmp/conexozenvo-e20/`; comandos canônicos CI/scripts preservados.

@@ -313,6 +313,8 @@ Conta destinos individuais cujo primeiro envio retido ocorreu nos últimos30d, s
 inbound anterior; resposta posterior (mensagem/reação) até o cálculo. Exclui conversa consigo
 mesmo, grupos e canais; não depende de `isCold`, não altera G4/G5 nem os envios. JIDs/LID são
 unidos só por vínculo local comprovado. Retenção limita a interpretação de "novo".
+Mensagem inbound no mesmo timestamp do primeiro envio conta como resposta por política
+observacional; a precisão em segundos e a persistência assíncrona não provam ordem causal.
 Definição/limites em [Métricas E20](how-to/metricas-produto-e20.md).
 
 ## 5. Guard-rail: estados, hard-gate e tuning (G5/G7)

@@ -37,7 +37,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
 | `gateway/test/nest12-contract.e2e-spec.ts` | 687 |
 | `gateway/test/nest12-shutdown.e2e-spec.ts` | 481 |
-| `gateway/test/new-recipients.e2e-spec.ts` | 421 |
+| `gateway/test/new-recipients.e2e-spec.ts` | 528 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-affinity.e2e-spec.ts` | 451 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
@@ -588,7 +588,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/new-recipients.e2e-spec.ts`
 
-421 linhas · caminho: `apps/gateway/test/new-recipients.e2e-spec.ts`
+528 linhas · caminho: `apps/gateway/test/new-recipients.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `modules/observability/new-recipients.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`, `gateway/test/setup-app.ts`
 
 - describe “E20 — novos destinatários sem resposta em 30 dias (e2e)” · L14
@@ -607,9 +607,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “reação LID sem vínculo não atribui alvo com keyId colidido entre dois destinatários” · L298
   - it “keyId duplicado no mesmo destinatário continua unívoco para reação LID” · L313
   - it “keyId colidido ainda permite resposta com PN do chat conhecido” · L328
-  - it “reação nossa, de outro PN ou inteiramente futura não é resposta” · L343
-  - it “endpoint autenticado aceita nome/id, não expõe contatos e não grava estado/snapshot” · L357
-  - it “EventBus → MessagePersister/ReactionPersister muda a métrica sem criar mensagem de reação” · L382
+  - it “colisão do keyId com inbound de outro destinatário impede atribuir reação LID” · L343
+  - it “colisão do keyId com self-chat também impede atribuir reação LID” · L358
+  - it “inbound em segundo anterior continua excluindo relação prévia mesmo com ingestão posterior” · L395
+  - it “reação nossa, de outro PN ou inteiramente futura não é resposta” · L415
+  - it “endpoint autenticado aceita nome/id, não expõe contatos e não grava estado/snapshot” · L429
+  - it “EventBus → MessagePersister preserva resposta recebida no mesmo segundo do envio” · L454
+  - it “EventBus → MessagePersister/ReactionPersister muda a métrica sem criar mensagem de reação” · L489
 
 ## `gateway/test/proxies.e2e-spec.ts`
 

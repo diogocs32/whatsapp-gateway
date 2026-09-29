@@ -30,7 +30,7 @@ describe('E20 — novos destinatários sem resposta em 30 dias (e2e)', () => {
     timestamp: Date,
     fromMe = true,
     sid = sessionId,
-    extra: { isCold?: boolean; source?: string } = {},
+    extra: { isCold?: boolean; source?: string; createdAt?: Date } = {},
   ) =>
     prisma.waMessage.create({
       data: {
@@ -340,6 +340,78 @@ describe('E20 — novos destinatários sem resposta em 30 dias (e2e)', () => {
     });
   });
 
+  it('colisão do keyId com inbound de outro destinatário impede atribuir reação LID', async () => {
+    await message('collision-outbound', pn('1001'), ago(10));
+    await message('collision-inbound', pn('1002'), ago(9), false);
+    await prisma.waMessage.updateMany({
+      where: { sessionId },
+      data: { keyId: 'same-target' },
+    });
+    await reaction('e20-inbound-collision', 'same-target', '9001@lid', ago(1));
+    expect(await read()).toMatchObject({
+      newRecipients: 1,
+      responded: 0,
+      withoutResponse: 1,
+    });
+  });
+
+  it('colisão do keyId com self-chat também impede atribuir reação LID', async () => {
+    await prisma.waSession.update({
+      where: { id: sessionId },
+      data: { meJid: pn('1002') },
+    });
+    await message('collision-peer', pn('1001'), ago(10));
+    await message('collision-self', pn('1002'), ago(10));
+    await prisma.waMessage.updateMany({
+      where: { sessionId },
+      data: { keyId: 'same-target' },
+    });
+    await reaction('e20-self-collision', 'same-target', '9001@lid', ago(1));
+    expect(await read()).toMatchObject({
+      newRecipients: 1,
+      responded: 0,
+      withoutResponse: 1,
+    });
+  });
+
+  it.each([-1, 0, 1])(
+    'inbound no mesmo segundo conta interação com createdAt deslocado %s segundo',
+    async (offset) => {
+      const at = new Date(Math.floor(ago(10).getTime() / 1000) * 1000);
+      await message('same-second-outbound', pn('1001'), at, true, sessionId, {
+        createdAt: at,
+      });
+      await message('same-second-inbound', pn('1001'), at, false, sessionId, {
+        createdAt: new Date(at.getTime() + offset * 1000),
+      });
+      expect(await read()).toMatchObject({
+        newRecipients: 1,
+        responded: 1,
+        withoutResponse: 0,
+      });
+    },
+  );
+
+  it('inbound em segundo anterior continua excluindo relação prévia mesmo com ingestão posterior', async () => {
+    const at = new Date(Math.floor(ago(10).getTime() / 1000) * 1000);
+    await message('prior-outbound', pn('1001'), at, true, sessionId, {
+      createdAt: at,
+    });
+    await message(
+      'prior-inbound',
+      pn('1001'),
+      new Date(at.getTime() - 1000),
+      false,
+      sessionId,
+      { createdAt: new Date(at.getTime() + 1000) },
+    );
+    expect(await read()).toMatchObject({
+      newRecipients: 0,
+      responded: 0,
+      withoutResponse: 0,
+    });
+  });
+
   it('reação nossa, de outro PN ou inteiramente futura não é resposta', async () => {
     await message('first', pn('1001'), ago(10));
     await reaction('e20-own', 'first', pn('1001'), ago(1), { fromMe: true });
@@ -377,6 +449,41 @@ describe('E20 — novos destinatários sem resposta em 30 dias (e2e)', () => {
       0,
     );
     expect(await prisma.sendIntent.count({ where: { sessionId } })).toBe(0);
+  });
+
+  it('EventBus → MessagePersister preserva resposta recebida no mesmo segundo do envio', async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    publish('message', {
+      keyId: 'same-second-event-outbound',
+      chatJid: pn('1001'),
+      fromMe: true,
+      type: 'text',
+      text: 'fixture envio',
+      timestamp,
+      source: 'api',
+    } satisfies MessagePayload);
+    await expect
+      .poll(() => prisma.waMessage.count({ where: { sessionId } }))
+      .toBe(1);
+    expect(await metric.compute(sessionId)).toMatchObject({
+      withoutResponse: 1,
+    });
+    publish('message', {
+      keyId: 'same-second-event-inbound',
+      chatJid: pn('1001'),
+      fromMe: false,
+      type: 'text',
+      text: 'fixture resposta',
+      timestamp,
+    } satisfies MessagePayload);
+    await expect
+      .poll(() => prisma.waMessage.count({ where: { sessionId } }))
+      .toBe(2);
+    expect(await metric.compute(sessionId)).toMatchObject({
+      newRecipients: 1,
+      responded: 1,
+      withoutResponse: 0,
+    });
   });
 
   it('EventBus → MessagePersister/ReactionPersister muda a métrica sem criar mensagem de reação', async () => {
