@@ -93,6 +93,19 @@ const base = z.object({
   // enforce=false => modo OBSERVAÇÃO: mede/registra o estado mas NÃO bloqueia envios nem aplica
   // quarentena automática. Ligar (true) só depois de ter a mediana real da frota (trava do §G5).
   GUARDRAIL_ENFORCE: envBool(false),
+  // E20: cota informativa de consultas, sem rejeitar lotes nem limitar envios.
+  CONTACT_CHECK_MAX_PER_WINDOW: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(1_000_000)
+    .default(0),
+  CONTACT_CHECK_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(2_592_000)
+    .default(86400),
   GUARDRAIL_NMIN: z.coerce.number().int().positive().default(20), // amostra mínima p/ veredito
   GUARDRAIL_THROTTLE_MULT: z.coerce.number().positive().default(0.75), // < mediana×0,75 => throttled
   GUARDRAIL_QUARANTINE_MULT: z.coerce.number().positive().default(0.6), // < mediana×0,6 => quarentena

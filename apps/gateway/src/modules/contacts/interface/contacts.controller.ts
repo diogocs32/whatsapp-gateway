@@ -17,6 +17,7 @@ import { SessionManager } from '../../sessions/application/session-manager.servi
 import { UnsupportedEngineOperationError } from '../../sessions/application/engine.port';
 import { SessionRefPipe } from '../../sessions/interface/session-ref.pipe';
 import { clampInt } from '../../../shared-kernel/query-int';
+import { ContactCheckQuotaService } from '../application/contact-check-quota.service';
 
 const checkSchema = z.object({
   numbers: z.array(z.string().min(5).max(40)).min(1).max(50),
@@ -52,6 +53,7 @@ export class ContactsController {
   constructor(
     private readonly manager: SessionManager,
     private readonly directory: ContactDirectory,
+    private readonly checkQuota: ContactCheckQuotaService,
   ) {}
 
   // Diretório persistente (LID↔telefone + metadados) acumulado de todas as fontes — base p/ automações.
@@ -85,6 +87,11 @@ export class ContactsController {
     }));
   }
 
+  @Get('check-quota')
+  checkQuotaSnapshot(@Param('id', SessionRefPipe) id: string) {
+    return this.checkQuota.snapshot(id);
+  }
+
   // Verifica se números têm WhatsApp (retorna o JID canônico — corrige 9º dígito BR).
   @Post('check')
   async check(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
@@ -94,6 +101,7 @@ export class ContactsController {
         r.error.issues[0]?.message ?? 'Dados inválidos',
       );
     }
+    await this.checkQuota.observe(id, r.data.numbers);
     try {
       return await this.manager.checkNumbers(id, r.data.numbers);
     } catch (e) {

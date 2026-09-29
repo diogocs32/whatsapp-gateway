@@ -3,6 +3,7 @@ import { ApiKeyAuthGuard } from '../iam/interface/api-key-auth.guard';
 import { RolesGuard } from '../iam/interface/roles.guard';
 import { MetricsService } from './metrics.service';
 import { ReplyRateService } from './reply-rate.service';
+import { NewRecipientsService } from './new-recipients.service';
 
 // Endpoints JSON da Observability para a UI (tela "Logs & saúde") e integrações.
 // Aceitam X-Api-Key ou Bearer JWT. O scrape Prometheus fica no MetricsController (/metrics, sem auth, fora do /api).
@@ -12,6 +13,7 @@ export class ObservabilityController {
   constructor(
     private readonly metrics: MetricsService,
     private readonly replyRate: ReplyRateService,
+    private readonly newRecipients: NewRecipientsService,
   ) {}
 
   @Get('summary')
@@ -40,5 +42,12 @@ export class ObservabilityController {
       return this.replyRate.compute(sessionId, w);
     }
     return this.replyRate.snapshot(sessionId);
+  }
+
+  // E20 — contagem de novas relações sem resposta na janela fixa de 30 dias.
+  // Leitura autenticada; não altera snapshots G4, estado G5 ou caminho de envio.
+  @Get('new-recipients/:sessionId')
+  newRecipientMetrics(@Param('sessionId') sessionId: string) {
+    return this.newRecipients.compute(sessionId);
   }
 }

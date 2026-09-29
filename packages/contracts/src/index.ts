@@ -100,6 +100,44 @@ export interface SessionErrorDetails {
   reason: string | null; // motivo bruto do Baileys, limitado a 500 caracteres
 }
 
+// E20: medições informativas; não participam do gate de envio.
+export interface NewRecipientsMetricDto {
+  sessionId: string;
+  windowDays: 30;
+  newRecipients: number;
+  responded: number;
+  withoutResponse: number;
+  unresolvedLidRecipients: number;
+  computedAt: string;
+  windowStartedAt: string;
+  basis: 'first-observed-outbound';
+  coverage: 'retained-history';
+}
+
+export interface ContactCheckQuotaDto {
+  enabled: boolean;
+  mode: 'observe';
+  limit: number;
+  windowSeconds: number;
+  available: boolean;
+  used: number | null;
+  remaining: number | null;
+  exceeded: boolean | null;
+  retryAfterSeconds: number | null;
+}
+
+export interface SessionAccountInventoryDto {
+  sessions: {
+    sessionId: string;
+    name: string;
+    engine: Engine;
+    accountType: 'PERSONAL' | 'BUSINESS' | 'UNKNOWN';
+    platform: string | null;
+    source: 'baileys.creds.platform' | 'unavailable';
+  }[];
+  totals: { PERSONAL: number; BUSINESS: number; UNKNOWN: number };
+}
+
 // Webhook `session.client_too_old` (E9). O status público também vira FAILED.
 export interface SessionClientTooOldEventPayload extends SessionErrorDetails {
   code: 405;

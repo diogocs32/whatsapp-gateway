@@ -15,6 +15,38 @@ const baseEnv = {
   DASHBOARD_PASSWORD: 'senha-forte',
 };
 
+describe('validateEnv — cota informativa de contacts/check (E20)', () => {
+  it('permanece desligada por padrão e valida opt-in numérico', () => {
+    expect(validateEnv(baseEnv).CONTACT_CHECK_MAX_PER_WINDOW).toBe(0);
+    expect(validateEnv(baseEnv).CONTACT_CHECK_WINDOW_SECONDS).toBe(86400);
+    const env = validateEnv({
+      ...baseEnv,
+      CONTACT_CHECK_MAX_PER_WINDOW: '50',
+      CONTACT_CHECK_WINDOW_SECONDS: '60',
+    });
+    expect(env.CONTACT_CHECK_MAX_PER_WINDOW).toBe(50);
+    expect(env.CONTACT_CHECK_WINDOW_SECONDS).toBe(60);
+  });
+
+  it.each(['-1', '1.5', 'NaN', '1000001'])(
+    'recusa limite inválido %s no boot',
+    (value) => {
+      expect(() =>
+        validateEnv({ ...baseEnv, CONTACT_CHECK_MAX_PER_WINDOW: value }),
+      ).toThrow(/CONTACT_CHECK_MAX_PER_WINDOW/);
+    },
+  );
+
+  it.each(['0', '-1', '1.5', '2592001'])(
+    'recusa janela inválida %s no boot',
+    (value) => {
+      expect(() =>
+        validateEnv({ ...baseEnv, CONTACT_CHECK_WINDOW_SECONDS: value }),
+      ).toThrow(/CONTACT_CHECK_WINDOW_SECONDS/);
+    },
+  );
+});
+
 describe('validateEnv — booleans de env (D-007)', () => {
   it('ausentes usam o default: enforce=false, ssl=false, pathStyle=true', () => {
     const env = validateEnv({ ...baseEnv });

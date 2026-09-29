@@ -2066,21 +2066,25 @@ node:26.10.0-bookworm-slim` nos 2 estágios (undici embutido 8.10.2; a tag móve
 
 #### P-064
 
-**P-064** — redução estrutural e regras de produto (Onda 7)
+**P-064** — métricas de produto E20 em código, decisão D-046; demais políticas do dono abertas.
 
-- **Locais:**
-  - Métrica: `ReplyRateService.computeFor` reply-rate.service.ts:93-167; `ObservabilityController.replyRateMetrics` observability.controller.ts:33-43; `MetricsService.refresh/counters` metrics.service.ts:104-152; índice [sessionId, chatJid, timestamp] schema.prisma:303; retenção 90d retention.service.ts:32; SessionMetric schema.prisma:235-255
-  - Cota /contacts/check: `BaileysEngine.checkNumbers` baileys.engine.ts:1494-1508
-- **O que muda:**
-  - decisão de produto.
-  - Métrica "destinatários novos sem resposta em 30 dias": lugar técnico é observability (dona de session_metrics); definir "novo" com o dono (1º fromMe para o chatJid na janela, ou isCold=true); SQL no molde do CTE de reply-rate.service.ts:100-125 com o índice.
-  - Reações recebidas hoje contam como inbound (baileys.engine.ts:849-871).
-  - Olhar para trás limitado por RETENTION_MESSAGES_DAYS (90d).
-  - Exposição: campo aditivo em /observability/reply-rate e/ou gauge `wa_new_recipients_unanswered{session}`; cachear com os counters (Redis 10 s, metrics.service.ts:30-31) ou calcular periodicamente.
-  - Cota em /contacts/check: hoje 1 onWhatsApp por número em laço; lote/cota não pode vazar para o caminho de envio (invariante do contact-check).
-  - Demais itens (canal oficial, BSUID, add/createGroup, inventário de plataforma, whatsmeow) sem local de código mapeado.
-- **Testes:**
-  - e2e no molde do g4 (apps/gateway/test/g4.e2e-spec.ts:66-94) com timestamps controlados.
+- `observability/new-recipients.service.ts` e controller: endpoint `/observability/new-recipients/:sessionId`;
+  primeira relação outbound observada30d, resposta até o cálculo, self-chat/canais/grupos excluídos,
+  PN/LID só com aliases locais unívocos; histórico retido declarado. Sem snapshot G4/G5 ou novo gate.
+- `contacts/application/contact-check-quota.service.ts` e controller: observação EVAL/TTL por sessão,
+  `CONTACT_CHECK_MAX_PER_WINDOW=0` default, window86400. GET `contacts/check-quota` lê saldo;
+  POST mantém array/status mesmo em excesso/falha Redis. Cota não entra no envio.
+- `sessions/application/session-account-inventory.service.ts` e controller: GET estático
+  `/sessions/account-inventory/snapshot`, projeção SQL segura da plataforma de pareamento; smba/smbi BUSINESS,
+  android/iphone PERSONAL por inferência oficial, demais/WWEBJS UNKNOWN (P-101).
+- P-061: `test/groups-leads-fixtures.e2e-spec.ts` usa engines/roster reais com transporte falso,
+  incluindo grupo LID sem admin e PN ausente. Nenhuma paridade real afirmada; D-021 preservada.
+- P-102: onWhatsApp rc14 filtra não-existentes e perde correlação do telefone original/canônico;
+  batching permanece pendente de prova, consulta atual preservada.
+- Provas: `test/new-recipients.e2e-spec.ts`, `contacts-quota.e2e-spec.ts`,
+  `session-account-inventory.e2e-spec.ts`, `groups-leads-fixtures.e2e-spec.ts` e unidades ao lado das classes.
+- [Definição/fontes/limites e operação manual E20](how-to/metricas-produto-e20.md); contratos aditivos
+  em `packages/contracts`; sem migration/dependência nova. P-100 aberta, P-099 sem drenar.
 
 #### P-065
 

@@ -2382,10 +2382,18 @@ export class BaileysEngine implements IEngine {
   async checkNumbers(numbers: string[]): Promise<ContactCheck[]> {
     const sock = this.sk();
     const out: ContactCheck[] = [];
+    const checked = new Map<
+      string,
+      { jid?: string; exists?: boolean } | undefined
+    >();
     for (const n of numbers) {
       const digits = n.replace(/[^0-9]/g, '');
-      const r = (await sock.onWhatsApp(digits))?.[0] as
-        { jid?: string; exists?: boolean } | undefined;
+      // E20: máscara/repetição no mesmo lote compartilha a consulta. Mantém associação
+      // input→JID canônico; onWhatsApp(...lote) filtra inexistentes e perde essa associação.
+      if (!checked.has(digits)) {
+        checked.set(digits, (await sock.onWhatsApp(digits))?.[0]);
+      }
+      const r = checked.get(digits);
       out.push({
         number: n,
         exists: !!r?.exists,

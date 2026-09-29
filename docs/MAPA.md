@@ -79,3 +79,7 @@ Sigla resolve? Use a sigla. Não resolve? Cite completo: "arquivo § seção"
 (ex.: "ver `BASE_CONEXOZENVO.md` § R15").
 
 - E19/P-062 parte 4: [Vitest 5 e preparação TS](sessions/DONE-2026-09-29-1908-e19-vitest5.md), decisão [D-045](DECISOES.md#d-045--2026-09-29--vitest-5-e-preparação-ts-6-mantendo-ts-593cli-11-p-062-parte-4e19).
+
+- E20/P-064 parte código + P-061: [Métricas/cota/inventário](how-to/metricas-produto-e20.md), decisão D-046 e mensagem E21 no [roteiro](ROTEIRO-ONDAS-2026-09.md).
+
+- P-103: [Reprodução SQL somente leitura de colisão de reação no G4](reference/e20-reply-rate-key-collision.sql); triagem na E21.

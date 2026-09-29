@@ -6,6 +6,7 @@ import { ObservabilityController } from './observability.controller';
 import { ReplyRateService } from './reply-rate.service';
 import { RetentionService } from './retention.service';
 import { SessionEventLogger } from './session-event.logger';
+import { NewRecipientsService } from './new-recipients.service';
 
 @Module({
   imports: [IamModule], // JwtAuthGuard / JwtModule
@@ -15,6 +16,7 @@ import { SessionEventLogger } from './session-event.logger';
     SessionEventLogger,
     ReplyRateService,
     RetentionService,
+    NewRecipientsService,
   ],
   exports: [ReplyRateService], // G5 (guard-rail) consumirá o reply-rate
 })

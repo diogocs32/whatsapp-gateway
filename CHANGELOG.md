@@ -4,6 +4,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-09-29 — E20: métricas de produto (D-046), sem deploy
+
+- Métrica sob demanda de destinos individuais novos sem resposta30d, com respostas por mensagem/reação,
+  cobertura do histórico retido e normalização PN/LID local; sem mudar reply-rate/guardrail/envios.
+- Cota informativa `contacts/check` por sessão/Redis, default desligado; GET de saldo, sem bloquear ou
+  mudar status/array de consulta. Inventário pessoal/Business com fontes oficiais e UNKNOWN explícito.
+- A/B leads com engines reais e transporte falso, incluindo grupo LID não-admin; ambas engines e
+  Chromium preservados. Contracts/docs/envs aditivos, sem migration/dependência nova. P-101/P-102
+  registram limites; P-100 aberta e deploys/canários manuais mantidos.
+
 ## [Unreleased]
 
 ### Atualizado — Vitest 5 e preparação TypeScript (29/09 — E19/P-062 parte 4, D-045; sem deploy)
