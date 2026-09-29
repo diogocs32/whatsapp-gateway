@@ -304,6 +304,19 @@ Deixam de contar como resposta desde a E22 (antes eram gravados como `other`): f
 a evento, pedido de telefone (Baileys) e ligação (`call_log`, wwebjs) — raros; menção em status e
 notificações de sistema do wwebjs, que contavam por engano, também saem.
 
+### Métrica de novas relações em 30 dias (E20, aditivo)
+
+`GET /api/observability/new-recipients/{sessao}` (ID ou nome) retorna
+`{sessionId,windowDays:30,newRecipients,responded,withoutResponse,unresolvedLidRecipients,
+computedAt,windowStartedAt,basis:"first-observed-outbound",coverage:"retained-history"}`.
+Conta destinos individuais cujo primeiro envio retido ocorreu nos últimos30d, sem relação
+inbound anterior; resposta posterior (mensagem/reação) até o cálculo. Exclui conversa consigo
+mesmo, grupos e canais; não depende de `isCold`, não altera G4/G5 nem os envios. JIDs/LID são
+unidos só por vínculo local comprovado. Retenção limita a interpretação de "novo".
+Mensagem inbound no mesmo timestamp do primeiro envio conta como resposta por política
+observacional; a precisão em segundos e a persistência assíncrona não provam ordem causal.
+Definição/limites em [Métricas E20](how-to/metricas-produto-e20.md).
+
 ## 5. Guard-rail: estados, hard-gate e tuning (G5/G7)
 
 Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
@@ -408,7 +421,7 @@ GET …/groups/{groupId}/leads?all=true                   # inclui membros sem n
 
 - **`/leads`** devolve `{ groupId, subject, total, withNumber, withoutNumber, leads: [{ phone, name, role }] }`.
   Por padrão lista só quem **tem número** (lead utilizável); `?all=true` inclui os anônimos.
-- **Nome:** o número sempre vem; o **nome** = salvo na agenda → senão pushname → senão `null`.
+- **Nome:** o número vem quando resolvido; o padrão filtra quem não tem número, e `all=true` conserva `phone:null`. O **nome** = salvo na agenda → senão pushname → senão `null`.
 - **Engine:** resolução de nome/número mais completa em sessões **WWEBJS** (whatsapp-web.js — catálogo
   oficial do WhatsApp Web). No **Baileys**, os nomes vêm do cruzamento com o diretório
   (`GET /api/sessions/{sessao}/contacts/directory`) — quanto mais a sessão sincroniza, mais resolve.
@@ -474,6 +487,18 @@ POST /api/sessions/{sessao}/contacts/block     { "jid": "5511999999999", "action
 - **Não confundir** com o diretório (`GET …/contacts/directory`), que é o índice interno acumulado pelo
   gateway. Salvar contato escreve na **agenda real** da conta (recurso de contatos-na-conta do WhatsApp).
 
+### Cota informativa de consultas (E20, aditivo)
+
+`POST /api/sessions/{sessao}/contacts/check` continua aceitando `{numbers:[...]}` (1–50)
+e devolvendo o array `{number,exists,jid}` com os status anteriores.
+`GET …/contacts/check-quota` retorna
+`{enabled,mode:"observe",limit,windowSeconds,available,used,remaining,exceeded,retryAfterSeconds}`.
+`CONTACT_CHECK_MAX_PER_WINDOW=0` default desliga; valor positivo só observa a cota por sessão.
+Conta números distintos normalizados no lote, novas tentativas em outro lote contam novamente;
+janela começa no primeiro lote e a leitura não renova TTL. Falha do Redis mantém o POST
+compatível, com `available:false`/contagens null na leitura. Não bloqueia em excesso, não gera
+novo 423/429, não é chamada pelo envio. [Definição e configuração](how-to/metricas-produto-e20.md).
+
 ## 11. Sessões — criar já com proxy livre (opcional, D-008)
 
 **Exclusividade de sessão (E13/P-056):** durante uma troca de container, só a réplica com lease
@@ -501,6 +526,17 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
 - `GET/PUT /api/sessions/{sessao}/proxy` aceita ID ou nome de sessão existente (E15/P-097).
   Por compatibilidade, referência inexistente/órfã ainda é aceita; nenhum 404 novo foi introduzido.
   Payloads de pedido/resposta permanecem iguais.
+
+### Inventário pessoal × Business (E20, aditivo)
+
+`GET /api/sessions/account-inventory/snapshot` retorna
+`{sessions:[{sessionId,name,engine,accountType,platform,source}],totals:{PERSONAL,BUSINESS,UNKNOWN}}`.
+Baileys `creds.platform` vindo do pareamento: `smba`/`smbi` → BUSINESS;
+`android`/`iphone` → PERSONAL (inferência dos pares oficiais do protocolo);
+qualquer outro valor/ausência → UNKNOWN. WWEBJS fica UNKNOWN sem plataforma persistida;
+credenciais Baileys antigas nunca classificam uma sessão WWEBJS. A consulta projeta somente
+plataforma textual limitada, sem chaves/credenciais completas, socket ou consulta de perfil.
+[Fontes/limites](how-to/metricas-produto-e20.md#inventário-da-conta); P-101 acompanha cobertura.
 
 ### Afinidade e falha de proxy (E15 · P-058 · D-041)
 

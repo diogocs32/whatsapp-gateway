@@ -5,19 +5,19 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 340 arquivos · 1809 símbolos (métodos/funções/assinaturas/constantes) · 1909 chamadas resolvidas · 1200 testes (it/test)
+- 351 arquivos · 1825 símbolos (métodos/funções/assinaturas/constantes) · 1918 chamadas resolvidas · 1249 testes (it/test)
 
 ## Áreas
 
 | Área | Arquivos | Linhas | Mapa |
 | --- | --- | --- | --- |
-| packages/contracts | 1 | 841 | [contracts.md](contracts.md) |
+| packages/contracts | 1 | 879 | [contracts.md](contracts.md) |
 | Dashboard (React) | 68 | 18275 | [dashboard.md](dashboard.md) |
-| Gateway — bootstrap (config, logs, adapter) | 15 | 1903 | [gateway-bootstrap.md](gateway-bootstrap.md) |
+| Gateway — bootstrap (config, logs, adapter) | 15 | 1916 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 6 | 1239 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
-| módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 41 | 14074 | [gateway-e2e.md](gateway-e2e.md) |
+| módulo `contacts` | 4 | 473 | [gateway-contacts.md](gateway-contacts.md) |
+| Gateway — testes e2e (apps/gateway/test) | 45 | 15314 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
@@ -25,10 +25,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `iam` | 40 | 2623 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
 | módulo `messaging` | 25 | 4216 | [gateway-messaging.md](gateway-messaging.md) |
-| módulo `observability` | 8 | 675 | [gateway-observability.md](gateway-observability.md) |
+| módulo `observability` | 9 | 846 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 20 | 2613 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 156 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 60 | 22285 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 64 | 22511 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 17 | 1315 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
@@ -67,9 +67,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | GET | `/api/license` | `LicenseController.status` (license.controller.ts:40) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | POST | `/api/license` | `LicenseController.install` (license.controller.ts:45) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | GET | `/api/metrics` | `MetricsController.scrape` (metrics.controller.ts:22) |  |
-| GET | `/api/observability/reply-rate/:sessionId` | `ObservabilityController.replyRateMetrics` (observability.controller.ts:33) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/observability/summary` | `ObservabilityController.summary` (observability.controller.ts:17) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/observability/timeline/:sessionId` | `ObservabilityController.timeline` (observability.controller.ts:22) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/observability/new-recipients/:sessionId` | `ObservabilityController.newRecipientMetrics` (observability.controller.ts:49) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/observability/reply-rate/:sessionId` | `ObservabilityController.replyRateMetrics` (observability.controller.ts:35) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/observability/summary` | `ObservabilityController.summary` (observability.controller.ts:19) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/observability/timeline/:sessionId` | `ObservabilityController.timeline` (observability.controller.ts:24) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/proxies` | `ProxiesController.list` (proxies.controller.ts:63) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | POST | `/api/proxies` | `ProxiesController.create` (proxies.controller.ts:105) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | DELETE | `/api/proxies/:id` | `ProxiesController.remove` (proxies.controller.ts:167) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
@@ -98,12 +99,13 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | DELETE | `/api/sessions/:id/connect-link` | `ConnectLinksController.revoke` (connect-links.controller.ts:101) | `@UseGuards(JwtAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/connect-link` | `ConnectLinksController.current` (connect-links.controller.ts:93) | `@UseGuards(JwtAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/connect-link` | `ConnectLinksController.create` (connect-links.controller.ts:52) | `@UseGuards(JwtAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/contacts/:jid/profile-picture` | `ContactsController.profilePicture` (contacts.controller.ts:106) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/contacts/block` | `ContactsController.block` (contacts.controller.ts:121) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/contacts/check` | `ContactsController.check` (contacts.controller.ts:89) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/contacts/directory` | `ContactsController.listDirectory` (contacts.controller.ts:58) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/contacts/remove` | `ContactsController.remove` (contacts.controller.ts:164) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| POST | `/api/sessions/:id/contacts/save` | `ContactsController.save` (contacts.controller.ts:140) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/contacts/:jid/profile-picture` | `ContactsController.profilePicture` (contacts.controller.ts:114) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/contacts/block` | `ContactsController.block` (contacts.controller.ts:129) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/contacts/check` | `ContactsController.check` (contacts.controller.ts:96) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/contacts/check-quota` | `ContactsController.checkQuotaSnapshot` (contacts.controller.ts:90) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/:id/contacts/directory` | `ContactsController.listDirectory` (contacts.controller.ts:60) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/contacts/remove` | `ContactsController.remove` (contacts.controller.ts:172) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| POST | `/api/sessions/:id/contacts/save` | `ContactsController.save` (contacts.controller.ts:148) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/groups` | `GroupsController.list` (groups.controller.ts:53) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/groups` | `GroupsController.create` (groups.controller.ts:58) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/sessions/:id/groups/:groupId` | `GroupsController.info` (groups.controller.ts:66) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -149,6 +151,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/sessions/:id/start` | `SessionsController.start` (sessions.controller.ts:326) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/stop` | `SessionsController.stop` (sessions.controller.ts:333) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/warmup` | `SessionsController.warmup` (sessions.controller.ts:306) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
+| GET | `/api/sessions/account-inventory/snapshot` | `SessionAccountInventoryController.snapshot` (session-account-inventory.controller.ts:12) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/users` | `UsersController.list` (users.controller.ts:79) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | POST | `/api/users` | `UsersController.create` (users.controller.ts:92) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
 | DELETE | `/api/users/:id` | `UsersController.remove` (users.controller.ts:108) | `@UseGuards(JwtAuthGuard, RolesGuard)` `@MinRole('OWNER')` |
@@ -215,7 +218,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `waContact` | `ContactDirectory.record` | `ContactDirectory.lidMap`, `ContactDirectory.list`, `ContactDirectory.namesFor` |
 | `waLicense` | `PrismaLicenseRepository.clear`, `PrismaLicenseRepository.set` | `PrismaLicenseRepository.get` |
 | `waMessage` | `BaileysEngine.markMessage`, `BaileysEngine.mergeLidMessages`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.save`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `BaileysEngine.loadMessageForRetry`, `BaileysEngine.mergeKnownLids`, `BaileysEngine.onMessagesUpsert`, `BaileysEngine.prepareForward`, `MetricsService.counters`, `PrismaInboxRepository.findLastInbound`, `PrismaMessageRepository.findByIdempotencyKey`, `PrismaMessageRepository.findByKeyId`, `PrismaMessageRepository.findByRef`, `PrismaMessageRepository.findInboundChat`, `PrismaMessageRepository.listByChat`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.searchMessages`, `WWebJSEngine.mergeExistingLids` |
-| `waSession` | `PostgresSessionLease.clearAuth`, `PostgresSessionLease.setLastMeJid`, `PostgresSessionLease.updateLastErrorDetails`, `PostgresSessionLease.updateStatus`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.removeUnlocked`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.resolveSessionId`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `SessionManager.startUnlocked`, `usePostgresAuthState` |
+| `waSession` | `PostgresSessionLease.clearAuth`, `PostgresSessionLease.setLastMeJid`, `PostgresSessionLease.updateLastErrorDetails`, `PostgresSessionLease.updateStatus`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.removeUnlocked`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `NewRecipientsService.compute`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.resolveSessionId`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `SessionManager.startUnlocked`, `usePostgresAuthState` |
 | `waSessionEvent` | `RetentionService.sweep`, `SessionEventLogger.onModuleInit` | `MetricsService.timeline`, `PrismaConnectLinkRepository.hasWorkingSince` |
 | `webhook` | `PrismaWebhookRepository.create`, `PrismaWebhookRepository.delete`, `PrismaWebhookRepository.setEnabled` | `PrismaWebhookRepository.findById`, `PrismaWebhookRepository.listEnabled`, `PrismaWebhookRepository.list`, `WebhookQueue.redeliverDeadLetters` |
 | `webhookDeadLetter` | `WebhookQueue.redeliverDeadLetters`, `WebhookQueue.toDeadLetter` | `WebhookQueue.listDeadLetters`, `WebhookQueue.redeliverDeadLetters` |
@@ -227,6 +230,8 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `API_KEY` | `base` (config.ts) |
 | `BAILEYS_PROTOCOL_CANARY_SESSION_ID` | `base` (config.ts) |
 | `BAILEYS_PROTOCOL_VERSION` | `base` (config.ts) |
+| `CONTACT_CHECK_MAX_PER_WINDOW` | `base` (config.ts) |
+| `CONTACT_CHECK_WINDOW_SECONDS` | `base` (config.ts) |
 | `CORS_ORIGIN` | `base` (config.ts) |
 | `DASHBOARD_PASSWORD` | `base` (config.ts) |
 | `DASHBOARD_USERNAME` | `base` (config.ts) |

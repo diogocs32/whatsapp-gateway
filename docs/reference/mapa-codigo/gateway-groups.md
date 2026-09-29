@@ -25,7 +25,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 257 linhas · caminho: `apps/gateway/src/modules/groups/interface/groups.controller.ts`
 - importa (interno): `shared-kernel/safe-fetch.ts`, `modules/sessions/application/engine.port.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.guard.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/session-ref.pipe.ts`
-- importado por: `modules/groups/groups.module.ts`
+- importado por: `modules/groups/groups.module.ts`, `gateway/test/groups-leads-fixtures.e2e-spec.ts`
 
 **class `GroupsController`** L48 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @Controller('sessions/:id/groups')
 - injeta (construtor): `manager: SessionManager`

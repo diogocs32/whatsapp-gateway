@@ -17,8 +17,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/bullmq-shutdown-pending.e2e-spec.ts` | 401 |
 | `gateway/test/campaign-bullmq6.e2e-spec.ts` | 454 |
 | `gateway/test/campaign-recovery.e2e-spec.ts` | 480 |
-| `gateway/test/config.e2e-spec.ts` | 61 |
+| `gateway/test/config.e2e-spec.ts` | 93 |
 | `gateway/test/connect-links.e2e-spec.ts` | 1301 |
+| `gateway/test/contacts-quota.e2e-spec.ts` | 255 |
 | `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1540 |
 | `gateway/test/conversas-grupo.e2e-spec.ts` | 214 |
 | `gateway/test/conversas-reacoes.e2e-spec.ts` | 544 |
@@ -29,16 +30,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/g6.e2e-spec.ts` | 98 |
 | `gateway/test/g7.e2e-spec.ts` | 114 |
 | `gateway/test/g8.e2e-spec.ts` | 151 |
+| `gateway/test/groups-leads-fixtures.e2e-spec.ts` | 212 |
 | `gateway/test/health.e2e-spec.ts` | 24 |
 | `gateway/test/inbox-triage.e2e-spec.ts` | 375 |
 | `gateway/test/media.e2e-spec.ts` | 554 |
 | `gateway/test/messaging.e2e-spec.ts` | 361 |
 | `gateway/test/nest12-contract.e2e-spec.ts` | 687 |
 | `gateway/test/nest12-shutdown.e2e-spec.ts` | 481 |
+| `gateway/test/new-recipients.e2e-spec.ts` | 528 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-affinity.e2e-spec.ts` | 451 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/proxy-suggestion.e2e-spec.ts` | 618 |
+| `gateway/test/session-account-inventory.e2e-spec.ts` | 213 |
 | `gateway/test/session-lease.e2e-spec.ts` | 486 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 149 |
 | `gateway/test/sessions.e2e-spec.ts` | 179 |
@@ -173,15 +177,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/config.e2e-spec.ts`
 
-61 linhas · caminho: `apps/gateway/test/config.e2e-spec.ts`
+93 linhas · caminho: `apps/gateway/test/config.e2e-spec.ts`
 - importa (interno): `bootstrap/config.ts`
 
-- describe “validateEnv — booleans de env (D-007)” · L18
-  - it “ausentes usam o default: enforce=false, ssl=false, pathStyle=true” · L19
-  - it “"false" e "0" DESLIGAM (antes viravam true — a pegadinha)” · L26
-  - it “"true"/"1"/"on" LIGAM, aceitando maiúsculas e espaços” · L38
-  - it “string vazia cai no default (equivale a não definir)” · L50
-  - it “valor não reconhecido derruba o boot citando a variável (fail-fast)” · L55
+- describe “validateEnv — cota informativa de contacts/check (E20)” · L18
+  - it “permanece desligada por padrão e valida opt-in numérico” · L19
+- describe “validateEnv — booleans de env (D-007)” · L50
+  - it “ausentes usam o default: enforce=false, ssl=false, pathStyle=true” · L51
+  - it “"false" e "0" DESLIGAM (antes viravam true — a pegadinha)” · L58
+  - it “"true"/"1"/"on" LIGAM, aceitando maiúsculas e espaços” · L70
+  - it “string vazia cai no default (equivale a não definir)” · L82
+  - it “valor não reconhecido derruba o boot citando a variável (fail-fast)” · L87
 
 ## `gateway/test/connect-links.e2e-spec.ts`
 
@@ -241,6 +247,22 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “POST create auditado com o usuário; new-qr público auditado com ator link: e path sem token” · L1181
     - it “ator login: só em /api/auth/login; username no corpo de outra rota anônima não forja o ator” · L1235
     - it “GET /api/sessions expõe lastMeJid (aditivo); updateStatus grava e mantém depois do meJid null” · L1272
+
+## `gateway/test/contacts-quota.e2e-spec.ts`
+
+255 linhas · caminho: `apps/gateway/test/contacts-quota.e2e-spec.ts`
+- importa (interno): `infra/redis/redis.service.ts`, `gateway/test/setup-app.ts`
+
+- describe “E20 contacts/check — cota observada multi-réplica (e2e)” · L24
+  - it “GET aditivo requer auth e lê sem abrir janela” · L113
+  - it “default desligado preserva 201 e não cria contador Redis” · L131
+  - it “lote original/ordem/duplicados preservados; custo só normalizados distintos” · L154
+  - it “duas réplicas contam atomicamente e excesso mantém 201 sem restringir” · L166
+  - it “cota é por id de sessão, sem contaminar outra sessão” · L185
+  - it “requests sem auth/inválidos/sessão inexistente não contam” · L192
+  - it “snapshot/novos lotes não renovam TTL; expiração permite nova janela” · L207
+  - it “cota acima do limite não entra no envio explícito de mensagem” · L223
+  - it “falha do Redis publica indisponível e mantém consulta com engine falsa” · L237
 
 ## `gateway/test/conversas-encaminhar.e2e-spec.ts`
 
@@ -441,6 +463,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “POST /sessions/:id/presence → 201 (manager mockado)” · L118
   - it “POST /sessions/:id/messages/:msgId/read → 201” · L129
 
+## `gateway/test/groups-leads-fixtures.e2e-spec.ts`
+
+212 linhas · caminho: `apps/gateway/test/groups-leads-fixtures.e2e-spec.ts`
+- importa (interno): `modules/groups/interface/groups.controller.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`
+
+- describe “P-061/E20 — A/B de leads exclusivamente com fixtures” · L149
+  - it “all=true/1 conserva LID sem telefone e nunca inventa seu número” · L179
+  - it “mostra diferença de cobertura quando só o Store fixture conhece um par LID” · L200
+
 ## `gateway/test/health.e2e-spec.ts`
 
 24 linhas · caminho: `apps/gateway/test/health.e2e-spec.ts`
@@ -555,6 +586,35 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - describe “E18 — Nest 12 encerra o AppModule na ordem das dependências” · L49
   - it “aguarda reidratação, drena efeitos e escritas cercadas, solta lease e só então fecha infra/HTTP uma vez” · L297
 
+## `gateway/test/new-recipients.e2e-spec.ts`
+
+528 linhas · caminho: `apps/gateway/test/new-recipients.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `modules/observability/new-recipients.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`, `gateway/test/setup-app.ts`
+
+- describe “E20 — novos destinatários sem resposta em 30 dias (e2e)” · L14
+  - it “conta destinatários únicos de qualquer origem/isCold, sem duplicar follow-up/eco” · L114
+  - it “usa primeiro outbound do histórico retido e exclui relação inbound anterior” · L137
+  - it “janela [computedAt−30d, computedAt] inclui limites e exclui passado/futuro” · L149
+  - it “resposta depois de 72h conta; entrada futura não conta; G4 continua em 72h” · L160
+  - it “exclui grupos, status, broadcasts, newsletters e JIDs inválidos” · L190
+  - it “exclui self-chat de meJid/lastMeJid, inclusive device e vínculo LID local” · L204
+  - it “une @c.us, PN/device e LID só com vínculo local unívoco” · L220
+  - it “LID antigo mapeado impede recontar PN recente como novo” · L232
+  - it “LID desconhecido/conflitante fica separado e não infere 9º dígito BR” · L239
+  - it “não cruza mensagens nem mapeamentos de outra sessão” · L253
+  - it “conta reação/lápide do contato ao outbound ou follow-up, mesmo com LID não resolvido” · L274
+  - it “reação no mesmo chat sem alvo retido é resposta; reação anterior exclui nova relação” · L290
+  - it “reação LID sem vínculo não atribui alvo com keyId colidido entre dois destinatários” · L298
+  - it “keyId duplicado no mesmo destinatário continua unívoco para reação LID” · L313
+  - it “keyId colidido ainda permite resposta com PN do chat conhecido” · L328
+  - it “colisão do keyId com inbound de outro destinatário impede atribuir reação LID” · L343
+  - it “colisão do keyId com self-chat também impede atribuir reação LID” · L358
+  - it “inbound em segundo anterior continua excluindo relação prévia mesmo com ingestão posterior” · L395
+  - it “reação nossa, de outro PN ou inteiramente futura não é resposta” · L415
+  - it “endpoint autenticado aceita nome/id, não expõe contatos e não grava estado/snapshot” · L429
+  - it “EventBus → MessagePersister preserva resposta recebida no mesmo segundo do envio” · L454
+  - it “EventBus → MessagePersister/ReactionPersister muda a métrica sem criar mensagem de reação” · L489
+
 ## `gateway/test/proxies.e2e-spec.ts`
 
 118 linhas · caminho: `apps/gateway/test/proxies.e2e-spec.ts`
@@ -626,6 +686,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “sem login → 401” · L607
     - it “OPERATOR → 403 (rota é ADMIN)” · L612
 
+## `gateway/test/session-account-inventory.e2e-spec.ts`
+
+213 linhas · caminho: `apps/gateway/test/session-account-inventory.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`, `gateway/test/setup-app.ts`
+
+- describe “E20 — inventário seguro de contas por HTTP/Postgres” · L11
+  - it “exige autenticação e respeita VIEWER sem iniciar ou consultar engine” · L112
+  - it “resolve a rota estática sem perder GET /sessions/:id existente” · L130
+  - it “classifica marcadores de pareamento pessoal/Business sem supor ios ou WWEBJS” · L153
+  - it “projeta somente escalar seguro e nunca devolve o JSON das credenciais” · L186
+
 ## `gateway/test/session-lease.e2e-spec.ts`
 
 486 linhas · caminho: `apps/gateway/test/session-lease.e2e-spec.ts`
@@ -675,7 +746,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 197 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L13

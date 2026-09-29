@@ -8,8 +8,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | --- | --- |
 | `modules/observability/metrics.controller.ts` | 41 |
 | `modules/observability/metrics.service.ts` | 165 |
-| `modules/observability/observability.controller.ts` | 45 |
-| `modules/observability/observability.module.ts` | 22 |
+| `modules/observability/new-recipients.service.ts` | 160 |
+| `modules/observability/observability.controller.ts` | 54 |
+| `modules/observability/observability.module.ts` | 24 |
 | `modules/observability/reply-rate.service.ts` | 205 |
 | `modules/observability/retention.service.spec.ts` | 39 |
 | `modules/observability/retention.service.ts` | 105 |
@@ -48,9 +49,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `MetricsController.scrape` (metrics.controller.ts:22)
 - `summary()` · L80 · async
   - chama: `counters` L128, `memoryStats` (memory.ts:93)
-  - chamado por: `ObservabilityController.summary` (observability.controller.ts:17)
+  - chamado por: `ObservabilityController.summary` (observability.controller.ts:19)
 - `timeline(sessionId, limit)` · L97 · async
-  - chamado por: `ObservabilityController.timeline` (observability.controller.ts:22)
+  - chamado por: `ObservabilityController.timeline` (observability.controller.ts:24)
   - banco: `waSessionEvent.findMany`
 - `refresh()` · L112 · private · async
   - chama: `counters` L128, `disconnectTotals` (disconnect-stats.ts:18), `processErrorTotals` (process-errors.ts:13)
@@ -62,35 +63,53 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Tipos**
 - interface `Counters` L11 · 3 propriedade(s)
 
+## `modules/observability/new-recipients.service.ts`
+
+160 linhas · caminho: `apps/gateway/src/modules/observability/new-recipients.service.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`
+- importado por: `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/new-recipients.e2e-spec.ts`
+
+**class `NewRecipientsService`** L14 · @Injectable
+- injeta (construtor): `prisma: PrismaService`
+- `constructor(prisma)` · L16
+- `compute(ref, computedAt)` · L18 · async
+  - chamado por: `ObservabilityController.newRecipientMetrics` (observability.controller.ts:49)
+  - banco: `waSession.findUnique`
+
+**Tipos**
+- interface `RawMetric` L5 · 3 propriedade(s)
+
 ## `modules/observability/observability.controller.ts`
 
-45 linhas · caminho: `apps/gateway/src/modules/observability/observability.controller.ts`
-- importa (interno): `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.guard.ts`, `modules/observability/metrics.service.ts`, `modules/observability/reply-rate.service.ts`
+54 linhas · caminho: `apps/gateway/src/modules/observability/observability.controller.ts`
+- importa (interno): `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.guard.ts`, `modules/observability/metrics.service.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/new-recipients.service.ts`
 - importado por: `modules/observability/observability.module.ts`
 
-**class `ObservabilityController`** L9 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @Controller('observability')
-- injeta (construtor): `metrics: MetricsService` · `replyRate: ReplyRateService`
-- `constructor(metrics, replyRate)` · L12
-- `summary()` · L17 · @Get('summary')
+**class `ObservabilityController`** L10 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @Controller('observability')
+- injeta (construtor): `metrics: MetricsService` · `replyRate: ReplyRateService` · `newRecipients: NewRecipientsService`
+- `constructor(metrics, replyRate, newRecipients)` · L13
+- `summary()` · L19 · @Get('summary')
   - chama: `MetricsService.summary` (metrics.service.ts:80)
-- `timeline(sessionId, limit)` · L22 · @Get('timeline/:sessionId')
+- `timeline(sessionId, limit)` · L24 · @Get('timeline/:sessionId')
   - chama: `MetricsService.timeline` (metrics.service.ts:97)
-- `replyRateMetrics(sessionId, window)` · L33 · @Get('reply-rate/:sessionId')
+- `replyRateMetrics(sessionId, window)` · L35 · @Get('reply-rate/:sessionId')
   - chama: `ReplyRateService.compute` (reply-rate.service.ts:80), `ReplyRateService.snapshot` (reply-rate.service.ts:85)
+- `newRecipientMetrics(sessionId)` · L49 · @Get('new-recipients/:sessionId')
+  - chama: `NewRecipientsService.compute` (new-recipients.service.ts:18)
 
 ## `modules/observability/observability.module.ts`
 
-22 linhas · caminho: `apps/gateway/src/modules/observability/observability.module.ts`
-- importa (interno): `modules/iam/iam.module.ts`, `modules/observability/metrics.controller.ts`, `modules/observability/metrics.service.ts`, `modules/observability/observability.controller.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/retention.service.ts`, `modules/observability/session-event.logger.ts`
+24 linhas · caminho: `apps/gateway/src/modules/observability/observability.module.ts`
+- importa (interno): `modules/iam/iam.module.ts`, `modules/observability/metrics.controller.ts`, `modules/observability/metrics.service.ts`, `modules/observability/observability.controller.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/retention.service.ts`, `modules/observability/session-event.logger.ts`, `modules/observability/new-recipients.service.ts`
 - importado por: `app.module.ts`, `modules/guardrail/guardrail.module.ts`
 
-**@Module `ObservabilityModule`** L10
+**@Module `ObservabilityModule`** L11
 - imports: `[IamModule]`
 - controllers: `[MetricsController, ObservabilityController]`
-- providers: `[ MetricsService, SessionEventLogger, ReplyRateService, RetentionService, ]`
+- providers: `[ MetricsService, SessionEventLogger, ReplyRateService, RetentionService, NewRecipientsService, ]`
 - exports: `[ReplyRateService]`
 
-**class `ObservabilityModule`** L10 · @Module({ imports: [IamModule], // JwtAuthGuard / JwtModule control…)
+**class `ObservabilityModule`** L11 · @Module({ imports: [IamModule], // JwtAuthGuard / JwtModule control…)
 
 ## `modules/observability/reply-rate.service.ts`
 
@@ -110,10 +129,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - banco: `waSession.findFirst`
 - `compute(ref, windowDays)` · L80 · async
   - chama: `computeFor` L93, `resolveSessionId` L71
-  - chamado por: `GuardrailService.evaluate` (guardrail.service.ts:249), `GuardrailService.health` (guardrail.service.ts:591), `ObservabilityController.replyRateMetrics` (observability.controller.ts:33)
+  - chamado por: `GuardrailService.evaluate` (guardrail.service.ts:249), `GuardrailService.health` (guardrail.service.ts:591), `ObservabilityController.replyRateMetrics` (observability.controller.ts:35)
 - `snapshot(ref)` · L85 · async
   - chama: `computeFor` L93, `resolveSessionId` L71
-  - chamado por: `ObservabilityController.replyRateMetrics` (observability.controller.ts:33)
+  - chamado por: `ObservabilityController.replyRateMetrics` (observability.controller.ts:35)
 - `computeFor(sessionId, windowDays)` · L93 · private · async
   - chama: `nmin` L51, `newId` (ulid.ts:4)
   - chamado por: `compute` L80, `snapshot` L85
