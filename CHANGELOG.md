@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Atualizado — BullMQ 6 e ULID 3 com compatibilidade das filas (29/09 — E17/P-062 parte 2, D-043; sem deploy)
+
+- BullMQ 6.3.10 com ioredis 5.11.1 e ULID 3.0.2; slot Redis da campanha adaptado para `getBackend().client`, preservando épocas, reidratação, intervalo global de 8 s, lease e backoff sem FAILED transitório. Nenhum contrato, migration ou env novo.
+- Provas com dois workers, jobs legados v5 e rollback v6→v5, reconexão local, webhook HTTP/retry/DLQ e shutdown. O build executa o gerador ULID compilado em CommonJS na imagem final. TS, pins, allowScripts e patches preservados.
+- Deploy E e canários manuais pelo [checklist](docs/how-to/deploy-e-bullmq6.md); exige conferência de repeat/pausa global no Redis antes de upgrade/rollback, sem drenar filas. C/D e seus pré-requisitos continuam válidos.
+
 ### Alterado — manutenção das imagens, CI e painel (29/09 — E16/P-062 parte 1, D-042; sem deploy)
 
 - Node 26.10.0 e nginx 1.30.5 fixados por digest multiarch; Actions node24 por SHA, Ubuntu 24.04 e versão Node exata no CI.

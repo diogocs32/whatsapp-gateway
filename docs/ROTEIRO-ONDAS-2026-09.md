@@ -55,8 +55,8 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-e13-exclusividade` | PR #19 mergeado; sem deploy C                                                                                                                                      | ✅ 27/09                  |
 | E14   | 3    | Campanhas: sem rajada ao retomar, sem FAILED no boot (P-057)                                                                                                                                                                         | `feature/onda3-e14-campanhas`     | PR #20 mergeado `b56ff27`; sem deploy C                                                                                                                            | ✅ código 29/09 · cfc2976 |
 | E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-e15-proxy`         | PR #21; **deploy C manual** pelo runbook, B-001 depois                                                                                                             | ✅ 29/09 · 0cf2cd4        |
-| E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`       | PR #22; merge ao fim; **deploy D manual** depois                                                                                                                   | ✅ 29/09 · ce7ada0        |
-| E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`          | merge ao fim; **deploy E manual** depois                                                                                                                           | ⬜                        |
+| E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`       | PR #22 mergeado `7d547fc`; **deploy D manual** depois                                                                                                              | ✅ 29/09 · ce7ada0        |
+| E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`          | merge ao fim; **deploy E manual** depois                                                                                                                           | ✅ código 29/09 · D-043   |
 | E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`           | merge ao fim; **deploy F manual** depois                                                                                                                           | ⬜                        |
 | E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`          | merge (só CI/dev)                                                                                                                                                  | ⬜                        |
 | E20   | 7    | Métricas e regras de produto que reduzem risco: destinatários novos sem resposta em 30 dias, cota em `/contacts/check`, inventário pessoal × Business, A/B de leads Baileys × wwebjs (P-064 parte código + P-061)                    | `feature/onda7-metricas-produto`  | decisão sobre canal oficial (P-064) fica com o dono                                                                                                                | ⬜                        |
@@ -350,6 +350,15 @@ Preserve épocas, PAUSED sem requeue, início do Worker após reidratação, lim
 Reaplique npm ci --strict-allow-scripts/postinstall, guardas, testes de efeito, builds e Dockerfiles/smokes. Deploys C/D e canários anteriores permanecem manuais; prepare checklist E e rollback/compatibilidade N-1 das filas, registre docs/mapa e entregue mensagem da E18.
 ```
 
+### E18 — Nest 12 no runtime (P-062 parte 3)
+
+```text
+Execute E18/P-062 parte 3 seguindo as Regras de toda etapa: Nest 12.1.x só no runtime, piso 12.0.4, mantendo CLI 11 e TS 5.9.3. Crie feature/onda5c-nest12 da origin/main atualizada após merge da E17; um PR, CI verde e merge ao fim.
+Leia DONE E17, D-039 a D-043, P-062/P-099/P-100 e mapa de boot/shutdown/borda HTTP. Confirme versões, peers e guias oficiais; preserve BullMQ 6 com ioredis 5, ULID 3, épocas/8 s/lease/reservas e os gates E16/E17.
+Prove contrato /api consumido pelo n8n, auth/rate-limit/auditoria e ordem real de shutdown com fakes; investigar P-100 sem forçar close ou alterar retries para esconder falha. Não subir outras majors, usar conta/QR/envio real, drenar filas ou operar Dokploy.
+Deploys C/D/E e canários permanecem manuais. Atualize docs/mapa, prepare checklist F e mensagem E19.
+```
+
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09
 
 ```text
@@ -394,6 +403,15 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064                                        |
 
 ## Diário de execução
+
+- **29/09 · E17/P-062 parte 2 (D-043), sem deploy:** BullMQ 6.3.10 com ioredis 5.11.1
+  e ULID 3.0.2; troca de `Queue.client` por `getBackend().client`. Épocas, lease,
+  reidratação, limiter/slot e reserva/backoff preservados. Provas v5/v6 com dois workers,
+  HTTP/retry/DLQ/reconexão e ULID CommonJS na imagem final; alias v5 só em desenvolvimento.
+  [Checklist E](how-to/deploy-e-bullmq6.md) inclui compatibilidade/rollback e conferência
+  manual de repeat/pausa global; não drenar filas. P-100 investiga shutdown com operação
+  Redis em voo (não confundir com o caso ocioso provado). E16/PR #22 mergeada `7d547fc`;
+  E18 segue em branch/PR próprios após esta etapa. Deploys C/D/E e canários são manuais.
 
 - **29/09 — E16/P-062 parte 1 (`e16-manutencao`, D-042, PR #22, código `ce7ada0`, base `54c659a` após merge #21):**
   Node/nginx por digest multiarch, Actions node24 por SHA/Ubuntu 24.04/Node exato;

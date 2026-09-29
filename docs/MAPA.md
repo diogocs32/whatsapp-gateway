@@ -4,6 +4,10 @@
 > entrada aqui. Referência sem entrada no MAPA = referência inválida — criou um
 > tipo novo de referência, registre aqui na hora.
 
+- E17/P-062 parte 2: [deploy E e rollback BullMQ](how-to/deploy-e-bullmq6.md),
+  [D-043](DECISOES.md#d-043--2026-09-29--bullmq-6-no-redis-com-ioredis-5-e-ulid-3-p-062-parte-2e17) e
+  [DONE E17](sessions/DONE-2026-09-29-1424-e17-bullmq6.md).
+
 ## Legenda de siglas
 
 | Sigla               | O que é                                                                                           | Onde encontrar                                                                             |

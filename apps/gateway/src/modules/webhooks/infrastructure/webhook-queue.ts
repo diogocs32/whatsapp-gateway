@@ -75,8 +75,8 @@ export class WebhookQueue implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    // Conexão (URL ou partes, com senha) via helper compartilhado. Passamos OPÇÕES (não instância):
-    // o BullMQ usa o ioredis dele, evitando conflito de tipos.
+    // Conexão (URL ou partes, com senha) via helper compartilhado. Passamos OPÇÕES;
+    // o backend Redis do BullMQ 6 usa o peer ioredis 5 instalado no gateway.
     const connection: ConnectionOptions = redisConnection(this.config);
     this.queue = new Queue(QUEUE_NAME, { connection });
     // Aguarda o handshake do ioredis INTERNO do BullMQ concluir (item 22 da auditoria 07/2026):

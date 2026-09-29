@@ -7,12 +7,14 @@
  * container novo morreu no boot com MODULE_NOT_FOUND — o start-first segurou o antigo. Com
  * stop-first (B-004) isso vira indisponibilidade; a guarda move a falha para o BUILD.
  *
- * Não executa o NOSSO código (nada de subir Nest, banco ou Redis): lê os arquivos .js, resolve cada
+ * Não sobe Nest, banco ou Redis: lê os arquivos .js, resolve cada
  * pacote com `require.resolve(spec, { paths: [dir do arquivo] })` — o mesmo algoritmo do `require`
  * em runtime (https://nodejs.org/api/modules.html#requireresolverequest-options) — e depois CARREGA
  * cada pacote uma vez com `createRequire(arquivo)(spec)`, o que pega também dependência TRANSITIVA
  * ausente e pacote ESM que não carrega via require (o `require.resolve` só prova o 1º nível).
  * Carregar um pacote executa só o código de topo dele (nenhum pacote do gateway conecta no import).
+ * E17 também executa o wrapper puro newId compilado: prova o export CJS do ULID 3 e a geração
+ * de IDs válidos no Node/node_modules final, depois do prune (não só no transform do Vitest).
  *
  * Vale para dist em CommonJS (tsconfig `module: commonjs`, o atual). Se o dist virar ESM ou
  * `module: node16/nodenext` preservar `import()`, a guarda precisa ser revista — por isso ela falha
@@ -77,6 +79,34 @@ for (const [spec, arq] of pacotes) {
     const msg = String(e && e.message).split('\n')[0];
     falhas.push(`${rel(arq)}: carregar '${spec}' → ${e.code ?? ''} ${msg}`);
   }
+}
+
+// Exercita o mesmo require emitido pelo Nest no runtime, inclusive a entropia do ULID 3.
+try {
+  const arq = path.resolve(dir, 'shared-kernel/ulid.js');
+  const fromGateway = createRequire(arq);
+  const { newId } = fromGateway(arq);
+  const { decodeTime } = fromGateway('ulid');
+  const started = Date.now();
+  const ids = Array.from({ length: 128 }, () => newId());
+  const ended = Date.now();
+  if (
+    new Set(ids).size !== ids.length ||
+    !ids.every(
+      (id) =>
+        typeof id === 'string' &&
+        /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/.test(id) &&
+        decodeTime(id) >= started &&
+        decodeTime(id) <= ended,
+    )
+  ) {
+    throw new Error(
+      'newId não gerou ULIDs únicos, válidos e com horário atual',
+    );
+  }
+  console.log('[verificar-deps-runtime] newId CommonJS OK (128 ULIDs únicos)');
+} catch (e) {
+  falhas.push(`newId compilado: ${String(e && e.message).split('\n')[0]}`);
 }
 
 if (arquivos === 0 || pacotes.size + falhas.length === 0) {

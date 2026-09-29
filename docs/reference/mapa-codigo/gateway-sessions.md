@@ -484,7 +484,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 1603 linhas · caminho: `apps/gateway/src/modules/sessions/application/session-manager.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/ulid.ts`, `infra/directory/contact-directory.service.ts`, `infra/storage/media-storage.service.ts`, `modules/proxies/application/proxy-resolver.service.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/infrastructure/engine.factory.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/application/engine.port.ts`
-- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `modules/channels/interface/channels.controller.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/groups/interface/groups.controller.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-manager.pairing.spec.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/setup-app.ts`
+- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `modules/channels/interface/channels.controller.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/groups/interface/groups.controller.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-manager.pairing.spec.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/setup-app.ts`
 
 **class `SessionBusyError`** L60 · `extends ConflictException`
 - `constructor()` · L61
@@ -643,10 +643,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `requestPairingCodeUnlocked` L1201
 - `sendText(sessionId, to, text, opts)` · L1265 · async
   - chama: `IEngine.sendText` (engine.port.ts:341), `sending` L1398
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `MessagesController.sendText` (messages.controller.ts:616)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `MessagesController.sendText` (messages.controller.ts:616)
 - `sendMedia(sessionId, to, input)` · L1275 · async
   - chama: `IEngine.sendMedia` (engine.port.ts:346), `sending` L1398
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `MessagesController.sendMedia` (messages.controller.ts:645), `MessagesController.sendMediaUrl` (messages.controller.ts:715)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `MessagesController.sendMedia` (messages.controller.ts:645), `MessagesController.sendMediaUrl` (messages.controller.ts:715)
 - `sendLocation(sessionId, to, input)` · L1283 · async
   - chama: `IEngine.sendLocation` (engine.port.ts:351), `sending` L1398
   - chamado por: `MessagesController.sendLocation` (messages.controller.ts:787)
@@ -655,7 +655,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `MessagesController.sendPoll` (messages.controller.ts:826)
 - `sendPresence(sessionId, to, state)` · L1299 · async
   - chama: `IEngine.sendPresence` (engine.port.ts:359), `ownedWorking` L1439
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `SessionsController.presence` (sessions.controller.ts:218)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `SessionsController.presence` (sessions.controller.ts:218)
 - `setProfileStatus(sessionId, status)` · L1307 · async
   - chama: `IEngine.setProfileStatus` (engine.port.ts:361), `ownedWorking` L1439
   - chamado por: `SessionsController.profileStatus` (sessions.controller.ts:234)
