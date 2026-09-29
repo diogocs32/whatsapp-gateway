@@ -6,6 +6,13 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido — proxy mantido nas reconexões e falha sem saída direta (29/09 — E15/P-058, D-041; sem deploy)
+
+- RANGE/GLOBAL mantêm o proxy elegível da conta em todas as estratégias; configuração sem saída elegível falha explicitamente nas duas engines, sem fallback direto. NONE/sem atribuição preserva o comportamento existente, sujeito a WA_REQUIRE_PROXY.
+- Falha de proxy exige assinatura específica de auth/túnel, ID da conexão e escrita cercada pela lease da E13. DNS/timeout/reset genéricos não marcam o pool DEAD. Preservados backoff/épocas/slots de campanhas E14 e tentativa quieta 440.
+- PUT SINGLE valida existência, enabled, DEAD e outra sessão viva, permite o próprio pin e serializa disputas pelo mesmo proxy. GET/PUT resolve nome vivo para ID (P-097), preservando referências órfãs/inexistentes e os payloads.
+- Sem migration nova. Testes com engines falsas no Postgres/Redis; deploy C e canário manuais no [checklist](docs/how-to/deploy-c-onda3.md), incluindo B-004/B-005/B-007, backlog legado P-099 e B-001 depois.
+
 ### Corrigido — campanha sem rajada na retomada e sem FAILED transitório (29/09 — E14/P-057, D-040; sem deploy)
 
 - Pausa encerra jobs sem requeue de 30 s; start/resume incrementam a época persistida e agendam só PENDING com espaçamento. Enqueue parcial volta a PAUSED para permitir novo resume. Migration aditiva `20260929053000_campaign_schedule_epoch` aplicada só no banco local.

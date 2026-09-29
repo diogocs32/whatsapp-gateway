@@ -499,8 +499,12 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
             select: { wwebjsWebVersion: true },
           })
         )?.wwebjsWebVersion ?? null,
-      reportProxyFailure: (reason) =>
-        this.proxyResolver.reportFailure(sessionId, reason),
+      reportProxyFailure: async (reason, proxyId) => {
+        if (this.engines.get(sessionId) !== created) throw new LeaseLostError();
+        return this.lease.fenced(sessionId, engineEpoch, (tx) =>
+          this.proxyResolver.reportFailure(sessionId, reason, proxyId, tx),
+        );
+      },
       storeMedia: (key, body, contentType) =>
         this.mediaStorage.put(key, body, contentType),
       contacts: {

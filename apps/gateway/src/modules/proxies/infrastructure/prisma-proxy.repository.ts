@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../infra/prisma/prisma.service';
+import {
+  PrismaService,
+  type Prisma,
+} from '../../../infra/prisma/prisma.service';
 import { newId } from '../../../shared-kernel/ulid';
+import { ProxyUnavailableError } from '../application/proxy-unavailable.error';
 import { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import type { ReleasedAssignment } from '../domain/proxy-suggestion';
 import type {
@@ -130,8 +134,11 @@ export class PrismaProxyRepository implements ProxyRepository {
     return rows.map(toProxy);
   }
 
-  async findById(id: string): Promise<Proxy | null> {
-    const row = await this.prisma.proxy.findUnique({ where: { id } });
+  async findById(
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Proxy | null> {
+    const row = await (tx ?? this.prisma).proxy.findUnique({ where: { id } });
     return row ? toProxy(row) : null;
   }
 
@@ -154,8 +161,9 @@ export class PrismaProxyRepository implements ProxyRepository {
   async updateTest(
     id: string,
     r: { status: ProxyStatus; latencyMs: number | null; exitIp: string | null },
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    await this.prisma.proxy.update({
+    await (tx ?? this.prisma).proxy.update({
       where: { id },
       data: {
         status: r.status,
@@ -174,35 +182,86 @@ export class PrismaProxyRepository implements ProxyRepository {
     await this.prisma.proxy.delete({ where: { id } });
   }
 
-  async getAssignment(sessionId: string): Promise<ProxyAssignment | null> {
-    const row = await this.prisma.sessionProxyAssignment.findUnique({
+  async getAssignment(
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ProxyAssignment | null> {
+    const row = await (tx ?? this.prisma).sessionProxyAssignment.findUnique({
       where: { sessionId },
     });
     return row ? toAssignment(row) : null;
   }
 
+  async resolveSessionId(reference: string): Promise<string> {
+    const session =
+      (await this.prisma.waSession.findUnique({
+        where: { id: reference },
+        select: { id: true },
+      })) ??
+      (await this.prisma.waSession.findUnique({
+        where: { name: reference },
+        select: { id: true },
+      }));
+    return session?.id ?? reference;
+  }
+
   async setAssignment(input: SetAssignmentInput): Promise<ProxyAssignment> {
-    const row = await this.prisma.sessionProxyAssignment.upsert({
-      where: { sessionId: input.sessionId },
-      create: {
-        sessionId: input.sessionId,
-        mode: input.mode,
-        rangeStart: input.rangeStart,
-        rangeEnd: input.rangeEnd,
-        strategy: input.strategy,
-      },
-      update: {
-        mode: input.mode,
-        rangeStart: input.rangeStart,
-        rangeEnd: input.rangeEnd,
-        strategy: input.strategy,
-        // E26: gravar atribuição explicitamente numa linha a desfaz como "memória" — um PUT numa
-        // órfã (aba velha, API) diria que a sessão apagada usava um proxy que ela nunca usou.
-        releasedSessionName: null,
-        releasedAt: null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (input.mode === 'SINGLE') {
+        if (!input.currentProxyId)
+          throw new ProxyUnavailableError('mode SINGLE exige proxyId');
+        // Serializa atribuições SINGLE concorrentes para a mesma saída, entre réplicas.
+        // Revalidar depois do lock também impede usar proxy desabilitado durante o PUT.
+        await tx.$queryRaw`SELECT id FROM proxies WHERE id = ${input.currentProxyId} FOR UPDATE`;
+        const proxy = await tx.proxy.findUnique({
+          where: { id: input.currentProxyId },
+        });
+        if (!proxy) throw new ProxyUnavailableError('Proxy não encontrado');
+        if (!proxy.enabled)
+          throw new ProxyUnavailableError('Proxy está desabilitado');
+        if (proxy.status === 'DEAD')
+          throw new ProxyUnavailableError(
+            'Proxy está DEAD — teste-o ou escolha outro',
+          );
+        const owners = await tx.$queryRaw<Array<{ sessionId: string }>>`
+          SELECT a."sessionId" FROM session_proxy_assignments a
+          JOIN wa_sessions s ON s.id = a."sessionId"
+          WHERE a."currentProxyId" = ${input.currentProxyId}
+            AND a.mode <> 'NONE' AND a."sessionId" <> ${input.sessionId}
+          LIMIT 1`;
+        if (owners.length)
+          throw new ProxyUnavailableError(
+            'Proxy já está em uso por outra sessão',
+          );
+      }
+      const row = await tx.sessionProxyAssignment.upsert({
+        where: { sessionId: input.sessionId },
+        create: {
+          sessionId: input.sessionId,
+          mode: input.mode,
+          rangeStart: input.rangeStart,
+          rangeEnd: input.rangeEnd,
+          strategy: input.strategy,
+          ...(input.currentProxyId !== undefined
+            ? { currentProxyId: input.currentProxyId }
+            : {}),
+        },
+        update: {
+          mode: input.mode,
+          rangeStart: input.rangeStart,
+          rangeEnd: input.rangeEnd,
+          strategy: input.strategy,
+          ...(input.currentProxyId !== undefined
+            ? { currentProxyId: input.currentProxyId }
+            : {}),
+          // E26: gravar atribuição explicitamente numa linha a desfaz como "memória" — um PUT numa
+          // órfã (aba velha, API) diria que a sessão apagada usava um proxy que ela nunca usou.
+          releasedSessionName: null,
+          releasedAt: null,
+        },
+      });
+      return toAssignment(row);
     });
-    return toAssignment(row);
   }
 
   async setCurrent(sessionId: string, proxyId: string | null): Promise<void> {
@@ -212,7 +271,25 @@ export class PrismaProxyRepository implements ProxyRepository {
     });
   }
 
-  async usedProxyIds(): Promise<string[]> {
+  async setCurrentIfUnchanged(
+    expected: ProxyAssignment,
+    proxyId: string,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.sessionProxyAssignment.updateMany({
+      where: {
+        sessionId: expected.sessionId,
+        mode: expected.mode,
+        rangeStart: expected.rangeStart,
+        rangeEnd: expected.rangeEnd,
+        strategy: expected.strategy,
+        currentProxyId: expected.currentProxyId,
+      },
+      data: { currentProxyId: proxyId },
+    });
+    return count === 1;
+  }
+
+  async usedProxyIds(excludeSessionId?: string): Promise<string[]> {
     const [assignments, sessions] = await Promise.all([
       this.prisma.sessionProxyAssignment.findMany({
         where: { currentProxyId: { not: null }, mode: { not: 'NONE' } },
@@ -222,7 +299,7 @@ export class PrismaProxyRepository implements ProxyRepository {
     ]);
     const alive = new Set(sessions.map((s) => s.id));
     return assignments
-      .filter((a) => alive.has(a.sessionId))
+      .filter((a) => alive.has(a.sessionId) && a.sessionId !== excludeSessionId)
       .map((a) => a.currentProxyId as string);
   }
 

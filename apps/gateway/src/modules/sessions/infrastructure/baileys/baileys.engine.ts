@@ -78,6 +78,8 @@ import { recordDisconnect } from '../../../../shared-kernel/disconnect-stats';
 import type { SessionErrorDetails } from '../../domain/session.entity';
 import { classifyDisconnect, disconnectDetails } from './disconnect-policy';
 import { BaileysCacheObserver } from './baileys-cache-observer';
+import { ProxyUnavailableError } from '../../../proxies/application/proxy-unavailable.error';
+import { classifyProxyFailure } from '../../../proxies/application/proxy-failure';
 
 export interface BaileysEngineDeps {
   sessionId: string;
@@ -98,17 +100,20 @@ export interface BaileysEngineDeps {
   // Guard anti-vazamento (WA_REQUIRE_PROXY): quando true, a engine RECUSA conectar se resolveAgent
   // não devolver proxy — evita expor o IP do servidor (datacenter) ao WhatsApp. Default false.
   requireProxy?: boolean;
-  // Resolve o proxy (agent) a cada conexão. null/ausente => conexão direta, sem proxy (§7.4).
+  // Resolve o proxy a cada conexão. null corresponde a NONE (inclui atribuição ausente).
+  // Atribuição que exige proxy sem candidato lança ProxyUnavailableError antes da conexão.
   resolveAgent?: () => Promise<Agent | null>;
   // A mesma escolha de proxy alimenta WebSocket/upload e o fetch da CDN. null na factory com
   // Agent presente (SOCKS) = mídia apenas com metadados, sem saída direta pelo IP do servidor.
   resolveBaileysTransport?: () => Promise<{
+    proxyId?: string;
     agent: Agent | null;
     createMediaDispatcher: (() => Dispatcher) | null;
   }>;
   // Dados crus do proxy (server + auth) para engines que aplicam proxy no browser (wwebjs:
   // --proxy-server + proxyAuthentication). null => conexão direta.
   resolveProxyConfig?: () => Promise<{
+    proxyId?: string;
     server: string;
     username?: string;
     password?: string;
@@ -120,6 +125,7 @@ export interface BaileysEngineDeps {
   // e tentar o próximo candidato (item 8 da auditoria 07/2026).
   reportProxyFailure?: (
     reason: string,
+    proxyId?: string,
   ) => Promise<{ mode: string | null; marked: boolean }>;
   // Persiste o binário da mídia (S3). Recebe a chave do objeto, o buffer e o content-type (F4).
   storeMedia?: (
@@ -514,6 +520,7 @@ export class BaileysEngine implements IEngine {
   private sock: WASocket | null = null;
   private cacheObserver: BaileysCacheObserver | null = null;
   private pairingReadySock: WASocket | null = null;
+  private connectedProxyId: string | undefined;
   // Um Dispatcher por mídia permite destruir só a requisição pendurada, sem afetar outros
   // downloads da sessão. O fetch da rc14 ignora AbortSignal; Promise.race sozinho não o cancela.
   private createMediaDispatcher: (() => Dispatcher) | null = () =>
@@ -635,6 +642,51 @@ export class BaileysEngine implements IEngine {
       this.deps.authEpoch,
     );
     if (this.stopped) return;
+
+    // A resolução falha fechada mesmo com WA_REQUIRE_PROXY=false. O ID pertence a esta
+    // conexão: um PUT posterior não permite marcar o novo proxy DEAD por um close antigo.
+    let agent: Agent | undefined;
+    try {
+      const transport = await this.deps.resolveBaileysTransport?.();
+      agent = transport
+        ? (transport.agent ?? undefined)
+        : ((await this.deps.resolveAgent?.()) ?? undefined);
+      if (this.stopped) return;
+      this.connectedProxyId = transport?.proxyId;
+      this.createMediaDispatcher = transport
+        ? (transport.createMediaDispatcher ??
+          (agent ? null : () => new UndiciAgent()))
+        : agent
+          ? null
+          : () => new UndiciAgent();
+    } catch (error) {
+      if (!(error instanceof ProxyUnavailableError)) throw error;
+      if (this.stopped) return;
+      this.stopped = true;
+      this.clearReconnectTimer();
+      this.createMediaDispatcher = null;
+      // A tentativa quieta após 440 não publica estado terminal de uma réplica substituída.
+      if (persistStartingStatus)
+        this.setStatus('FAILED', { error: error.message });
+      else this.status = 'DEGRADED';
+      return;
+    }
+
+    // NONE continua bloqueado quando o dono habilita a política global WA_REQUIRE_PROXY.
+    if (!agent && this.deps.requireProxy) {
+      this.stopped = true;
+      this.deps.logger.error(
+        `Sessão ${this.deps.sessionId}: conexão BLOQUEADA — WA_REQUIRE_PROXY ligado e nenhum proxy vivo atribuído.`,
+      );
+      if (persistStartingStatus)
+        this.setStatus('FAILED', {
+          error:
+            'Sem proxy vivo e WA_REQUIRE_PROXY ligado — conexão bloqueada para não vazar o IP do servidor. Atribua um proxy residencial à sessão e reinicie.',
+        });
+      else this.status = 'DEGRADED';
+      return;
+    }
+
     const canaryOverride =
       this.deps.baileysProtocolCanarySessionId === this.deps.sessionId &&
       this.deps.baileysProtocolVersion;
@@ -658,36 +710,6 @@ export class BaileysEngine implements IEngine {
       (version ?? DEFAULT_CONNECTION_CONFIG.version).join('.'),
       selected.source,
     );
-
-    // Proxy (§7.4): uma única resolução decide o Agent Node do WebSocket/upload (`fetchAgent`)
-    // e o Dispatcher undici do download. Uma segunda resolução avançaria o cursor rotativo.
-    const transport = await this.deps.resolveBaileysTransport?.();
-    const agent = transport
-      ? (transport.agent ?? undefined)
-      : ((await this.deps.resolveAgent?.()) ?? undefined);
-    this.createMediaDispatcher = transport
-      ? (transport.createMediaDispatcher ??
-        (agent ? null : () => new UndiciAgent()))
-      : agent
-        ? null
-        : () => new UndiciAgent();
-    if (this.stopped) return;
-
-    // Guard anti-vazamento (opcional, WA_REQUIRE_PROXY): sem proxy resolvido, o WhatsApp seria
-    // acessado DIRETO pelo IP do servidor (datacenter) — gatilho nº 1 de flag de automação na
-    // conexão. Com o guard ligado, recusamos conectar em vez de vazar o IP. `stopped=true` corta
-    // o loop de reconexão (um start manual reseta e tenta de novo, já com proxy atribuído).
-    if (!agent && this.deps.requireProxy) {
-      this.stopped = true;
-      this.deps.logger.error(
-        `Sessão ${this.deps.sessionId}: conexão BLOQUEADA — WA_REQUIRE_PROXY ligado e nenhum proxy vivo atribuído.`,
-      );
-      this.setStatus('FAILED', {
-        error:
-          'Sem proxy vivo e WA_REQUIRE_PROXY ligado — conexão bloqueada para não vazar o IP do servidor. Atribua um proxy residencial à sessão e reinicie.',
-      });
-      return;
-    }
 
     const cacheObserver = new BaileysCacheObserver(
       this.deps.sessionId,
@@ -1084,23 +1106,19 @@ export class BaileysEngine implements IEngine {
         return;
       }
 
-      // Item 8b — se a sessão usa proxy, um close com assinatura de erro de rede/túnel implica o
-      // proxy (todo o tráfego passa por ele). Marca-o DEAD antes de reagendar: o connect() da
-      // reconexão re-resolve o proxy e, nos modos rotativos, pula os DEAD e pega o próximo
-      // candidato. Sem proxy atribuído, reportFailure é no-op. Padrões conservadores de propósito
-      // (quedas rotineiras do stream — restartRequired/connectionReplaced — NÃO casam); um
-      // falso-positivo é revertido pelo re-teste periódico (item 9), que revive o proxy.
+      // Só erro explícito de auth/túnel implica o proxy desta conexão. DNS/timeout/reset
+      // genéricos também podem vir do destino e não devem condenar um proxy compartilhado.
       const closeMsg =
         (lastDisconnect?.error as Error | undefined)?.message ?? '';
       if (
+        this.connectedProxyId &&
         this.deps.reportProxyFailure &&
-        /407|ERR_TUNNEL|tunneling socket|proxy|connect ECONNREFUSED|connect ETIMEDOUT|getaddrinfo ENOTFOUND|EHOSTUNREACH/i.test(
-          closeMsg,
-        )
+        classifyProxyFailure(closeMsg)
       ) {
         try {
           await this.deps.reportProxyFailure(
             `baileys close: ${closeMsg.slice(0, 100)}`,
+            this.connectedProxyId,
           );
         } catch (err) {
           this.deps.logger.warn({ err }, 'reportProxyFailure falhou');

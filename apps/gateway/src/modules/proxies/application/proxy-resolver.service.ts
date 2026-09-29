@@ -1,8 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Agent } from 'node:http';
+import type { Prisma } from '../../../infra/prisma/prisma.service';
 import { RedisService } from '../../../infra/redis/redis.service';
 import type { Proxy } from '../domain/proxy.entity';
 import type { ProxyMode } from '../domain/proxy-types';
+import { ProxyUnavailableError } from './proxy-unavailable.error';
 import {
   PROXY_REPOSITORY,
   type ProxyRepository,
@@ -32,14 +34,25 @@ export class ProxyResolver {
     private readonly redis: RedisService,
   ) {}
 
-  async resolve(sessionId: string): Promise<Proxy | null> {
+  async resolve(sessionId: string, attempt = 0): Promise<Proxy | null> {
     const a = await this.repo.getAssignment(sessionId);
     if (!a || a.mode === 'NONE') {
       return null;
     }
 
     if (a.mode === 'SINGLE') {
-      return a.currentProxyId ? this.repo.findById(a.currentProxyId) : null;
+      const proxy = a.currentProxyId
+        ? await this.repo.findById(a.currentProxyId)
+        : null;
+      if (!proxy)
+        throw new ProxyUnavailableError('Proxy SINGLE ausente ou excluído');
+      if (!proxy.enabled)
+        throw new ProxyUnavailableError('Proxy SINGLE desabilitado');
+      if (proxy.status === 'DEAD')
+        throw new ProxyUnavailableError(
+          'Proxy SINGLE está DEAD — teste-o ou escolha outro',
+        );
+      return proxy;
     }
 
     let candidates: Proxy[];
@@ -47,23 +60,37 @@ export class ProxyResolver {
     if (a.mode === 'GLOBAL_ROUND_ROBIN') {
       candidates = await this.repo.listEnabledAlive();
       cursorKey = 'proxy:rr:global';
-    } else {
+    } else if (a.mode === 'RANGE') {
       // RANGE
-      if (a.rangeStart == null || a.rangeEnd == null) {
-        return null;
+      if (
+        a.rangeStart == null ||
+        a.rangeEnd == null ||
+        a.rangeStart < 1 ||
+        a.rangeStart > a.rangeEnd
+      ) {
+        throw new ProxyUnavailableError('Faixa de proxies inválida');
       }
       candidates = await this.repo.listInRange(a.rangeStart, a.rangeEnd);
       cursorKey = `proxy:rr:range:${a.rangeStart}-${a.rangeEnd}`;
+    } else {
+      throw new ProxyUnavailableError('Modo de proxy inválido');
     }
 
     // Não exige ALIVE: proxy UNTESTED ainda é utilizável; só descartamos os DEAD (e desabilitados já filtrados na query).
-    candidates = candidates.filter((p) => p.status !== 'DEAD');
+    candidates = candidates.filter((p) => p.enabled && p.status !== 'DEAD');
     if (candidates.length === 0) {
       this.logger.warn(
         `Sessão ${sessionId}: nenhum proxy disponível no range/modo ${a.mode}`,
       );
-      return null;
+      throw new ProxyUnavailableError(
+        `Nenhum proxy elegível no modo ${a.mode}`,
+      );
     }
+
+    // A estratégia só escolhe a primeira saída ou substitui uma que perdeu elegibilidade.
+    // Mudanças no pool/latência não mudam o IP de uma conta saudável na reconexão.
+    const current = candidates.find((p) => p.id === a.currentProxyId);
+    if (current) return current;
 
     let chosen: Proxy;
     switch (a.strategy) {
@@ -93,7 +120,15 @@ export class ProxyResolver {
         break;
     }
 
-    await this.repo.setCurrent(sessionId, chosen.id);
+    // Um PUT ou outro resolver pode ter vencido durante o INCR. Nunca sobrescrever
+    // a atribuição mais nova com uma escolha feita a partir do snapshot antigo.
+    if (!(await this.repo.setCurrentIfUnchanged(a, chosen.id))) {
+      if (attempt >= 2)
+        throw new ProxyUnavailableError(
+          'Atribuição de proxy mudou durante a conexão; tente novamente',
+        );
+      return this.resolve(sessionId, attempt + 1);
+    }
     return chosen;
   }
 
@@ -104,18 +139,29 @@ export class ProxyResolver {
   async reportFailure(
     sessionId: string,
     reason: string,
+    expectedProxyId?: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<{ mode: ProxyMode | null; marked: boolean }> {
-    const a = await this.repo.getAssignment(sessionId);
-    if (!a || a.mode === 'NONE' || !a.currentProxyId) {
+    const a = await this.repo.getAssignment(sessionId, tx);
+    if (
+      !a ||
+      a.mode === 'NONE' ||
+      !expectedProxyId ||
+      a.currentProxyId !== expectedProxyId
+    ) {
       return { mode: a?.mode ?? null, marked: false };
     }
-    const proxy = await this.repo.findById(a.currentProxyId);
+    const proxy = await this.repo.findById(a.currentProxyId, tx);
     if (!proxy) return { mode: a.mode, marked: false };
-    await this.repo.updateTest(proxy.id, {
-      status: 'DEAD',
-      latencyMs: null,
-      exitIp: null,
-    });
+    await this.repo.updateTest(
+      proxy.id,
+      {
+        status: 'DEAD',
+        latencyMs: null,
+        exitIp: null,
+      },
+      tx,
+    );
     this.logger.warn(
       `Sessão ${sessionId}: proxy #${proxy.position} ${proxy.host}:${proxy.port} marcado DEAD em uso real (${reason})`,
     );
@@ -124,9 +170,12 @@ export class ProxyResolver {
 
   // Dados crus do proxy para o Chromium/Puppeteer (wwebjs): o `server` vai em --proxy-server (sem
   // credenciais), e username/password vão separados em proxyAuthentication. null => conexão direta.
-  async resolveProxyConfig(
-    sessionId: string,
-  ): Promise<{ server: string; username?: string; password?: string } | null> {
+  async resolveProxyConfig(sessionId: string): Promise<{
+    proxyId: string;
+    server: string;
+    username?: string;
+    password?: string;
+  } | null> {
     const proxy = await this.resolve(sessionId);
     if (!proxy) {
       return null;
@@ -135,6 +184,7 @@ export class ProxyResolver {
       `Sessão ${sessionId} (browser) → proxy #${proxy.position} ${proxy.protocol}://${proxy.host}:${proxy.port}`,
     );
     return {
+      proxyId: proxy.id,
       server: `${proxy.protocol.toLowerCase()}://${proxy.host}:${proxy.port}`,
       username: proxy.username ?? undefined,
       password: proxy.password ?? undefined,
@@ -146,20 +196,10 @@ export class ProxyResolver {
   async resolveBaileysTransport(sessionId: string) {
     const proxy = await this.resolve(sessionId);
     if (!proxy) {
-      // Ponto cego ELIMINADO: antes, conectar sem proxy (IP direto do servidor = datacenter) era
-      // silencioso. Para WhatsApp, conexão direta é o gatilho nº 1 de flag. Logamos SEMPRE,
-      // distinguindo intencional (mode NONE) de falha (SINGLE sem proxy vivo / candidatos DEAD).
-      const a = await this.repo.getAssignment(sessionId);
-      const motivo =
-        !a || a.mode === 'NONE'
-          ? 'sem proxy atribuído (mode NONE)'
-          : a.mode === 'SINGLE'
-            ? 'SINGLE sem proxy vivo (currentProxyId ausente ou DEAD)'
-            : `${a.mode} sem candidato vivo`;
       this.logger.warn(
-        `Sessão ${sessionId}: conectando SEM proxy — ${motivo}. Tráfego sai pelo IP do servidor (datacenter); risco de flag no WhatsApp. Atribua um proxy residencial (ou ligue WA_REQUIRE_PROXY para bloquear).`,
+        `Sessão ${sessionId}: modo NONE (ou atribuição ausente); saída direta permitida apenas se WA_REQUIRE_PROXY=false.`,
       );
-      return { agent: null, createMediaDispatcher: null };
+      return { proxyId: undefined, agent: null, createMediaDispatcher: null };
     }
     this.logger.log(
       `Sessão ${sessionId} → proxy #${proxy.position} ${proxy.protocol}://${proxy.host}:${proxy.port}`,
@@ -170,6 +210,7 @@ export class ProxyResolver {
       );
     }
     return {
+      proxyId: proxy.id,
       agent: buildProxyAgent(proxy),
       createMediaDispatcher:
         proxy.protocol === 'SOCKS4' || proxy.protocol === 'SOCKS5'

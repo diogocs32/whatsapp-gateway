@@ -1,4 +1,5 @@
 import type { Proxy, ProxyAssignment } from './proxy.entity';
+import type { Prisma } from '../../../infra/prisma/prisma.service';
 import type { ReleasedAssignment } from './proxy-suggestion';
 import type {
   ProxyMode,
@@ -35,6 +36,7 @@ export interface SetAssignmentInput {
   rangeStart: number | null;
   rangeEnd: number | null;
   strategy: ProxyStrategy;
+  currentProxyId?: string | null;
 }
 
 export interface ProxyRepository {
@@ -43,22 +45,32 @@ export interface ProxyRepository {
   findByWebshareId(webshareId: string): Promise<Proxy | null>;
   updateConnection(id: string, input: UpdateConnectionInput): Promise<void>;
   list(): Promise<Proxy[]>;
-  findById(id: string): Promise<Proxy | null>;
+  findById(id: string, tx?: Prisma.TransactionClient): Promise<Proxy | null>;
   listInRange(start: number, end: number): Promise<Proxy[]>;
   listEnabledAlive(): Promise<Proxy[]>;
   updateTest(
     id: string,
     r: { status: ProxyStatus; latencyMs: number | null; exitIp: string | null },
+    tx?: Prisma.TransactionClient,
   ): Promise<void>;
   setEnabled(id: string, enabled: boolean): Promise<void>;
   delete(id: string): Promise<void>;
 
-  getAssignment(sessionId: string): Promise<ProxyAssignment | null>;
+  getAssignment(
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ProxyAssignment | null>;
+  // Compatibilidade: nome vivo resolve para id; referência ausente continua aceita (P-097).
+  resolveSessionId(reference: string): Promise<string>;
   setAssignment(input: SetAssignmentInput): Promise<ProxyAssignment>;
   setCurrent(sessionId: string, proxyId: string | null): Promise<void>;
+  setCurrentIfUnchanged(
+    expected: ProxyAssignment,
+    proxyId: string,
+  ): Promise<boolean>;
   // Ids de proxies "em uso" = currentProxyId de assignment de sessão EXISTENTE (mode ≠ NONE).
   // session_proxy_assignments não tem FK p/ wa_sessions — assignments órfãos não contam.
-  usedProxyIds(): Promise<string[]>;
+  usedProxyIds(excludeSessionId?: string): Promise<string[]>;
   // Nome da sessão viva que usa o proxy (mesma régua do usedProxyIds) — ou null.
   proxyOwnerName(proxyId: string): Promise<string | null>;
 

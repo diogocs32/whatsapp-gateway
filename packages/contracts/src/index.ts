@@ -660,6 +660,8 @@ export interface ProxyAssignmentDto {
   currentProxyId: string | null;
 }
 
+// E15: SINGLE exige proxy elegível/livre (o próprio pin é aceito); inválido -> 400.
+// GET/PUT aceita id ou nome vivo; referências inexistentes mantêm o contrato legado.
 export interface SetProxyAssignmentRequest {
   mode: ProxyMode;
   rangeStart?: number | null;

@@ -5,19 +5,19 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 328 arquivos · 1802 símbolos (métodos/funções/assinaturas/constantes) · 1897 chamadas resolvidas · 1155 testes (it/test)
+- 334 arquivos · 1809 símbolos (métodos/funções/assinaturas/constantes) · 1908 chamadas resolvidas · 1172 testes (it/test)
 
 ## Áreas
 
 | Área | Arquivos | Linhas | Mapa |
 | --- | --- | --- | --- |
-| packages/contracts | 1 | 839 | [contracts.md](contracts.md) |
+| packages/contracts | 1 | 841 | [contracts.md](contracts.md) |
 | Dashboard (React) | 68 | 18275 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1895 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 6 | 1236 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 34 | 10807 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 35 | 11258 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
@@ -26,9 +26,9 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
 | módulo `messaging` | 25 | 4216 | [gateway-messaging.md](gateway-messaging.md) |
 | módulo `observability` | 8 | 675 | [gateway-observability.md](gateway-observability.md) |
-| módulo `proxies` | 16 | 2176 | [gateway-proxies.md](gateway-proxies.md) |
+| módulo `proxies` | 20 | 2613 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 156 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 59 | 21963 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 60 | 22285 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 17 | 1315 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
@@ -70,18 +70,18 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | GET | `/api/observability/reply-rate/:sessionId` | `ObservabilityController.replyRateMetrics` (observability.controller.ts:33) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/observability/summary` | `ObservabilityController.summary` (observability.controller.ts:17) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | GET | `/api/observability/timeline/:sessionId` | `ObservabilityController.timeline` (observability.controller.ts:22) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/proxies` | `ProxiesController.list` (proxies.controller.ts:62) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/proxies` | `ProxiesController.create` (proxies.controller.ts:104) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| DELETE | `/api/proxies/:id` | `ProxiesController.remove` (proxies.controller.ts:166) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/proxies/:id/disable` | `ProxiesController.disable` (proxies.controller.ts:160) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/proxies/:id/enable` | `ProxiesController.enable` (proxies.controller.ts:154) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/proxies/:id/test` | `ProxiesController.test` (proxies.controller.ts:145) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/proxies/available` | `ProxiesController.listAvailable` (proxies.controller.ts:69) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/proxies/bulk` | `ProxiesController.bulk` (proxies.controller.ts:124) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/proxies/suggestion` | `ProxiesController.suggestion` (proxies.controller.ts:76) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/proxies/test-all` | `ProxiesController.testAll` (proxies.controller.ts:135) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| GET | `/api/proxies/webshare/status` | `ProxiesController.webshareStatus` (proxies.controller.ts:99) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| POST | `/api/proxies/webshare/sync` | `ProxiesController.syncWebshare` (proxies.controller.ts:140) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| GET | `/api/proxies` | `ProxiesController.list` (proxies.controller.ts:63) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| POST | `/api/proxies` | `ProxiesController.create` (proxies.controller.ts:105) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| DELETE | `/api/proxies/:id` | `ProxiesController.remove` (proxies.controller.ts:167) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| POST | `/api/proxies/:id/disable` | `ProxiesController.disable` (proxies.controller.ts:161) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| POST | `/api/proxies/:id/enable` | `ProxiesController.enable` (proxies.controller.ts:155) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| POST | `/api/proxies/:id/test` | `ProxiesController.test` (proxies.controller.ts:146) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| GET | `/api/proxies/available` | `ProxiesController.listAvailable` (proxies.controller.ts:70) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| POST | `/api/proxies/bulk` | `ProxiesController.bulk` (proxies.controller.ts:125) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| GET | `/api/proxies/suggestion` | `ProxiesController.suggestion` (proxies.controller.ts:77) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| POST | `/api/proxies/test-all` | `ProxiesController.testAll` (proxies.controller.ts:136) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| GET | `/api/proxies/webshare/status` | `ProxiesController.webshareStatus` (proxies.controller.ts:100) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| POST | `/api/proxies/webshare/sync` | `ProxiesController.syncWebshare` (proxies.controller.ts:141) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | GET | `/api/public/connect` | `PublicConnectController.state` (public-connect.controller.ts:29) | `@UseGuards(ConnectLinkTokenGuard)` `@RouteConfig({ rateLimit: PUBLIC_CONNECT_READ_RATE_LIMIT })` `@Header('Cache-Control', 'no-store')` |
 | POST | `/api/public/connect/new-qr` | `PublicConnectController.newQr` (public-connect.controller.ts:36) | `@UseGuards(ConnectLinkTokenGuard)` `@HttpCode(200)` `@RouteConfig({ rateLimit: PUBLIC_CONNECT_NEW_QR_RATE_LIMIT })` `@Header('Cache-Control', 'no-store')` |
 | GET | `/api/sessions` | `SessionsController.list` (sessions.controller.ts:159) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -141,8 +141,8 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | POST | `/api/sessions/:id/profile/name` | `SessionsController.profileName` (sessions.controller.ts:253) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/profile/photo` | `SessionsController.profilePhoto` (sessions.controller.ts:273) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/profile/status` | `SessionsController.profileStatus` (sessions.controller.ts:234) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
-| GET | `/api/sessions/:id/proxy` | `ProxiesController.getAssignment` (proxies.controller.ts:173) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
-| PUT | `/api/sessions/:id/proxy` | `ProxiesController.setAssignment` (proxies.controller.ts:188) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| GET | `/api/sessions/:id/proxy` | `ProxiesController.getAssignment` (proxies.controller.ts:174) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
+| PUT | `/api/sessions/:id/proxy` | `ProxiesController.setAssignment` (proxies.controller.ts:190) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` `@MinRole('ADMIN')` |
 | GET | `/api/sessions/:id/qr` | `SessionsController.qr` (sessions.controller.ts:370) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/quarantine` | `SessionsController.quarantine` (sessions.controller.ts:301) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
 | POST | `/api/sessions/:id/restart` | `SessionsController.restart` (sessions.controller.ts:343) | `@UseGuards(ApiKeyAuthGuard, RolesGuard)` |
@@ -187,7 +187,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Evento (`name`) | Publicado por | Assinado por |
 | --- | --- | --- |
-| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:208), `SessionManager.handleEngineEvent` (session-manager.service.ts:683) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `ConnectLinkService.onModuleInit` (connect-link.service.ts:127), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
+| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:208), `SessionManager.handleEngineEvent` (session-manager.service.ts:687) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `ConnectLinkService.onModuleInit` (connect-link.service.ts:127), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
 | `'wa.event.remote'` | `EventFanout.onRemote` (event-fanout.ts:80) | `EventsController.stream` (events.controller.ts:39), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:38) |
 
 ## Banco (Prisma) — quem lê e quem escreve
@@ -200,13 +200,13 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `conversationTriage` | `PrismaInboxRepository.clearTriage`, `PrismaInboxRepository.markIgnored` | — |
 | `guardrailConfig` | `GuardrailService.updateConfig` | `GuardrailService.cfg`, `ReplyRateService.nmin` |
 | `messageReaction` | `BaileysEngine.mergeLidMessages`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `PrismaReactionRepository.listForMessages` |
-| `proxy` | `PrismaProxyRepository.create`, `PrismaProxyRepository.delete`, `PrismaProxyRepository.setEnabled`, `PrismaProxyRepository.updateConnection`, `PrismaProxyRepository.updateTest` | `PrismaProxyRepository.findById`, `PrismaProxyRepository.findByWebshareId`, `PrismaProxyRepository.listEnabledAlive`, `PrismaProxyRepository.listInRange`, `PrismaProxyRepository.list`, `PrismaProxyRepository.nextPosition` |
+| `proxy` | `PrismaProxyRepository.create`, `PrismaProxyRepository.delete`, `PrismaProxyRepository.setEnabled`, `PrismaProxyRepository.updateConnection` | `PrismaProxyRepository.findByWebshareId`, `PrismaProxyRepository.listEnabledAlive`, `PrismaProxyRepository.listInRange`, `PrismaProxyRepository.list`, `PrismaProxyRepository.nextPosition`, `PrismaProxyRepository.setAssignment` |
 | `refreshToken` | `PrismaRefreshTokenRepository.create`, `PrismaRefreshTokenRepository.revokeAllForUser`, `PrismaRefreshTokenRepository.revokeFamilyByToken`, `PrismaRefreshTokenRepository.rotate` | `PrismaRefreshTokenRepository.revokeFamilyByToken`, `PrismaRefreshTokenRepository.rotate` |
 | `sendIntent` | `RetentionService.sweep`, `SendIntentService.complete`, `SendIntentService.fail`, `SendIntentService.reserve` | `SendIntentService.reserve` |
 | `sessionConfig` | `SessionConfigService.get`, `SessionConfigService.update` | `SessionManager.getOrCreateEngine` |
 | `sessionGuardrail` | `GuardrailService.apply`, `GuardrailService.getState`, `GuardrailService.recordHardSignal`, `GuardrailService.recordReachoutRestriction` | `GuardrailService.apply`, `GuardrailService.canSendMessage`, `GuardrailService.statesFor` |
 | `sessionMetric` | `ReplyRateService.computeFor` | `GuardrailService.fleetMedianReplyRate` |
-| `sessionProxyAssignment` | `PrismaProxyRepository.markReleased`, `PrismaProxyRepository.setAssignment`, `PrismaProxyRepository.setCurrent` | `PrismaProxyRepository.getAssignment`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.usedProxyIds` |
+| `sessionProxyAssignment` | `PrismaProxyRepository.markReleased`, `PrismaProxyRepository.setAssignment`, `PrismaProxyRepository.setCurrentIfUnchanged`, `PrismaProxyRepository.setCurrent` | `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.usedProxyIds` |
 | `user` | `PrismaUserRepository.create`, `PrismaUserRepository.delete`, `PrismaUserRepository.updatePassword`, `PrismaUserRepository.update` | `PrismaUserRepository.countByRole`, `PrismaUserRepository.count`, `PrismaUserRepository.findById`, `PrismaUserRepository.findByUsername`, `PrismaUserRepository.list` |
 | `waApiKey` | `PrismaApiKeyRepository.create`, `PrismaApiKeyRepository.revoke`, `PrismaApiKeyRepository.touch` | `PrismaApiKeyRepository.findByHash`, `PrismaApiKeyRepository.list` |
 | `waAuditLog` | `PrismaAuditRepository.create`, `RetentionService.sweep` | `PrismaAuditRepository.list` |
@@ -215,7 +215,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `waContact` | `ContactDirectory.record` | `ContactDirectory.lidMap`, `ContactDirectory.list`, `ContactDirectory.namesFor` |
 | `waLicense` | `PrismaLicenseRepository.clear`, `PrismaLicenseRepository.set` | `PrismaLicenseRepository.get` |
 | `waMessage` | `BaileysEngine.markMessage`, `BaileysEngine.mergeLidMessages`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.save`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `BaileysEngine.loadMessageForRetry`, `BaileysEngine.mergeKnownLids`, `BaileysEngine.onMessagesUpsert`, `BaileysEngine.prepareForward`, `MetricsService.counters`, `PrismaInboxRepository.findLastInbound`, `PrismaMessageRepository.findByIdempotencyKey`, `PrismaMessageRepository.findByKeyId`, `PrismaMessageRepository.findByRef`, `PrismaMessageRepository.findInboundChat`, `PrismaMessageRepository.listByChat`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.searchMessages`, `WWebJSEngine.mergeExistingLids` |
-| `waSession` | `PostgresSessionLease.clearAuth`, `PostgresSessionLease.setLastMeJid`, `PostgresSessionLease.updateLastErrorDetails`, `PostgresSessionLease.updateStatus`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.removeUnlocked`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `SessionManager.startUnlocked`, `usePostgresAuthState` |
+| `waSession` | `PostgresSessionLease.clearAuth`, `PostgresSessionLease.setLastMeJid`, `PostgresSessionLease.updateLastErrorDetails`, `PostgresSessionLease.updateStatus`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.removeUnlocked`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.resolveSessionId`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `SessionManager.startUnlocked`, `usePostgresAuthState` |
 | `waSessionEvent` | `RetentionService.sweep`, `SessionEventLogger.onModuleInit` | `MetricsService.timeline`, `PrismaConnectLinkRepository.hasWorkingSince` |
 | `webhook` | `PrismaWebhookRepository.create`, `PrismaWebhookRepository.delete`, `PrismaWebhookRepository.setEnabled` | `PrismaWebhookRepository.findById`, `PrismaWebhookRepository.listEnabled`, `PrismaWebhookRepository.list`, `WebhookQueue.redeliverDeadLetters` |
 | `webhookDeadLetter` | `WebhookQueue.redeliverDeadLetters`, `WebhookQueue.toDeadLetter` | `WebhookQueue.listDeadLetters`, `WebhookQueue.redeliverDeadLetters` |

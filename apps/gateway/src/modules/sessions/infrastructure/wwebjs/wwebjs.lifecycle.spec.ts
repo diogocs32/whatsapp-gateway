@@ -1,13 +1,15 @@
 import { EventEmitter } from 'node:events';
 import { rm } from 'node:fs/promises';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ProxyUnavailableError } from '../../../proxies/application/proxy-unavailable.error';
+import { LeaseLostError } from '../../application/session-lease.error';
 
 // Teste de EFEITO (R6) do ciclo de vida do wwebjs após a auditoria 09/2026 (WA-08/WA-09/P-025):
 // `initialize()` que nunca resolve não pode prender o mutex para sempre, callbacks de um client
 // antigo não podem mexer no status da geração nova, e a fase de QR tem watchdog. A lib é
 // substituída por um Client FAKE (sem Chromium) — o resto do engine é o real.
 
-type Mode = 'hang' | 'qr-once' | 'ready';
+type Mode = 'hang' | 'qr-once' | 'ready' | 'proxy-failure';
 
 class FakeClient extends EventEmitter {
   static instances: FakeClient[] = [];
@@ -21,6 +23,8 @@ class FakeClient extends EventEmitter {
     FakeClient.instances.push(this);
   }
   initialize(): Promise<void> {
+    if (FakeClient.mode === 'proxy-failure')
+      return Promise.reject(new Error('net::ERR_TUNNEL_CONNECTION_FAILED'));
     if (FakeClient.mode === 'hang') return new Promise(() => undefined);
     if (FakeClient.mode === 'qr-once') {
       setTimeout(() => this.emit('qr', '1@fake-qr-payload'), 5);
@@ -124,6 +128,81 @@ describe('WWebJSEngine — ciclo de vida com teto (WA-08/WA-09/P-025)', () => {
   });
   afterAll(async () => {
     await rm(process.env.WWEBJS_DATA_PATH!, { recursive: true, force: true });
+  });
+
+  it('proxy inválido fica FAILED antes do Client, mesmo com guard global desligado (E15)', async () => {
+    const Engine = await loadEngine();
+    const { deps, events } = makeDeps('lc-proxy-blocked');
+    const engine = new Engine({
+      ...deps,
+      requireProxy: false,
+      resolveProxyConfig: async () => {
+        throw new ProxyUnavailableError('SINGLE sem proxy elegível');
+      },
+    } as never);
+    await engine.start();
+    expect(events).toEqual([
+      { status: 'FAILED', error: 'SINGLE sem proxy elegível' },
+    ]);
+    expect(FakeClient.instances).toHaveLength(0);
+  });
+
+  it.each([new Error('banco indisponível'), new LeaseLostError()])(
+    'propaga erro de infra/lease sem converter em proxy inválido: %s',
+    async (error) => {
+      const Engine = await loadEngine();
+      const { deps, events } = makeDeps('lc-proxy-infra');
+      const engine = new Engine({
+        ...deps,
+        resolveProxyConfig: async () => {
+          throw error;
+        },
+      } as never);
+      await expect(engine.start()).rejects.toBe(error);
+      expect(events).toEqual([]);
+      expect(FakeClient.instances).toHaveLength(0);
+    },
+  );
+
+  it('RANGE esgotado após túnel falho não relança Client sem proxy (E15)', async () => {
+    FakeClient.mode = 'proxy-failure';
+    const Engine = await loadEngine();
+    const { deps, events } = makeDeps('lc-proxy-exhausted');
+    const resolveProxyConfig = vi
+      .fn()
+      .mockResolvedValueOnce({
+        proxyId: 'proxy-original',
+        server: 'http://proxy.invalid:8080',
+      })
+      .mockRejectedValue(new ProxyUnavailableError('RANGE sem candidato'));
+    const reportProxyFailure = vi.fn(async () => ({
+      mode: 'RANGE',
+      marked: true,
+    }));
+    const engine = new Engine({
+      ...deps,
+      requireProxy: false,
+      resolveProxyConfig,
+      reportProxyFailure,
+    } as never);
+    await engine.start();
+    expect(events.at(-1)).toEqual({
+      status: 'FAILED',
+      error: 'RANGE sem candidato',
+    });
+    expect(reportProxyFailure).toHaveBeenCalledExactlyOnceWith(
+      'PROXY_TUNNEL',
+      'proxy-original',
+    );
+    expect(FakeClient.instances).toHaveLength(1);
+    expect(FakeClient.instances[0].opts).toMatchObject({
+      puppeteer: {
+        args: expect.arrayContaining([
+          '--proxy-server=http://proxy.invalid:8080',
+        ]),
+      },
+    });
+    expect(FakeClient.instances[0].destroy).toHaveBeenCalled();
   });
 
   it('initialize pendurado: 1 retentativa, depois FAILED com motivo — e o mutex fica livre', async () => {

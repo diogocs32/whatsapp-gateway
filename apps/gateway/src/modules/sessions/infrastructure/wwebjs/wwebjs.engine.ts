@@ -78,6 +78,8 @@ import {
 } from '../../application/engine.port';
 import type { SessionStatus } from '../../domain/session-status';
 import { isWwebjsVersionMode } from '../../domain/wwebjs-version';
+import { ProxyUnavailableError } from '../../../proxies/application/proxy-unavailable.error';
+import { classifyProxyFailure } from '../../../proxies/application/proxy-failure';
 
 // Caminho do Chrome do sistema (no WSL já existe /usr/bin/google-chrome-stable). Configurável por env.
 // `||` (não `??`): env VAZIA se comporta como ausente — mesma semântica do envStr() do config.ts.
@@ -420,6 +422,7 @@ export class WWebJSEngine implements IEngine {
   // URL do forwarder LOCAL (proxy-chain) que anonimiza o proxy autenticado deste start.
   // Fechado no stop/logout/queda/falha de init para liberar a porta (ver closeAnonProxy).
   private anonProxyUrl: string | null = null;
+  private connectedProxyId: string | undefined;
   // Mutex de ciclo de vida: serializa start/stop/logout da MESMA sessão. Sem isto, um restart
   // (stop→start) ou cliques/polling repetidos podem lançar 2 Chromium no mesmo userDataDir — entre o
   // `puppeteer.launch` (whatsapp-web.js Client.js:462) e o `this.pupBrowser = browser` (Client.js:477)
@@ -786,7 +789,20 @@ export class WWebJSEngine implements IEngine {
 
     // Proxy atribuído à sessão (se houver): aplicado ao Chromium via --proxy-server, com a auth nativa
     // do wwebjs (proxyAuthentication). Sem isto, a engine browser ignorava o proxy (só o Baileys usava).
-    const proxy = (await this.deps.resolveProxyConfig?.()) ?? null;
+    let proxy: Awaited<
+      ReturnType<NonNullable<BaileysEngineDeps['resolveProxyConfig']>>
+    >;
+    try {
+      proxy = (await this.deps.resolveProxyConfig?.()) ?? null;
+    } catch (error) {
+      if (!(error instanceof ProxyUnavailableError)) throw error;
+      if (this.stopped) return;
+      this.stopped = true;
+      this.setStatus('FAILED', { error: error.message });
+      return;
+    }
+    if (this.stopped) return;
+    this.connectedProxyId = proxy?.proxyId;
     if (proxy) {
       this.deps.logger.info(
         { server: proxy.server, auth: !!proxy.username },
@@ -808,7 +824,7 @@ export class WWebJSEngine implements IEngine {
       );
     }
 
-    // Guard anti-vazamento (WA_REQUIRE_PROXY): espelha o guard do Baileys (baileys.engine.ts:489-499).
+    // NONE continua bloqueado quando o dono habilita a política global WA_REQUIRE_PROXY.
     // Sem proxy vivo e com o guard ligado, RECUSAMOS conectar em vez de vazar o IP do datacenter —
     // gatilho nº 1 de flag na conexão. Falha ANTES de resolver a webVersion (nada de rede à toa).
     // stopped=true corta a reconexão automática; um start manual, já com proxy atribuído à sessão,
@@ -1258,11 +1274,10 @@ export class WWebJSEngine implements IEngine {
   ): Promise<void> {
     const msg = (e as Error)?.message ?? String(e);
     const isInitTimeout = /initialize não completou/.test(msg);
-    const isProxyAuth = /ERR_INVALID_AUTH_CREDENTIALS/i.test(msg);
-    const isProxyTunnel =
-      /ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY_CONNECTION_FAILED|ERR_NO_SUPPORTED_PROXIES|ERR_SOCKS_CONNECTION_FAILED/i.test(
-        msg,
-      );
+    const proxyFailure = classifyProxyFailure(msg);
+    const isProxyAuth = proxyFailure === 'PROXY_AUTH';
+    const isProxyTunnel = proxyFailure === 'PROXY_TUNNEL';
+    const proxyId = this.connectedProxyId;
     const isBrowserLock = /already running for|ProcessSingleton/i.test(msg);
     this.deps.logger.error(
       {
@@ -1298,19 +1313,24 @@ export class WWebJSEngine implements IEngine {
     }
     // Item 8 — fallback de proxy: o proxy atual falhou em uso real. Marca-o DEAD e, nos modos
     // rotativos, tenta de novo UMA vez — o resolve() do retry pula os DEAD e entrega o próximo
-    // candidato (ou null = conexão direta, o mesmo que um start sem proxy disponível). No SINGLE
+    // candidato (ou FAILED explícito se não houver candidato elegível). No SINGLE
     // o proxy foi pinado de propósito: não se rotaciona nem se conecta direto por conta própria —
     // a sessão fica FAILED com o motivo acionável.
     if (
       (isProxyAuth || isProxyTunnel) &&
+      proxyId &&
       attempt === 0 &&
       this.deps.reportProxyFailure
     ) {
       try {
         const r = await this.deps.reportProxyFailure(
           isProxyAuth ? 'PROXY_AUTH' : 'PROXY_TUNNEL',
+          proxyId,
         );
-        if (r.mode === 'RANGE' || r.mode === 'GLOBAL_ROUND_ROBIN') {
+        if (
+          r.marked &&
+          (r.mode === 'RANGE' || r.mode === 'GLOBAL_ROUND_ROBIN')
+        ) {
           this.deps.logger.warn(
             { mode: r.mode },
             'wwebjs: proxy marcado DEAD — tentando o próximo candidato',

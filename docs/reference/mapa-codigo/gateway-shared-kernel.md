@@ -111,7 +111,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `recordDisconnect` L10
 - `recordDisconnect(engine, code)` · L10
   - chama: `disconnectCodeLabel` L6
-  - chamado por: `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:914)
+  - chamado por: `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:936)
 - `disconnectTotals()` · L18
   - chamado por: `MetricsService.refresh` (metrics.service.ts:112)
 
@@ -134,7 +134,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `emitter` · L12 · private · campo
 - `constructor()` · L14
 - `publish(event)` · L21
-  - chamado por: `EventFanout.onRemote` (event-fanout.ts:73), `GuardrailService.emit` (guardrail.service.ts:190), `SessionManager.handleEngineEvent` (session-manager.service.ts:606)
+  - chamado por: `EventFanout.onRemote` (event-fanout.ts:73), `GuardrailService.emit` (guardrail.service.ts:190), `SessionManager.handleEngineEvent` (session-manager.service.ts:610)
 - `subscribe(name, handler)` · L26
   - chamado por: `EventFanout.onModuleInit` (event-fanout.ts:48), `EventsController.stream` (events.controller.ts:14), `MessagePersister.onModuleInit` (message-persister.service.ts:24), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:27), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `ConnectLinkService.onModuleInit` (connect-link.service.ts:125), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:31)
 - `unsubscribe(name, handler)` · L30
@@ -172,10 +172,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `chromiumProcessTree(rootPid)` · L17
-  - chamado por: `WWebJSEngine.destroyWithTimeout` (wwebjs.engine.ts:1474), `chromiumTreePss` L43
+  - chamado por: `WWebJSEngine.destroyWithTimeout` (wwebjs.engine.ts:1494), `chromiumTreePss` L43
 - `chromiumTreePss(rootPid)` · L43
   - chama: `chromiumProcessTree` L17
-  - chamado por: `WWebJSEngine.recordMemoryProfile` (wwebjs.engine.ts:530)
+  - chamado por: `WWebJSEngine.recordMemoryProfile` (wwebjs.engine.ts:533)
 - `round2(n)` · L63
   - chamado por: `memoryStats` L93
 - `readCgroupWorkingSet()` · L70
@@ -195,7 +195,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `totals` = `new Map<string, number>()` · L7
 - `recordProcessError(kind)` · L9
-  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:409), `AuditInterceptor.record` (audit.interceptor.ts:71), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1389), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:914), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1363), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1301)
+  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:409), `AuditInterceptor.record` (audit.interceptor.ts:71), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1407), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:936), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1381), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1319)
 - `processErrorTotals()` · L13
   - chamado por: `MetricsService.refresh` (metrics.service.ts:112)
 
@@ -319,4 +319,4 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `newId()` · L4
-  - chamado por: `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.upsertChunk` (contact-directory.service.ts:115), `EventFanout.instanceId` (event-fanout.ts:40), `CampaignRepository.create` (campaign.repository.ts:41), `GuardrailService.apply` (guardrail.service.ts:329), `GuardrailService.emit` (guardrail.service.ts:190), `GuardrailService.getState` (guardrail.service.ts:216), `GuardrailService.recordHardSignal` (guardrail.service.ts:549), `ApiKeyService.create` (api-key.service.ts:25), `AuthSessionService.issue` (auth-session.service.ts:123), `AuthSessionService.login` (auth-session.service.ts:57), `AuthSessionService.refresh` (auth-session.service.ts:85), `UserService.create` (user.service.ts:50), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26), `PrismaAuditRepository.create` (prisma-audit.repository.ts:14), `SendIntentService.reserve` (send-intent.service.ts:26), `PrismaInboxRepository.markIgnored` (prisma-inbox.repository.ts:174), `PrismaMessageRepository.save` (prisma-message.repository.ts:42), `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:84), `PrismaReactionRepository.upsert` (prisma-reaction.repository.ts:19), `ReplyRateService.computeFor` (reply-rate.service.ts:93), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `PrismaProxyRepository.create` (prisma-proxy.repository.ts:86), `ConnectLinkService.create` (connect-link.service.ts:144), `SessionConfigService.get` (session-config.service.ts:20), `SessionConfigService.update` (session-config.service.ts:28), `SessionManager.handleEngineEvent` (session-manager.service.ts:606), `SessionsController.create` (sessions.controller.ts:102), `WebhookQueue.toDeadLetter` (webhook-queue.ts:191), `WebhooksController.create` (webhooks.controller.ts:60), `WebhooksController.test` (webhooks.controller.ts:133)
+  - chamado por: `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.upsertChunk` (contact-directory.service.ts:115), `EventFanout.instanceId` (event-fanout.ts:40), `CampaignRepository.create` (campaign.repository.ts:41), `GuardrailService.apply` (guardrail.service.ts:329), `GuardrailService.emit` (guardrail.service.ts:190), `GuardrailService.getState` (guardrail.service.ts:216), `GuardrailService.recordHardSignal` (guardrail.service.ts:549), `ApiKeyService.create` (api-key.service.ts:25), `AuthSessionService.issue` (auth-session.service.ts:123), `AuthSessionService.login` (auth-session.service.ts:57), `AuthSessionService.refresh` (auth-session.service.ts:85), `UserService.create` (user.service.ts:50), `AdminSeeder.onApplicationBootstrap` (admin-seeder.ts:26), `PrismaAuditRepository.create` (prisma-audit.repository.ts:14), `SendIntentService.reserve` (send-intent.service.ts:26), `PrismaInboxRepository.markIgnored` (prisma-inbox.repository.ts:174), `PrismaMessageRepository.save` (prisma-message.repository.ts:42), `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:84), `PrismaReactionRepository.upsert` (prisma-reaction.repository.ts:19), `ReplyRateService.computeFor` (reply-rate.service.ts:93), `SessionEventLogger.onModuleInit` (session-event.logger.ts:22), `PrismaProxyRepository.create` (prisma-proxy.repository.ts:90), `ConnectLinkService.create` (connect-link.service.ts:144), `SessionConfigService.get` (session-config.service.ts:20), `SessionConfigService.update` (session-config.service.ts:28), `SessionManager.handleEngineEvent` (session-manager.service.ts:610), `SessionsController.create` (sessions.controller.ts:102), `WebhookQueue.toDeadLetter` (webhook-queue.ts:191), `WebhooksController.create` (webhooks.controller.ts:60), `WebhooksController.test` (webhooks.controller.ts:133)

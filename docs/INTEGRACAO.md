@@ -494,10 +494,33 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
   o proxy some imediatamente de `/proxies/available`.
 - Erros (HTTP 400, mensagem clara): proxy inexistente, desabilitado, `DEAD` ou **já em uso** — nesse
   caso a sessão NÃO é criada (sem sessão órfã).
-- A exclusividade vale para o fluxo `SINGLE`; os modos `RANGE`/`GLOBAL_ROUND_ROBIN` (configurados via
-  `PUT /api/sessions/{id}/proxy`) seguem podendo usar qualquer proxy do pool em runtime. Nessa rota
-  use o **`id` (ULID) da sessão** — o nome NÃO é resolvido ali: um PUT pelo nome responde 200 mas
-  grava uma atribuição que nenhuma sessão lê (P-097).
+- A atribuição `SINGLE` valida existência, enabled, status diferente de DEAD e uso por outra
+  sessão viva, tanto no POST quanto no PUT. Repetir o próprio proxy é permitido; inválido
+  responde HTTP 400 com mensagem, sem alterar a atribuição. PUTs SINGLE concorrentes são
+  serializados por proxy; `RANGE`/`GLOBAL_ROUND_ROBIN` continuam podendo compartilhar o pool.
+- `GET/PUT /api/sessions/{sessao}/proxy` aceita ID ou nome de sessão existente (E15/P-097).
+  Por compatibilidade, referência inexistente/órfã ainda é aceita; nenhum 404 novo foi introduzido.
+  Payloads de pedido/resposta permanecem iguais.
+
+### Afinidade e falha de proxy (E15 · P-058 · D-041)
+
+- Cada reconexão mantém `currentProxyId` enquanto habilitado, não-DEAD e dentro do modo/faixa.
+  ALIVE e UNTESTED são elegíveis. `STICKY`, `ROUND_ROBIN`, `RANDOM` e `LEAST_LATENCY` só escolhem
+  quando falta um pin elegível; expansão do pool/latência menor não troca uma conta saudável.
+- `SINGLE` ausente, removido, desabilitado ou DEAD; RANGE inválido; ou pool sem candidato
+  produzem FAILED com `lastError` explícito antes do socket/Chromium. Não há fallback direto,
+  mesmo com `WA_REQUIRE_PROXY=false`. A tentativa quieta após 440 conserva a política E9:
+  encerra localmente sem sobrescrever o status compartilhado.
+- Somente `NONE` (inclusive nenhuma atribuição, default existente) permite saída direta.
+  `WA_REQUIRE_PROXY=true` bloqueia também esses casos. Erros de banco/Redis/lease propagam;
+  não viram permissão para usar a rede direta.
+- O PUT não reinicia nem troca o transporte já aberto. A configuração vale para resoluções
+  iniciadas depois de gravada; uma resolução que já estava em andamento pode concluir com o
+  snapshot anterior. A escolha nova usa CAS para não sobrescrever um PUT concorrente.
+- DEAD por falha em uso exige assinatura específica de autenticação/túnel, identidade do
+  proxy usado e lease válida. DNS/timeout/reset genéricos ou a palavra “proxy” não bastam.
+  Corrigir/testar um SINGLE DEAD e solicitar nova tentativa é ação explícita do operador.
+- Deploy e prova real de saída pelo proxy: [checklist do deploy C](how-to/deploy-c-onda3.md).
 
 ### Sugerir o proxy da sessão apagada ao recriar com o mesmo nome (E26 · P-084 · D-038)
 

@@ -53,8 +53,8 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E11   | 2    | Baileys rc14: patch mínimo de Curve.verify e domainType (#2751), stream de mídia (#2716; #2815 duplicado), P-051                                                                                                                     | `feature/onda2-baileys-e11-e12`   | PR #15; merge ao encerrar esta etapa; sem deploy B                                                                                                                 | ✅ 26/09 · 9e82ec7        |
 | E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys-e12`       | PR #16; merge após CI verde; depois **deploy B manual**                                                                                                            | ✅ código 26/09           |
 | E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-e13-exclusividade` | PR #19 mergeado; sem deploy C                                                                                                                                      | ✅ 27/09                  |
-| E14   | 3    | Campanhas: sem rajada ao retomar, sem FAILED no boot (P-057)                                                                                                                                                                         | `feature/onda3-e14-campanhas`     | PR #20; sem deploy C                                                                                                                                               | ✅ código 29/09 · cfc2976 |
-| E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-e15-proxy`         | PR e merge ao fim; **deploy C manual** depois + B-001                                                                                                              | ⬜                        |
+| E14   | 3    | Campanhas: sem rajada ao retomar, sem FAILED no boot (P-057)                                                                                                                                                                         | `feature/onda3-e14-campanhas`     | PR #20 mergeado `b56ff27`; sem deploy C                                                                                                                            | ✅ código 29/09 · cfc2976 |
+| E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-e15-proxy`         | PR #21; **deploy C manual** pelo runbook, B-001 depois                                                                                                             | ✅ 29/09 · 0cf2cd4        |
 | E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`       | merge ao fim; **deploy D manual** depois                                                                                                                           | ⬜                        |
 | E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`          | merge ao fim; **deploy E manual** depois                                                                                                                           | ⬜                        |
 | E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`           | merge ao fim; **deploy F manual** depois                                                                                                                           | ⬜                        |
@@ -331,6 +331,15 @@ Itens: reusar currentProxyId da atribuição quando ainda elegível, inclusive e
 No fim: atualize o roteiro, abra PR com CI verde, faça merge e entregue o checklist do deploy C manual ao dono (B-004 stop-first, B-005 backup/restore, diagnóstico/canário B-007 e B-001 depois), incluindo observação do backlog legado P-099. Não opere o Dokploy.
 ```
 
+### E16 — manutenção leve (P-062 parte 1)
+
+```text
+Etapa E16 do roteiro ConexoZenvo (docs/ROTEIRO-ONDAS-2026-09.md): P-062 parte 1 — manutenção leve.
+Siga as Regras de toda etapa. Crie feature/onda5a-manutencao da origin/main atualizada após merge da E15; um PR, CI verde e merge ao fim. Leia DONE E15, D-039/D-040/D-041, P-062/P-099, avisos SESSOES e MAPA-CODIGO da área de build.
+Confira versões instaladas e documentação oficial antes de editar: nginx pinado, Actions node24 por SHA + ubuntu-24.04, Node por digest, remover ts-node se provada ausência de uso; mantenha/atualize allowScripts (fsevents e decisão sobre puppeteer@24.38.0), minors de tooling/React sem majors nesta etapa. Preserve patches/guardas e prove npm ci, postinstall, ambos Dockerfiles/builds e testes com fakes.
+Deploy C e canários anteriores continuam manuais pelo dono em docs/how-to/deploy-c-onda3.md (B-004/B-005/B-007, P-099, B-001 depois); não opere Dokploy, conta, QR ou envio real. Sem quebra de /api. Atualize mapa, roteiro e docs; entregue checklist do deploy D manual e mensagem da E17.
+```
+
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09
 
 ```text
@@ -374,6 +383,15 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064                         |
 
 ## Diário de execução
+
+- **29/09 — E15/P-058 (`e15-proxy`, D-041, PR #21, código `0cf2cd4`, base `b56ff27` após merge E14):** afinidade
+  persistida inclusive RANGE/GLOBAL; configuração sem saída elegível falha explicitamente
+  nas duas engines, sem fallback direto. DEAD restrito a auth/túnel, ID do transporte e
+  transação da lease E13; E14/backoff preservados. PUT valida elegibilidade e disputa SINGLE
+  sob lock; nome vivo resolve para ID preservando 200 de órfãs (P-097). Sem migration nova,
+  payload novo, conta/QR/envio real. Runbook [deploy C](how-to/deploy-c-onda3.md) preparado
+  com B-004/B-005/B-007, inventário de proxies, P-099 e B-001 depois. Validação local:
+  1.394 gateway + 292 painel, incluindo 15 e2e E15. CI e merge acompanhados no PR #21.
 
 - **29/09 — E14/P-057 (`e14-campanhas`, PR #20, código `cfc2976`,
   `feature/onda3-e14-campanhas` da `origin/main=5501593`):** D-040 separa cada retomada por época persistida e encerra jobs

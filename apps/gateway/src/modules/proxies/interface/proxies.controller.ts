@@ -16,6 +16,7 @@ import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
 import { RolesGuard } from '../../iam/interface/roles.guard';
 import { ProxyService } from '../application/proxy.service';
+import { ProxyUnavailableError } from '../application/proxy-unavailable.error';
 import type { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import {
   bulkImportSchema,
@@ -172,6 +173,7 @@ export class ProxiesController {
   // Assignment por sessão (qual proxy/range/estratégia a sessão usa).
   @Get('sessions/:id/proxy')
   async getAssignment(@Param('id') id: string) {
+    id = await this.service.resolveSessionId(id);
     const a = await this.service.getAssignment(id);
     return a
       ? assignmentToDto(a)
@@ -194,13 +196,20 @@ export class ProxiesController {
       );
     }
     const d = parsed.data;
-    const a = await this.service.setAssignment(id, {
-      mode: d.mode,
-      rangeStart: d.rangeStart ?? null,
-      rangeEnd: d.rangeEnd ?? null,
-      strategy: d.strategy,
-      proxyId: d.proxyId ?? null,
-    });
+    id = await this.service.resolveSessionId(id);
+    const a = await this.service
+      .setAssignment(id, {
+        mode: d.mode,
+        rangeStart: d.rangeStart ?? null,
+        rangeEnd: d.rangeEnd ?? null,
+        strategy: d.strategy,
+        proxyId: d.proxyId ?? null,
+      })
+      .catch((error: unknown) => {
+        if (error instanceof ProxyUnavailableError)
+          throw new BadRequestException(error.message);
+        throw error;
+      });
     return assignmentToDto(a);
   }
 }

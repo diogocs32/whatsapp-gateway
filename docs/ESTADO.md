@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **E13/P-056 (Onda 3, D-039) integrada pelo PR #19; E14/P-057 (D-040) no PR #20:** lease/fencing, auth transacional e campanhas com retomada espaçada e retry transitório; migrations só no Postgres local, sem deploy. O primeiro deploy com E13 exige B-004 `stop-first` confirmado, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **E13/P-056 (Onda 3, D-039) integrada pelo PR #19; E14/P-057 (D-040) integrada pelo PR #20 (`b56ff27`):** lease/fencing, auth transacional e campanhas com retomada espaçada e retry transitório. **E15/P-058 (D-041) no PR #21 (`0cf2cd4`):** afinidade do proxy, falha explícita sem fallback direto, PUT validado e nome vivo resolvido (P-097). Onda 3 com deploy C manual pendente; migrations só no Postgres local. O primeiro deploy com E13 exige B-004 `stop-first` confirmado, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,16 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **29/09/2026 (E15/P-058, D-041 — PR #21, sem deploy):** currentProxyId elegível é mantido em
+> RANGE/GLOBAL; SINGLE inválido e pool vazio falham antes do socket/Chromium, mesmo com
+> WA_REQUIRE_PROXY=false. Só NONE/sem atribuição permite direto; DEAD exige assinatura de
+> auth/túnel, identidade da conexão e escrita na transação da lease. PUT SINGLE validado e
+> serializado; GET/PUT aceita nome vivo sem quebrar referências órfãs (P-097).
+> Sem migration E15 ou payload novo. Evidência local: 1.394 gateway + 292 painel; CI/merge no PR #21. Depois,
+> [deploy C manual](how-to/deploy-c-onda3.md): B-004 stop-first, B-005 backup/restore,
+> B-007 diagnóstico/canário, observar P-099 e B-001 depois. Sem conta, QR ou envio real.
+> Produção permanece no último SHA **documentado** `768fb26`, sem conferência ao vivo.
 
 > **29/09/2026 (E14/P-057, D-040 — PR #20, sem deploy):** a migration aditiva
 > `20260929053000_campaign_schedule_epoch` separa cada start/resume e invalida jobs antigos.
