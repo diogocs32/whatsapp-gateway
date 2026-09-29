@@ -6,22 +6,45 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
+| `modules/proxies/application/proxy-failure.spec.ts` | 41 |
+| `modules/proxies/application/proxy-failure.ts` | 20 |
 | `modules/proxies/application/proxy-resolver.media.spec.ts` | 117 |
-| `modules/proxies/application/proxy-resolver.service.ts` | 186 |
+| `modules/proxies/application/proxy-resolver.service.spec.ts` | 216 |
+| `modules/proxies/application/proxy-resolver.service.ts` | 227 |
+| `modules/proxies/application/proxy-unavailable.error.ts` | 8 |
 | `modules/proxies/application/proxy.service.suggestion.spec.ts` | 355 |
-| `modules/proxies/application/proxy.service.ts` | 419 |
+| `modules/proxies/application/proxy.service.ts` | 432 |
 | `modules/proxies/domain/proxy-suggestion.spec.ts` | 193 |
 | `modules/proxies/domain/proxy-suggestion.ts` | 50 |
 | `modules/proxies/domain/proxy-types.ts` | 7 |
 | `modules/proxies/domain/proxy.entity.ts` | 38 |
-| `modules/proxies/domain/proxy.repository.ts` | 78 |
-| `modules/proxies/infrastructure/prisma-proxy.repository.ts` | 270 |
+| `modules/proxies/domain/proxy.repository.ts` | 90 |
+| `modules/proxies/infrastructure/prisma-proxy.repository.ts` | 347 |
 | `modules/proxies/infrastructure/proxy-agent.factory.ts` | 31 |
 | `modules/proxies/infrastructure/proxy-health-tester.ts` | 80 |
 | `modules/proxies/infrastructure/webshare.client.ts` | 60 |
 | `modules/proxies/interface/dto.ts` | 58 |
-| `modules/proxies/interface/proxies.controller.ts` | 207 |
+| `modules/proxies/interface/proxies.controller.ts` | 216 |
 | `modules/proxies/proxies.module.ts` | 27 |
+
+## `modules/proxies/application/proxy-failure.spec.ts`
+
+41 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-failure.spec.ts`
+- importa (interno): `modules/proxies/application/proxy-failure.ts`
+
+- describe “falha explícita de proxy (E15/P-058)” · L4
+
+## `modules/proxies/application/proxy-failure.ts`
+
+20 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-failure.ts`
+- importado por: `modules/proxies/application/proxy-failure.spec.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`
+
+**Funções e constantes de topo**
+- `classifyProxyFailure(message)` · L5
+  - chamado por: `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:936), `WWebJSEngine.handleInitFailure` (wwebjs.engine.ts:1270)
+
+**Tipos**
+- type `ProxyFailure` L1
 
 ## `modules/proxies/application/proxy-resolver.media.spec.ts`
 
@@ -32,35 +55,58 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “fetch global do Node usa o dispatcher no proxy HTTP falso, com auth codificada” · L39
   - it “SOCKS conserva o Agent do socket e não fornece dispatcher para CDN” · L105
 
+## `modules/proxies/application/proxy-resolver.service.spec.ts`
+
+216 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.service.spec.ts`
+- importa (interno): `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-types.ts`, `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/application/proxy-unavailable.error.ts`
+
+- describe “ProxyResolver — afinidade e saída fechada (E15)” · L74
+  - it “UNTESTED continua elegível no SINGLE” · L136
+  - it “RANGE exclui o pin que saiu da faixa” · L141
+  - it “falha do Redis não vira conexão direta” · L169
+  - it “PUT concorrente vence a seleção antiga” · L178
+  - it “conflitos repetidos param com erro e limite de tentativas” · L188
+  - it “falha reportada usa identidade capturada, nunca o pin novo do PUT” · L197
+
 ## `modules/proxies/application/proxy-resolver.service.ts`
 
-186 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.service.ts`
-- importa (interno): `infra/redis/redis.service.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-types.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/infrastructure/proxy-agent.factory.ts`
-- importado por: `modules/proxies/application/proxy-resolver.media.spec.ts`, `modules/proxies/proxies.module.ts`, `modules/sessions/application/session-manager.service.ts`
+227 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-resolver.service.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `infra/redis/redis.service.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-types.ts`, `modules/proxies/application/proxy-unavailable.error.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/infrastructure/proxy-agent.factory.ts`
+- importado por: `modules/proxies/application/proxy-resolver.media.spec.ts`, `modules/proxies/application/proxy-resolver.service.spec.ts`, `modules/proxies/proxies.module.ts`, `modules/sessions/application/session-manager.service.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`
 
-**class `ProxyResolver`** L26 · @Injectable
+**class `ProxyResolver`** L28 · @Injectable
 - injeta (construtor): `repo: @Inject(PROXY_REPOSITORY) ProxyRepository` · `redis: RedisService`
-- `logger` · L28 · private · campo
-- `constructor(repo, redis)` · L30
-- `resolve(sessionId)` · L35 · async
-  - chama: `hashString` L16, `ProxyRepository.findById` (proxy.repository.ts:46), `ProxyRepository.getAssignment` (proxy.repository.ts:56), `ProxyRepository.listEnabledAlive` (proxy.repository.ts:48), `ProxyRepository.listInRange` (proxy.repository.ts:47), `ProxyRepository.setCurrent` (proxy.repository.ts:58)
-  - chamado por: `resolveBaileysTransport` L146, `resolveProxyConfig` L127
-- `reportFailure(sessionId, reason)` · L104 · async
-  - chama: `ProxyRepository.findById` (proxy.repository.ts:46), `ProxyRepository.getAssignment` (proxy.repository.ts:56), `ProxyRepository.updateTest` (proxy.repository.ts:49)
+- `logger` · L30 · private · campo
+- `constructor(repo, redis)` · L32
+- `resolve(sessionId, attempt)` · L37 · async
+  - chama: `hashString` L18, `ProxyUnavailableError.constructor` (proxy-unavailable.error.ts:3), `ProxyRepository.findById` (proxy.repository.ts:48), `ProxyRepository.getAssignment` (proxy.repository.ts:59), `ProxyRepository.listEnabledAlive` (proxy.repository.ts:50), `ProxyRepository.listInRange` (proxy.repository.ts:49), `ProxyRepository.setCurrentIfUnchanged` (proxy.repository.ts:67)
+  - chamado por: `resolveBaileysTransport` L196, `resolveProxyConfig` L173
+- `reportFailure(sessionId, reason, expectedProxyId, tx)` · L139 · async
+  - chama: `ProxyRepository.findById` (proxy.repository.ts:48), `ProxyRepository.getAssignment` (proxy.repository.ts:59), `ProxyRepository.updateTest` (proxy.repository.ts:51)
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
-- `resolveProxyConfig(sessionId)` · L127 · async
-  - chama: `resolve` L35
+- `resolveProxyConfig(sessionId)` · L173 · async
+  - chama: `resolve` L37
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
-- `resolveBaileysTransport(sessionId)` · L146 · async
-  - chama: `resolve` L35, `ProxyRepository.getAssignment` (proxy.repository.ts:56), `buildMediaDispatcher` (proxy-agent.factory.ts:25), `buildProxyAgent` (proxy-agent.factory.ts:15)
-  - chamado por: `resolveAgent` L182, `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
-- `resolveAgent(sessionId)` · L182 · async
-  - chama: `resolveBaileysTransport` L146
+- `resolveBaileysTransport(sessionId)` · L196 · async
+  - chama: `resolve` L37, `buildMediaDispatcher` (proxy-agent.factory.ts:25), `buildProxyAgent` (proxy-agent.factory.ts:15)
+  - chamado por: `resolveAgent` L223, `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
+- `resolveAgent(sessionId)` · L223 · async
+  - chama: `resolveBaileysTransport` L196
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
 
 **Funções e constantes de topo**
-- `hashString(s)` · L16
-  - chamado por: `resolve` L35
+- `hashString(s)` · L18
+  - chamado por: `resolve` L37
+
+## `modules/proxies/application/proxy-unavailable.error.ts`
+
+8 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy-unavailable.error.ts`
+- importado por: `modules/proxies/application/proxy-resolver.service.spec.ts`, `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/proxies/interface/proxies.controller.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/baileys/baileys.proxy.spec.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.lifecycle.spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`
+
+**class `ProxyUnavailableError`** L2 · `extends Error`
+- injeta (construtor): `message: string (param)`
+- `constructor(message)` · L3
+  - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:37), `ProxyService.ensureAvailable` (proxy.service.ts:238), `ProxyService.setAssignment` (proxy.service.ts:272), `PrismaProxyRepository.setAssignment` (prisma-proxy.repository.ts:208)
 
 ## `modules/proxies/application/proxy.service.suggestion.spec.ts`
 
@@ -91,77 +137,80 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/proxies/application/proxy.service.ts`
 
-419 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy.service.ts`
-- importa (interno): `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/domain/proxy-types.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/infrastructure/webshare.client.ts`
+432 linhas · caminho: `apps/gateway/src/modules/proxies/application/proxy.service.ts`
+- importa (interno): `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/domain/proxy-types.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/infrastructure/webshare.client.ts`, `modules/proxies/application/proxy-unavailable.error.ts`
 - importado por: `modules/proxies/application/proxy.service.suggestion.spec.ts`, `modules/proxies/interface/proxies.controller.ts`, `modules/proxies/proxies.module.ts`, `modules/sessions/interface/sessions.controller.ts`
 
-**class `ProxyService`** L83 · @Injectable · `implements OnApplicationBootstrap`
+**class `ProxyService`** L84 · @Injectable · `implements OnApplicationBootstrap`
 - injeta (construtor): `repo: @Inject(PROXY_REPOSITORY) ProxyRepository` · `tester: ProxyHealthTester` · `webshare: WebshareClient`
-- `logger` · L85 · private · campo
-- `constructor(repo, tester, webshare)` · L87
-- `onApplicationBootstrap()` · L97
-  - chama: `testAll` L208
+- `logger` · L86 · private · campo
+- `constructor(repo, tester, webshare)` · L88
+- `onApplicationBootstrap()` · L98
+  - chama: `testAll` L209
   - env: `NODE_ENV`, `PROXY_RETEST_INTERVAL_MIN`
-- `list()` · L114
-  - chama: `ProxyRepository.list` (proxy.repository.ts:45)
-  - chamado por: `ProxiesController.list` (proxies.controller.ts:62)
-- `create(data)` · L118 · async
-  - chama: `ProxyRepository.create` (proxy.repository.ts:42), `ProxyRepository.nextPosition` (proxy.repository.ts:41)
-  - chamado por: `ProxiesController.create` (proxies.controller.ts:104)
-- `bulkImport(text, protocol)` · L135 · async
-  - chama: `parseProxyLine` L383, `ProxyRepository.create` (proxy.repository.ts:42), `ProxyRepository.nextPosition` (proxy.repository.ts:41)
-  - chamado por: `ProxiesController.bulk` (proxies.controller.ts:124)
-- `remove(id)` · L185 · async
-  - chama: `ProxyRepository.delete` (proxy.repository.ts:54)
-  - chamado por: `ProxiesController.remove` (proxies.controller.ts:166)
-- `setEnabled(id, enabled)` · L189 · async
-  - chama: `ProxyRepository.setEnabled` (proxy.repository.ts:53)
-  - chamado por: `ProxiesController.disable` (proxies.controller.ts:160), `ProxiesController.enable` (proxies.controller.ts:154)
-- `test(id)` · L193 · async
-  - chama: `ProxyRepository.findById` (proxy.repository.ts:46), `ProxyRepository.updateTest` (proxy.repository.ts:49), `ProxyHealthTester.test` (proxy-health-tester.ts:23)
-  - chamado por: `testAll` L208, `ProxiesController.test` (proxies.controller.ts:145)
-- `testAll()` · L208 · async
-  - chama: `mapLimit` L63, `test` L193, `ProxyRepository.list` (proxy.repository.ts:45)
-  - chamado por: `onApplicationBootstrap` L97, `ProxiesController.testAll` (proxies.controller.ts:135)
-- `getAssignment(sessionId)` · L213
-  - chama: `ProxyRepository.getAssignment` (proxy.repository.ts:56)
-  - chamado por: `ProxiesController.getAssignment` (proxies.controller.ts:173)
-- `listAvailable()` · L220 · async
-  - chama: `ProxyRepository.list` (proxy.repository.ts:45), `ProxyRepository.usedProxyIds` (proxy.repository.ts:61)
-  - chamado por: `ProxiesController.listAvailable` (proxies.controller.ts:69)
-- `ensureAvailable(proxyId)` · L233 · async
-  - chama: `ProxyRepository.findById` (proxy.repository.ts:46), `ProxyRepository.usedProxyIds` (proxy.repository.ts:61)
-  - chamado por: `assignExclusive` L247, `SessionsController.create` (sessions.controller.ts:102)
-- `assignExclusive(sessionId, proxyId)` · L247 · async
-  - chama: `ensureAvailable` L233, `setAssignment` L261
+- `list()` · L115
+  - chama: `ProxyRepository.list` (proxy.repository.ts:47)
+  - chamado por: `ProxiesController.list` (proxies.controller.ts:63)
+- `create(data)` · L119 · async
+  - chama: `ProxyRepository.create` (proxy.repository.ts:44), `ProxyRepository.nextPosition` (proxy.repository.ts:43)
+  - chamado por: `ProxiesController.create` (proxies.controller.ts:105)
+- `bulkImport(text, protocol)` · L136 · async
+  - chama: `parseProxyLine` L396, `ProxyRepository.create` (proxy.repository.ts:44), `ProxyRepository.nextPosition` (proxy.repository.ts:43)
+  - chamado por: `ProxiesController.bulk` (proxies.controller.ts:125)
+- `remove(id)` · L186 · async
+  - chama: `ProxyRepository.delete` (proxy.repository.ts:57)
+  - chamado por: `ProxiesController.remove` (proxies.controller.ts:167)
+- `setEnabled(id, enabled)` · L190 · async
+  - chama: `ProxyRepository.setEnabled` (proxy.repository.ts:56)
+  - chamado por: `ProxiesController.disable` (proxies.controller.ts:161), `ProxiesController.enable` (proxies.controller.ts:155)
+- `test(id)` · L194 · async
+  - chama: `ProxyRepository.findById` (proxy.repository.ts:48), `ProxyRepository.updateTest` (proxy.repository.ts:51), `ProxyHealthTester.test` (proxy-health-tester.ts:23)
+  - chamado por: `testAll` L209, `ProxiesController.test` (proxies.controller.ts:146)
+- `testAll()` · L209 · async
+  - chama: `mapLimit` L64, `test` L194, `ProxyRepository.list` (proxy.repository.ts:47)
+  - chamado por: `onApplicationBootstrap` L98, `ProxiesController.testAll` (proxies.controller.ts:136)
+- `getAssignment(sessionId)` · L214
+  - chama: `ProxyRepository.getAssignment` (proxy.repository.ts:59)
+  - chamado por: `ProxiesController.getAssignment` (proxies.controller.ts:174)
+- `resolveSessionId(reference)` · L218
+  - chama: `ProxyRepository.resolveSessionId` (proxy.repository.ts:64)
+  - chamado por: `ProxiesController.getAssignment` (proxies.controller.ts:174), `ProxiesController.setAssignment` (proxies.controller.ts:190)
+- `listAvailable()` · L225 · async
+  - chama: `ProxyRepository.list` (proxy.repository.ts:47), `ProxyRepository.usedProxyIds` (proxy.repository.ts:73)
+  - chamado por: `ProxiesController.listAvailable` (proxies.controller.ts:70)
+- `ensureAvailable(proxyId, ownSessionId)` · L238 · async
+  - chama: `ProxyUnavailableError.constructor` (proxy-unavailable.error.ts:3), `ProxyRepository.findById` (proxy.repository.ts:48), `ProxyRepository.usedProxyIds` (proxy.repository.ts:73)
+  - chamado por: `assignExclusive` L258, `setAssignment` L272, `SessionsController.create` (sessions.controller.ts:102)
+- `assignExclusive(sessionId, proxyId)` · L258 · async
+  - chama: `ensureAvailable` L238, `setAssignment` L272
   - chamado por: `SessionsController.create` (sessions.controller.ts:102)
-- `setAssignment(sessionId, data)` · L261 · async
-  - chama: `ProxyRepository.setAssignment` (proxy.repository.ts:57), `ProxyRepository.setCurrent` (proxy.repository.ts:58)
-  - chamado por: `assignExclusive` L247, `ProxiesController.setAssignment` (proxies.controller.ts:188)
-- `markReleased(sessionId, sessionName)` · L285 · async
-  - chama: `ProxyRepository.markReleased` (proxy.repository.ts:67)
+- `setAssignment(sessionId, data)` · L272 · async
+  - chama: `ProxyUnavailableError.constructor` (proxy-unavailable.error.ts:3), `ensureAvailable` L238, `ProxyRepository.setAssignment` (proxy.repository.ts:65)
+  - chamado por: `assignExclusive` L258, `ProxiesController.setAssignment` (proxies.controller.ts:190)
+- `markReleased(sessionId, sessionName)` · L298 · async
+  - chama: `ProxyRepository.markReleased` (proxy.repository.ts:79)
   - chamado por: `SessionsController.remove` (sessions.controller.ts:358)
-- `suggestionFor(sessionName)` · L306 · async
-  - chama: `pickReleased` (proxy-suggestion.ts:18), `suggestionAvailability` (proxy-suggestion.ts:40), `ProxyRepository.findById` (proxy.repository.ts:46), `ProxyRepository.findReleasedByName` (proxy.repository.ts:74), `ProxyRepository.proxyOwnerName` (proxy.repository.ts:63)
-  - chamado por: `ProxiesController.suggestion` (proxies.controller.ts:76)
-- `webshareConfigured()` · L326
+- `suggestionFor(sessionName)` · L319 · async
+  - chama: `pickReleased` (proxy-suggestion.ts:18), `suggestionAvailability` (proxy-suggestion.ts:40), `ProxyRepository.findById` (proxy.repository.ts:48), `ProxyRepository.findReleasedByName` (proxy.repository.ts:86), `ProxyRepository.proxyOwnerName` (proxy.repository.ts:75)
+  - chamado por: `ProxiesController.suggestion` (proxies.controller.ts:77)
+- `webshareConfigured()` · L339
   - chama: `WebshareClient.isConfigured` (webshare.client.ts:29)
-  - chamado por: `ProxiesController.webshareStatus` (proxies.controller.ts:99)
-- `syncWebshare()` · L331 · async
-  - chama: `ProxyRepository.create` (proxy.repository.ts:42), `ProxyRepository.findByWebshareId` (proxy.repository.ts:43), `ProxyRepository.nextPosition` (proxy.repository.ts:41), `ProxyRepository.updateConnection` (proxy.repository.ts:44), `WebshareClient.fetchAll` (webshare.client.ts:34), `WebshareClient.isConfigured` (webshare.client.ts:29)
-  - chamado por: `ProxiesController.syncWebshare` (proxies.controller.ts:140)
+  - chamado por: `ProxiesController.webshareStatus` (proxies.controller.ts:100)
+- `syncWebshare()` · L344 · async
+  - chama: `ProxyRepository.create` (proxy.repository.ts:44), `ProxyRepository.findByWebshareId` (proxy.repository.ts:45), `ProxyRepository.nextPosition` (proxy.repository.ts:43), `ProxyRepository.updateConnection` (proxy.repository.ts:46), `WebshareClient.fetchAll` (webshare.client.ts:34), `WebshareClient.isConfigured` (webshare.client.ts:29)
+  - chamado por: `ProxiesController.syncWebshare` (proxies.controller.ts:141)
 
 **Funções e constantes de topo**
-- `mapLimit(items, limit, fn)` · L63 · async
-  - chamado por: `testAll` L208
-- `parseProxyLine(line)` · L383
-  - chamado por: `bulkImport` L135
+- `mapLimit(items, limit, fn)` · L64 · async
+  - chamado por: `testAll` L209
+- `parseProxyLine(line)` · L396
+  - chamado por: `bulkImport` L136
 
 **Tipos**
-- interface `CreateProxyData` L25 · 6 propriedade(s)
-- interface `TestResult` L34 · 5 propriedade(s)
-- interface `ProxySuggestion` L45 · 6 propriedade(s)
-- interface `SetAssignmentData` L54 · 5 propriedade(s)
+- interface `CreateProxyData` L26 · 6 propriedade(s)
+- interface `TestResult` L35 · 5 propriedade(s)
+- interface `ProxySuggestion` L46 · 6 propriedade(s)
+- interface `SetAssignmentData` L55 · 5 propriedade(s)
 
 ## `modules/proxies/domain/proxy-suggestion.spec.ts`
 
@@ -203,9 +252,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Funções e constantes de topo**
 - `pickReleased(rows, name)` · L18
-  - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:306)
+  - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:319)
 - `suggestionAvailability(proxy, inUse)` · L40
-  - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:306)
+  - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:319)
 
 **Tipos**
 - type `ProxySuggestionReason` L6
@@ -214,7 +263,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `modules/proxies/domain/proxy-types.ts`
 
 7 linhas · caminho: `apps/gateway/src/modules/proxies/domain/proxy-types.ts`
-- importado por: `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/application/proxy.service.suggestion.spec.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`
+- importado por: `modules/proxies/application/proxy-resolver.service.spec.ts`, `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/application/proxy.service.suggestion.spec.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`
 
 **Tipos**
 - type `ProxyProtocol` L1
@@ -227,166 +276,174 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 38 linhas · caminho: `apps/gateway/src/modules/proxies/domain/proxy.entity.ts`
 - importa (interno): `modules/proxies/domain/proxy-types.ts`
-- importado por: `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/application/proxy.service.suggestion.spec.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/proxies/infrastructure/proxy-agent.factory.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/interface/proxies.controller.ts`
+- importado por: `modules/proxies/application/proxy-resolver.service.spec.ts`, `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/application/proxy.service.suggestion.spec.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/proxies/infrastructure/proxy-agent.factory.ts`, `modules/proxies/infrastructure/proxy-health-tester.ts`, `modules/proxies/interface/proxies.controller.ts`
 
 **class `Proxy`** L9
 - injeta (construtor): `id: string` · `position: number` · `label: string | null` · `protocol: ProxyProtocol` · `host: string` · `port: number` · `username: string | null` · `password: string | null` · `source: ProxySource` · `country: string | null` · `exitIp: string | null` · `latencyMs: number | null` · `status: ProxyStatus` · `enabled: boolean`
 - `constructor(id, position, label, protocol, host, port, username, passwo…)` · L10
-  - chamado por: `toProxy` (prisma-proxy.repository.ts:46)
+  - chamado por: `toProxy` (prisma-proxy.repository.ts:50)
 
 **class `ProxyAssignment`** L28
 - injeta (construtor): `sessionId: string` · `mode: ProxyMode` · `rangeStart: number | null` · `rangeEnd: number | null` · `strategy: ProxyStrategy` · `currentProxyId: string | null`
 - `constructor(sessionId, mode, rangeStart, rangeEnd, strategy, currentPro…)` · L29
-  - chamado por: `toAssignment` (prisma-proxy.repository.ts:65)
+  - chamado por: `toAssignment` (prisma-proxy.repository.ts:69)
 
 ## `modules/proxies/domain/proxy.repository.ts`
 
-78 linhas · caminho: `apps/gateway/src/modules/proxies/domain/proxy.repository.ts`
-- importa (interno): `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy-types.ts`
+90 linhas · caminho: `apps/gateway/src/modules/proxies/domain/proxy.repository.ts`
+- importa (interno): `modules/proxies/domain/proxy.entity.ts`, `infra/prisma/prisma.service.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy-types.ts`
 - importado por: `modules/proxies/application/proxy-resolver.service.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/infrastructure/prisma-proxy.repository.ts`, `modules/proxies/proxies.module.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`
 
 **Funções e constantes de topo**
-- `PROXY_REPOSITORY` = `Symbol('PROXY_REPOSITORY')` · L77
+- `PROXY_REPOSITORY` = `Symbol('PROXY_REPOSITORY')` · L89
 
 **Tipos**
-- interface `CreateProxyInput` L11 · 10 propriedade(s)
-- interface `UpdateConnectionInput` L24 · 5 propriedade(s)
-- interface `SetAssignmentInput` L32 · 5 propriedade(s)
-- interface `ProxyRepository` L40
-  - `ProxyRepository.nextPosition()` · L41
-    - implementado por: `PrismaProxyRepository.nextPosition` (prisma-proxy.repository.ts:81)
-    - chamado por: `ProxyService.bulkImport` (proxy.service.ts:135), `ProxyService.create` (proxy.service.ts:118), `ProxyService.syncWebshare` (proxy.service.ts:331)
-  - `ProxyRepository.create(input)` · L42
-    - implementado por: `PrismaProxyRepository.create` (prisma-proxy.repository.ts:86)
-    - chamado por: `ProxyService.bulkImport` (proxy.service.ts:135), `ProxyService.create` (proxy.service.ts:118), `ProxyService.syncWebshare` (proxy.service.ts:331)
-  - `ProxyRepository.findByWebshareId(webshareId)` · L43
-    - implementado por: `PrismaProxyRepository.findByWebshareId` (prisma-proxy.repository.ts:105)
-    - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:331)
-  - `ProxyRepository.updateConnection(id, input)` · L44
-    - implementado por: `PrismaProxyRepository.updateConnection` (prisma-proxy.repository.ts:110)
-    - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:331)
-  - `ProxyRepository.list()` · L45
-    - implementado por: `PrismaProxyRepository.list` (prisma-proxy.repository.ts:126)
-    - chamado por: `ProxyService.list` (proxy.service.ts:114), `ProxyService.listAvailable` (proxy.service.ts:220), `ProxyService.testAll` (proxy.service.ts:208)
-  - `ProxyRepository.findById(id)` · L46
-    - implementado por: `PrismaProxyRepository.findById` (prisma-proxy.repository.ts:133)
-    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyResolver.resolve` (proxy-resolver.service.ts:35), `ProxyService.ensureAvailable` (proxy.service.ts:233), `ProxyService.suggestionFor` (proxy.service.ts:306), `ProxyService.test` (proxy.service.ts:193)
-  - `ProxyRepository.listInRange(start, end)` · L47
-    - implementado por: `PrismaProxyRepository.listInRange` (prisma-proxy.repository.ts:138)
-    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:35)
-  - `ProxyRepository.listEnabledAlive()` · L48
-    - implementado por: `PrismaProxyRepository.listEnabledAlive` (prisma-proxy.repository.ts:146)
-    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:35)
-  - `ProxyRepository.updateTest(id, r)` · L49
-    - implementado por: `PrismaProxyRepository.updateTest` (prisma-proxy.repository.ts:154)
-    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyService.test` (proxy.service.ts:193)
-  - `ProxyRepository.setEnabled(id, enabled)` · L53
-    - implementado por: `PrismaProxyRepository.setEnabled` (prisma-proxy.repository.ts:169)
-    - chamado por: `ProxyService.setEnabled` (proxy.service.ts:189)
-  - `ProxyRepository.delete(id)` · L54
-    - implementado por: `PrismaProxyRepository.delete` (prisma-proxy.repository.ts:173)
-    - chamado por: `ProxyService.remove` (proxy.service.ts:185)
-  - `ProxyRepository.getAssignment(sessionId)` · L56
-    - implementado por: `PrismaProxyRepository.getAssignment` (prisma-proxy.repository.ts:177)
-    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyResolver.resolve` (proxy-resolver.service.ts:35), `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146), `ProxyService.getAssignment` (proxy.service.ts:213)
-  - `ProxyRepository.setAssignment(input)` · L57
-    - implementado por: `PrismaProxyRepository.setAssignment` (prisma-proxy.repository.ts:184)
-    - chamado por: `ProxyService.setAssignment` (proxy.service.ts:261)
-  - `ProxyRepository.setCurrent(sessionId, proxyId)` · L58
-    - implementado por: `PrismaProxyRepository.setCurrent` (prisma-proxy.repository.ts:208)
-    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:35), `ProxyService.setAssignment` (proxy.service.ts:261)
-  - `ProxyRepository.usedProxyIds()` · L61
-    - implementado por: `PrismaProxyRepository.usedProxyIds` (prisma-proxy.repository.ts:215)
-    - chamado por: `ProxyService.ensureAvailable` (proxy.service.ts:233), `ProxyService.listAvailable` (proxy.service.ts:220)
-  - `ProxyRepository.proxyOwnerName(proxyId)` · L63
-    - implementado por: `PrismaProxyRepository.proxyOwnerName` (prisma-proxy.repository.ts:229)
-    - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:306)
-  - `ProxyRepository.markReleased(sessionId, sessionName, at)` · L67
-    - implementado por: `PrismaProxyRepository.markReleased` (prisma-proxy.repository.ts:243)
-    - chamado por: `ProxyService.markReleased` (proxy.service.ts:285)
-  - `ProxyRepository.findReleasedByName(name)` · L74
-    - implementado por: `PrismaProxyRepository.findReleasedByName` (prisma-proxy.repository.ts:255)
-    - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:306)
+- interface `CreateProxyInput` L12 · 10 propriedade(s)
+- interface `UpdateConnectionInput` L25 · 5 propriedade(s)
+- interface `SetAssignmentInput` L33 · 6 propriedade(s)
+- interface `ProxyRepository` L42
+  - `ProxyRepository.nextPosition()` · L43
+    - implementado por: `PrismaProxyRepository.nextPosition` (prisma-proxy.repository.ts:85)
+    - chamado por: `ProxyService.bulkImport` (proxy.service.ts:136), `ProxyService.create` (proxy.service.ts:119), `ProxyService.syncWebshare` (proxy.service.ts:344)
+  - `ProxyRepository.create(input)` · L44
+    - implementado por: `PrismaProxyRepository.create` (prisma-proxy.repository.ts:90)
+    - chamado por: `ProxyService.bulkImport` (proxy.service.ts:136), `ProxyService.create` (proxy.service.ts:119), `ProxyService.syncWebshare` (proxy.service.ts:344)
+  - `ProxyRepository.findByWebshareId(webshareId)` · L45
+    - implementado por: `PrismaProxyRepository.findByWebshareId` (prisma-proxy.repository.ts:109)
+    - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:344)
+  - `ProxyRepository.updateConnection(id, input)` · L46
+    - implementado por: `PrismaProxyRepository.updateConnection` (prisma-proxy.repository.ts:114)
+    - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:344)
+  - `ProxyRepository.list()` · L47
+    - implementado por: `PrismaProxyRepository.list` (prisma-proxy.repository.ts:130)
+    - chamado por: `ProxyService.list` (proxy.service.ts:115), `ProxyService.listAvailable` (proxy.service.ts:225), `ProxyService.testAll` (proxy.service.ts:209)
+  - `ProxyRepository.findById(id, tx)` · L48
+    - implementado por: `PrismaProxyRepository.findById` (prisma-proxy.repository.ts:137)
+    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:139), `ProxyResolver.resolve` (proxy-resolver.service.ts:37), `ProxyService.ensureAvailable` (proxy.service.ts:238), `ProxyService.suggestionFor` (proxy.service.ts:319), `ProxyService.test` (proxy.service.ts:194)
+  - `ProxyRepository.listInRange(start, end)` · L49
+    - implementado por: `PrismaProxyRepository.listInRange` (prisma-proxy.repository.ts:145)
+    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:37)
+  - `ProxyRepository.listEnabledAlive()` · L50
+    - implementado por: `PrismaProxyRepository.listEnabledAlive` (prisma-proxy.repository.ts:153)
+    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:37)
+  - `ProxyRepository.updateTest(id, r, tx)` · L51
+    - implementado por: `PrismaProxyRepository.updateTest` (prisma-proxy.repository.ts:161)
+    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:139), `ProxyService.test` (proxy.service.ts:194)
+  - `ProxyRepository.setEnabled(id, enabled)` · L56
+    - implementado por: `PrismaProxyRepository.setEnabled` (prisma-proxy.repository.ts:177)
+    - chamado por: `ProxyService.setEnabled` (proxy.service.ts:190)
+  - `ProxyRepository.delete(id)` · L57
+    - implementado por: `PrismaProxyRepository.delete` (prisma-proxy.repository.ts:181)
+    - chamado por: `ProxyService.remove` (proxy.service.ts:186)
+  - `ProxyRepository.getAssignment(sessionId, tx)` · L59
+    - implementado por: `PrismaProxyRepository.getAssignment` (prisma-proxy.repository.ts:185)
+    - chamado por: `ProxyResolver.reportFailure` (proxy-resolver.service.ts:139), `ProxyResolver.resolve` (proxy-resolver.service.ts:37), `ProxyService.getAssignment` (proxy.service.ts:214)
+  - `ProxyRepository.resolveSessionId(reference)` · L64
+    - implementado por: `PrismaProxyRepository.resolveSessionId` (prisma-proxy.repository.ts:195)
+    - chamado por: `ProxyService.resolveSessionId` (proxy.service.ts:218)
+  - `ProxyRepository.setAssignment(input)` · L65
+    - implementado por: `PrismaProxyRepository.setAssignment` (prisma-proxy.repository.ts:208)
+    - chamado por: `ProxyService.setAssignment` (proxy.service.ts:272)
+  - `ProxyRepository.setCurrent(sessionId, proxyId)` · L66
+    - implementado por: `PrismaProxyRepository.setCurrent` (prisma-proxy.repository.ts:267)
+  - `ProxyRepository.setCurrentIfUnchanged(expected, proxyId)` · L67
+    - implementado por: `PrismaProxyRepository.setCurrentIfUnchanged` (prisma-proxy.repository.ts:274)
+    - chamado por: `ProxyResolver.resolve` (proxy-resolver.service.ts:37)
+  - `ProxyRepository.usedProxyIds(excludeSessionId)` · L73
+    - implementado por: `PrismaProxyRepository.usedProxyIds` (prisma-proxy.repository.ts:292)
+    - chamado por: `ProxyService.ensureAvailable` (proxy.service.ts:238), `ProxyService.listAvailable` (proxy.service.ts:225)
+  - `ProxyRepository.proxyOwnerName(proxyId)` · L75
+    - implementado por: `PrismaProxyRepository.proxyOwnerName` (prisma-proxy.repository.ts:306)
+    - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:319)
+  - `ProxyRepository.markReleased(sessionId, sessionName, at)` · L79
+    - implementado por: `PrismaProxyRepository.markReleased` (prisma-proxy.repository.ts:320)
+    - chamado por: `ProxyService.markReleased` (proxy.service.ts:298)
+  - `ProxyRepository.findReleasedByName(name)` · L86
+    - implementado por: `PrismaProxyRepository.findReleasedByName` (prisma-proxy.repository.ts:332)
+    - chamado por: `ProxyService.suggestionFor` (proxy.service.ts:319)
 
 ## `modules/proxies/infrastructure/prisma-proxy.repository.ts`
 
-270 linhas · caminho: `apps/gateway/src/modules/proxies/infrastructure/prisma-proxy.repository.ts`
-- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/domain/proxy-types.ts`
+347 linhas · caminho: `apps/gateway/src/modules/proxies/infrastructure/prisma-proxy.repository.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`, `modules/proxies/application/proxy-unavailable.error.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/domain/proxy-suggestion.ts`, `modules/proxies/domain/proxy.repository.ts`, `modules/proxies/domain/proxy-types.ts`
 - importado por: `modules/proxies/proxies.module.ts`
 
-**class `PrismaProxyRepository`** L76 · @Injectable · `implements ProxyRepository`
+**class `PrismaProxyRepository`** L80 · @Injectable · `implements ProxyRepository`
 - injeta (construtor): `prisma: PrismaService`
-- `constructor(prisma)` · L78
-- `nextPosition()` · L81 · async
-  - implementa: `ProxyRepository.nextPosition` (proxy.repository.ts:41)
+- `constructor(prisma)` · L82
+- `nextPosition()` · L85 · async
+  - implementa: `ProxyRepository.nextPosition` (proxy.repository.ts:43)
   - banco: `proxy.aggregate`
-- `create(input)` · L86 · async
-  - implementa: `ProxyRepository.create` (proxy.repository.ts:42)
-  - chama: `toProxy` L46, `newId` (ulid.ts:4)
+- `create(input)` · L90 · async
+  - implementa: `ProxyRepository.create` (proxy.repository.ts:44)
+  - chama: `toProxy` L50, `newId` (ulid.ts:4)
   - banco: `proxy.create`
-- `findByWebshareId(webshareId)` · L105 · async
-  - implementa: `ProxyRepository.findByWebshareId` (proxy.repository.ts:43)
-  - chama: `toProxy` L46
+- `findByWebshareId(webshareId)` · L109 · async
+  - implementa: `ProxyRepository.findByWebshareId` (proxy.repository.ts:45)
+  - chama: `toProxy` L50
   - banco: `proxy.findUnique`
-- `updateConnection(id, input)` · L110 · async
-  - implementa: `ProxyRepository.updateConnection` (proxy.repository.ts:44)
+- `updateConnection(id, input)` · L114 · async
+  - implementa: `ProxyRepository.updateConnection` (proxy.repository.ts:46)
   - banco: `proxy.update`
-- `list()` · L126 · async
-  - implementa: `ProxyRepository.list` (proxy.repository.ts:45)
+- `list()` · L130 · async
+  - implementa: `ProxyRepository.list` (proxy.repository.ts:47)
   - banco: `proxy.findMany`
-- `findById(id)` · L133 · async
-  - implementa: `ProxyRepository.findById` (proxy.repository.ts:46)
-  - chama: `toProxy` L46
-  - banco: `proxy.findUnique`
-- `listInRange(start, end)` · L138 · async
-  - implementa: `ProxyRepository.listInRange` (proxy.repository.ts:47)
+- `findById(id, tx)` · L137 · async
+  - implementa: `ProxyRepository.findById` (proxy.repository.ts:48)
+  - chama: `toProxy` L50
+- `listInRange(start, end)` · L145 · async
+  - implementa: `ProxyRepository.listInRange` (proxy.repository.ts:49)
   - banco: `proxy.findMany`
-- `listEnabledAlive()` · L146 · async
-  - implementa: `ProxyRepository.listEnabledAlive` (proxy.repository.ts:48)
+- `listEnabledAlive()` · L153 · async
+  - implementa: `ProxyRepository.listEnabledAlive` (proxy.repository.ts:50)
   - banco: `proxy.findMany`
-- `updateTest(id, r)` · L154 · async
-  - implementa: `ProxyRepository.updateTest` (proxy.repository.ts:49)
+- `updateTest(id, r, tx)` · L161 · async
+  - implementa: `ProxyRepository.updateTest` (proxy.repository.ts:51)
+- `setEnabled(id, enabled)` · L177 · async
+  - implementa: `ProxyRepository.setEnabled` (proxy.repository.ts:56)
   - banco: `proxy.update`
-- `setEnabled(id, enabled)` · L169 · async
-  - implementa: `ProxyRepository.setEnabled` (proxy.repository.ts:53)
-  - banco: `proxy.update`
-- `delete(id)` · L173 · async
-  - implementa: `ProxyRepository.delete` (proxy.repository.ts:54)
+- `delete(id)` · L181 · async
+  - implementa: `ProxyRepository.delete` (proxy.repository.ts:57)
   - banco: `proxy.delete`
-- `getAssignment(sessionId)` · L177 · async
-  - implementa: `ProxyRepository.getAssignment` (proxy.repository.ts:56)
-  - chama: `toAssignment` L65
-  - banco: `sessionProxyAssignment.findUnique`
-- `setAssignment(input)` · L184 · async
-  - implementa: `ProxyRepository.setAssignment` (proxy.repository.ts:57)
-  - chama: `toAssignment` L65
-  - banco: `sessionProxyAssignment.upsert`
-- `setCurrent(sessionId, proxyId)` · L208 · async
-  - implementa: `ProxyRepository.setCurrent` (proxy.repository.ts:58)
+- `getAssignment(sessionId, tx)` · L185 · async
+  - implementa: `ProxyRepository.getAssignment` (proxy.repository.ts:59)
+  - chama: `toAssignment` L69
+- `resolveSessionId(reference)` · L195 · async
+  - implementa: `ProxyRepository.resolveSessionId` (proxy.repository.ts:64)
+  - banco: `waSession.findUnique`
+- `setAssignment(input)` · L208 · async
+  - implementa: `ProxyRepository.setAssignment` (proxy.repository.ts:65)
+  - chama: `ProxyUnavailableError.constructor` (proxy-unavailable.error.ts:3), `toAssignment` L69
+  - banco: `proxy.findUnique`, `sessionProxyAssignment.upsert`
+- `setCurrent(sessionId, proxyId)` · L267 · async
+  - implementa: `ProxyRepository.setCurrent` (proxy.repository.ts:66)
   - banco: `sessionProxyAssignment.update`
-- `usedProxyIds()` · L215 · async
-  - implementa: `ProxyRepository.usedProxyIds` (proxy.repository.ts:61)
-  - banco: `sessionProxyAssignment.findMany`, `waSession.findMany`
-- `proxyOwnerName(proxyId)` · L229 · async
-  - implementa: `ProxyRepository.proxyOwnerName` (proxy.repository.ts:63)
-  - banco: `sessionProxyAssignment.findMany`, `waSession.findFirst`
-- `markReleased(sessionId, sessionName, at)` · L243 · async
-  - implementa: `ProxyRepository.markReleased` (proxy.repository.ts:67)
+- `setCurrentIfUnchanged(expected, proxyId)` · L274 · async
+  - implementa: `ProxyRepository.setCurrentIfUnchanged` (proxy.repository.ts:67)
   - banco: `sessionProxyAssignment.updateMany`
-- `findReleasedByName(name)` · L255 · async
-  - implementa: `ProxyRepository.findReleasedByName` (proxy.repository.ts:74)
+- `usedProxyIds(excludeSessionId)` · L292 · async
+  - implementa: `ProxyRepository.usedProxyIds` (proxy.repository.ts:73)
+  - banco: `sessionProxyAssignment.findMany`, `waSession.findMany`
+- `proxyOwnerName(proxyId)` · L306 · async
+  - implementa: `ProxyRepository.proxyOwnerName` (proxy.repository.ts:75)
+  - banco: `sessionProxyAssignment.findMany`, `waSession.findFirst`
+- `markReleased(sessionId, sessionName, at)` · L320 · async
+  - implementa: `ProxyRepository.markReleased` (proxy.repository.ts:79)
+  - banco: `sessionProxyAssignment.updateMany`
+- `findReleasedByName(name)` · L332 · async
+  - implementa: `ProxyRepository.findReleasedByName` (proxy.repository.ts:86)
 
 **Funções e constantes de topo**
-- `toProxy(r)` · L46
+- `toProxy(r)` · L50
   - chama: `Proxy.constructor` (proxy.entity.ts:10)
-  - chamado por: `create` L86, `findById` L133, `findByWebshareId` L105
-- `toAssignment(r)` · L65
+  - chamado por: `create` L90, `findById` L137, `findByWebshareId` L109
+- `toAssignment(r)` · L69
   - chama: `ProxyAssignment.constructor` (proxy.entity.ts:29)
-  - chamado por: `getAssignment` L177, `setAssignment` L184
+  - chamado por: `getAssignment` L185, `setAssignment` L208
 
 **Tipos**
-- type `ProxyRow` L20
-- type `AssignmentRow` L37
+- type `ProxyRow` L24
+- type `AssignmentRow` L41
 
 ## `modules/proxies/infrastructure/proxy-agent.factory.ts`
 
@@ -399,10 +456,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `buildMediaDispatcher` L25, `buildProxyAgent` L15
 - `buildProxyAgent(p)` · L15
   - chama: `buildProxyUrl` L7
-  - chamado por: `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146), `ProxyHealthTester.test` (proxy-health-tester.ts:23)
+  - chamado por: `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:196), `ProxyHealthTester.test` (proxy-health-tester.ts:23)
 - `buildMediaDispatcher(p)` · L25
   - chama: `buildProxyUrl` L7
-  - chamado por: `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146)
+  - chamado por: `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:196)
 
 ## `modules/proxies/infrastructure/proxy-health-tester.ts`
 
@@ -415,7 +472,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `constructor(config)` · L21
 - `test(proxy)` · L23 · async
   - chama: `buildProxyAgent` (proxy-agent.factory.ts:15)
-  - chamado por: `ProxyService.test` (proxy.service.ts:193)
+  - chamado por: `ProxyService.test` (proxy.service.ts:194)
 
 **Tipos**
 - interface `HealthResult` L9 · 4 propriedade(s)
@@ -430,9 +487,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `config: ConfigService<Env, true>`
 - `constructor(config)` · L27
 - `isConfigured()` · L29
-  - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:331), `ProxyService.webshareConfigured` (proxy.service.ts:326)
+  - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:344), `ProxyService.webshareConfigured` (proxy.service.ts:339)
 - `fetchAll()` · L34 · async
-  - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:331)
+  - chamado por: `ProxyService.syncWebshare` (proxy.service.ts:344)
 
 **Tipos**
 - interface `WebshareProxy` L7 · 8 propriedade(s)
@@ -452,47 +509,47 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/proxies/interface/proxies.controller.ts`
 
-207 linhas · caminho: `apps/gateway/src/modules/proxies/interface/proxies.controller.ts`
-- importa (interno): `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.decorator.ts`, `modules/iam/interface/roles.guard.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/interface/dto.ts`
+216 linhas · caminho: `apps/gateway/src/modules/proxies/interface/proxies.controller.ts`
+- importa (interno): `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.decorator.ts`, `modules/iam/interface/roles.guard.ts`, `modules/proxies/application/proxy.service.ts`, `modules/proxies/application/proxy-unavailable.error.ts`, `modules/proxies/domain/proxy.entity.ts`, `modules/proxies/interface/dto.ts`
 - importado por: `modules/proxies/proxies.module.ts`
 
-**class `ProxiesController`** L56 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @MinRole('ADMIN') · @Controller
+**class `ProxiesController`** L57 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @MinRole('ADMIN') · @Controller
 - injeta (construtor): `service: ProxyService`
-- `constructor(service)` · L60
-- `list()` · L62 · async · @Get('proxies')
-  - chama: `ProxyService.list` (proxy.service.ts:114)
-- `listAvailable()` · L69 · async · @Get('proxies/available')
-  - chama: `ProxyService.listAvailable` (proxy.service.ts:220)
-- `suggestion(sessionName)` · L76 · async · @Get('proxies/suggestion')
-  - chama: `ProxyService.suggestionFor` (proxy.service.ts:306), `toDto` L27
-- `webshareStatus()` · L99 · @Get('proxies/webshare/status')
-  - chama: `ProxyService.webshareConfigured` (proxy.service.ts:326)
-- `create(body)` · L104 · async · @Post('proxies')
-  - chama: `ProxyService.create` (proxy.service.ts:118), `toDto` L27
-- `bulk(body)` · L124 · async · @Post('proxies/bulk')
-  - chama: `ProxyService.bulkImport` (proxy.service.ts:135)
-- `testAll()` · L135 · @Post('proxies/test-all')
-  - chama: `ProxyService.testAll` (proxy.service.ts:208)
-- `syncWebshare()` · L140 · @Post('proxies/webshare/sync')
-  - chama: `ProxyService.syncWebshare` (proxy.service.ts:331)
-- `test(id)` · L145 · async · @Post('proxies/:id/test')
-  - chama: `ProxyService.test` (proxy.service.ts:193)
-- `enable(id)` · L154 · async · @Post('proxies/:id/enable')
-  - chama: `ProxyService.setEnabled` (proxy.service.ts:189)
-- `disable(id)` · L160 · async · @Post('proxies/:id/disable')
-  - chama: `ProxyService.setEnabled` (proxy.service.ts:189)
-- `remove(id)` · L166 · async · @Delete('proxies/:id')
-  - chama: `ProxyService.remove` (proxy.service.ts:185)
-- `getAssignment(id)` · L173 · async · @Get('sessions/:id/proxy')
-  - chama: `ProxyService.getAssignment` (proxy.service.ts:213), `assignmentToDto` L45
-- `setAssignment(id, body)` · L188 · async · @Put('sessions/:id/proxy')
-  - chama: `ProxyService.setAssignment` (proxy.service.ts:261), `assignmentToDto` L45
+- `constructor(service)` · L61
+- `list()` · L63 · async · @Get('proxies')
+  - chama: `ProxyService.list` (proxy.service.ts:115)
+- `listAvailable()` · L70 · async · @Get('proxies/available')
+  - chama: `ProxyService.listAvailable` (proxy.service.ts:225)
+- `suggestion(sessionName)` · L77 · async · @Get('proxies/suggestion')
+  - chama: `ProxyService.suggestionFor` (proxy.service.ts:319), `toDto` L28
+- `webshareStatus()` · L100 · @Get('proxies/webshare/status')
+  - chama: `ProxyService.webshareConfigured` (proxy.service.ts:339)
+- `create(body)` · L105 · async · @Post('proxies')
+  - chama: `ProxyService.create` (proxy.service.ts:119), `toDto` L28
+- `bulk(body)` · L125 · async · @Post('proxies/bulk')
+  - chama: `ProxyService.bulkImport` (proxy.service.ts:136)
+- `testAll()` · L136 · @Post('proxies/test-all')
+  - chama: `ProxyService.testAll` (proxy.service.ts:209)
+- `syncWebshare()` · L141 · @Post('proxies/webshare/sync')
+  - chama: `ProxyService.syncWebshare` (proxy.service.ts:344)
+- `test(id)` · L146 · async · @Post('proxies/:id/test')
+  - chama: `ProxyService.test` (proxy.service.ts:194)
+- `enable(id)` · L155 · async · @Post('proxies/:id/enable')
+  - chama: `ProxyService.setEnabled` (proxy.service.ts:190)
+- `disable(id)` · L161 · async · @Post('proxies/:id/disable')
+  - chama: `ProxyService.setEnabled` (proxy.service.ts:190)
+- `remove(id)` · L167 · async · @Delete('proxies/:id')
+  - chama: `ProxyService.remove` (proxy.service.ts:186)
+- `getAssignment(id)` · L174 · async · @Get('sessions/:id/proxy')
+  - chama: `ProxyService.getAssignment` (proxy.service.ts:214), `ProxyService.resolveSessionId` (proxy.service.ts:218), `assignmentToDto` L46
+- `setAssignment(id, body)` · L190 · async · @Put('sessions/:id/proxy')
+  - chama: `ProxyService.resolveSessionId` (proxy.service.ts:218), `ProxyService.setAssignment` (proxy.service.ts:272), `assignmentToDto` L46
 
 **Funções e constantes de topo**
-- `toDto(p)` · L27
-  - chamado por: `create` L104, `suggestion` L76
-- `assignmentToDto(a)` · L45
-  - chamado por: `getAssignment` L173, `setAssignment` L188
+- `toDto(p)` · L28
+  - chamado por: `create` L105, `suggestion` L77
+- `assignmentToDto(a)` · L46
+  - chamado por: `getAssignment` L174, `setAssignment` L190
 
 ## `modules/proxies/proxies.module.ts`
 

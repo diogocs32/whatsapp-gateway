@@ -23,7 +23,7 @@ function setup(protocol: 'HTTP' | 'HTTPS' | 'SOCKS5') {
       strategy: 'ROUND_ROBIN',
     })),
     listEnabledAlive: vi.fn(async () => [proxy]),
-    setCurrent: vi.fn(async () => undefined),
+    setCurrentIfUnchanged: vi.fn(async () => true),
   };
   const incr = vi.fn(async () => 1);
   const resolver = new ProxyResolver(
@@ -87,8 +87,8 @@ describe('ProxyResolver — transporte Baileys (E10)', () => {
       const { resolver, repo, incr } = setup(protocol);
       const transport = await resolver.resolveBaileysTransport('session-1');
       expect(incr).toHaveBeenCalledOnce();
-      expect(repo.setCurrent).toHaveBeenCalledExactlyOnceWith(
-        'session-1',
+      expect(repo.setCurrentIfUnchanged).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ mode: 'GLOBAL_ROUND_ROBIN' }),
         'proxy-2',
       );
       expect(transport.agent).toBeInstanceOf(HttpsProxyAgent);
@@ -107,8 +107,8 @@ describe('ProxyResolver — transporte Baileys (E10)', () => {
     const transport = await resolver.resolveBaileysTransport('session-1');
     expect(transport.agent).toBeTruthy();
     expect(transport.createMediaDispatcher).toBeNull();
-    expect(repo.setCurrent).toHaveBeenCalledExactlyOnceWith(
-      'session-1',
+    expect(repo.setCurrentIfUnchanged).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ mode: 'GLOBAL_ROUND_ROBIN' }),
       'proxy-2',
     );
     expect(incr).toHaveBeenCalledOnce();

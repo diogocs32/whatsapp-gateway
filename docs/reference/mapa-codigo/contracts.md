@@ -6,11 +6,11 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
-| `contracts/index.ts` | 839 |
+| `contracts/index.ts` | 841 |
 
 ## `contracts/index.ts`
 
-839 linhas · caminho: `packages/contracts/src/index.ts`
+841 linhas · caminho: `packages/contracts/src/index.ts`
 - importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/components/chat/forward-context.ts`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/connect-link-memory.ts`, `dashboard/lib/connect-link.spec.ts`, `dashboard/lib/connect-link.ts`, `dashboard/lib/forward.spec.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/live-events.spec.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/proxy-suggestion.spec.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/public-connect.ts`, `dashboard/lib/send-feedback.ts`, `dashboard/lib/session-filter.spec.ts`, `dashboard/lib/session-filter.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
 
 **Funções e constantes de topo**
@@ -92,29 +92,29 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `ProxySuggestionResponse` L641 · 1 propriedade(s)
 - interface `CreateProxyRequest` L645 · 6 propriedade(s)
 - interface `ProxyAssignmentDto` L654 · 6 propriedade(s)
-- interface `SetProxyAssignmentRequest` L663 · 5 propriedade(s)
-- interface `ProxyTestResult` L671 · 4 propriedade(s)
-- interface `BulkImportProxiesRequest` L678 · 2 propriedade(s)
-- interface `BulkImportResult` L684 · 3 propriedade(s)
-- interface `WebshareSyncResult` L690 · 4 propriedade(s)
-- type `GroupParticipantRole` L698
-- type `GroupParticipantAction` L699
-- interface `GroupParticipantDto` L701 · 4 propriedade(s)
-- interface `GroupDto` L708 · 8 propriedade(s)
-- interface `CreateGroupRequest` L719 · 2 propriedade(s)
-- interface `GroupParticipantsRequest` L724 · 2 propriedade(s)
-- interface `GroupSubjectRequest` L729 · 1 propriedade(s)
-- interface `GroupDescriptionRequest` L732 · 1 propriedade(s)
-- interface `GroupInviteDto` L735 · 2 propriedade(s)
-- interface `ContactCheckDto` L741 · 3 propriedade(s)
-- interface `ProfilePictureDto` L746 · 2 propriedade(s)
-- interface `BlockRequest` L750 · 2 propriedade(s)
-- interface `ContactDirectoryDto` L756 · 11 propriedade(s)
-- interface `ChannelDto` L771 · 4 propriedade(s)
-- interface `CreateChannelRequest` L777 · 2 propriedade(s)
-- type `CampaignStatus` L783
-- type `CampaignMessageType` L785
-- type `CampaignRecipientStatus` L787
-- interface `CampaignDto` L790 · 19 propriedade(s)
-- interface `CreateCampaignRequest` L814 · 15 propriedade(s)
-- interface `CampaignRecipientDto` L832 · 5 propriedade(s)
+- interface `SetProxyAssignmentRequest` L665 · 5 propriedade(s)
+- interface `ProxyTestResult` L673 · 4 propriedade(s)
+- interface `BulkImportProxiesRequest` L680 · 2 propriedade(s)
+- interface `BulkImportResult` L686 · 3 propriedade(s)
+- interface `WebshareSyncResult` L692 · 4 propriedade(s)
+- type `GroupParticipantRole` L700
+- type `GroupParticipantAction` L701
+- interface `GroupParticipantDto` L703 · 4 propriedade(s)
+- interface `GroupDto` L710 · 8 propriedade(s)
+- interface `CreateGroupRequest` L721 · 2 propriedade(s)
+- interface `GroupParticipantsRequest` L726 · 2 propriedade(s)
+- interface `GroupSubjectRequest` L731 · 1 propriedade(s)
+- interface `GroupDescriptionRequest` L734 · 1 propriedade(s)
+- interface `GroupInviteDto` L737 · 2 propriedade(s)
+- interface `ContactCheckDto` L743 · 3 propriedade(s)
+- interface `ProfilePictureDto` L748 · 2 propriedade(s)
+- interface `BlockRequest` L752 · 2 propriedade(s)
+- interface `ContactDirectoryDto` L758 · 11 propriedade(s)
+- interface `ChannelDto` L773 · 4 propriedade(s)
+- interface `CreateChannelRequest` L779 · 2 propriedade(s)
+- type `CampaignStatus` L785
+- type `CampaignMessageType` L787
+- type `CampaignRecipientStatus` L789
+- interface `CampaignDto` L792 · 19 propriedade(s)
+- interface `CreateCampaignRequest` L816 · 15 propriedade(s)
+- interface `CampaignRecipientDto` L834 · 5 propriedade(s)

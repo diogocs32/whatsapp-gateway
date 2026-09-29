@@ -31,13 +31,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `manager: SessionManager`
 - `constructor(manager)` · L27
 - `create(id, body)` · L29 · async · @Post
-  - chama: `run` L65, `SessionManager.createChannel` (session-manager.service.ts:1579)
+  - chama: `run` L65, `SessionManager.createChannel` (session-manager.service.ts:1583)
 - `info(id, jid)` · L42 · @Get(':jid')
-  - chama: `run` L65, `SessionManager.channelInfo` (session-manager.service.ts:1589)
+  - chama: `run` L65, `SessionManager.channelInfo` (session-manager.service.ts:1593)
 - `follow(id, jid)` · L47 · async · @Post(':jid/follow')
-  - chama: `run` L65, `SessionManager.followChannel` (session-manager.service.ts:1592)
+  - chama: `run` L65, `SessionManager.followChannel` (session-manager.service.ts:1596)
 - `unfollow(id, jid)` · L56 · async · @Post(':jid/unfollow')
-  - chama: `run` L65, `SessionManager.unfollowChannel` (session-manager.service.ts:1595)
+  - chama: `run` L65, `SessionManager.unfollowChannel` (session-manager.service.ts:1599)
 - `run(fn)` · L65 · private · async
   - chamado por: `create` L29, `follow` L47, `info` L42, `unfollow` L56
 

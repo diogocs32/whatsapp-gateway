@@ -21,6 +21,7 @@ import type {
 } from '../domain/proxy-types';
 import { ProxyHealthTester } from '../infrastructure/proxy-health-tester';
 import { WebshareClient } from '../infrastructure/webshare.client';
+import { ProxyUnavailableError } from './proxy-unavailable.error';
 
 export interface CreateProxyData {
   label: string | null;
@@ -214,6 +215,10 @@ export class ProxyService implements OnApplicationBootstrap {
     return this.repo.getAssignment(sessionId);
   }
 
+  resolveSessionId(reference: string): Promise<string> {
+    return this.repo.resolveSessionId(reference);
+  }
+
   // Proxies LIVRES p/ a criação de sessão (backlog 10/07, D-008): enabled, não-DEAD e que não são
   // o proxy atual de nenhuma sessão existente. Exclusividade vale p/ o fluxo SINGLE — modos
   // RANGE/GLOBAL_ROUND_ROBIN podem usar qualquer proxy em runtime (limitação consciente, D-008).
@@ -230,20 +235,26 @@ export class ProxyService implements OnApplicationBootstrap {
 
   // Valida que o proxy pode ser atribuído com exclusividade. Lança Error com mensagem clara —
   // o controller que chamar mapeia para o HTTP adequado.
-  async ensureAvailable(proxyId: string): Promise<Proxy> {
+  async ensureAvailable(
+    proxyId: string,
+    ownSessionId?: string,
+  ): Promise<Proxy> {
     const proxy = await this.repo.findById(proxyId);
-    if (!proxy) throw new Error('Proxy não encontrado');
-    if (!proxy.enabled) throw new Error('Proxy está desabilitado');
+    if (!proxy) throw new ProxyUnavailableError('Proxy não encontrado');
+    if (!proxy.enabled)
+      throw new ProxyUnavailableError('Proxy está desabilitado');
     if (proxy.status === 'DEAD')
-      throw new Error('Proxy está DEAD — teste-o ou escolha outro');
-    const used = new Set(await this.repo.usedProxyIds());
+      throw new ProxyUnavailableError(
+        'Proxy está DEAD — teste-o ou escolha outro',
+      );
+    const used = new Set(await this.repo.usedProxyIds(ownSessionId));
     if (used.has(proxyId))
-      throw new Error('Proxy já está em uso por outra sessão');
+      throw new ProxyUnavailableError('Proxy já está em uso por outra sessão');
     return proxy;
   }
 
-  // Atribui o proxy à sessão em SINGLE/STICKY re-validando a exclusividade (fecha a corrida de
-  // duas criações simultâneas escolhendo o mesmo proxy).
+  // Revalida antes de gravar; o repositório repete a validação sob lock para SINGLE.
+  // RANGE/GLOBAL continuam podendo compartilhar o pool (D-008).
   async assignExclusive(
     sessionId: string,
     proxyId: string,
@@ -262,22 +273,24 @@ export class ProxyService implements OnApplicationBootstrap {
     sessionId: string,
     data: SetAssignmentData,
   ): Promise<ProxyAssignment> {
-    const assignment = await this.repo.setAssignment({
+    if (data.mode === 'SINGLE') {
+      if (!data.proxyId)
+        throw new ProxyUnavailableError('mode SINGLE exige proxyId');
+      await this.ensureAvailable(data.proxyId, sessionId);
+    }
+    // Modo e pin mudam juntos: uma reconexão não pode ler SINGLE com o pin anterior.
+    return this.repo.setAssignment({
       sessionId,
       mode: data.mode,
       rangeStart: data.rangeStart,
       rangeEnd: data.rangeEnd,
       strategy: data.strategy,
+      ...(data.mode === 'SINGLE'
+        ? { currentProxyId: data.proxyId }
+        : data.mode === 'NONE'
+          ? { currentProxyId: null }
+          : {}),
     });
-    // No modo SINGLE o proxy é fixo (currentProxyId). Nos demais o resolver define em runtime.
-    if (data.mode === 'SINGLE') {
-      await this.repo.setCurrent(sessionId, data.proxyId);
-      assignment.currentProxyId = data.proxyId;
-    } else if (data.mode === 'NONE') {
-      await this.repo.setCurrent(sessionId, null);
-      assignment.currentProxyId = null;
-    }
-    return assignment;
   }
 
   // E26 (P-084, D-038): chamado DEPOIS de apagar a sessão (a linha de atribuição não tem FK e
