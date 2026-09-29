@@ -2,6 +2,7 @@
 node_modules
 **/node_modules
 **/dist
+**/*.tsbuildinfo
 apps/gateway/src/generated
 
 # Segredos e dados locais — NUNCA na imagem

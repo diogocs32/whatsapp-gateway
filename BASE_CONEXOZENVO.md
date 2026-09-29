@@ -45,7 +45,7 @@ Detecte o cenário e execute o modo correspondente do R18:
 - Observabilidade: nestjs-pino (JSON em prod) · prom-client `/metrics`
   (METRICS_TOKEN) · `/health`
 - Storage: S3 (MinIO/Cloudflare R2) · Validação: zod nas bordas
-- Qualidade: ESLint 10 + typescript-eslint · Prettier 3 · Vitest 4 (e2e)
+- Qualidade: ESLint 10 + typescript-eslint · Prettier 3 · Vitest 5 (e2e)
 - Deploy: Dokploy (Docker Swarm) · imagem não-root (gosu) · hoje: auto-deploy
   via webhook Git na main com build no servidor (alvo do R15: build-once/promote)
 
@@ -823,7 +823,7 @@ PARA CONTINUAR EM NOVA CONVERSA:
 | ------------------------------------ | ----------------------------------------------------------------------------- |
 | Fases F0–F8                          | Ondas M0–M6 + ondas de adoção (ADOCAO.md)                                     |
 | — (não existia)                      | **R0 Produção Primeiro** (contrato público do node n8n)                       |
-| Pest 4 + Larastan + Pint + Rector    | Vitest 4 + typescript-eslint + Prettier (Rector ➖ sem equivalente adotado)   |
+| Pest 4 + Larastan + Pint + Rector    | Vitest 5 + typescript-eslint + Prettier (Rector ➖ sem equivalente adotado)   |
 | Pest arch()                          | dependency-cruiser no CI (M3)                                                 |
 | composer check (bateria única)       | `npm run check` agregado (A10)                                                |
 | encrypted casts + CipherSweet        | shared-kernel/crypto p/ segredos persistidos; nível 2 ➖                      |

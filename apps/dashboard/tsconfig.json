@@ -3,8 +3,10 @@
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "libReplacement": false,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "noUncheckedSideEffectImports": true,
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
@@ -12,7 +14,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "baseUrl": ".",
+    "rootDir": "../..",
     "paths": {
       "@contracts": ["../../packages/contracts/src"]
     },

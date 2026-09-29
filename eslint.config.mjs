@@ -17,6 +17,7 @@ export default tseslint.config(
       '**/.wwebjs_auth/**',
       // saída de coverage do vitest (M3)
       '**/coverage/**',
+      '**/.vitest/**',
     ],
   },
   ...tseslint.configs.recommended,

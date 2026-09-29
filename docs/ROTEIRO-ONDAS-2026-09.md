@@ -58,7 +58,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`       | PR #22 mergeado `7d547fc`; **deploy D manual** depois                                                                                                              | ✅ 29/09 · ce7ada0        |
 | E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`          | PR #23; merge ao fim; **deploy E manual** depois                                                                                                                   | ✅ código 29/09 · bd4e699 |
 | E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`           | merge ao fim; **deploy F manual** depois                                                                                                                           | ✅ 29/09 (D-044)          |
-| E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`          | merge (só CI/dev)                                                                                                                                                  | ⬜                        |
+| E19   | 5    | Vitest 5 + tsconfig pronto para TS 6 (sem subir o TS) (P-062 parte 4)                                                                                                                                                                | `feature/onda5d-vitest5`          | PR #25; merge ao fim (CI/dev)                                                                                                                                      | ✅ código 29/09 · D-045   |
 | E20   | 7    | Métricas e regras de produto que reduzem risco: destinatários novos sem resposta em 30 dias, cota em `/contacts/check`, inventário pessoal × Business, A/B de leads Baileys × wwebjs (P-064 parte código + P-061)                    | `feature/onda7-metricas-produto`  | decisão sobre canal oficial (P-064) fica com o dono                                                                                                                | ⬜                        |
 | E21   | —    | Backlog anterior: triagem e execução do que ainda vale (P-001 resto, P-018, P-022, P-023, P-013, P-005, P-036, P-044..P-046 …) — pode virar mais de um chat                                                                          | definir no chat                   | —                                                                                                                                                                  | ⬜                        |
 | E22   | 8    | Conversas fiéis — gateway: conteúdo de todos os tipos (fim do "…"), reações em tabela própria, selo de encaminhada, reply-rate com reações (P-066) + `status` no feed da caixa única (P-072)                                         | `feature/onda8-conversas`         | **antes:** decidir reação fora do evento `message` + contando no reply-rate                                                                                        | ✅ 25/09                  |
@@ -368,6 +368,15 @@ Preserve Nest 12.1.x/runtime CommonJS, identidade única do DI, Fastify 5.12.5, 
 Reexecute instalação estrita, patches/guardas, unit/e2e/coverage, typechecks/builds/imagens e smokes relevantes. Atualize docs/mapa e prepare a mensagem da próxima etapa. Deploys C/D/E/F e canários permanecem manuais; nenhuma conta, QR, envio real ou limpeza de filas.
 ```
 
+### E20 — métricas e regras de produto (P-064 parte código + P-061)
+
+```text
+Execute E20 seguindo as Regras de toda etapa; feature/onda7-metricas-produto da origin/main após merge E19, um PR, CI verde e merge ao fim. Leia DONE E19/D-039–D-045, P-061/P-064/P-099/P-100 e MAPA-CODIGO observability/contacts/sessions.
+Implemente métrica de destinatários novos sem resposta em 30 dias, cota de contacts/check e inventário pessoal × Business com fontes oficiais/versões instaladas. Preserve contrato n8n 0.4.1: defaults compatíveis e nenhuma restrição/status novo sem decisão explícita; cota não entra no caminho de envio. A/B de leads apenas com fixtures; chip/grupo real e decisão sobre canal oficial ficam para o dono. Não remover WWEBJS/Chromium (D-021), não verificar números reais pela rede nem fazer QR/envio real.
+Mantenha TS 5.9.3/CLI 11, Vitest/coverage 5.0.2, config .mts/SWC/decorators, unit/e2e serial, node20/node16 com emissão CommonJS e buildinfo dentro de dist. Preserve Nest 12/Fastify, BullMQ6/ioredis5/ULID3, epochs/lease/CAS/8s e gates E16–E19. P-100 aberta: sem force-close/retries reduzidos; P-099 sem drenar filas.
+Reexecute instalação estrita/patches, testes de efeito, typechecks/builds/guardas e smokes aplicáveis, revise com agentes, atualize docs/mapa e entregue mensagem E21. Deploys C/D/E/F e canários permanecem manuais.
+```
+
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09
 
 ```text
@@ -413,6 +422,19 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 | Decisão estrutural (Onda 7) | Canal oficial/coexistência para fluxos críticos                                                                                                                                                                                             | P-064                                        |
 
 ## Diário de execução
+
+- **29/09 — E19/P-062 parte 4 (D-045; sem deploy):** Vitest/coverage 5.0.2,
+  provider root para runner hoisted; SWC/decorators, clearMocks:false, extends:true,
+  e2e serial e coverage preservados. Config gateway .mts, .vitest ignorada.
+  TS 5.9.3/CLI 11 mantidos; node20/node16 lê exports e continua emitindo CommonJS,
+  sem shim de proxies. Tipos/rootDir/defaults explicitados. Buildinfo fora de dist
+  produziu segundo build vazio; corrigido com tsBuildInfoFile dentro de dist e
+  Docker ignore, dois builds consecutivos aprovados. Prisma gerado preserva import()
+  nativo, provado em SQL na imagem final. 983 unit gateway + 292 painel;
+  fullcov 1.425/92 e 178 fontes cobertas, imagens/health/auth/rate-limit/painel/SIGTERM
+  isolados verdes. Três revisões independentes; pacotes de produção do lock inalterados.
+  TS 6 não instalado; P-100 aberta, deploys C/D/E/F e canários manuais pendentes.
+  Próxima etapa **E20/P-064 parte código + P-061**, preservando todos os gates.
 
 - **29/09 · E18/P-062 parte 3 (D-044, PR #24), sem deploy:** Nest 12.1.1 e companions
   compatíveis; CLI/schematics 11 e TS 5.9.3 preservados. Fastify 5.12.5 remove

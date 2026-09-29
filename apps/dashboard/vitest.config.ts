@@ -13,6 +13,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Preservar a semântica v4; Vitest 5 usa clearMocks:true por padrão.
+    clearMocks: false,
     environment: 'node',
     include: ['src/**/*.spec.ts'],
   },

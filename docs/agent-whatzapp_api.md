@@ -86,7 +86,6 @@ Infra compartilhada (`apps/gateway/src/infra/`): `prisma`, `redis`, `storage` (S
 | `modules/events/interface/events.controller.ts`                  | Stream SSE (`/api/events/stream`).                                                                                                                                               |
 | `modules/proxies/infrastructure/proxy-agent.factory.ts`          | Cria o `Agent` (socks/https) para o Baileys.                                                                                                                                     |
 | `modules/proxies/infrastructure/webshare.client.ts`              | Sync do pool de proxies Webshare.                                                                                                                                                |
-| `types/proxy-agents.d.ts`                                        | **Shim de tipos** p/ `socks-proxy-agent`/`https-proxy-agent` (ver §8).                                                                                                           |
 | `prisma/schema.prisma`                                           | Modelo de dados.                                                                                                                                                                 |
 
 ---
@@ -200,9 +199,18 @@ e mata o shell (exit 9). Sempre rode pkills **de dentro de um `.sh`** (cmdline v
 - `tsconfig` tem `incremental:true` → o erro fica cacheado em `apps/gateway/dist/tsconfig.tsbuildinfo`.
   Antes de validar com tsc: **`rm -rf apps/gateway/dist`**. Para typecheck sem escrever dist:
   `bash scripts/run.sh npx tsc --noEmit -p apps/gateway/tsconfig.json`.
-- `moduleResolution: "node"` (legacy) **não lê o campo `exports`** dos pacotes. Pacotes exports-only
-  (ex.: `https-proxy-agent@9`, `socks-proxy-agent@10`) não resolvem tipos → usar o **shim**
-  `apps/gateway/src/types/proxy-agents.d.ts`. Não dá p/ mudar `moduleResolution` mantendo `module:commonjs`.
+- **E19/D-045:** `module: "node20"` + `moduleResolution: "node16"` sob TS **5.9.3** lê
+  `exports` e usa os tipos reais de `https-proxy-agent`/`socks-proxy-agent`; o shim foi removido.
+  Sem `type:module` no gateway, a emissão continua CommonJS. Imports dinâmicos preservam
+  a semântica nativa: o Prisma gerado carrega seu query compiler por `import()` (smoke SQL
+  na imagem final). `rootDir` do build é `./src`, mantendo `dist/main.js`.
+- `tsBuildInfoFile` do build precisa ficar explicitamente em `./dist/tsconfig.build.tsbuildinfo`:
+  a CLI 11 apaga o dist e esse cache juntos. Cache implícito fora do dist fez o segundo
+  `nest build` sair zero sem JS na reprodução E19; dois builds consecutivos são a prova.
+  `.dockerignore` exclui todos os tsbuildinfo locais.
+- Vitest **5.0.2**/coverage sincronizados; config gateway `.mts` para ESM do tooling,
+  com SWC/decorators/metadata e e2e serial. Isso não muda o formato da aplicação.
+  TS 6/CLI 12 ainda exigem etapa própria; não foram instalados nem validados nesta etapa.
 
 ### 6.9 — ESM vs CommonJS (Baileys 7.x)
 
