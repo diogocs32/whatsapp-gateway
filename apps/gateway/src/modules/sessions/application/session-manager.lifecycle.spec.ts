@@ -4,7 +4,11 @@ import { Prisma } from '../../../infra/prisma/prisma.service';
 import type { EventBus } from '../../../shared-kernel/event-bus/event-bus';
 import type { SessionStatus } from '../domain/session-status';
 import { WWebJSEngine } from '../infrastructure/wwebjs/wwebjs.engine';
-import { SessionBusyError, SessionManager } from './session-manager.service';
+import {
+  SessionBusyError,
+  SessionManager,
+  SessionNotWorkingError,
+} from './session-manager.service';
 
 // E27/P-086 (D-037) — lock de ciclo de vida por sessão no SessionManager (runExclusive): operações
 // da mesma sessão em fila, failFast só no link público, checagem síncrona antes do delete do newQr,
@@ -848,6 +852,7 @@ describe('SessionManager — leituras do link (E27/P-086)', () => {
     const h = harness();
     expect(h.manager.isRehydrated()).toBe(false);
     await h.manager.onApplicationBootstrap();
+    await h.manager.whenRehydrated();
     expect(h.repo.findAutostart).toHaveBeenCalledOnce();
     expect(h.manager.isRehydrated()).toBe(true);
     expect(h.engineFactory.create).not.toHaveBeenCalled();
@@ -860,16 +865,37 @@ describe('SessionManager — leituras do link (E27/P-086)', () => {
     ]);
     h.session.status = 'WORKING';
     const startGate = h.hold('start');
+    let notified = false;
+    void h.manager.whenRehydrated().then(() => {
+      notified = true;
+    });
 
     await h.manager.onApplicationBootstrap();
     await flush();
     expect(h.log).toEqual(['create#1', 'start#1']);
     expect(h.manager.isRehydrated()).toBe(false);
+    expect(notified).toBe(false);
 
     startGate.reject(new Error('handshake falhou'));
-    await vi.waitFor(() => expect(h.manager.isRehydrated()).toBe(true));
+    await h.manager.whenRehydrated();
+    expect(notified).toBe(true);
+    expect(h.manager.isRehydrated()).toBe(true);
     expect(h.loggerError).toHaveBeenCalledWith(
       expect.stringContaining('Falha ao reidratar'),
     );
+  });
+
+  it('sessão fora de WORKING expõe erro tipado sem mudar a mensagem pública', async () => {
+    const h = harness();
+    await h.startEngine('STARTING');
+    (h.manager as unknown as { guardrail: unknown }).guardrail = {
+      canSendMessage: async () => ({ allowed: true }),
+    };
+    await expect(
+      h.manager.sendText(SID, '5511999990001', 'teste'),
+    ).rejects.toMatchObject({
+      name: 'SessionNotWorkingError',
+      message: 'Sessão não está conectada',
+    } satisfies Partial<SessionNotWorkingError>);
   });
 });

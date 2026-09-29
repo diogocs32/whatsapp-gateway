@@ -11,9 +11,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/application/engine.port.ts` | 441 |
 | `modules/sessions/application/session-config.service.ts` | 65 |
 | `modules/sessions/application/session-lease.error.ts` | 7 |
-| `modules/sessions/application/session-manager.lifecycle.spec.ts` | 876 |
+| `modules/sessions/application/session-manager.lifecycle.spec.ts` | 902 |
 | `modules/sessions/application/session-manager.pairing.spec.ts` | 65 |
-| `modules/sessions/application/session-manager.service.ts` | 1574 |
+| `modules/sessions/application/session-manager.service.ts` | 1599 |
 | `modules/sessions/application/session-status-order.spec.ts` | 190 |
 | `modules/sessions/domain/connect-link.repository.ts` | 57 |
 | `modules/sessions/domain/connect-link.spec.ts` | 784 |
@@ -150,7 +150,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `connectLinkError` L64, `isWorking` L206
   - chamado por: `create` L144
 - `isWorking(snap)` · L206 · private
-  - chama: `SessionManager.liveView` (session-manager.service.ts:572)
+  - chama: `SessionManager.liveView` (session-manager.service.ts:597)
   - chamado por: `assertCanCreate` L182, `create` L144
 - `latest(sessionId)` · L213
   - chama: `ConnectLinkRepository.findLatestBySession` (connect-link.repository.ts:24)
@@ -168,7 +168,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `connectLinkError` L64, `linkState` (connect-link.ts:69)
   - chamado por: `afterWorking` L373, `checkAndReserve` L423, `resolveToken` L240
 - `publicState(link)` · L279 · async
-  - chama: `connected` L539, `afterWorking` L373, `newQrState` L358, `now` L121, `onSessionWorking` L494, `NOT_FOUND` L78, `SessionManager.isBusy` (session-manager.service.ts:559), `SessionManager.isRehydrated` (session-manager.service.ts:563), `SessionManager.liveView` (session-manager.service.ts:572), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019), `ConnectLinkRepository.consume` (connect-link.repository.ts:41), `ConnectLinkRepository.hasWorkingSince` (connect-link.repository.ts:53), `ConnectLinkRepository.revoke` (connect-link.repository.ts:35), `ConnectLinkRepository.touchSeen` (connect-link.repository.ts:50), `linkState` (connect-link.ts:69), `phoneHint` (connect-link.ts:204), `phoneMatches` (connect-link.ts:195), `publicPhase` (connect-link.ts:141), `SessionRepository.findConnectSnapshot` (session.repository.ts:50)
+  - chama: `connected` L539, `afterWorking` L373, `newQrState` L358, `now` L121, `onSessionWorking` L494, `NOT_FOUND` L78, `SessionManager.isBusy` (session-manager.service.ts:584), `SessionManager.isRehydrated` (session-manager.service.ts:588), `SessionManager.liveView` (session-manager.service.ts:597), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044), `ConnectLinkRepository.consume` (connect-link.repository.ts:41), `ConnectLinkRepository.hasWorkingSince` (connect-link.repository.ts:53), `ConnectLinkRepository.revoke` (connect-link.repository.ts:35), `ConnectLinkRepository.touchSeen` (connect-link.repository.ts:50), `linkState` (connect-link.ts:69), `phoneHint` (connect-link.ts:204), `phoneMatches` (connect-link.ts:195), `publicPhase` (connect-link.ts:141), `SessionRepository.findConnectSnapshot` (session.repository.ts:50)
   - chamado por: `PublicConnectController.state` (public-connect.controller.ts:29)
 - `newQrState(link, now, phaseAllows)` · L358 · private
   - chama: `newQrAllowance` (connect-link.ts:89)
@@ -177,16 +177,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `connected` L539, `assertUsable` L248, `now` L121, `NOT_FOUND` L78, `ConnectLinkRepository.findByHash` (connect-link.repository.ts:23), `linkState` (connect-link.ts:69)
   - chamado por: `publicState` L279
 - `requestNewQr(link)` · L386 · async
-  - chama: `connectLinkError` L64, `busy` L482, `checkAndReserve` L423, `newQrState` L358, `now` L121, `NOT_FOUND` L78, `SessionManager.newQrForConnectLink` (session-manager.service.ts:983), `ConnectLinkRepository.findByHash` (connect-link.repository.ts:23), `linkState` (connect-link.ts:69)
+  - chama: `connectLinkError` L64, `busy` L482, `checkAndReserve` L423, `newQrState` L358, `now` L121, `NOT_FOUND` L78, `SessionManager.newQrForConnectLink` (session-manager.service.ts:1008), `ConnectLinkRepository.findByHash` (connect-link.repository.ts:23), `linkState` (connect-link.ts:69)
   - chamado por: `PublicConnectController.newQr` (public-connect.controller.ts:36)
 - `checkAndReserve(link)` · L423 · private · async
-  - chama: `connectLinkError` L64, `assertUsable` L248, `busy` L482, `now` L121, `NOT_FOUND` L78, `SessionManager.isRehydrated` (session-manager.service.ts:563), `SessionManager.liveView` (session-manager.service.ts:572), `ConnectLinkRepository.findByHash` (connect-link.repository.ts:23), `ConnectLinkRepository.reserveNewQr` (connect-link.repository.ts:44), `linkState` (connect-link.ts:69), `newQrAllowance` (connect-link.ts:89), `publicPhase` (connect-link.ts:141), `SessionRepository.findConnectSnapshot` (session.repository.ts:50)
+  - chama: `connectLinkError` L64, `assertUsable` L248, `busy` L482, `now` L121, `NOT_FOUND` L78, `SessionManager.isRehydrated` (session-manager.service.ts:588), `SessionManager.liveView` (session-manager.service.ts:597), `ConnectLinkRepository.findByHash` (connect-link.repository.ts:23), `ConnectLinkRepository.reserveNewQr` (connect-link.repository.ts:44), `linkState` (connect-link.ts:69), `newQrAllowance` (connect-link.ts:89), `publicPhase` (connect-link.ts:141), `SessionRepository.findConnectSnapshot` (session.repository.ts:50)
   - chamado por: `requestNewQr` L386
 - `busy()` · L482 · private
   - chama: `connectLinkError` L64
   - chamado por: `checkAndReserve` L423, `requestNewQr` L386
 - `onSessionWorking(sessionId, meJid, source)` · L494 · async
-  - chama: `now` L121, `SessionManager.hasEngine` (session-manager.service.ts:567), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019), `ConnectLinkRepository.consume` (connect-link.repository.ts:41), `ConnectLinkRepository.findActiveBySession` (connect-link.repository.ts:26), `ConnectLinkRepository.revoke` (connect-link.repository.ts:35), `phoneMatches` (connect-link.ts:195)
+  - chama: `now` L121, `SessionManager.hasEngine` (session-manager.service.ts:592), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044), `ConnectLinkRepository.consume` (connect-link.repository.ts:41), `ConnectLinkRepository.findActiveBySession` (connect-link.repository.ts:26), `ConnectLinkRepository.revoke` (connect-link.repository.ts:35), `phoneMatches` (connect-link.ts:195)
   - chamado por: `onModuleInit` L125, `publicState` L279
 
 **Funções e constantes de topo**
@@ -262,142 +262,142 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `SendResult` L279 · 5 propriedade(s)
 - interface `PreparedForward` L290 · 1 propriedade(s)
   - `PreparedForward.send(to, opts)` · L292
-    - chamado por: `ForwardService.sendOne` (forward.service.ts:402), `SessionManager.prepareForward` (session-manager.service.ts:1348)
+    - chamado por: `ForwardService.sendOne` (forward.service.ts:402), `SessionManager.prepareForward` (session-manager.service.ts:1373)
 - type `ForwardErrorCode` L299
 - type `PresenceState` L312
 - interface `IEngine` L325 · 1 propriedade(s)
   - `IEngine.start()` · L329
     - implementado por: `BaileysEngine.start` (baileys.engine.ts:600), `WWebJSEngine.start` (wwebjs.engine.ts:758)
-    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1172), `SessionManager.startUnlocked` (session-manager.service.ts:712)
+    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1197), `SessionManager.startUnlocked` (session-manager.service.ts:737)
   - `IEngine.stop()` · L330
     - implementado por: `BaileysEngine.stop` (baileys.engine.ts:2473), `WWebJSEngine.stop` (wwebjs.engine.ts:1571)
-    - chamado por: `SessionManager.drain` (session-manager.service.ts:187), `SessionManager.logoutUnlocked` (session-manager.service.ts:910), `SessionManager.onModuleDestroy` (session-manager.service.ts:321), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019), `SessionManager.stopEngine` (session-manager.service.ts:839)
+    - chamado por: `SessionManager.drain` (session-manager.service.ts:200), `SessionManager.logoutUnlocked` (session-manager.service.ts:935), `SessionManager.onModuleDestroy` (session-manager.service.ts:346), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044), `SessionManager.stopEngine` (session-manager.service.ts:864)
   - `IEngine.shutdown()` · L338
     - implementado por: `BaileysEngine.shutdown` (baileys.engine.ts:2523), `WWebJSEngine.shutdown` (wwebjs.engine.ts:1611)
-    - chamado por: `SessionManager.drain` (session-manager.service.ts:187), `SessionManager.logoutUnlocked` (session-manager.service.ts:910), `SessionManager.onModuleDestroy` (session-manager.service.ts:321), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019)
+    - chamado por: `SessionManager.drain` (session-manager.service.ts:200), `SessionManager.logoutUnlocked` (session-manager.service.ts:935), `SessionManager.onModuleDestroy` (session-manager.service.ts:346), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044)
   - `IEngine.logout()` · L339
     - implementado por: `BaileysEngine.logout` (baileys.engine.ts:2540), `WWebJSEngine.logout` (wwebjs.engine.ts:1640)
-    - chamado por: `SessionManager.logoutUnlocked` (session-manager.service.ts:910), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019)
+    - chamado por: `SessionManager.logoutUnlocked` (session-manager.service.ts:935), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044)
   - `IEngine.requestPairingCode(phoneNumber)` · L340
     - implementado por: `BaileysEngine.requestPairingCode` (baileys.engine.ts:2453), `WWebJSEngine.requestPairingCode` (wwebjs.engine.ts:1708)
-    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1172)
+    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1197)
   - `IEngine.sendText(to, text, opts)` · L341
     - implementado por: `BaileysEngine.sendText` (baileys.engine.ts:1629), `WWebJSEngine.sendText` (wwebjs.engine.ts:1722)
-    - chamado por: `SessionManager.sendText` (session-manager.service.ts:1236)
+    - chamado por: `SessionManager.sendText` (session-manager.service.ts:1261)
   - `IEngine.sendMedia(to, input)` · L346
     - implementado por: `BaileysEngine.sendMedia` (baileys.engine.ts:1662), `WWebJSEngine.sendMedia` (wwebjs.engine.ts:1752)
-    - chamado por: `SessionManager.sendMedia` (session-manager.service.ts:1246)
+    - chamado por: `SessionManager.sendMedia` (session-manager.service.ts:1271)
   - `IEngine.sendLocation(to, input)` · L351
     - implementado por: `BaileysEngine.sendLocation` (baileys.engine.ts:1717), `WWebJSEngine.sendLocation` (wwebjs.engine.ts:1845)
-    - chamado por: `SessionManager.sendLocation` (session-manager.service.ts:1254)
+    - chamado por: `SessionManager.sendLocation` (session-manager.service.ts:1279)
   - `IEngine.sendPoll(to, input)` · L355
     - implementado por: `BaileysEngine.sendPoll` (baileys.engine.ts:1746), `WWebJSEngine.sendPoll` (wwebjs.engine.ts:1879)
-    - chamado por: `SessionManager.sendPoll` (session-manager.service.ts:1262)
+    - chamado por: `SessionManager.sendPoll` (session-manager.service.ts:1287)
   - `IEngine.sendPresence(to, state)` · L359
     - implementado por: `BaileysEngine.sendPresence` (baileys.engine.ts:1808), `WWebJSEngine.sendPresence` (wwebjs.engine.ts:1942)
-    - chamado por: `SessionManager.sendPresence` (session-manager.service.ts:1270)
+    - chamado por: `SessionManager.sendPresence` (session-manager.service.ts:1295)
   - `IEngine.setProfileStatus(status)` · L361
     - implementado por: `BaileysEngine.setProfileStatus` (baileys.engine.ts:1818), `WWebJSEngine.setProfileStatus` (wwebjs.engine.ts:1931)
-    - chamado por: `SessionManager.setProfileStatus` (session-manager.service.ts:1278)
+    - chamado por: `SessionManager.setProfileStatus` (session-manager.service.ts:1303)
   - `IEngine.setProfileName(name)` · L362
     - implementado por: `BaileysEngine.setProfileName` (baileys.engine.ts:1821), `WWebJSEngine.setProfileName` (wwebjs.engine.ts:1934)
-    - chamado por: `SessionManager.setProfileName` (session-manager.service.ts:1281)
+    - chamado por: `SessionManager.setProfileName` (session-manager.service.ts:1306)
   - `IEngine.setProfilePhoto(image, mimetype)` · L363
     - implementado por: `BaileysEngine.setProfilePhoto` (baileys.engine.ts:1824), `WWebJSEngine.setProfilePhoto` (wwebjs.engine.ts:1937)
-    - chamado por: `SessionManager.setProfilePhoto` (session-manager.service.ts:1284)
+    - chamado por: `SessionManager.setProfilePhoto` (session-manager.service.ts:1309)
   - `IEngine.markRead(chatJid, msgId)` · L365
     - implementado por: `BaileysEngine.markRead` (baileys.engine.ts:1832), `WWebJSEngine.markRead` (wwebjs.engine.ts:1960)
-    - chamado por: `SessionManager.markRead` (session-manager.service.ts:1295)
+    - chamado por: `SessionManager.markRead` (session-manager.service.ts:1320)
   - `IEngine.sendReaction(chatJid, msgId, fromMe, emoji)` · L369
     - implementado por: `BaileysEngine.sendReaction` (baileys.engine.ts:1840), `WWebJSEngine.sendReaction` (wwebjs.engine.ts:1969)
-    - chamado por: `SessionManager.sendReaction` (session-manager.service.ts:1330)
+    - chamado por: `SessionManager.sendReaction` (session-manager.service.ts:1355)
   - `IEngine.prepareForward(src)` · L378
     - implementado por: `BaileysEngine.prepareForward` (baileys.engine.ts:1858), `WWebJSEngine.prepareForward` (wwebjs.engine.ts:1982)
-    - chamado por: `SessionManager.prepareForward` (session-manager.service.ts:1348)
+    - chamado por: `SessionManager.prepareForward` (session-manager.service.ts:1373)
   - `IEngine.getQrBase64()` · L379
     - implementado por: `BaileysEngine.getQrBase64` (baileys.engine.ts:577), `WWebJSEngine.getQrBase64` (wwebjs.engine.ts:480)
-    - chamado por: `SessionManager.getQr` (session-manager.service.ts:1158), `SessionManager.liveView` (session-manager.service.ts:572)
+    - chamado por: `SessionManager.getQr` (session-manager.service.ts:1183), `SessionManager.liveView` (session-manager.service.ts:597)
   - `IEngine.getPairingCode()` · L382
     - implementado por: `WWebJSEngine.getPairingCode` (wwebjs.engine.ts:483)
-    - chamado por: `SessionManager.getPairingCode` (session-manager.service.ts:1162)
+    - chamado por: `SessionManager.getPairingCode` (session-manager.service.ts:1187)
   - `IEngine.getStatus()` · L383
     - implementado por: `BaileysEngine.getStatus` (baileys.engine.ts:573), `WWebJSEngine.getStatus` (wwebjs.engine.ts:477)
-    - chamado por: `SessionManager.liveView` (session-manager.service.ts:572), `SessionManager.newQrForConnectLink` (session-manager.service.ts:983), `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1172), `SessionManager.working` (session-manager.service.ts:1397)
+    - chamado por: `SessionManager.liveView` (session-manager.service.ts:597), `SessionManager.newQrForConnectLink` (session-manager.service.ts:1008), `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1197), `SessionManager.working` (session-manager.service.ts:1422)
   - `IEngine.listChats(limit)` · L388
     - implementado por: `BaileysEngine.listChats` (baileys.engine.ts:2061), `WWebJSEngine.listChats` (wwebjs.engine.ts:2888)
-    - chamado por: `SessionManager.listChats` (session-manager.service.ts:1304)
+    - chamado por: `SessionManager.listChats` (session-manager.service.ts:1329)
   - `IEngine.fetchChatHistory(chatJid, limit)` · L389
     - implementado por: `BaileysEngine.fetchChatHistory` (baileys.engine.ts:2066), `WWebJSEngine.fetchChatHistory` (wwebjs.engine.ts:2908)
-    - chamado por: `SessionManager.fetchChatHistory` (session-manager.service.ts:1307)
+    - chamado por: `SessionManager.fetchChatHistory` (session-manager.service.ts:1332)
   - `IEngine.setChatFlag(chatJid, flag, enabled)` · L393
     - implementado por: `BaileysEngine.setChatFlag` (baileys.engine.ts:2077), `WWebJSEngine.setChatFlag` (wwebjs.engine.ts:2963)
-    - chamado por: `SessionManager.setChatFlag` (session-manager.service.ts:1317)
+    - chamado por: `SessionManager.setChatFlag` (session-manager.service.ts:1342)
   - `IEngine.listGroups()` · L396
     - implementado por: `BaileysEngine.listGroups` (baileys.engine.ts:2252), `WWebJSEngine.listGroups` (wwebjs.engine.ts:2991)
-    - chamado por: `SessionManager.listGroups` (session-manager.service.ts:1428)
+    - chamado por: `SessionManager.listGroups` (session-manager.service.ts:1453)
   - `IEngine.groupInfo(jid)` · L397
     - implementado por: `BaileysEngine.groupInfo` (baileys.engine.ts:2260), `WWebJSEngine.groupInfo` (wwebjs.engine.ts:3019)
-    - chamado por: `SessionManager.groupInfo` (session-manager.service.ts:1431)
+    - chamado por: `SessionManager.groupInfo` (session-manager.service.ts:1456)
   - `IEngine.createGroup(subject, participants)` · L398
     - implementado por: `BaileysEngine.createGroup` (baileys.engine.ts:2268), `WWebJSEngine.createGroup` (wwebjs.engine.ts:3153)
-    - chamado por: `SessionManager.createGroup` (session-manager.service.ts:1434)
+    - chamado por: `SessionManager.createGroup` (session-manager.service.ts:1459)
   - `IEngine.updateParticipants(jid, action, participants)` · L399
     - implementado por: `BaileysEngine.updateParticipants` (baileys.engine.ts:2278), `WWebJSEngine.updateParticipants` (wwebjs.engine.ts:3168)
-    - chamado por: `SessionManager.updateParticipants` (session-manager.service.ts:1444)
+    - chamado por: `SessionManager.updateParticipants` (session-manager.service.ts:1469)
   - `IEngine.leaveGroup(jid)` · L404
     - implementado por: `BaileysEngine.leaveGroup` (baileys.engine.ts:2286), `WWebJSEngine.leaveGroup` (wwebjs.engine.ts:3181)
-    - chamado por: `SessionManager.leaveGroup` (session-manager.service.ts:1456)
+    - chamado por: `SessionManager.leaveGroup` (session-manager.service.ts:1481)
   - `IEngine.setGroupSubject(jid, subject)` · L405
     - implementado por: `BaileysEngine.setGroupSubject` (baileys.engine.ts:2289), `WWebJSEngine.setGroupSubject` (wwebjs.engine.ts:3185)
-    - chamado por: `SessionManager.setGroupSubject` (session-manager.service.ts:1459)
+    - chamado por: `SessionManager.setGroupSubject` (session-manager.service.ts:1484)
   - `IEngine.setGroupDescription(jid, description)` · L406
     - implementado por: `BaileysEngine.setGroupDescription` (baileys.engine.ts:2292), `WWebJSEngine.setGroupDescription` (wwebjs.engine.ts:3189)
-    - chamado por: `SessionManager.setGroupDescription` (session-manager.service.ts:1466)
+    - chamado por: `SessionManager.setGroupDescription` (session-manager.service.ts:1491)
   - `IEngine.groupInviteCode(jid)` · L407
     - implementado por: `BaileysEngine.groupInviteCode` (baileys.engine.ts:2295), `WWebJSEngine.groupInviteCode` (wwebjs.engine.ts:3193)
-    - chamado por: `SessionManager.groupInviteCode` (session-manager.service.ts:1476)
+    - chamado por: `SessionManager.groupInviteCode` (session-manager.service.ts:1501)
   - `IEngine.groupRevokeInvite(jid)` · L408
     - implementado por: `BaileysEngine.groupRevokeInvite` (baileys.engine.ts:2298), `WWebJSEngine.groupRevokeInvite` (wwebjs.engine.ts:3197)
-    - chamado por: `SessionManager.groupRevokeInvite` (session-manager.service.ts:1479)
+    - chamado por: `SessionManager.groupRevokeInvite` (session-manager.service.ts:1504)
   - `IEngine.groupMembershipRequests(jid)` · L411
     - implementado por: `BaileysEngine.groupMembershipRequests` (baileys.engine.ts:2304), `WWebJSEngine.groupMembershipRequests` (wwebjs.engine.ts:3205)
-    - chamado por: `SessionManager.groupMembershipRequests` (session-manager.service.ts:1482)
+    - chamado por: `SessionManager.groupMembershipRequests` (session-manager.service.ts:1507)
   - `IEngine.groupMembershipAction(jid, action, participants)` · L412
     - implementado por: `BaileysEngine.groupMembershipAction` (baileys.engine.ts:2316), `WWebJSEngine.groupMembershipAction` (wwebjs.engine.ts:3223)
-    - chamado por: `SessionManager.groupMembershipAction` (session-manager.service.ts:1488)
+    - chamado por: `SessionManager.groupMembershipAction` (session-manager.service.ts:1513)
   - `IEngine.setGroupSetting(jid, setting, enabled)` · L418
     - implementado por: `BaileysEngine.setGroupSetting` (baileys.engine.ts:2338), `WWebJSEngine.setGroupSetting` (wwebjs.engine.ts:3238)
-    - chamado por: `SessionManager.setGroupSetting` (session-manager.service.ts:1500)
+    - chamado por: `SessionManager.setGroupSetting` (session-manager.service.ts:1525)
   - `IEngine.setGroupPhoto(jid, image, mimetype)` · L424
     - implementado por: `BaileysEngine.setGroupPhoto` (baileys.engine.ts:2355), `WWebJSEngine.setGroupPhoto` (wwebjs.engine.ts:3249)
-    - chamado por: `SessionManager.setGroupPhoto` (session-manager.service.ts:1512)
+    - chamado por: `SessionManager.setGroupPhoto` (session-manager.service.ts:1537)
   - `IEngine.checkNumbers(numbers)` · L427
     - implementado por: `BaileysEngine.checkNumbers` (baileys.engine.ts:2364), `WWebJSEngine.checkNumbers` (wwebjs.engine.ts:3260)
-    - chamado por: `SessionManager.checkNumbers` (session-manager.service.ts:1526)
+    - chamado por: `SessionManager.checkNumbers` (session-manager.service.ts:1551)
   - `IEngine.profilePicture(jid)` · L428
     - implementado por: `BaileysEngine.profilePicture` (baileys.engine.ts:2379), `WWebJSEngine.profilePicture` (wwebjs.engine.ts:3271)
-    - chamado por: `SessionManager.profilePicture` (session-manager.service.ts:1532)
+    - chamado por: `SessionManager.profilePicture` (session-manager.service.ts:1557)
   - `IEngine.setBlock(jid, action)` · L429
     - implementado por: `BaileysEngine.setBlock` (baileys.engine.ts:2388), `WWebJSEngine.setBlock` (wwebjs.engine.ts:3282)
-    - chamado por: `SessionManager.setBlock` (session-manager.service.ts:1535)
+    - chamado por: `SessionManager.setBlock` (session-manager.service.ts:1560)
   - `IEngine.saveContact(jid, input)` · L431
     - implementado por: `BaileysEngine.saveContact` (baileys.engine.ts:2391), `WWebJSEngine.saveContact` (wwebjs.engine.ts:3290)
-    - chamado por: `SessionManager.saveContact` (session-manager.service.ts:1542)
+    - chamado por: `SessionManager.saveContact` (session-manager.service.ts:1567)
   - `IEngine.removeContact(jid)` · L433
     - implementado por: `BaileysEngine.removeContact` (baileys.engine.ts:2404), `WWebJSEngine.removeContact` (wwebjs.engine.ts:3301)
-    - chamado por: `SessionManager.removeContact` (session-manager.service.ts:1549)
+    - chamado por: `SessionManager.removeContact` (session-manager.service.ts:1574)
   - `IEngine.createChannel(name, description)` · L436
     - implementado por: `BaileysEngine.createChannel` (baileys.engine.ts:2409), `WWebJSEngine.createChannel` (wwebjs.engine.ts:3306)
-    - chamado por: `SessionManager.createChannel` (session-manager.service.ts:1554)
+    - chamado por: `SessionManager.createChannel` (session-manager.service.ts:1579)
   - `IEngine.channelInfo(jid)` · L437
     - implementado por: `BaileysEngine.channelInfo` (baileys.engine.ts:2416), `WWebJSEngine.channelInfo` (wwebjs.engine.ts:3324)
-    - chamado por: `SessionManager.channelInfo` (session-manager.service.ts:1564)
+    - chamado por: `SessionManager.channelInfo` (session-manager.service.ts:1589)
   - `IEngine.followChannel(jid)` · L438
     - implementado por: `BaileysEngine.followChannel` (baileys.engine.ts:2420), `WWebJSEngine.followChannel` (wwebjs.engine.ts:3337)
-    - chamado por: `SessionManager.followChannel` (session-manager.service.ts:1567)
+    - chamado por: `SessionManager.followChannel` (session-manager.service.ts:1592)
   - `IEngine.unfollowChannel(jid)` · L439
     - implementado por: `BaileysEngine.unfollowChannel` (baileys.engine.ts:2423), `WWebJSEngine.unfollowChannel` (wwebjs.engine.ts:3341)
-    - chamado por: `SessionManager.unfollowChannel` (session-manager.service.ts:1570)
+    - chamado por: `SessionManager.unfollowChannel` (session-manager.service.ts:1595)
 
 ## `modules/sessions/application/session-config.service.ts`
 
@@ -430,43 +430,44 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **class `LeaseLostError`** L1 · `extends Error`
 - `constructor()` · L2
-  - chamado por: `SessionManager.epochOf` (session-manager.service.ts:120), `SessionManager.ownedWorking` (session-manager.service.ts:1410), `SessionManager.scheduleRenew` (session-manager.service.ts:144), `SessionManager.sending` (session-manager.service.ts:1369), `PostgresSessionLease.fenced` (postgres-session-lease.ts:63)
+  - chamado por: `SessionManager.epochOf` (session-manager.service.ts:133), `SessionManager.ownedWorking` (session-manager.service.ts:1435), `SessionManager.scheduleRenew` (session-manager.service.ts:157), `SessionManager.sending` (session-manager.service.ts:1394), `PostgresSessionLease.fenced` (postgres-session-lease.ts:63)
 
 ## `modules/sessions/application/session-manager.lifecycle.spec.ts`
 
-876 linhas · caminho: `apps/gateway/src/modules/sessions/application/session-manager.lifecycle.spec.ts`
+902 linhas · caminho: `apps/gateway/src/modules/sessions/application/session-manager.lifecycle.spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/domain/session-status.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/application/session-manager.service.ts`
 
-- describe “SessionManager — lock de ciclo de vida (E27/D-037)” · L258
-  - it “renovação atrasada do ciclo antigo não encerra a engine nova” · L259
-  - it “dois newQr concorrentes não se sobrepõem: o 2º espera o 1º terminar e cada engine nova sobe 1 vez” · L282
-  - it “stop chamado durante um newQr roda DEPOIS dele e a engine final fica parada” · L326
-  - it “restart termina sem deadlock e encadeia stop → start na mesma engine” · L375
-  - it “start, stop, restart e stop disparados juntos rodam em fila, na ordem de chegada” · L386
-  - it “stop pendurado libera o lock após 10 s, mas não solta o lease nem relança a engine viva” · L411
-- describe “SessionManager.newQrForConnectLink (E27/P-086)” · L434
-  - it “com outra operação em andamento rejeita SessionBusyError sem chamar o check nem mexer na fila” · L435
-  - it “check que lança: erro propaga e nada de stop/deleteMany/purge/start; o lock é liberado” · L457
-  - it “sem engine em memória: newQr roda (creds apagadas, purge, engine criada e iniciada)” · L540
-- describe “SessionManager — erro e fila (E27/D-037)” · L562
-  - it “erro numa operação volta só para o chamador dela e não trava as seguintes” · L563
-  - it “start da engine nova falhando dentro do newQrForConnectLink propaga o erro e libera o lock” · L591
-  - it “isBusy: true durante a operação e na fila, false quando tudo assenta; por sessão” · L608
-  - it “logo após o await de uma operação, o failFast do link público não vê a sessão ocupada” · L622
-- describe “SessionManager.remove — ordem para o carimbo de proxy (E26/D-038)” · L633
-  - it “só resolve depois do delete cercado pelo lease e rejeita se ele rejeitar” · L638
-- describe “SessionManager.requestPairingCode dentro do lock (E27, revisão do diff)” · L660
-  - it “pedido de código pendurado estoura em 45 s (409 na rota) e libera o stop que esperava” · L668
-- describe “SessionManager.rejectConnectedAccount (E27/P-086)” · L697
-  - it “sem engine no mapa (réplica não dona) é no-op” · L698
-  - it “com engine: logout, sai do mapa, persiste e publica STOPPED com o motivo e restaura lastMeJid” · L710
-  - it “publica um único STOPPED (com o motivo): o STOPPED sem motivo do próprio logout é descartado” · L754
-  - it “logout que falha não impede a rejeição (sai do mapa, STOPPED com motivo, lastMeJid)” · L786
-  - it “entra na fila do lock (sem failFast): espera a operação em andamento” · L801
-- describe “SessionManager — leituras do link (E27/P-086)” · L822
-  - it “liveView devolve status+qr da mesma instância e null sem engine; hasEngine acompanha” · L823
-  - it “isRehydrated: false antes do bootstrap, true depois sem candidatos” · L847
-  - it “isRehydrated com candidatos: só vira true quando o laço termina, mesmo com falha no start” · L856
+- describe “SessionManager — lock de ciclo de vida (E27/D-037)” · L262
+  - it “renovação atrasada do ciclo antigo não encerra a engine nova” · L263
+  - it “dois newQr concorrentes não se sobrepõem: o 2º espera o 1º terminar e cada engine nova sobe 1 vez” · L286
+  - it “stop chamado durante um newQr roda DEPOIS dele e a engine final fica parada” · L330
+  - it “restart termina sem deadlock e encadeia stop → start na mesma engine” · L379
+  - it “start, stop, restart e stop disparados juntos rodam em fila, na ordem de chegada” · L390
+  - it “stop pendurado libera o lock após 10 s, mas não solta o lease nem relança a engine viva” · L415
+- describe “SessionManager.newQrForConnectLink (E27/P-086)” · L438
+  - it “com outra operação em andamento rejeita SessionBusyError sem chamar o check nem mexer na fila” · L439
+  - it “check que lança: erro propaga e nada de stop/deleteMany/purge/start; o lock é liberado” · L461
+  - it “sem engine em memória: newQr roda (creds apagadas, purge, engine criada e iniciada)” · L544
+- describe “SessionManager — erro e fila (E27/D-037)” · L566
+  - it “erro numa operação volta só para o chamador dela e não trava as seguintes” · L567
+  - it “start da engine nova falhando dentro do newQrForConnectLink propaga o erro e libera o lock” · L595
+  - it “isBusy: true durante a operação e na fila, false quando tudo assenta; por sessão” · L612
+  - it “logo após o await de uma operação, o failFast do link público não vê a sessão ocupada” · L626
+- describe “SessionManager.remove — ordem para o carimbo de proxy (E26/D-038)” · L637
+  - it “só resolve depois do delete cercado pelo lease e rejeita se ele rejeitar” · L642
+- describe “SessionManager.requestPairingCode dentro do lock (E27, revisão do diff)” · L664
+  - it “pedido de código pendurado estoura em 45 s (409 na rota) e libera o stop que esperava” · L672
+- describe “SessionManager.rejectConnectedAccount (E27/P-086)” · L701
+  - it “sem engine no mapa (réplica não dona) é no-op” · L702
+  - it “com engine: logout, sai do mapa, persiste e publica STOPPED com o motivo e restaura lastMeJid” · L714
+  - it “publica um único STOPPED (com o motivo): o STOPPED sem motivo do próprio logout é descartado” · L758
+  - it “logout que falha não impede a rejeição (sai do mapa, STOPPED com motivo, lastMeJid)” · L790
+  - it “entra na fila do lock (sem failFast): espera a operação em andamento” · L805
+- describe “SessionManager — leituras do link (E27/P-086)” · L826
+  - it “liveView devolve status+qr da mesma instância e null sem engine; hasEngine acompanha” · L827
+  - it “isRehydrated: false antes do bootstrap, true depois sem candidatos” · L851
+  - it “isRehydrated com candidatos: só vira true quando o laço termina, mesmo com falha no start” · L861
+  - it “sessão fora de WORKING expõe erro tipado sem mudar a mensagem pública” · L888
 
 ## `modules/sessions/application/session-manager.pairing.spec.ts`
 
@@ -480,271 +481,281 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/sessions/application/session-manager.service.ts`
 
-1574 linhas · caminho: `apps/gateway/src/modules/sessions/application/session-manager.service.ts`
+1599 linhas · caminho: `apps/gateway/src/modules/sessions/application/session-manager.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/ulid.ts`, `infra/directory/contact-directory.service.ts`, `infra/storage/media-storage.service.ts`, `modules/proxies/application/proxy-resolver.service.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/infrastructure/engine.factory.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/application/engine.port.ts`
-- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `modules/channels/interface/channels.controller.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/groups/interface/groups.controller.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-manager.pairing.spec.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/setup-app.ts`
+- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `modules/channels/interface/channels.controller.ts`, `modules/contacts/interface/contacts.controller.ts`, `modules/groups/interface/groups.controller.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-manager.pairing.spec.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/setup-app.ts`
 
 **class `SessionBusyError`** L60 · `extends ConflictException`
 - `constructor()` · L61
-  - chamado por: `ensureLease` L125, `logoutUnlocked` L910, `newQrForConnectLink` L983, `newQrUnlocked` L1099, `rejectConnectedAccount` L1019, `removeUnlocked` L1124, `runExclusive` L540, `startUnlocked` L712, `stopUnlocked` L866, `working` L1397
+  - chamado por: `ensureLease` L138, `logoutUnlocked` L935, `newQrForConnectLink` L1008, `newQrUnlocked` L1124, `rejectConnectedAccount` L1044, `removeUnlocked` L1149, `runExclusive` L565, `startUnlocked` L737, `stopUnlocked` L891, `working` L1422
 
-**class `SessionManager`** L67 · @Injectable · `implements OnApplicationBootstrap`, `implements OnModuleDestroy`
+**class `SessionNotWorkingError`** L69 · `extends Error`
+- injeta (construtor): `message: 'Sessão não iniciada' | 'Sessão não está conectada' (param)`
+- `constructor(message)` · L70
+  - chamado por: `working` L1422
+
+**class `SessionManager`** L76 · @Injectable · `implements OnApplicationBootstrap`, `implements OnModuleDestroy`
 - injeta (construtor): `repo: @Inject(SESSION_REPOSITORY) SessionRepository` · `prisma: PrismaService` · `config: ConfigService<Env, true>` · `eventBus: EventBus` · `proxyResolver: ProxyResolver` · `mediaStorage: MediaStorage` · `contactDirectory: ContactDirectory` · `engineFactory: EngineFactory` · `guardrail: GuardrailService`
-- `logger` · L69 · private · campo
-- `engines` · L70 · private · campo
-- `names` · L71 · private · campo
-- `lastStatusKey` · L75 · private · campo
-- `statusWrites` · L78 · private · campo
-- `rehydrated` · L86 · private · campo
-- `owned` · L88 · private · campo
-- `bootRetries` · L92 · private · campo
-- `pendingStops` · L96 · private · campo
-- `draining` · L97 · private · campo
-- `drainFailed` · L98 · private · campo
-- `shuttingDown` · L99 · private · campo
-- `constructor(repo, prisma, config, eventBus, proxyResolver, mediaStorage…)` · L101
+- `logger` · L78 · private · campo
+- `engines` · L79 · private · campo
+- `names` · L80 · private · campo
+- `lastStatusKey` · L84 · private · campo
+- `statusWrites` · L87 · private · campo
+- `rehydrated` · L95 · private · campo
+- `rehydrationDone` · L97 · private · campo
+- `owned` · L101 · private · campo
+- `bootRetries` · L105 · private · campo
+- `pendingStops` · L109 · private · campo
+- `draining` · L110 · private · campo
+- `drainFailed` · L111 · private · campo
+- `shuttingDown` · L112 · private · campo
+- `constructor(repo, prisma, config, eventBus, proxyResolver, mediaStorage…)` · L114
   - chama: `PostgresSessionLease.constructor` (postgres-session-lease.ts:22)
-- `isOwner(sessionId)` · L115 · private
-  - chamado por: `enqueueStatusWrite` L506, `ensureLease` L125, `epochOf` L120, `getOrCreateEngine` L367, `handleEngineEvent` L581, `newQrForConnectLink` L983, `rejectConnectedAccount` L1019, `stopUnlocked` L866
-- `epochOf(sessionId)` · L120 · private
-  - chama: `LeaseLostError.constructor` (session-lease.error.ts:2), `isOwner` L115
-  - chamado por: `ensureLease` L125, `getOrCreateEngine` L367, `handleEngineEvent` L581, `logoutUnlocked` L910, `ownedWorking` L1410, `persistStatus` L665, `rejectConnectedAccount` L1019, `removeUnlocked` L1124, `sending` L1369, `startUnlocked` L712, `startWithTimeout` L765, `working` L1397
-- `ensureLease(sessionId)` · L125 · private · async
-  - chama: `constructor` L61, `drain` L187, `epochOf` L120, `isOwner` L115, `scheduleRenew` L144, `PostgresSessionLease.acquire` (postgres-session-lease.ts:24)
-  - chamado por: `logoutUnlocked` L910, `newQrForConnectLink` L983, `newQrUnlocked` L1099, `rejectConnectedAccount` L1019, `removeUnlocked` L1124, `requestPairingCodeUnlocked` L1172, `restart` L891, `startUnlocked` L712, `stopUnlocked` L866
-- `scheduleRenew(sessionId, held)` · L144 · private
-  - chama: `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L187, `scheduleBootRetry` L239, `PostgresSessionLease.renew` (postgres-session-lease.ts:39)
-  - chamado por: `ensureLease` L125
-- `drain(sessionId, expected)` · L187 · private · async
-  - chama: `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `settledWithin` L814
-  - chamado por: `ensureLease` L125, `ownedWorking` L1410, `persistStatus` L665, `scheduleRenew` L144, `sending` L1369
-- `releaseLease(sessionId)` · L228 · private · async
+- `isOwner(sessionId)` · L128 · private
+  - chamado por: `enqueueStatusWrite` L531, `ensureLease` L138, `epochOf` L133, `getOrCreateEngine` L392, `handleEngineEvent` L606, `newQrForConnectLink` L1008, `rejectConnectedAccount` L1044, `stopUnlocked` L891
+- `epochOf(sessionId)` · L133 · private
+  - chama: `LeaseLostError.constructor` (session-lease.error.ts:2), `isOwner` L128
+  - chamado por: `ensureLease` L138, `getOrCreateEngine` L392, `handleEngineEvent` L606, `logoutUnlocked` L935, `ownedWorking` L1435, `persistStatus` L690, `rejectConnectedAccount` L1044, `removeUnlocked` L1149, `sending` L1394, `startUnlocked` L737, `startWithTimeout` L790, `working` L1422
+- `ensureLease(sessionId)` · L138 · private · async
+  - chama: `constructor` L61, `drain` L200, `epochOf` L133, `isOwner` L128, `scheduleRenew` L157, `PostgresSessionLease.acquire` (postgres-session-lease.ts:24)
+  - chamado por: `logoutUnlocked` L935, `newQrForConnectLink` L1008, `newQrUnlocked` L1124, `rejectConnectedAccount` L1044, `removeUnlocked` L1149, `requestPairingCodeUnlocked` L1197, `restart` L916, `startUnlocked` L737, `stopUnlocked` L891
+- `scheduleRenew(sessionId, held)` · L157 · private
+  - chama: `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L200, `scheduleBootRetry` L252, `PostgresSessionLease.renew` (postgres-session-lease.ts:39)
+  - chamado por: `ensureLease` L138
+- `drain(sessionId, expected)` · L200 · private · async
+  - chama: `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `settledWithin` L839
+  - chamado por: `ensureLease` L138, `ownedWorking` L1435, `persistStatus` L690, `scheduleRenew` L157, `sending` L1394
+- `releaseLease(sessionId)` · L241 · private · async
   - chama: `PostgresSessionLease.release` (postgres-session-lease.ts:48)
-  - chamado por: `logoutUnlocked` L910, `newQrForConnectLink` L983, `onModuleDestroy` L321, `rejectConnectedAccount` L1019, `removeUnlocked` L1124, `startUnlocked` L712, `stopUnlocked` L866
-- `scheduleBootRetry(sessionId, delayMs)` · L239 · private
-  - chama: `isTransientDatabaseError` L259, `startAutostart` L275
-  - chamado por: `onApplicationBootstrap` L281, `scheduleRenew` L144
-- `isTransientDatabaseError(e)` · L259 · private
-  - chamado por: `onApplicationBootstrap` L281, `scheduleBootRetry` L239
-- `startAutostart(sessionId)` · L275 · private
-  - chama: `runExclusive` L540, `startUnlocked` L712
-  - chamado por: `onApplicationBootstrap` L281, `scheduleBootRetry` L239
-- `onApplicationBootstrap()` · L281 · async
-  - chama: `isTransientDatabaseError` L259, `scheduleBootRetry` L239, `startAutostart` L275, `SessionRepository.findAutostart` (session.repository.ts:49)
-- `onModuleDestroy()` · L321 · async
-  - chama: `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `releaseLease` L228
-- `getOrCreateEngine(sessionId, engineType)` · L367 · private
-  - chama: `ContactDirectory.lidMap` (contact-directory.service.ts:190), `ContactDirectory.namesFor` (contact-directory.service.ts:150), `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.recordMany` (contact-directory.service.ts:69), `MediaStorage.put` (media-storage.service.ts:103), `GuardrailService.recordReachoutRestriction` (guardrail.service.ts:456), `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyResolver.resolveAgent` (proxy-resolver.service.ts:182), `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146), `ProxyResolver.resolveProxyConfig` (proxy-resolver.service.ts:127), `enqueueStatusWrite` L506, `epochOf` L120, `handleEngineEvent` L581, `isOwner` L115, `EngineFactory.create` (engine.factory.ts:11), `PostgresSessionLease.updateLastErrorDetails` (postgres-session-lease.ts:118)
-  - chamado por: `requestPairingCodeUnlocked` L1172, `startUnlocked` L712
+  - chamado por: `logoutUnlocked` L935, `newQrForConnectLink` L1008, `onModuleDestroy` L346, `rejectConnectedAccount` L1044, `removeUnlocked` L1149, `startUnlocked` L737, `stopUnlocked` L891
+- `scheduleBootRetry(sessionId, delayMs)` · L252 · private
+  - chama: `isTransientDatabaseError` L272, `startAutostart` L288
+  - chamado por: `onApplicationBootstrap` L294, `scheduleRenew` L157
+- `isTransientDatabaseError(e)` · L272 · private
+  - chamado por: `onApplicationBootstrap` L294, `scheduleBootRetry` L252
+- `startAutostart(sessionId)` · L288 · private
+  - chama: `runExclusive` L565, `startUnlocked` L737
+  - chamado por: `onApplicationBootstrap` L294, `scheduleBootRetry` L252
+- `onApplicationBootstrap()` · L294 · async
+  - chama: `finishRehydration` L337, `isTransientDatabaseError` L272, `scheduleBootRetry` L252, `startAutostart` L288, `SessionRepository.findAutostart` (session.repository.ts:49)
+- `finishRehydration()` · L337 · private
+  - chamado por: `onApplicationBootstrap` L294
+- `whenRehydrated()` · L342
+  - chamado por: `CampaignQueue.onApplicationBootstrap` (campaign-queue.ts:150)
+- `onModuleDestroy()` · L346 · async
+  - chama: `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `releaseLease` L241
+- `getOrCreateEngine(sessionId, engineType)` · L392 · private
+  - chama: `ContactDirectory.lidMap` (contact-directory.service.ts:190), `ContactDirectory.namesFor` (contact-directory.service.ts:150), `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.recordMany` (contact-directory.service.ts:69), `MediaStorage.put` (media-storage.service.ts:103), `GuardrailService.recordReachoutRestriction` (guardrail.service.ts:456), `ProxyResolver.reportFailure` (proxy-resolver.service.ts:104), `ProxyResolver.resolveAgent` (proxy-resolver.service.ts:182), `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:146), `ProxyResolver.resolveProxyConfig` (proxy-resolver.service.ts:127), `enqueueStatusWrite` L531, `epochOf` L133, `handleEngineEvent` L606, `isOwner` L128, `EngineFactory.create` (engine.factory.ts:11), `PostgresSessionLease.updateLastErrorDetails` (postgres-session-lease.ts:118)
+  - chamado por: `requestPairingCodeUnlocked` L1197, `startUnlocked` L737
   - banco: `sessionConfig.findUnique`
-- `enqueueStatusWrite(sessionId, engine, operation, write)` · L506 · private
-  - chama: `isOwner` L115
-  - chamado por: `getOrCreateEngine` L367
-- `locks()` · L532 · private · getter
-- `runExclusive(sessionId, fn, opts)` · L540 · private
+- `enqueueStatusWrite(sessionId, engine, operation, write)` · L531 · private
+  - chama: `isOwner` L128
+  - chamado por: `getOrCreateEngine` L392
+- `locks()` · L557 · private · getter
+- `runExclusive(sessionId, fn, opts)` · L565 · private
   - chama: `constructor` L61
-  - chamado por: `logout` L906, `newQr` L960, `newQrForConnectLink` L983, `rejectConnectedAccount` L1019, `remove` L1120, `requestPairingCode` L1166, `restart` L891, `start` L708, `startAutostart` L275, `stop` L862
-- `isBusy(sessionId)` · L559
+  - chamado por: `logout` L931, `newQr` L985, `newQrForConnectLink` L1008, `rejectConnectedAccount` L1044, `remove` L1145, `requestPairingCode` L1191, `restart` L916, `start` L733, `startAutostart` L288, `stop` L887
+- `isBusy(sessionId)` · L584
   - chamado por: `ConnectLinkService.publicState` (connect-link.service.ts:279)
-- `isRehydrated()` · L563
+- `isRehydrated()` · L588
   - chamado por: `ConnectLinkService.checkAndReserve` (connect-link.service.ts:423), `ConnectLinkService.publicState` (connect-link.service.ts:279)
-- `hasEngine(sessionId)` · L567
+- `hasEngine(sessionId)` · L592
   - chamado por: `ConnectLinkService.onSessionWorking` (connect-link.service.ts:494)
-- `liveView(sessionId)` · L572
+- `liveView(sessionId)` · L597
   - chama: `IEngine.getQrBase64` (engine.port.ts:379), `IEngine.getStatus` (engine.port.ts:383)
   - chamado por: `ConnectLinkService.checkAndReserve` (connect-link.service.ts:423), `ConnectLinkService.isWorking` (connect-link.service.ts:206), `ConnectLinkService.publicState` (connect-link.service.ts:279)
-- `handleEngineEvent(sessionId, name, payload, expectedEngine, expectedEpoch)` · L581 · private · async
-  - chama: `MediaStorage.presignedGetUrl` (media-storage.service.ts:144), `epochOf` L120, `isOwner` L115, `persistStatus` L665, `EventBus.publish` (event-bus.ts:21), `newId` (ulid.ts:4)
-  - chamado por: `getOrCreateEngine` L367, `rejectConnectedAccount` L1019
+- `handleEngineEvent(sessionId, name, payload, expectedEngine, expectedEpoch)` · L606 · private · async
+  - chama: `MediaStorage.presignedGetUrl` (media-storage.service.ts:144), `epochOf` L133, `isOwner` L128, `persistStatus` L690, `EventBus.publish` (event-bus.ts:21), `newId` (ulid.ts:4)
+  - chamado por: `getOrCreateEngine` L392, `rejectConnectedAccount` L1044
   - publica evento: `'wa.event'`
-- `persistStatus(sessionId, p, expectedEpoch)` · L665 · private · async
-  - chama: `drain` L187, `epochOf` L120, `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
-  - chamado por: `handleEngineEvent` L581
-- `START_TIMEOUT_MS` · L706 · private · static · campo
-- `start(sessionId)` · L708
-  - chama: `runExclusive` L540, `startUnlocked` L712
+- `persistStatus(sessionId, p, expectedEpoch)` · L690 · private · async
+  - chama: `drain` L200, `epochOf` L133, `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
+  - chamado por: `handleEngineEvent` L606
+- `START_TIMEOUT_MS` · L731 · private · static · campo
+- `start(sessionId)` · L733
+  - chama: `runExclusive` L565, `startUnlocked` L737
   - chamado por: `SessionsController.create` (sessions.controller.ts:102), `SessionsController.start` (sessions.controller.ts:326)
-- `startUnlocked(sessionId, autostartOnly)` · L712 · private · async
-  - chama: `IEngine.start` (engine.port.ts:329), `constructor` L61, `ensureLease` L125, `epochOf` L120, `getOrCreateEngine` L367, `releaseLease` L228, `startWithTimeout` L765, `SessionRepository.findById` (session.repository.ts:33), `PostgresSessionLease.fenced` (postgres-session-lease.ts:63)
-  - chamado por: `newQrUnlocked` L1099, `restart` L891, `start` L708, `startAutostart` L275
+- `startUnlocked(sessionId, autostartOnly)` · L737 · private · async
+  - chama: `IEngine.start` (engine.port.ts:329), `constructor` L61, `ensureLease` L138, `epochOf` L133, `getOrCreateEngine` L392, `releaseLease` L241, `startWithTimeout` L790, `SessionRepository.findById` (session.repository.ts:33), `PostgresSessionLease.fenced` (postgres-session-lease.ts:63)
+  - chamado por: `newQrUnlocked` L1124, `restart` L916, `start` L733, `startAutostart` L288
   - banco: `waSession.findUnique`
-- `startWithTimeout(sessionId, op)` · L765 · private · async
-  - chama: `epochOf` L120, `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
-  - chamado por: `requestPairingCodeUnlocked` L1172, `startUnlocked` L712
-- `settledWithin(op, ms)` · L814 · private · async
-  - chamado por: `drain` L187, `logoutUnlocked` L910, `purgeAuthDir` L964, `rejectConnectedAccount` L1019, `removeUnlocked` L1124, `stopEngine` L839
-- `stopEngine(sessionId, engine, ms)` · L839 · private
-  - chama: `IEngine.stop` (engine.port.ts:330), `settledWithin` L814
-  - chamado por: `newQrUnlocked` L1099, `removeUnlocked` L1124, `stopUnlocked` L866
-- `stop(sessionId)` · L862
-  - chama: `runExclusive` L540, `stopUnlocked` L866
+- `startWithTimeout(sessionId, op)` · L790 · private · async
+  - chama: `epochOf` L133, `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
+  - chamado por: `requestPairingCodeUnlocked` L1197, `startUnlocked` L737
+- `settledWithin(op, ms)` · L839 · private · async
+  - chamado por: `drain` L200, `logoutUnlocked` L935, `purgeAuthDir` L989, `rejectConnectedAccount` L1044, `removeUnlocked` L1149, `stopEngine` L864
+- `stopEngine(sessionId, engine, ms)` · L864 · private
+  - chama: `IEngine.stop` (engine.port.ts:330), `settledWithin` L839
+  - chamado por: `newQrUnlocked` L1124, `removeUnlocked` L1149, `stopUnlocked` L891
+- `stop(sessionId)` · L887
+  - chama: `runExclusive` L565, `stopUnlocked` L891
   - chamado por: `SessionsController.stop` (sessions.controller.ts:333)
-- `stopUnlocked(sessionId, keepLease)` · L866 · private · async
-  - chama: `constructor` L61, `ensureLease` L125, `isOwner` L115, `releaseLease` L228, `stopEngine` L839, `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
-  - chamado por: `restart` L891, `stop` L862
-- `restart(sessionId)` · L891
-  - chama: `ensureLease` L125, `runExclusive` L540, `startUnlocked` L712, `stopUnlocked` L866
+- `stopUnlocked(sessionId, keepLease)` · L891 · private · async
+  - chama: `constructor` L61, `ensureLease` L138, `isOwner` L128, `releaseLease` L241, `stopEngine` L864, `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
+  - chamado por: `restart` L916, `stop` L887
+- `restart(sessionId)` · L916
+  - chama: `ensureLease` L138, `runExclusive` L565, `startUnlocked` L737, `stopUnlocked` L891
   - chamado por: `SessionsController.restart` (sessions.controller.ts:343)
-- `logout(sessionId)` · L906
-  - chama: `logoutUnlocked` L910, `runExclusive` L540
+- `logout(sessionId)` · L931
+  - chama: `logoutUnlocked` L935, `runExclusive` L565
   - chamado por: `SessionsController.logout` (sessions.controller.ts:350)
-- `logoutUnlocked(sessionId)` · L910 · private · async
-  - chama: `IEngine.logout` (engine.port.ts:339), `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `constructor` L61, `ensureLease` L125, `epochOf` L120, `purgeAuthDir` L964, `releaseLease` L228, `settledWithin` L814, `PostgresSessionLease.clearAuth` (postgres-session-lease.ts:133), `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
-  - chamado por: `logout` L906
-- `newQr(sessionId)` · L960
-  - chama: `newQrUnlocked` L1099, `runExclusive` L540
+- `logoutUnlocked(sessionId)` · L935 · private · async
+  - chama: `IEngine.logout` (engine.port.ts:339), `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `constructor` L61, `ensureLease` L138, `epochOf` L133, `purgeAuthDir` L989, `releaseLease` L241, `settledWithin` L839, `PostgresSessionLease.clearAuth` (postgres-session-lease.ts:133), `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
+  - chamado por: `logout` L931
+- `newQr(sessionId)` · L985
+  - chama: `newQrUnlocked` L1124, `runExclusive` L565
   - chamado por: `SessionsController.newQr` (sessions.controller.ts:386)
-- `purgeAuthDir(sessionId, epoch)` · L964 · private · async
-  - chama: `settledWithin` L814, `PostgresSessionLease.fenced` (postgres-session-lease.ts:63), `WWebJSEngine.detachAuthDir` (wwebjs.engine.ts:742), `WWebJSEngine.purgeDetachedAuthDir` (wwebjs.engine.ts:754)
-  - chamado por: `logoutUnlocked` L910, `newQrUnlocked` L1099, `rejectConnectedAccount` L1019
-- `newQrForConnectLink(sessionId, check)` · L983
-  - chama: `IEngine.getStatus` (engine.port.ts:383), `constructor` L61, `ensureLease` L125, `isOwner` L115, `newQrUnlocked` L1099, `releaseLease` L228, `runExclusive` L540
+- `purgeAuthDir(sessionId, epoch)` · L989 · private · async
+  - chama: `settledWithin` L839, `PostgresSessionLease.fenced` (postgres-session-lease.ts:63), `WWebJSEngine.detachAuthDir` (wwebjs.engine.ts:742), `WWebJSEngine.purgeDetachedAuthDir` (wwebjs.engine.ts:754)
+  - chamado por: `logoutUnlocked` L935, `newQrUnlocked` L1124, `rejectConnectedAccount` L1044
+- `newQrForConnectLink(sessionId, check)` · L1008
+  - chama: `IEngine.getStatus` (engine.port.ts:383), `constructor` L61, `ensureLease` L138, `isOwner` L128, `newQrUnlocked` L1124, `releaseLease` L241, `runExclusive` L565
   - chamado por: `ConnectLinkService.requestNewQr` (connect-link.service.ts:386)
-- `rejectConnectedAccount(sessionId, reason, restoreLastMeJid, opts)` · L1019
-  - chama: `IEngine.logout` (engine.port.ts:339), `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `constructor` L61, `ensureLease` L125, `epochOf` L120, `handleEngineEvent` L581, `isOwner` L115, `purgeAuthDir` L964, `releaseLease` L228, `runExclusive` L540, `settledWithin` L814, `PostgresSessionLease.clearAuth` (postgres-session-lease.ts:133), `PostgresSessionLease.setLastMeJid` (postgres-session-lease.ts:145), `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
+- `rejectConnectedAccount(sessionId, reason, restoreLastMeJid, opts)` · L1044
+  - chama: `IEngine.logout` (engine.port.ts:339), `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `constructor` L61, `ensureLease` L138, `epochOf` L133, `handleEngineEvent` L606, `isOwner` L128, `purgeAuthDir` L989, `releaseLease` L241, `runExclusive` L565, `settledWithin` L839, `PostgresSessionLease.clearAuth` (postgres-session-lease.ts:133), `PostgresSessionLease.setLastMeJid` (postgres-session-lease.ts:145), `PostgresSessionLease.updateStatus` (postgres-session-lease.ts:83)
   - chamado por: `ConnectLinkService.onSessionWorking` (connect-link.service.ts:494), `ConnectLinkService.publicState` (connect-link.service.ts:279)
-- `newQrUnlocked(sessionId)` · L1099 · private · async
-  - chama: `constructor` L61, `ensureLease` L125, `purgeAuthDir` L964, `startUnlocked` L712, `stopEngine` L839, `PostgresSessionLease.clearAuth` (postgres-session-lease.ts:133)
-  - chamado por: `newQr` L960, `newQrForConnectLink` L983
-- `remove(sessionId)` · L1120
-  - chama: `removeUnlocked` L1124, `runExclusive` L540
+- `newQrUnlocked(sessionId)` · L1124 · private · async
+  - chama: `constructor` L61, `ensureLease` L138, `purgeAuthDir` L989, `startUnlocked` L737, `stopEngine` L864, `PostgresSessionLease.clearAuth` (postgres-session-lease.ts:133)
+  - chamado por: `newQr` L985, `newQrForConnectLink` L1008
+- `remove(sessionId)` · L1145
+  - chama: `removeUnlocked` L1149, `runExclusive` L565
   - chamado por: `SessionsController.remove` (sessions.controller.ts:358)
-- `removeUnlocked(sessionId)` · L1124 · private · async
-  - chama: `constructor` L61, `ensureLease` L125, `epochOf` L120, `releaseLease` L228, `settledWithin` L814, `stopEngine` L839, `PostgresSessionLease.fenced` (postgres-session-lease.ts:63), `WWebJSEngine.detachAuthDir` (wwebjs.engine.ts:742), `WWebJSEngine.purgeDetachedAuthDir` (wwebjs.engine.ts:754)
-  - chamado por: `remove` L1120
+- `removeUnlocked(sessionId)` · L1149 · private · async
+  - chama: `constructor` L61, `ensureLease` L138, `epochOf` L133, `releaseLease` L241, `settledWithin` L839, `stopEngine` L864, `PostgresSessionLease.fenced` (postgres-session-lease.ts:63), `WWebJSEngine.detachAuthDir` (wwebjs.engine.ts:742), `WWebJSEngine.purgeDetachedAuthDir` (wwebjs.engine.ts:754)
+  - chamado por: `remove` L1145
   - banco: `waSession.delete`
-- `getQr(sessionId)` · L1158
+- `getQr(sessionId)` · L1183
   - chama: `IEngine.getQrBase64` (engine.port.ts:379)
   - chamado por: `SessionsController.qr` (sessions.controller.ts:370)
-- `getPairingCode(sessionId)` · L1162
+- `getPairingCode(sessionId)` · L1187
   - chama: `IEngine.getPairingCode` (engine.port.ts:382)
   - chamado por: `SessionsController.qr` (sessions.controller.ts:370)
-- `requestPairingCode(sessionId, phoneNumber)` · L1166
-  - chama: `requestPairingCodeUnlocked` L1172, `runExclusive` L540
+- `requestPairingCode(sessionId, phoneNumber)` · L1191
+  - chama: `requestPairingCodeUnlocked` L1197, `runExclusive` L565
   - chamado por: `SessionsController.pairingCode` (sessions.controller.ts:393)
-- `requestPairingCodeUnlocked(sessionId, phoneNumber)` · L1172 · private · async
-  - chama: `IEngine.getStatus` (engine.port.ts:383), `IEngine.requestPairingCode` (engine.port.ts:340), `IEngine.start` (engine.port.ts:329), `ensureLease` L125, `getOrCreateEngine` L367, `rejectAfter` L1219, `startWithTimeout` L765, `SessionRepository.findById` (session.repository.ts:33)
-  - chamado por: `requestPairingCode` L1166
+- `requestPairingCodeUnlocked(sessionId, phoneNumber)` · L1197 · private · async
+  - chama: `IEngine.getStatus` (engine.port.ts:383), `IEngine.requestPairingCode` (engine.port.ts:340), `IEngine.start` (engine.port.ts:329), `ensureLease` L138, `getOrCreateEngine` L392, `rejectAfter` L1244, `startWithTimeout` L790, `SessionRepository.findById` (session.repository.ts:33)
+  - chamado por: `requestPairingCode` L1191
   - banco: `waSession.findUnique`
-- `PAIRING_REQUEST_TIMEOUT_MS` · L1215 · private · static · campo
-- `rejectAfter(op, ms, message)` · L1219 · private · async
-  - chamado por: `requestPairingCodeUnlocked` L1172
-- `sendText(sessionId, to, text, opts)` · L1236 · async
-  - chama: `IEngine.sendText` (engine.port.ts:341), `sending` L1369
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:146), `MessagesController.sendText` (messages.controller.ts:616)
-- `sendMedia(sessionId, to, input)` · L1246 · async
-  - chama: `IEngine.sendMedia` (engine.port.ts:346), `sending` L1369
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:146), `MessagesController.sendMedia` (messages.controller.ts:645), `MessagesController.sendMediaUrl` (messages.controller.ts:715)
-- `sendLocation(sessionId, to, input)` · L1254 · async
-  - chama: `IEngine.sendLocation` (engine.port.ts:351), `sending` L1369
+- `PAIRING_REQUEST_TIMEOUT_MS` · L1240 · private · static · campo
+- `rejectAfter(op, ms, message)` · L1244 · private · async
+  - chamado por: `requestPairingCodeUnlocked` L1197
+- `sendText(sessionId, to, text, opts)` · L1261 · async
+  - chama: `IEngine.sendText` (engine.port.ts:341), `sending` L1394
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `MessagesController.sendText` (messages.controller.ts:616)
+- `sendMedia(sessionId, to, input)` · L1271 · async
+  - chama: `IEngine.sendMedia` (engine.port.ts:346), `sending` L1394
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `MessagesController.sendMedia` (messages.controller.ts:645), `MessagesController.sendMediaUrl` (messages.controller.ts:715)
+- `sendLocation(sessionId, to, input)` · L1279 · async
+  - chama: `IEngine.sendLocation` (engine.port.ts:351), `sending` L1394
   - chamado por: `MessagesController.sendLocation` (messages.controller.ts:787)
-- `sendPoll(sessionId, to, input)` · L1262 · async
-  - chama: `IEngine.sendPoll` (engine.port.ts:355), `sending` L1369
+- `sendPoll(sessionId, to, input)` · L1287 · async
+  - chama: `IEngine.sendPoll` (engine.port.ts:355), `sending` L1394
   - chamado por: `MessagesController.sendPoll` (messages.controller.ts:826)
-- `sendPresence(sessionId, to, state)` · L1270 · async
-  - chama: `IEngine.sendPresence` (engine.port.ts:359), `ownedWorking` L1410
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:146), `SessionsController.presence` (sessions.controller.ts:218)
-- `setProfileStatus(sessionId, status)` · L1278 · async
-  - chama: `IEngine.setProfileStatus` (engine.port.ts:361), `ownedWorking` L1410
+- `sendPresence(sessionId, to, state)` · L1295 · async
+  - chama: `IEngine.sendPresence` (engine.port.ts:359), `ownedWorking` L1435
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `SessionsController.presence` (sessions.controller.ts:218)
+- `setProfileStatus(sessionId, status)` · L1303 · async
+  - chama: `IEngine.setProfileStatus` (engine.port.ts:361), `ownedWorking` L1435
   - chamado por: `SessionsController.profileStatus` (sessions.controller.ts:234)
-- `setProfileName(sessionId, name)` · L1281 · async
-  - chama: `IEngine.setProfileName` (engine.port.ts:362), `ownedWorking` L1410
+- `setProfileName(sessionId, name)` · L1306 · async
+  - chama: `IEngine.setProfileName` (engine.port.ts:362), `ownedWorking` L1435
   - chamado por: `SessionsController.profileName` (sessions.controller.ts:253)
-- `setProfilePhoto(sessionId, image, mimetype)` · L1284 · async
-  - chama: `IEngine.setProfilePhoto` (engine.port.ts:363), `ownedWorking` L1410
+- `setProfilePhoto(sessionId, image, mimetype)` · L1309 · async
+  - chama: `IEngine.setProfilePhoto` (engine.port.ts:363), `ownedWorking` L1435
   - chamado por: `SessionsController.profilePhoto` (sessions.controller.ts:273)
-- `markRead(sessionId, chatJid, msgId)` · L1295 · async
-  - chama: `IEngine.markRead` (engine.port.ts:365), `ownedWorking` L1410
+- `markRead(sessionId, chatJid, msgId)` · L1320 · async
+  - chama: `IEngine.markRead` (engine.port.ts:365), `ownedWorking` L1435
   - chamado por: `MessagesController.markRead` (messages.controller.ts:484)
-- `listChats(sessionId, limit)` · L1304 · async
-  - chama: `IEngine.listChats` (engine.port.ts:388), `ownedWorking` L1410
+- `listChats(sessionId, limit)` · L1329 · async
+  - chama: `IEngine.listChats` (engine.port.ts:388), `ownedWorking` L1435
   - chamado por: `InboxSyncService.syncAll` (inbox-sync.service.ts:44)
-- `fetchChatHistory(sessionId, chatJid, limit)` · L1307 · async
-  - chama: `IEngine.fetchChatHistory` (engine.port.ts:389), `ownedWorking` L1410
+- `fetchChatHistory(sessionId, chatJid, limit)` · L1332 · async
+  - chama: `IEngine.fetchChatHistory` (engine.port.ts:389), `ownedWorking` L1435
   - chamado por: `InboxSyncService.syncChat` (inbox-sync.service.ts:25)
-- `setChatFlag(sessionId, chatJid, flag, enabled)` · L1317 · async
-  - chama: `IEngine.setChatFlag` (engine.port.ts:393), `ownedWorking` L1410
+- `setChatFlag(sessionId, chatJid, flag, enabled)` · L1342 · async
+  - chama: `IEngine.setChatFlag` (engine.port.ts:393), `ownedWorking` L1435
   - chamado por: `MessagesController.chatFlag` (messages.controller.ts:410)
-- `sendReaction(sessionId, chatJid, msgId, fromMe, emoji)` · L1330 · async
-  - chama: `IEngine.sendReaction` (engine.port.ts:369), `sending` L1369
+- `sendReaction(sessionId, chatJid, msgId, fromMe, emoji)` · L1355 · async
+  - chama: `IEngine.sendReaction` (engine.port.ts:369), `sending` L1394
   - chamado por: `MessagesController.reaction` (messages.controller.ts:496)
-- `prepareForward(sessionId, src)` · L1348 · async
-  - chama: `IEngine.prepareForward` (engine.port.ts:378), `PreparedForward.send` (engine.port.ts:292), `ownedWorking` L1410, `sending` L1369
+- `prepareForward(sessionId, src)` · L1373 · async
+  - chama: `IEngine.prepareForward` (engine.port.ts:378), `PreparedForward.send` (engine.port.ts:292), `ownedWorking` L1435, `sending` L1394
   - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
-- `sending(sessionId)` · L1369 · private · async
-  - chama: `GuardrailService.canSendMessage` (guardrail.service.ts:438), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6), `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L187, `epochOf` L120, `working` L1397, `PostgresSessionLease.isCurrent` (postgres-session-lease.ts:55)
-  - chamado por: `prepareForward` L1348, `sendLocation` L1254, `sendMedia` L1246, `sendPoll` L1262, `sendReaction` L1330, `sendText` L1236
-- `working(sessionId)` · L1397 · private
-  - chama: `IEngine.getStatus` (engine.port.ts:383), `constructor` L61, `epochOf` L120
-  - chamado por: `ownedWorking` L1410, `sending` L1369
-- `ownedWorking(sessionId)` · L1410 · private · async
-  - chama: `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L187, `epochOf` L120, `working` L1397, `PostgresSessionLease.isCurrent` (postgres-session-lease.ts:55)
-  - chamado por: `channelInfo` L1564, `checkNumbers` L1526, `createChannel` L1554, `createGroup` L1434, `fetchChatHistory` L1307, `followChannel` L1567, `groupInfo` L1431, `groupInviteCode` L1476, `groupMembershipAction` L1488, `groupMembershipRequests` L1482, `groupRevokeInvite` L1479, `leaveGroup` L1456, `listChats` L1304, `listGroups` L1428, `markRead` L1295, `prepareForward` L1348, `profilePicture` L1532, `removeContact` L1549, `saveContact` L1542, `sendPresence` L1270, `setBlock` L1535, `setChatFlag` L1317, `setGroupDescription` L1466, `setGroupPhoto` L1512, `setGroupSetting` L1500, `setGroupSubject` L1459, `setProfileName` L1281, `setProfilePhoto` L1284, `setProfileStatus` L1278, `unfollowChannel` L1570, `updateParticipants` L1444
-- `listGroups(sessionId)` · L1428 · async
-  - chama: `IEngine.listGroups` (engine.port.ts:396), `ownedWorking` L1410
+- `sending(sessionId)` · L1394 · private · async
+  - chama: `GuardrailService.canSendMessage` (guardrail.service.ts:438), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6), `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L200, `epochOf` L133, `working` L1422, `PostgresSessionLease.isCurrent` (postgres-session-lease.ts:55)
+  - chamado por: `prepareForward` L1373, `sendLocation` L1279, `sendMedia` L1271, `sendPoll` L1287, `sendReaction` L1355, `sendText` L1261
+- `working(sessionId)` · L1422 · private
+  - chama: `IEngine.getStatus` (engine.port.ts:383), `constructor` L61, `epochOf` L133, `constructor` L70
+  - chamado por: `ownedWorking` L1435, `sending` L1394
+- `ownedWorking(sessionId)` · L1435 · private · async
+  - chama: `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L200, `epochOf` L133, `working` L1422, `PostgresSessionLease.isCurrent` (postgres-session-lease.ts:55)
+  - chamado por: `channelInfo` L1589, `checkNumbers` L1551, `createChannel` L1579, `createGroup` L1459, `fetchChatHistory` L1332, `followChannel` L1592, `groupInfo` L1456, `groupInviteCode` L1501, `groupMembershipAction` L1513, `groupMembershipRequests` L1507, `groupRevokeInvite` L1504, `leaveGroup` L1481, `listChats` L1329, `listGroups` L1453, `markRead` L1320, `prepareForward` L1373, `profilePicture` L1557, `removeContact` L1574, `saveContact` L1567, `sendPresence` L1295, `setBlock` L1560, `setChatFlag` L1342, `setGroupDescription` L1491, `setGroupPhoto` L1537, `setGroupSetting` L1525, `setGroupSubject` L1484, `setProfileName` L1306, `setProfilePhoto` L1309, `setProfileStatus` L1303, `unfollowChannel` L1595, `updateParticipants` L1469
+- `listGroups(sessionId)` · L1453 · async
+  - chama: `IEngine.listGroups` (engine.port.ts:396), `ownedWorking` L1435
   - chamado por: `GroupsController.list` (groups.controller.ts:53)
-- `groupInfo(sessionId, jid)` · L1431 · async
-  - chama: `IEngine.groupInfo` (engine.port.ts:397), `ownedWorking` L1410
+- `groupInfo(sessionId, jid)` · L1456 · async
+  - chama: `IEngine.groupInfo` (engine.port.ts:397), `ownedWorking` L1435
   - chamado por: `GroupsController.info` (groups.controller.ts:66), `GroupsController.leads` (groups.controller.ts:76)
-- `createGroup(sessionId, subject, participants)` · L1434 · async
-  - chama: `IEngine.createGroup` (engine.port.ts:398), `ownedWorking` L1410
+- `createGroup(sessionId, subject, participants)` · L1459 · async
+  - chama: `IEngine.createGroup` (engine.port.ts:398), `ownedWorking` L1435
   - chamado por: `GroupsController.create` (groups.controller.ts:58)
-- `updateParticipants(sessionId, jid, action, participants)` · L1444 · async
-  - chama: `IEngine.updateParticipants` (engine.port.ts:399), `ownedWorking` L1410
+- `updateParticipants(sessionId, jid, action, participants)` · L1469 · async
+  - chama: `IEngine.updateParticipants` (engine.port.ts:399), `ownedWorking` L1435
   - chamado por: `GroupsController.participants` (groups.controller.ts:100)
-- `leaveGroup(sessionId, jid)` · L1456 · async
-  - chama: `IEngine.leaveGroup` (engine.port.ts:404), `ownedWorking` L1410
+- `leaveGroup(sessionId, jid)` · L1481 · async
+  - chama: `IEngine.leaveGroup` (engine.port.ts:404), `ownedWorking` L1435
   - chamado por: `GroupsController.leave` (groups.controller.ts:113)
-- `setGroupSubject(sessionId, jid, subject)` · L1459 · async
-  - chama: `IEngine.setGroupSubject` (engine.port.ts:405), `ownedWorking` L1410
+- `setGroupSubject(sessionId, jid, subject)` · L1484 · async
+  - chama: `IEngine.setGroupSubject` (engine.port.ts:405), `ownedWorking` L1435
   - chamado por: `GroupsController.subject` (groups.controller.ts:122)
-- `setGroupDescription(sessionId, jid, description)` · L1466 · async
-  - chama: `IEngine.setGroupDescription` (engine.port.ts:406), `ownedWorking` L1410
+- `setGroupDescription(sessionId, jid, description)` · L1491 · async
+  - chama: `IEngine.setGroupDescription` (engine.port.ts:406), `ownedWorking` L1435
   - chamado por: `GroupsController.description` (groups.controller.ts:133)
-- `groupInviteCode(sessionId, jid)` · L1476 · async
-  - chama: `IEngine.groupInviteCode` (engine.port.ts:407), `ownedWorking` L1410
+- `groupInviteCode(sessionId, jid)` · L1501 · async
+  - chama: `IEngine.groupInviteCode` (engine.port.ts:407), `ownedWorking` L1435
   - chamado por: `GroupsController.invite` (groups.controller.ts:146)
-- `groupRevokeInvite(sessionId, jid)` · L1479 · async
-  - chama: `IEngine.groupRevokeInvite` (engine.port.ts:408), `ownedWorking` L1410
+- `groupRevokeInvite(sessionId, jid)` · L1504 · async
+  - chama: `IEngine.groupRevokeInvite` (engine.port.ts:408), `ownedWorking` L1435
   - chamado por: `GroupsController.revoke` (groups.controller.ts:157)
-- `groupMembershipRequests(sessionId, jid)` · L1482 · async
-  - chama: `IEngine.groupMembershipRequests` (engine.port.ts:411), `ownedWorking` L1410
+- `groupMembershipRequests(sessionId, jid)` · L1507 · async
+  - chama: `IEngine.groupMembershipRequests` (engine.port.ts:411), `ownedWorking` L1435
   - chamado por: `GroupsController.membershipRequests` (groups.controller.ts:169)
-- `groupMembershipAction(sessionId, jid, action, participants)` · L1488 · async
-  - chama: `IEngine.groupMembershipAction` (engine.port.ts:412), `ownedWorking` L1410
+- `groupMembershipAction(sessionId, jid, action, participants)` · L1513 · async
+  - chama: `IEngine.groupMembershipAction` (engine.port.ts:412), `ownedWorking` L1435
   - chamado por: `GroupsController.membership` (groups.controller.ts:178)
-- `setGroupSetting(sessionId, jid, setting, enabled)` · L1500 · async
-  - chama: `IEngine.setGroupSetting` (engine.port.ts:418), `ownedWorking` L1410
+- `setGroupSetting(sessionId, jid, setting, enabled)` · L1525 · async
+  - chama: `IEngine.setGroupSetting` (engine.port.ts:418), `ownedWorking` L1435
   - chamado por: `GroupsController.settings` (groups.controller.ts:192)
-- `setGroupPhoto(sessionId, jid, image, mimetype)` · L1512 · async
-  - chama: `IEngine.setGroupPhoto` (engine.port.ts:424), `ownedWorking` L1410
+- `setGroupPhoto(sessionId, jid, image, mimetype)` · L1537 · async
+  - chama: `IEngine.setGroupPhoto` (engine.port.ts:424), `ownedWorking` L1435
   - chamado por: `GroupsController.photo` (groups.controller.ts:213)
-- `checkNumbers(sessionId, numbers)` · L1526 · async
-  - chama: `IEngine.checkNumbers` (engine.port.ts:427), `ownedWorking` L1410
+- `checkNumbers(sessionId, numbers)` · L1551 · async
+  - chama: `IEngine.checkNumbers` (engine.port.ts:427), `ownedWorking` L1435
   - chamado por: `ContactsController.check` (contacts.controller.ts:89)
-- `profilePicture(sessionId, jid)` · L1532 · async
-  - chama: `IEngine.profilePicture` (engine.port.ts:428), `ownedWorking` L1410
+- `profilePicture(sessionId, jid)` · L1557 · async
+  - chama: `IEngine.profilePicture` (engine.port.ts:428), `ownedWorking` L1435
   - chamado por: `ContactsController.profilePicture` (contacts.controller.ts:106)
-- `setBlock(sessionId, jid, action)` · L1535 · async
-  - chama: `IEngine.setBlock` (engine.port.ts:429), `ownedWorking` L1410
+- `setBlock(sessionId, jid, action)` · L1560 · async
+  - chama: `IEngine.setBlock` (engine.port.ts:429), `ownedWorking` L1435
   - chamado por: `ContactsController.block` (contacts.controller.ts:121)
-- `saveContact(sessionId, jid, input)` · L1542 · async
-  - chama: `IEngine.saveContact` (engine.port.ts:431), `ownedWorking` L1410
+- `saveContact(sessionId, jid, input)` · L1567 · async
+  - chama: `IEngine.saveContact` (engine.port.ts:431), `ownedWorking` L1435
   - chamado por: `ContactsController.save` (contacts.controller.ts:140)
-- `removeContact(sessionId, jid)` · L1549 · async
-  - chama: `IEngine.removeContact` (engine.port.ts:433), `ownedWorking` L1410
+- `removeContact(sessionId, jid)` · L1574 · async
+  - chama: `IEngine.removeContact` (engine.port.ts:433), `ownedWorking` L1435
   - chamado por: `ContactsController.remove` (contacts.controller.ts:164)
-- `createChannel(sessionId, name, description)` · L1554 · async
-  - chama: `IEngine.createChannel` (engine.port.ts:436), `ownedWorking` L1410
+- `createChannel(sessionId, name, description)` · L1579 · async
+  - chama: `IEngine.createChannel` (engine.port.ts:436), `ownedWorking` L1435
   - chamado por: `ChannelsController.create` (channels.controller.ts:29)
-- `channelInfo(sessionId, jid)` · L1564 · async
-  - chama: `IEngine.channelInfo` (engine.port.ts:437), `ownedWorking` L1410
+- `channelInfo(sessionId, jid)` · L1589 · async
+  - chama: `IEngine.channelInfo` (engine.port.ts:437), `ownedWorking` L1435
   - chamado por: `ChannelsController.info` (channels.controller.ts:42)
-- `followChannel(sessionId, jid)` · L1567 · async
-  - chama: `IEngine.followChannel` (engine.port.ts:438), `ownedWorking` L1410
+- `followChannel(sessionId, jid)` · L1592 · async
+  - chama: `IEngine.followChannel` (engine.port.ts:438), `ownedWorking` L1435
   - chamado por: `ChannelsController.follow` (channels.controller.ts:47)
-- `unfollowChannel(sessionId, jid)` · L1570 · async
-  - chama: `IEngine.unfollowChannel` (engine.port.ts:439), `ownedWorking` L1410
+- `unfollowChannel(sessionId, jid)` · L1595 · async
+  - chama: `IEngine.unfollowChannel` (engine.port.ts:439), `ownedWorking` L1435
   - chamado por: `ChannelsController.unfollow` (channels.controller.ts:56)
 
 ## `modules/sessions/application/session-status-order.spec.ts`
@@ -917,7 +928,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - chamado por: `SessionsController.create` (sessions.controller.ts:102)
   - `SessionRepository.findById(id)` · L33
     - implementado por: `PrismaSessionRepository.findById` (prisma-session.repository.ts:72)
-    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1172), `SessionManager.startUnlocked` (session-manager.service.ts:712), `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:102), `SessionsController.ensure` (sessions.controller.ts:422)
+    - chamado por: `SessionManager.requestPairingCodeUnlocked` (session-manager.service.ts:1197), `SessionManager.startUnlocked` (session-manager.service.ts:737), `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:102), `SessionsController.ensure` (sessions.controller.ts:422)
   - `SessionRepository.findByName(name)` · L34
     - implementado por: `PrismaSessionRepository.findByName` (prisma-session.repository.ts:77)
     - chamado por: `SessionRefPipe.transform` (session-ref.pipe.ts:21), `SessionsController.create` (sessions.controller.ts:102)
@@ -933,7 +944,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - chamado por: `SessionsController.create` (sessions.controller.ts:102)
   - `SessionRepository.findAutostart()` · L49
     - implementado por: `PrismaSessionRepository.findAutostart` (prisma-session.repository.ts:178)
-    - chamado por: `SessionManager.onApplicationBootstrap` (session-manager.service.ts:281)
+    - chamado por: `SessionManager.onApplicationBootstrap` (session-manager.service.ts:294)
   - `SessionRepository.findConnectSnapshot(id)` · L50
     - implementado por: `PrismaSessionRepository.findConnectSnapshot` (prisma-session.repository.ts:144)
     - chamado por: `ConnectLinkService.checkAndReserve` (connect-link.service.ts:423), `ConnectLinkService.create` (connect-link.service.ts:144), `ConnectLinkService.publicState` (connect-link.service.ts:279)
@@ -1627,7 +1638,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **class `EngineFactory`** L9 · @Injectable
 - `create(engineType, deps)` · L11
   - chama: `BaileysEngine.constructor` (baileys.engine.ts:557), `WWebJSEngine.constructor` (wwebjs.engine.ts:464)
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
 
 ## `modules/sessions/infrastructure/message-content.spec.ts`
 
@@ -1682,40 +1693,40 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 158 linhas · caminho: `apps/gateway/src/modules/sessions/infrastructure/postgres-session-lease.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/domain/session-status.ts`, `modules/sessions/application/session-lease.error.ts`
-- importado por: `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/baileys/postgres-auth-state.ts`, `gateway/test/session-lease.e2e-spec.ts`
+- importado por: `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/baileys/postgres-auth-state.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`
 
 **class `PostgresSessionLease`** L18
 - injeta (construtor): `prisma: PrismaService`
 - `owner` · L19 · campo
 - `TTL_MS` · L20 · static · campo
 - `constructor(prisma)` · L22
-  - chamado por: `SessionManager.constructor` (session-manager.service.ts:101)
+  - chamado por: `SessionManager.constructor` (session-manager.service.ts:114)
 - `acquire(sessionId)` · L24 · async
-  - chamado por: `SessionManager.ensureLease` (session-manager.service.ts:125)
+  - chamado por: `SessionManager.ensureLease` (session-manager.service.ts:138)
 - `renew(sessionId, epoch)` · L39 · async
-  - chamado por: `SessionManager.scheduleRenew` (session-manager.service.ts:144)
+  - chamado por: `SessionManager.scheduleRenew` (session-manager.service.ts:157)
 - `release(sessionId, epoch)` · L48 · async
-  - chamado por: `SessionManager.releaseLease` (session-manager.service.ts:228)
+  - chamado por: `SessionManager.releaseLease` (session-manager.service.ts:241)
 - `isCurrent(sessionId, epoch)` · L55 · async
-  - chamado por: `SessionManager.ownedWorking` (session-manager.service.ts:1410), `SessionManager.sending` (session-manager.service.ts:1369)
+  - chamado por: `SessionManager.ownedWorking` (session-manager.service.ts:1435), `SessionManager.sending` (session-manager.service.ts:1394)
 - `fenced(sessionId, epoch, action, timeoutMs)` · L63 · async
   - chama: `LeaseLostError.constructor` (session-lease.error.ts:2)
-  - chamado por: `SessionManager.purgeAuthDir` (session-manager.service.ts:964), `SessionManager.removeUnlocked` (session-manager.service.ts:1124), `SessionManager.startUnlocked` (session-manager.service.ts:712), `usePostgresAuthState` (postgres-auth-state.ts:21), `clearAuth` L133, `setLastMeJid` L145, `updateLastErrorDetails` L118, `updateStatus` L83, `FencedLocalAuth.beforeBrowserInitialized` (wwebjs.engine.ts:103), `FencedLocalAuth.logout` (wwebjs.engine.ts:111)
+  - chamado por: `SessionManager.purgeAuthDir` (session-manager.service.ts:989), `SessionManager.removeUnlocked` (session-manager.service.ts:1149), `SessionManager.startUnlocked` (session-manager.service.ts:737), `usePostgresAuthState` (postgres-auth-state.ts:21), `clearAuth` L133, `setLastMeJid` L145, `updateLastErrorDetails` L118, `updateStatus` L83, `FencedLocalAuth.beforeBrowserInitialized` (wwebjs.engine.ts:103), `FencedLocalAuth.logout` (wwebjs.engine.ts:111)
 - `updateStatus(sessionId, epoch, status, patch)` · L83 · async
   - chama: `fenced` L63
-  - chamado por: `SessionManager.logoutUnlocked` (session-manager.service.ts:910), `SessionManager.persistStatus` (session-manager.service.ts:665), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019), `SessionManager.startWithTimeout` (session-manager.service.ts:765), `SessionManager.stopUnlocked` (session-manager.service.ts:866)
+  - chamado por: `SessionManager.logoutUnlocked` (session-manager.service.ts:935), `SessionManager.persistStatus` (session-manager.service.ts:690), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044), `SessionManager.startWithTimeout` (session-manager.service.ts:790), `SessionManager.stopUnlocked` (session-manager.service.ts:891)
   - banco: `waSession.update`
 - `updateLastErrorDetails(sessionId, epoch, details)` · L118 · async
   - chama: `fenced` L63
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
   - banco: `waSession.update`
 - `clearAuth(sessionId, epoch)` · L133 · async
   - chama: `fenced` L63
-  - chamado por: `SessionManager.logoutUnlocked` (session-manager.service.ts:910), `SessionManager.newQrUnlocked` (session-manager.service.ts:1099), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019), `BaileysEngine.clearCredentials` (baileys.engine.ts:2571)
+  - chamado por: `SessionManager.logoutUnlocked` (session-manager.service.ts:935), `SessionManager.newQrUnlocked` (session-manager.service.ts:1124), `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044), `BaileysEngine.clearCredentials` (baileys.engine.ts:2571)
   - banco: `waAuthKey.deleteMany`, `waSession.update`
 - `setLastMeJid(sessionId, epoch, jid)` · L145 · async
   - chama: `fenced` L63
-  - chamado por: `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1019)
+  - chamado por: `SessionManager.rejectConnectedAccount` (session-manager.service.ts:1044)
   - banco: `waSession.update`
 
 **Tipos**
@@ -2015,9 +2026,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `doStart` L772
 - `detachAuthDir(sessionId)` · L742 · static
   - chama: `authDirOf` L266
-  - chamado por: `SessionManager.purgeAuthDir` (session-manager.service.ts:964), `SessionManager.removeUnlocked` (session-manager.service.ts:1124), `logout` L111
+  - chamado por: `SessionManager.purgeAuthDir` (session-manager.service.ts:989), `SessionManager.removeUnlocked` (session-manager.service.ts:1149), `logout` L111
 - `purgeDetachedAuthDir(detached)` · L754 · static · async
-  - chamado por: `SessionManager.purgeAuthDir` (session-manager.service.ts:964), `SessionManager.removeUnlocked` (session-manager.service.ts:1124), `logout` L111
+  - chamado por: `SessionManager.purgeAuthDir` (session-manager.service.ts:989), `SessionManager.removeUnlocked` (session-manager.service.ts:1149), `logout` L111
 - `start()` · L758
   - implementa: `IEngine.start` (engine.port.ts:329)
   - chama: `doStart` L772, `serialize` L468
@@ -2544,7 +2555,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - injeta (construtor): `repo: @Inject(SESSION_REPOSITORY) SessionRepository` · `manager: SessionManager` · `license: LicenseService` · `guardrail: GuardrailService` · `sessionConfig: SessionConfigService` · `proxies: ProxyService` · `connectLinks: ConnectLinkService`
 - `constructor(repo, manager, license, guardrail, sessionConfig, proxies, …)` · L92
 - `create(body)` · L102 · async · @Post · @MinRole('ADMIN')
-  - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:247), `ProxyService.ensureAvailable` (proxy.service.ts:233), `SessionManager.start` (session-manager.service.ts:708), `SessionRepository.create` (session.repository.ts:32), `SessionRepository.delete` (session.repository.ts:48), `SessionRepository.findById` (session.repository.ts:33), `SessionRepository.findByName` (session.repository.ts:34), `SessionRepository.list` (session.repository.ts:35), `toDto` L46, `newId` (ulid.ts:4)
+  - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:247), `ProxyService.ensureAvailable` (proxy.service.ts:233), `SessionManager.start` (session-manager.service.ts:733), `SessionRepository.create` (session.repository.ts:32), `SessionRepository.delete` (session.repository.ts:48), `SessionRepository.findById` (session.repository.ts:33), `SessionRepository.findByName` (session.repository.ts:34), `SessionRepository.list` (session.repository.ts:35), `toDto` L46, `newId` (ulid.ts:4)
 - `list(state)` · L159 · async · @Get
   - chama: `GuardrailService.statesFor` (guardrail.service.ts:617), `SessionRepository.list` (session.repository.ts:35), `toDto` L46
 - `get(id)` · L179 · async · @Get(':id')
@@ -2556,13 +2567,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `patchConfig(id, body)` · L201 · async · @Patch(':id/config')
   - chama: `GuardrailService.getState` (guardrail.service.ts:216), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.update` (session-config.service.ts:28), `configDto` L65
 - `presence(id, body)` · L218 · async · @Post(':id/presence')
-  - chama: `SessionManager.sendPresence` (session-manager.service.ts:1270)
+  - chama: `SessionManager.sendPresence` (session-manager.service.ts:1295)
 - `profileStatus(id, body)` · L234 · async · @Post(':id/profile/status')
-  - chama: `SessionManager.setProfileStatus` (session-manager.service.ts:1278)
+  - chama: `SessionManager.setProfileStatus` (session-manager.service.ts:1303)
 - `profileName(id, body)` · L253 · async · @Post(':id/profile/name')
-  - chama: `SessionManager.setProfileName` (session-manager.service.ts:1281)
+  - chama: `SessionManager.setProfileName` (session-manager.service.ts:1306)
 - `profilePhoto(id, body)` · L273 · async · @Post(':id/profile/photo')
-  - chama: `SessionManager.setProfilePhoto` (session-manager.service.ts:1284), `fetchImageByUrl` (safe-fetch.ts:204)
+  - chama: `SessionManager.setProfilePhoto` (session-manager.service.ts:1309), `fetchImageByUrl` (safe-fetch.ts:204)
 - `quarantine(id)` · L301 · @Post(':id/quarantine')
   - chama: `override` L321
 - `warmup(id)` · L306 · @Post(':id/warmup')
@@ -2575,21 +2586,21 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `GuardrailService.setManualState` (guardrail.service.ts:575)
   - chamado por: `activate` L311, `pause` L316, `quarantine` L301, `warmup` L306
 - `start(id)` · L326 · async · @Post(':id/start')
-  - chama: `SessionManager.start` (session-manager.service.ts:708), `ensure` L422
+  - chama: `SessionManager.start` (session-manager.service.ts:733), `ensure` L422
 - `stop(id)` · L333 · async · @Post(':id/stop')
-  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.stop` (session-manager.service.ts:862), `ensure` L422
+  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.stop` (session-manager.service.ts:887), `ensure` L422
 - `restart(id)` · L343 · async · @Post(':id/restart')
-  - chama: `SessionManager.restart` (session-manager.service.ts:891), `ensure` L422
+  - chama: `SessionManager.restart` (session-manager.service.ts:916), `ensure` L422
 - `logout(id)` · L350 · async · @Post(':id/logout')
-  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.logout` (session-manager.service.ts:906), `ensure` L422
+  - chama: `ConnectLinkService.revokeOnOperatorStop` (connect-link.service.ts:226), `SessionManager.logout` (session-manager.service.ts:931), `ensure` L422
 - `remove(id)` · L358 · async · @Delete(':id') · @MinRole('ADMIN')
-  - chama: `MinRole` (roles.decorator.ts:8), `ProxyService.markReleased` (proxy.service.ts:285), `SessionManager.remove` (session-manager.service.ts:1120), `ensure` L422
+  - chama: `MinRole` (roles.decorator.ts:8), `ProxyService.markReleased` (proxy.service.ts:285), `SessionManager.remove` (session-manager.service.ts:1145), `ensure` L422
 - `qr(id)` · L370 · async · @Get(':id/qr')
-  - chama: `SessionManager.getPairingCode` (session-manager.service.ts:1162), `SessionManager.getQr` (session-manager.service.ts:1158), `ensure` L422
+  - chama: `SessionManager.getPairingCode` (session-manager.service.ts:1187), `SessionManager.getQr` (session-manager.service.ts:1183), `ensure` L422
 - `newQr(id)` · L386 · async · @Post(':id/new-qr')
-  - chama: `SessionManager.newQr` (session-manager.service.ts:960), `ensure` L422
+  - chama: `SessionManager.newQr` (session-manager.service.ts:985), `ensure` L422
 - `pairingCode(id, body)` · L393 · async · @Post(':id/pairing-code')
-  - chama: `SessionManager.requestPairingCode` (session-manager.service.ts:1166), `ensure` L422
+  - chama: `SessionManager.requestPairingCode` (session-manager.service.ts:1191), `ensure` L422
 - `ensure(id)` · L422 · private · async
   - chama: `SessionRepository.findById` (session.repository.ts:33)
   - chamado por: `get` L179, `logout` L350, `newQr` L386, `pairingCode` L393, `qr` L370, `remove` L358, `restart` L343, `start` L326, `stop` L333

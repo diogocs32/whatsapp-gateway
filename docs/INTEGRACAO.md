@@ -335,6 +335,13 @@ Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
   Sob restrição nativa, as duas modalidades re-agendam o job sem mudar a campanha para `PAUSED`;
   a fila retoma após o prazo. Se o sinal chegar depois da reserva, o destinatário é liberado e
   re-agendado.
+  **Desde E14/P-057:** `pause` encerra os jobs pendentes sem laço; `resume` agenda novamente os
+  destinatários PENDING com espaçamento. A fila começa a consumir só após a primeira passada de
+  reidratação, limita globalmente o início dos jobs e espaça os envios efetivos (inclusive mídia)
+  em 8 s entre réplicas. Sessão ainda sem WORKING, perda de lease ou shutdown preserva o
+  destinatário PENDING e tenta de novo com backoff, sem FAILED definitivo. Teto diário já
+  consumido por envios e pausa manual do guardrail exigem `/resume` manual. Rotas, payloads e
+  erros públicos não mudaram.
   O `dailyCap` agora conta o **dia local** (fuso da `SessionConfig`), não o total acumulado.
 - **Quarentena/cooldown (09/2026, P-030):** uma sessão em quarentena só volta a `ativa` depois
   do `cooldown_ate` (mesmo que a taxa melhore antes) e uma quarentena aplicada por override

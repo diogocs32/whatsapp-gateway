@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DelayedError } from 'bullmq';
 import { SessionQuarantinedException } from '../../guardrail/session-quarantined.exception';
 import { LeaseLostError } from '../../sessions/application/session-lease.error';
 import { SessionBusyError } from '../../sessions/application/session-manager.service';
 import { CampaignQueue } from './campaign-queue';
 
 function harness() {
-  const add = vi.fn(async () => undefined);
-  const updateStatus = vi.fn(async () => undefined);
+  const pauseIfRunning = vi.fn(async () => undefined);
   const releaseRecipient = vi.fn(async () => undefined);
   const markRecipientFailed = vi.fn(async () => undefined);
   const markRecipientSent = vi.fn(async () => undefined);
@@ -15,11 +15,13 @@ function harness() {
     jid: '5511@s.whatsapp.net',
   }));
   let allowed = false;
+  const reservedAt = new Date('2026-09-29T08:00:00.000Z');
   const repo = {
     findById: vi.fn(async () => ({
       id: 'campaign-1',
       sessionId: 'session-1',
       status: 'RUNNING',
+      scheduleEpoch: 0,
       firstContact: true,
       typingPreview: false,
       messageType: 'text',
@@ -28,9 +30,9 @@ function harness() {
     })),
     reserveRecipient: vi.fn(async () => ({
       kind: 'reserved',
-      recipient: { id: 'recipient-1', to: '5511999999999' },
+      recipient: { id: 'recipient-1', to: '5511999999999', reservedAt },
     })),
-    updateStatus,
+    pauseIfRunning,
     releaseRecipient,
     markRecipientFailed,
     markRecipientSent,
@@ -54,25 +56,30 @@ function harness() {
     { sendText } as never,
     guardrail as never,
   );
-  (queue as unknown as { queue: unknown }).queue = { add };
+  const moveToDelayed = vi.fn(async () => undefined);
+  const updateData = vi.fn(async () => undefined);
+  const job = {
+    data: { campaignId: 'campaign-1', recipientId: 'recipient-1' },
+    moveToDelayed,
+    updateData,
+  };
   const process = () =>
     (
       queue as unknown as {
-        process: (job: {
-          campaignId: string;
-          recipientId: string;
-        }) => Promise<void>;
+        process: (job: unknown, token: string) => Promise<void>;
       }
-    ).process({ campaignId: 'campaign-1', recipientId: 'recipient-1' });
+    ).process(job, 'fake-token');
   return {
     process,
     setAllowed: (value: boolean) => {
       allowed = value;
     },
-    add,
+    moveToDelayed,
+    updateData,
     repo,
     sendText,
-    updateStatus,
+    pauseIfRunning,
+    reservedAt,
     releaseRecipient,
     markRecipientFailed,
     markRecipientSent,
@@ -82,10 +89,10 @@ function harness() {
 describe('CampaignQueue — restrição temporária da sessão', () => {
   it('reagenda sem PAUSED e retoma o mesmo destinatário quando o prazo vence', async () => {
     const h = harness();
-    await h.process();
-    expect(h.add).toHaveBeenCalledOnce();
+    await expect(h.process()).rejects.toBeInstanceOf(DelayedError);
+    expect(h.moveToDelayed).toHaveBeenCalledOnce();
     expect(h.repo.reserveRecipient).not.toHaveBeenCalled();
-    expect(h.updateStatus).not.toHaveBeenCalled();
+    expect(h.pauseIfRunning).not.toHaveBeenCalled();
     expect(h.sendText).not.toHaveBeenCalled();
 
     h.setAllowed(true);
@@ -101,31 +108,61 @@ describe('CampaignQueue — restrição temporária da sessão', () => {
     h.sendText.mockRejectedValueOnce(
       new SessionQuarantinedException('quarentena', 'prazo nativo ativo'),
     );
-    await h.process();
-    expect(h.releaseRecipient).toHaveBeenCalledWith('recipient-1');
-    expect(h.add).toHaveBeenCalledOnce();
+    await expect(h.process()).rejects.toBeInstanceOf(DelayedError);
+    expect(h.releaseRecipient).toHaveBeenCalledWith(
+      'recipient-1',
+      h.reservedAt,
+    );
+    expect(h.moveToDelayed).toHaveBeenCalledOnce();
     expect(h.markRecipientFailed).not.toHaveBeenCalled();
-    expect(h.updateStatus).not.toHaveBeenCalled();
+    expect(h.pauseIfRunning).not.toHaveBeenCalled();
   });
 
   it('worker na réplica sem lease libera a reserva e reagenda sem FAILED', async () => {
     const h = harness();
     h.setAllowed(true);
     h.sendText.mockRejectedValueOnce(new LeaseLostError());
-    await h.process();
-    expect(h.releaseRecipient).toHaveBeenCalledWith('recipient-1');
-    expect(h.add).toHaveBeenCalledOnce();
+    await expect(h.process()).rejects.toBeInstanceOf(DelayedError);
+    expect(h.releaseRecipient).toHaveBeenCalledWith(
+      'recipient-1',
+      h.reservedAt,
+    );
+    expect(h.moveToDelayed).toHaveBeenCalledOnce();
     expect(h.markRecipientFailed).not.toHaveBeenCalled();
-    expect(h.updateStatus).not.toHaveBeenCalled();
+    expect(h.pauseIfRunning).not.toHaveBeenCalled();
   });
 
   it('shutdown da réplica libera a reserva e reagenda sem FAILED', async () => {
     const h = harness();
     h.setAllowed(true);
     h.sendText.mockRejectedValueOnce(new SessionBusyError());
-    await h.process();
-    expect(h.releaseRecipient).toHaveBeenCalledWith('recipient-1');
-    expect(h.add).toHaveBeenCalledOnce();
+    await expect(h.process()).rejects.toBeInstanceOf(DelayedError);
+    expect(h.releaseRecipient).toHaveBeenCalledWith(
+      'recipient-1',
+      h.reservedAt,
+    );
+    expect(h.moveToDelayed).toHaveBeenCalledOnce();
     expect(h.markRecipientFailed).not.toHaveBeenCalled();
+  });
+
+  it('teto diário ocupado só por reserva transitória não pausa a campanha', async () => {
+    const h = harness();
+    h.setAllowed(true);
+    h.repo.findById.mockResolvedValue({
+      ...((await h.repo.findById()) as object),
+      dailyCap: 1,
+    } as never);
+    h.repo.reserveRecipient.mockResolvedValueOnce({
+      kind: 'cap',
+      sentToday: 0,
+      inFlight: 1,
+    } as never);
+    await expect(h.process()).rejects.toBeInstanceOf(DelayedError);
+    expect(h.pauseIfRunning).not.toHaveBeenCalled();
+    expect(h.sendText).not.toHaveBeenCalled();
+
+    await h.process();
+    expect(h.sendText).toHaveBeenCalledOnce();
+    expect(h.markRecipientSent).toHaveBeenCalledOnce();
   });
 });

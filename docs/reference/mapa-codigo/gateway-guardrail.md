@@ -96,7 +96,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 627 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/process-errors.ts`, `shared-kernel/ulid.ts`, `modules/sessions/application/engine.port.ts`, `modules/observability/reply-rate.service.ts`
-- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/guardrail/guardrail.module.ts`, `modules/guardrail/guardrail.service.spec.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`
+- importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/guardrail/guardrail.module.ts`, `modules/guardrail/guardrail.service.spec.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`
 
 **class `GuardrailService`** L126 · @Injectable
 - injeta (construtor): `prisma: PrismaService` · `replyRate: ReplyRateService` · `eventBus: EventBus` · `config: ConfigService<Env, true> (param)`
@@ -139,14 +139,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `apply` L329, `canSendCold` L419, `canSendMessage` L438, `recordHardSignal` L549, `recordReachoutRestriction` L456
 - `canSendCold(sessionId)` · L419 · async
   - chama: `canSendMessage` L438, `emit` L190, `emitFailed` L409, `getState` L216
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:146), `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.assertColdAllowed` (messages.controller.ts:257)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.assertColdAllowed` (messages.controller.ts:257)
 - `canSendMessage(sessionId)` · L438 · async
   - chama: `emit` L190, `emitFailed` L409
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:146), `canSendCold` L419, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:1369)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:232), `canSendCold` L419, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:1394)
   - banco: `sessionGuardrail.findUnique`
 - `recordReachoutRestriction(sessionId, signal, options)` · L456 · async
   - chama: `emit` L190, `emitFailed` L409, `recordHardSignal` L549
-  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:367)
+  - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
   - banco: `sessionGuardrail.updateMany`
 - `recordHardSignal(sessionId, signal)` · L549 · async
   - chama: `apply` L329, `emit` L190, `emitFailed` L409, `newId` (ulid.ts:4)
@@ -185,7 +185,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **class `SessionQuarantinedException`** L5 · `extends HttpException`
 - injeta (construtor): `state: string (param)` · `reason: string | null (param)`
 - `constructor(state, reason)` · L6
-  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:257), `SessionManager.sending` (session-manager.service.ts:1369)
+  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:257), `SessionManager.sending` (session-manager.service.ts:1394)
 
 ## `modules/guardrail/undelivered-detector.service.spec.ts`
 

@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 327 arquivos · 1791 símbolos (métodos/funções/assinaturas/constantes) · 1886 chamadas resolvidas · 1146 testes (it/test)
+- 328 arquivos · 1802 símbolos (métodos/funções/assinaturas/constantes) · 1897 chamadas resolvidas · 1155 testes (it/test)
 
 ## Áreas
 
@@ -14,10 +14,10 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | packages/contracts | 1 | 839 | [contracts.md](contracts.md) |
 | Dashboard (React) | 68 | 18275 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1895 | [gateway-bootstrap.md](gateway-bootstrap.md) |
-| módulo `campaigns` | 6 | 1026 | [gateway-campaigns.md](gateway-campaigns.md) |
+| módulo `campaigns` | 6 | 1236 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 33 | 10327 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 34 | 10807 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
@@ -28,7 +28,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `observability` | 8 | 675 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 16 | 2176 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 156 | [gateway-raiz.md](gateway-raiz.md) |
-| módulo `sessions` | 59 | 21912 | [gateway-sessions.md](gateway-sessions.md) |
+| módulo `sessions` | 59 | 21963 | [gateway-sessions.md](gateway-sessions.md) |
 | Gateway — shared-kernel | 17 | 1315 | [gateway-shared-kernel.md](gateway-shared-kernel.md) |
 | módulo `webhooks` | 8 | 693 | [gateway-webhooks.md](gateway-webhooks.md) |
 
@@ -167,10 +167,9 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Tipo | Fila / chamada | Onde | jobId |
 | --- | --- | --- | --- |
-| add | `this.queue.add('send')` | `CampaignQueue.enqueueSend` (campaign-queue.ts:125) | `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)` |
-| Queue | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:91) |  |
-| Worker | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:94) |  |
-| add | `this.queue.add('send')` | `CampaignQueue.requeue` (campaign-queue.ts:138) | — |
+| add | `this.queue.add('send')` | `CampaignQueue.enqueueSend` (campaign-queue.ts:174) | `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)` |
+| Queue | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:119) |  |
+| Worker | `campaigns` | `CampaignQueue.onModuleInit` (campaign-queue.ts:122) |  |
 | add | `this.queue.add('deliver')` | `WebhookQueue.enqueue` (webhook-queue.ts:140) | `parâmetro jobId (montado pelos chamadores — ver tabela abaixo)` |
 | Queue | `webhooks` | `WebhookQueue.onModuleInit` (webhook-queue.ts:81) |  |
 | Worker | `webhooks` | `WebhookQueue.onModuleInit` (webhook-queue.ts:94) |  |
@@ -179,7 +178,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Chamador | Chama | Expressão do jobId |
 | --- | --- | --- |
-| `CampaignService.schedulePending` (campaign.service.ts:71) | `CampaignQueue.enqueueSend` | ``${jobPrefix}-${r.id}`` |
+| `CampaignService.schedulePending` (campaign.service.ts:71) | `CampaignQueue.enqueueSend` | ``campaign-${id}-e${epoch}-${r.id}`` |
 | `WebhookDispatcher.handle` (webhook-dispatcher.service.ts:66) | `WebhookQueue.enqueue` | ``${env.id}-${w.id}`` |
 | `WebhookQueue.redeliverDeadLetters` (webhook-queue.ts:249) | `WebhookQueue.enqueue` | ``dlq-redeliver-${it.id}`` |
 | `WebhooksController.test` (webhooks.controller.ts:145) | `WebhookQueue.enqueue` | `(omitido)` |
@@ -188,14 +187,14 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 
 | Evento (`name`) | Publicado por | Assinado por |
 | --- | --- | --- |
-| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:208), `SessionManager.handleEngineEvent` (session-manager.service.ts:658) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `ConnectLinkService.onModuleInit` (connect-link.service.ts:127), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
+| `'wa.event'` | `GuardrailService.emit` (guardrail.service.ts:208), `SessionManager.handleEngineEvent` (session-manager.service.ts:683) | `EventFanout.onModuleInit` (event-fanout.ts:60), `EventsController.stream` (events.controller.ts:36), `MessagePersister.onModuleInit` (message-persister.service.ts:25), `ReactionPersister.onModuleInit` (reaction-persister.service.ts:28), `SessionEventLogger.onModuleInit` (session-event.logger.ts:23), `ConnectLinkService.onModuleInit` (connect-link.service.ts:127), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:35) |
 | `'wa.event.remote'` | `EventFanout.onRemote` (event-fanout.ts:80) | `EventsController.stream` (events.controller.ts:39), `WebhookDispatcher.onModuleInit` (webhook-dispatcher.service.ts:38) |
 
 ## Banco (Prisma) — quem lê e quem escreve
 
 | Modelo / tabela | Escrita | Leitura |
 | --- | --- | --- |
-| `campaign` | `CampaignRepository.create`, `CampaignRepository.delete`, `CampaignRepository.refreshCounts`, `CampaignRepository.transitionToRunning`, `CampaignRepository.updateStatus` | `CampaignRepository.findById`, `CampaignRepository.list`, `CampaignRepository.refreshCounts`, `CampaignRepository.sessionTimezone` |
+| `campaign` | `CampaignRepository.create`, `CampaignRepository.delete`, `CampaignRepository.pauseIfRunning`, `CampaignRepository.refreshCounts`, `CampaignRepository.transitionToRunning`, `CampaignRepository.updateStatus` | `CampaignRepository.findById`, `CampaignRepository.list`, `CampaignRepository.refreshCounts`, `CampaignRepository.sessionTimezone`, `CampaignRepository.transitionToRunning` |
 | `campaignRecipient` | `CampaignRepository.cancelPending`, `CampaignRepository.markRecipientFailed`, `CampaignRepository.markRecipientSent`, `CampaignRepository.releaseRecipient`, `CampaignRepository.reserveRecipient` | `CampaignRepository.findRecipient`, `CampaignRepository.listPendingRecipients`, `CampaignRepository.listRecipients`, `CampaignRepository.refreshCounts`, `CampaignRepository.reserveRecipient` |
 | `connectLink` | `PrismaConnectLinkRepository.consume`, `PrismaConnectLinkRepository.createReplacing`, `PrismaConnectLinkRepository.reserveNewQr`, `PrismaConnectLinkRepository.revokeActive`, `PrismaConnectLinkRepository.revoke`, `PrismaConnectLinkRepository.touchSeen` | `PrismaConnectLinkRepository.findActiveBySession`, `PrismaConnectLinkRepository.findByHash`, `PrismaConnectLinkRepository.findLatestBySession` |
 | `conversationTriage` | `PrismaInboxRepository.clearTriage`, `PrismaInboxRepository.markIgnored` | — |

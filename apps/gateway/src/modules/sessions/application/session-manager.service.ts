@@ -64,6 +64,15 @@ export class SessionBusyError extends ConflictException {
   }
 }
 
+// A ausência temporária de WORKING tem a mesma mensagem pública (400) de antes, mas permite
+// à campanha distingui-la de uma falha definitiva e devolver a reserva para retry.
+export class SessionNotWorkingError extends Error {
+  constructor(message: 'Sessão não iniciada' | 'Sessão não está conectada') {
+    super(message);
+    this.name = 'SessionNotWorkingError';
+  }
+}
+
 @Injectable()
 export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SessionManager.name);
@@ -84,6 +93,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   private lifecycleLocks?: Map<string, Promise<void>>;
   // E27: reidratação do boot concluída — sem ela, "sem engine" pode ser só "ainda não reidratou".
   private rehydrated = false;
+  private resolveRehydration!: () => void;
+  private readonly rehydrationDone = new Promise<void>((resolve) => {
+    this.resolveRehydration = resolve;
+  });
   private readonly lease: PostgresSessionLease;
   private readonly owned = new Map<
     string,
@@ -281,7 +294,7 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
   async onApplicationBootstrap(): Promise<void> {
     const candidates = await this.repo.findAutostart();
     if (candidates.length === 0) {
-      this.rehydrated = true;
+      this.finishRehydration();
       return;
     }
     // Reidratação ESCALONADA e fora do bootstrap do Nest. Antes era tudo em paralelo: N sessões
@@ -294,28 +307,40 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       (s.status === 'DEGRADED' ? 2 : 0) + (s.engine === 'WWEBJS' ? 1 : 0);
     const ordered = [...candidates].sort((a, b) => weight(a) - weight(b));
     void (async () => {
-      for (const s of ordered) {
-        if (this.shuttingDown) break;
-        this.logger.log(`Reidratando sessão "${s.name}" (${s.engine})`);
-        try {
-          await this.startAutostart(s.id);
-        } catch (e) {
-          if (e instanceof SessionBusyError || e instanceof LeaseLostError) {
-            this.logger.log(
-              `Sessão ${s.name} com lease em outro processo; aguardando liberação`,
-            );
-            this.scheduleBootRetry(s.id, 5_000);
-          } else {
-            this.logger.error(
-              `Falha ao reidratar ${s.name}: ${(e as Error).message}`,
-            );
-            if (!this.shuttingDown && this.isTransientDatabaseError(e))
-              this.scheduleBootRetry(s.id, 30_000);
+      try {
+        for (const s of ordered) {
+          if (this.shuttingDown) break;
+          this.logger.log(`Reidratando sessão "${s.name}" (${s.engine})`);
+          try {
+            await this.startAutostart(s.id);
+          } catch (e) {
+            if (e instanceof SessionBusyError || e instanceof LeaseLostError) {
+              this.logger.log(
+                `Sessão ${s.name} com lease em outro processo; aguardando liberação`,
+              );
+              this.scheduleBootRetry(s.id, 5_000);
+            } else {
+              this.logger.error(
+                `Falha ao reidratar ${s.name}: ${(e as Error).message}`,
+              );
+              if (!this.shuttingDown && this.isTransientDatabaseError(e))
+                this.scheduleBootRetry(s.id, 30_000);
+            }
           }
         }
+      } finally {
+        this.finishRehydration();
       }
-      this.rehydrated = true;
     })();
+  }
+
+  private finishRehydration(): void {
+    this.rehydrated = true;
+    this.resolveRehydration();
+  }
+
+  whenRehydrated(): Promise<void> {
+    return this.rehydrationDone;
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -1398,9 +1423,9 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     if (this.shuttingDown) throw new SessionBusyError();
     this.epochOf(sessionId);
     const engine = this.engines.get(sessionId);
-    if (!engine) throw new Error('Sessão não iniciada');
+    if (!engine) throw new SessionNotWorkingError('Sessão não iniciada');
     if (engine.getStatus() !== 'WORKING') {
-      throw new Error('Sessão não está conectada');
+      throw new SessionNotWorkingError('Sessão não está conectada');
     }
     return engine;
   }

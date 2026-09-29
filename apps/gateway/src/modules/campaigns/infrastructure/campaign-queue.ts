@@ -1,11 +1,19 @@
 import {
   Injectable,
   Logger,
+  OnApplicationBootstrap,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, Worker, type ConnectionOptions } from 'bullmq';
+import type Redis from 'ioredis';
+import {
+  DelayedError,
+  Job,
+  Queue,
+  Worker,
+  type ConnectionOptions,
+} from 'bullmq';
 import type { Env } from '../../../bootstrap/config';
 import { redisConnection } from '../../../infra/redis/redis-connection';
 import {
@@ -19,16 +27,31 @@ import type { MediaSendType } from '../../sessions/application/engine.port';
 import {
   SessionBusyError,
   SessionManager,
+  SessionNotWorkingError,
 } from '../../sessions/application/session-manager.service';
 import { CampaignRepository } from './campaign.repository';
 
 export interface CampaignJob {
   campaignId: string;
   recipientId: string;
+  scheduleEpoch?: number; // ausente nos jobs anteriores à migration: época 0
+  notReadyRetries?: number;
 }
 
 const QUEUE_NAME = 'campaigns';
-const PAUSE_REQUEUE_MS = 30_000;
+const RETRY_MIN_MS = 30_000;
+// Um início de job a cada 8 s em TODAS as réplicas da fila (limiter Redis do BullMQ 5).
+// O espaçamento de cada campanha continua sendo minDelaySec/maxDelaySec.
+const GLOBAL_JOB_INTERVAL_MS = 8_000;
+const SEND_SLOT_KEY = 'bull:campaigns:send-slot';
+const SEND_SLOT_SCRIPT = `
+local now = tonumber(ARGV[1])
+local interval = tonumber(ARGV[2])
+local previous = tonumber(redis.call('GET', KEYS[1]) or '0')
+local slot = math.max(now, previous)
+redis.call('SET', KEYS[1], slot + interval, 'PX', math.max(120000, slot - now + 120000))
+return slot
+`;
 // ABE-04: reserva do destinatário considerada "em voo" por este tempo; acima disto, o worker que
 // reservou é dado como morto e outro pode retomar (até o teto de tentativas do repositório).
 const RESERVATION_STALE_MS = 10 * 60_000;
@@ -63,6 +86,8 @@ async function fetchMedia(
   return { buffer: res.body, mime };
 }
 
+class SendSlotUnavailableError extends Error {}
+
 // Fila de disparo de campanhas (BullMQ) com anti-ban: cada destinatário é agendado com
 // espaçamento aleatório (delay acumulado) + "digitando" antes do envio (humanização).
 //
@@ -71,10 +96,13 @@ async function fetchMedia(
 // o teto diário é por dia local e serializado, a pausa é revalidada imediatamente antes do
 // efeito e cada envio leva idempotencyKey determinística (retry não duplica).
 @Injectable()
-export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
+export class CampaignQueue
+  implements OnModuleInit, OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(CampaignQueue.name);
-  private queue!: Queue;
-  private worker!: Worker;
+  private queue!: Queue<CampaignJob>;
+  private worker!: Worker<CampaignJob>;
+  private closing = false;
 
   constructor(
     private readonly config: ConfigService<Env, true>,
@@ -88,13 +116,18 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
     // e nenhum job é enfileirado nos e2e).
     if (this.config.get('NODE_ENV', { infer: true }) === 'test') return;
     const connection: ConnectionOptions = redisConnection(this.config);
-    this.queue = new Queue(QUEUE_NAME, { connection });
+    this.queue = new Queue<CampaignJob>(QUEUE_NAME, { connection });
     // Handshake concluído antes de seguir (mesma razão do WebhookQueue — item 22).
     await this.queue.waitUntilReady();
-    this.worker = new Worker(
+    this.worker = new Worker<CampaignJob>(
       QUEUE_NAME,
-      (job) => this.process(job.data as CampaignJob),
-      { connection, concurrency: 4 },
+      (job, token) => this.process(job, token),
+      {
+        connection,
+        concurrency: 4,
+        limiter: { max: 1, duration: GLOBAL_JOB_INTERVAL_MS },
+        autorun: false,
+      },
     );
     this.worker.on('failed', (job, err) =>
       this.logger.warn(
@@ -114,8 +147,24 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  onApplicationBootstrap(): void {
+    if (!this.worker) return; // testes HTTP usam a fila desativada
+    // O SessionManager reidrata em background para não segurar o HTTP. O Worker pode nascer,
+    // mas não consome jobs vencidos até a primeira passada terminar. Sessões ainda não WORKING
+    // usam a liberação de reserva e backoff abaixo.
+    void this.manager.whenRehydrated().then(() => {
+      if (this.closing) return;
+      void this.worker.run().catch((e: unknown) => {
+        if (!this.closing)
+          this.logger.error(
+            `worker de campanhas parou: ${(e as Error).message}`,
+          );
+      });
+    });
+  }
+
   // jobId determinístico (sem `:` — o BullMQ rejeita) dedupa o agendamento entre starts
-  // concorrentes/réplicas; requeues de pausa/cap vão sem id (o job atual completa).
+  // concorrentes/réplicas; a época no id separa retomadas e invalida jobs antigos.
   enqueueSend(
     data: CampaignJob,
     delayMs: number,
@@ -131,41 +180,77 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private async requeue(
-    data: CampaignJob,
-    delayMs = PAUSE_REQUEUE_MS,
-  ): Promise<void> {
-    await this.queue.add('send', data, {
-      delay: delayMs,
-      attempts: 1,
-      removeOnComplete: true,
-      removeOnFail: true,
-    });
+  private async delay(
+    job: Job<CampaignJob>,
+    token: string | undefined,
+    delayMs: number,
+  ): Promise<never> {
+    await job.moveToDelayed(
+      Date.now() + Math.max(1_000, Math.round(delayMs)),
+      token,
+    );
+    throw new DelayedError();
   }
 
-  private async process(data: CampaignJob): Promise<void> {
-    const c = await this.repo.findById(data.campaignId);
-    if (!c || c.status === 'CANCELLED' || c.status === 'DONE') return;
-    if (c.status === 'PAUSED') {
-      // Pausada: re-agenda o job p/ checar de novo (retoma quando voltar a RUNNING).
-      await this.requeue(data);
-      return;
+  private async retrySession(
+    job: Job<CampaignJob>,
+    token: string | undefined,
+  ): Promise<never> {
+    const retries = Math.min((job.data.notReadyRetries ?? 0) + 1, 6);
+    await job.updateData({ ...job.data, notReadyRetries: retries });
+    const backoff = Math.min(120_000, 5_000 * 2 ** (retries - 1));
+    return this.delay(job, token, backoff + randInt(0, 2_000));
+  }
+
+  // O limiter do Worker governa o INÍCIO do job. Dois downloads concorrentes podem terminar
+  // juntos: esta reserva atômica no Redis espaça os RPCs efetivos entre todas as réplicas.
+  private async waitForGlobalSendSlot(): Promise<void> {
+    if (!this.queue) return; // testes unitários do processor, sem Redis
+    try {
+      // A instância instalada (BullMQ 5.81.5) encapsula ioredis em um Proxy que encaminha
+      // comandos nativos; IRedisClient declara apenas o subconjunto usado pelo BullMQ.
+      const client = (await this.queue.client) as unknown as Redis;
+      const [seconds, microseconds] = await client.time();
+      const now =
+        Number(seconds) * 1000 + Math.floor(Number(microseconds) / 1000);
+      const slot = Number(
+        await client.eval(
+          SEND_SLOT_SCRIPT,
+          1,
+          SEND_SLOT_KEY,
+          String(now),
+          String(GLOBAL_JOB_INTERVAL_MS),
+        ),
+      );
+      if (!Number.isFinite(slot)) throw new Error('slot Redis inválido');
+      await sleep(Math.max(0, slot - now));
+    } catch (e) {
+      throw new SendSlotUnavailableError((e as Error).message);
     }
+  }
+
+  private async process(job: Job<CampaignJob>, token?: string): Promise<void> {
+    const data = job.data;
+    const c = await this.repo.findById(data.campaignId);
+    // Jobs PAUSED são consumidos uma vez e param. O resume agenda os PENDING na nova época,
+    // espaçados; jobs velhos que ainda estejam delayed/waiting não causam rajada.
+    if (!c || c.status !== 'RUNNING') return;
+    if ((data.scheduleEpoch ?? 0) !== c.scheduleEpoch) return;
     const messageGate = await this.guardrail.canSendMessage(c.sessionId);
     if (!messageGate.allowed) {
       // Não muda a campanha para PAUSED: esse estado exigiria /resume manual. O job espera e
       // reconsulta o banco; depois de restrictionUntil ele volta sozinho, inclusive após restart.
-      await this.requeue(
-        data,
+      return this.delay(
+        job,
+        token,
         Math.min(
           60 * 60_000,
           Math.max(
-            PAUSE_REQUEUE_MS,
+            RETRY_MIN_MS,
             (messageGate.until?.getTime() ?? 0) - Date.now(),
           ),
         ),
       );
-      return;
     }
     // ABE-02: campanha de 1º contato respeita o guard-rail (quarentena/pausa manual) — antes
     // passava por fora do gate que o endpoint /messages aplica a `cold:true`.
@@ -173,14 +258,16 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       const gate = await this.guardrail.canSendCold(c.sessionId);
       if (!gate.allowed) {
         if (gate.until) {
-          await this.requeue(data);
-          return;
+          return this.delay(
+            job,
+            token,
+            Math.max(RETRY_MIN_MS, gate.until.getTime() - Date.now()),
+          );
         }
         this.logger.warn(
           `campanha ${c.id} pausada pelo guard-rail (${gate.state}${gate.reason ? `: ${gate.reason}` : ''})`,
         );
-        await this.repo.updateStatus(c.id, 'PAUSED');
-        await this.requeue(data);
+        await this.repo.pauseIfRunning(c.id, c.scheduleEpoch);
         return;
       }
     }
@@ -191,12 +278,25 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       { dailyCap: c.dailyCap, staleMs: RESERVATION_STALE_MS },
     );
     if (reservation.kind === 'cap') {
+      if (
+        c.dailyCap !== null &&
+        reservation.sentToday < c.dailyCap &&
+        reservation.inFlight > 0
+      ) {
+        // Cap ocupado só por reservas em voo: elas podem ser devolvidas por perda de lease,
+        // shutdown ou sessão sem WORKING. Não transformar isso em PAUSED permanente.
+        return this.delay(job, token, RETRY_MIN_MS);
+      }
       this.logger.log(
-        `campanha ${c.id}: teto diário (${c.dailyCap}) atingido — pausada; retoma no próximo dia local ou com /resume`,
+        `campanha ${c.id}: teto diário (${c.dailyCap}) atingido — pausada; retoma com /resume`,
       );
-      await this.repo.updateStatus(c.id, 'PAUSED');
-      await this.requeue(data); // o job NÃO some: continua checando (ABE-05)
+      await this.repo.pauseIfRunning(c.id, c.scheduleEpoch);
+      // O destinatário fica PENDING; /resume (manual) agenda a nova época.
       return;
+    }
+    if (reservation.kind === 'busy') {
+      // Reserva de um worker anterior ainda viva: não perder o único job da retomada.
+      return this.delay(job, token, reservation.retryAfterMs + 1_000);
     }
     if (reservation.kind !== 'reserved') return;
     const r = reservation.recipient;
@@ -215,10 +315,15 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
 
       // Revalida pausa/cancelamento IMEDIATAMENTE antes do efeito (a pausa durante o
       // "digitando" precisa valer) — ABE-04.
-      const fresh = await this.repo.findById(c.id);
-      if (!fresh || fresh.status !== 'RUNNING') {
-        await this.repo.releaseRecipient(r.id);
-        if (fresh?.status === 'PAUSED') await this.requeue(data);
+      const stillRunning = async () => {
+        const fresh = await this.repo.findById(c.id);
+        return (
+          fresh?.status === 'RUNNING' &&
+          fresh.scheduleEpoch === (data.scheduleEpoch ?? 0)
+        );
+      };
+      if (!(await stillRunning())) {
+        await this.repo.releaseRecipient(r.id, r.reservedAt);
         return;
       }
 
@@ -229,6 +334,11 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       };
       let keyId: string;
       if (c.messageType === 'text') {
+        await this.waitForGlobalSendSlot();
+        if (!(await stillRunning())) {
+          await this.repo.releaseRecipient(r.id, r.reservedAt);
+          return;
+        }
         keyId = (
           await this.manager.sendText(c.sessionId, r.to, c.text ?? '', opts)
         ).keyId;
@@ -239,6 +349,13 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
           c.mediaMime,
           this.config.get('MEDIA_MAX_BYTES', { infer: true }),
         );
+        // Download pode levar até 20 s. Reservar o slot somente depois dele e revalidar a
+        // época após a espera evita rajada de mídia e envio de job pausado.
+        await this.waitForGlobalSendSlot();
+        if (!(await stillRunning())) {
+          await this.repo.releaseRecipient(r.id, r.reservedAt);
+          return;
+        }
         keyId = (
           await this.manager.sendMedia(c.sessionId, r.to, {
             buffer,
@@ -265,12 +382,19 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
       if (
         e instanceof SessionQuarantinedException ||
         e instanceof LeaseLostError ||
-        e instanceof SessionBusyError
+        e instanceof SessionBusyError ||
+        e instanceof SessionNotWorkingError ||
+        e instanceof SendSlotUnavailableError
       ) {
-        // O Worker também roda na réplica sem lease durante start-first. Não transformar uma
-        // disputa transitória de posse em FAILED definitivo para o destinatário.
-        await this.repo.releaseRecipient(r.id);
-        await this.requeue(data);
+        // A réplica sem lease, o shutdown e a sessão ainda não WORKING são transitórios.
+        await this.repo.releaseRecipient(r.id, r.reservedAt);
+        const fresh = await this.repo.findById(c.id);
+        if (
+          fresh?.status === 'RUNNING' &&
+          fresh.scheduleEpoch === (data.scheduleEpoch ?? 0)
+        ) {
+          await this.retrySession(job, token);
+        }
         return;
       }
       await this.repo.markRecipientFailed(r.id, (e as Error).message);
@@ -279,6 +403,7 @@ export class CampaignQueue implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.closing = true;
     await this.worker
       ?.close()
       .catch((e) =>

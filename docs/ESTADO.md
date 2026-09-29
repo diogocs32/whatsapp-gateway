@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **E13/P-056 (Onda 3, D-039) integrada pelo PR #19:** lease/fencing e auth transacional; migration só no Postgres local, sem deploy. O primeiro deploy com E13 exige B-004 `stop-first` confirmado, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09/2026):** roteiro em [ROTEIRO-ONDAS-2026-09.md](ROTEIRO-ONDAS-2026-09.md), 1 etapa por chat. Onda 1, Onda 2 (E7–E12), Onda 6 (E5–E6), Onda 8 (E22–E25) e Onda 9 (E26–E27) estão na `main`; os deploys/canários manuais A/B/W/G/E26–E27 continuam pendentes. **E13/P-056 (Onda 3, D-039) integrada pelo PR #19; E14/P-057 (D-040) no PR #20:** lease/fencing, auth transacional e campanhas com retomada espaçada e retry transitório; migrations só no Postgres local, sem deploy. O primeiro deploy com E13 exige B-004 `stop-first` confirmado, pois o container antigo ignora a lease. Produção no último SHA **documentado** `768fb26` (sem verificação ao vivo nesta sessão); Auto Deploy consta desligado por D-027, sem conferência ao vivo. Mapa: [MAPA-CODIGO.md](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,16 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **29/09/2026 (E14/P-057, D-040 — PR #20, sem deploy):** a migration aditiva
+> `20260929053000_campaign_schedule_epoch` separa cada start/resume e invalida jobs antigos.
+> PAUSED não cria laço; Worker BullMQ 5.81.5 espera a primeira reidratação e limita os jobs
+> globalmente; slot Redis também espaça o envio efetivo entre réplicas após downloads de mídia.
+> Sessão sem WORKING, perda de lease E13, shutdown ou restrição temporária liberam a reserva e
+> tentam de novo com backoff, sem destinatário FAILED. Prova local com Redis/Postgres e envio
+> falso, sem conta/QR/mensagem real. O backlog de jobs da versão antiga pode atrasar a fila
+> no primeiro deploy (P-099); E15/P-058 e deploy C manual ainda pendentes. Último SHA de
+> produção **documentado**: `768fb26`, sem verificação ao vivo nesta etapa.
 
 > **27/09/2026 (E13/P-056, D-039 — PR #19; sem deploy):** a migration aditiva `20260927124000_session_lease_fencing` inclui `authEpoch`/`leaseOwner`/`leaseUntil`; dois SessionManagers disputam uma única posse no Postgres, com escrita de auth/status cercada, drenagem após perda e retry lento de rede em DEGRADED. `keys.set` é transacional e `saveCreds` encadeado. Testes usam engines falsas, sem conta/QR/envio real. O primeiro deploy precisa de **B-004 stop-first** antes da transição do container antigo; WWEBJS mantém stop-first pelo perfil/Chromium compartilhado. Merge/CI não comprovam proteção em produção. Último SHA de produção **documentado**: `768fb26`.
 
