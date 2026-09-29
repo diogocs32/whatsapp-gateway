@@ -119,7 +119,8 @@ status: concluida-em-codigo — CI/merge como gates do PR; deploy D manual pende
 ## Checkpoint R9 e reconciliação R3
 
 - **Entregue:** P-062 parte 1 em `feature/onda5a-manutencao`, criada da `origin/main`
-  `54c659a` após merge confirmado do PR #21. Um PR da etapa; CI verde antes do merge.
+  `54c659a` após merge confirmado do PR #21. [PR #22](https://github.com/diogocs32/whatsapp-gateway/pull/22),
+  commit de implementação `ce7ada0`; CI verde antes do merge. Resultado remoto no PR.
 - **Classe de erro coberta:** script de dependência não revisado, patch/entrypoint/pacote
   ausente no runtime, nginx sem asset/fallback/header/compressão e auth/rate-limit quebrado
   tornam os gates vermelhos; browser sintético cobre execução de React após a minor.
