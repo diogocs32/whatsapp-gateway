@@ -13,7 +13,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/baileys-restriction.e2e-spec.ts` | 296 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
-| `gateway/test/campaign-recovery.e2e-spec.ts` | 475 |
+| `gateway/test/campaign-recovery.e2e-spec.ts` | 480 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
 | `gateway/test/connect-links.e2e-spec.ts` | 1301 |
 | `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1540 |
@@ -121,7 +121,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/campaign-recovery.e2e-spec.ts`
 
-475 linhas · caminho: `apps/gateway/test/campaign-recovery.e2e-spec.ts`
+480 linhas · caminho: `apps/gateway/test/campaign-recovery.e2e-spec.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `gateway/test/setup-app.ts`
 
 - describe “E14/P-057 — recuperação de campanhas no Postgres e Redis” · L37
@@ -129,9 +129,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “não consome antes da reidratação; sessão ainda fora de WORKING não vira FAILED” · L192
   - it “réplica sem lease libera reserva; após takeover, o mesmo destinatário é enviado uma vez” · L238
   - it “reserva ainda em voo permanece pendente até expirar e não perde o job da retomada” · L282
-  - it “falha parcial no enfileiramento pausa e permite reagendar todos os pendentes” · L323
-  - it “pausa durante download de mídia não envia nem falha o destinatário” · L359
-  - it “downloads concorrentes de mídia ainda espaçam os envios efetivos” · L419
+  - it “falha parcial no enfileiramento pausa e permite reagendar todos os pendentes” · L328
+  - it “pausa durante download de mídia não envia nem falha o destinatário” · L364
+  - it “downloads concorrentes de mídia ainda espaçam os envios efetivos” · L424
 
 ## `gateway/test/config.e2e-spec.ts`
 

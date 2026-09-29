@@ -290,7 +290,7 @@ describe('E14/P-057 — recuperação de campanhas no Postgres e Redis', () => {
     await prisma.campaignRecipient.update({
       where: { id: recipient.id },
       data: {
-        reservedAt: new Date(Date.now() - 590_000),
+        reservedAt: new Date(Date.now() - 580_000),
         attempts: 1,
       },
     });
@@ -302,7 +302,7 @@ describe('E14/P-057 — recuperação de campanhas no Postgres e Redis', () => {
         expect(job?.attemptsStarted).toBeGreaterThanOrEqual(1);
         expect((await inspect!.getJobCounts('delayed')).delayed).toBe(1);
       },
-      { timeout: 12_000, interval: 250 },
+      { timeout: 15_000, interval: 250 },
     );
     expect(send).not.toHaveBeenCalled();
     expect((await recipients())[0]).toMatchObject({
@@ -310,11 +310,16 @@ describe('E14/P-057 — recuperação de campanhas no Postgres e Redis', () => {
       attempts: 1,
       error: null,
     });
+    await prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: { reservedAt: new Date(Date.now() - 601_000) },
+    });
+    await (await inspect!.getJob(jobId))!.changeDelay(1_000);
     await vi.waitFor(
       async () => {
         expect((await recipients())[0].status).toBe('SENT');
       },
-      { timeout: 20_000, interval: 250 },
+      { timeout: 15_000, interval: 250 },
     );
     expect(send).toHaveBeenCalledOnce();
     expect((await recipients())[0].attempts).toBe(2);

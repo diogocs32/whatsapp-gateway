@@ -17,7 +17,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `campaigns` | 6 | 1236 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 2 | 194 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 34 | 10802 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 34 | 10807 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
