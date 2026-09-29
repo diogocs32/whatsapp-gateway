@@ -16,9 +16,11 @@
  * E17 também executa o wrapper puro newId compilado: prova o export CJS do ULID 3 e a geração
  * de IDs válidos no Node/node_modules final, depois do prune (não só no transform do Vitest).
  *
- * Vale para dist em CommonJS (tsconfig `module: commonjs`, o atual). Se o dist virar ESM ou
- * `module: node16/nodenext` preservar `import()`, a guarda precisa ser revista — por isso ela falha
- * quando não encontra nenhum pacote.
+ * Vale para dist CommonJS (module: node20 e package sem type: module, E19). O Prisma gerado
+ * preserva import() nativo dos dois arquivos de query compiler; em 7.10.0, esses subpaths usam
+ * o mesmo export wildcard em import/require. O smoke SQL da imagem prova esse carregamento.
+ * Se surgirem imports com condições distintas ou dist ESM, rever a guarda; ela falha quando
+ * não encontra nenhum pacote.
  *
  * Uso: node scripts/verificar-deps-runtime.cjs <diretório do dist>   (sai 1 se algo falhar)
  */

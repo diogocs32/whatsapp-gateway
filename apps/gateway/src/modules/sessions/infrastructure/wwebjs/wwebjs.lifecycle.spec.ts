@@ -69,7 +69,7 @@ process.env.WWEBJS_DATA_PATH = `.tmp-wwebjs-lifecycle-${process.pid}`;
 type StatusEvent = { status: string; error?: string | null };
 
 async function loadEngine() {
-  const mod = await import('./wwebjs.engine');
+  const mod = await import('./wwebjs.engine.js');
   return mod.WWebJSEngine;
 }
 

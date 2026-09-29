@@ -973,3 +973,41 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
   [pino v5](https://github.com/iamolegga/nestjs-pino/tree/5.2.1#migration),
   [hooks](https://github.com/nestjs/nest/blob/v12.1.1/packages/core/hooks/on-module-destroy.hook.ts)
   e [advisories Fastify](https://github.com/fastify/fastify/security/advisories).
+
+## D-045 — 2026-09-29 — Vitest 5 e preparação TS 6 mantendo TS 5.9.3/CLI 11 (P-062 parte 4/E19)
+
+- **Decisão:** Vitest 5.0.2 exato nos dois workspaces e coverage-v8 5.0.2 na raiz.
+  O runner hoisted importa o provider a partir de si; provider apenas no gateway
+  reproduziu ERR_MODULE_NOT_FOUND. Dependência direta na raiz resolve a instalação
+  limpa sem links manuais. Node 26.10.0/Vite 8.3.1 atendem aos peers. SWC 1.16.2 e
+  unplugin-swc 1.6.0 mantidos; oxc:false, extends:true, clearMocks:false explícitos
+  preservam decorators/metadata, herança e semântica de mocks. E2E continua serial;
+  globs de coverage mantidos e conferidos. Config do gateway usa .mts, aceito pelo
+  Vitest, para ESM do tooling sem mudar package/application CommonJS. .vitest ignorada.
+- **TypeScript:** compilador único **5.9.3** e CLI/schematics **11** preservados.
+  Gateway usa module:node20/moduleResolution:node16, suportados no TS 5.9, com emissão
+  CommonJS por não declarar type:module. Tipos reais de exports substituem os shims
+  de proxy; o import dinâmico de teste WWEBJS ganha .js. baseUrl removido; types,
+  rootDir, noUncheckedSideEffectImports e libReplacement explicitados sem suprimir
+  depreciações. Build mantém dist/main.js; painel permite fontes de contracts na raiz
+  do monorepo. TS 6 não foi instalado nem há claim de execução com TS 6.
+- **Cache/build:** rootDir explícito deslocava o buildinfo implícito para fora de
+  dist; CLI 11 apaga dist e conserva esse cache. Segundo build reproduziu saída zero
+  sem main.js (guarda recusou). tsBuildInfoFile explícito em dist resolve a invalidade;
+  .dockerignore exclui caches locais. Dois builds consecutivos são o gate desta correção.
+- **Efeito de emissão:** comparação com a imagem E18 encontrou 211 arquivos JS em
+  cada build, diferença apenas em generated/prisma/internal/class.js: três import()
+  antes convertidos em require passam a nativos (node:buffer e dois arquivos do
+  query compiler). Subpaths Prisma 7.10.0 usam export wildcard igual em import/require;
+  carregamento/SQL precisa passar na imagem final após prune. Código autoral emitido
+  permanece idêntico, descontados comentários de sourceMappingURL.
+- **Fontes:** [guia oficial Vitest 5.0.2](https://github.com/vitest-dev/vitest/blob/v5.0.2/docs/guide/migration/index.md),
+  [config Vite 8.3.1](https://github.com/vitejs/vite/blob/v8.3.1/docs/config/index.md),
+  [TS 5.9/node20](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html),
+  [mudanças TS 6](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html).
+  Registry/peers/fontes instaladas conferidos em 29/09; Context7 consultado, mas seu
+  trecho antigo de extends foi confrontado com o guia versionado.
+- **Limites:** sem outra major de runtime/engine/Prisma, schema/env/payload novo,
+  conta/QR/envio real ou Dokploy. Gates E16/E17/E18, contrato n8n, afinidade,
+  épocas/lease/CAS/8 s e shutdown mantidos. P-100 aberta; SIGTERM de harness apenas
+  limpa a falha já reproduzida. Deploys C/D/E/F e canários continuam manuais.

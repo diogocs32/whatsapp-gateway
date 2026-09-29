@@ -3,11 +3,13 @@ import { defineConfig } from 'vitest/config';
 
 // SWC é necessário para os decorators + metadata do NestJS funcionarem nos testes.
 export default defineConfig({
-  // Vitest 4 usa Oxc por padrão; desligamos para o SWC (decorators+metadata do Nest) ser o único transform.
+  // SWC é o único transform para preservar decorators + metadata do Nest.
   oxc: false,
   plugins: [swc.vite()],
   test: {
     globals: false,
+    // Vitest 5 passou a limpar mocks antes de cada teste; manter a semântica da suíte v4.
+    clearMocks: false,
     root: './',
     // NODE_ENV=test não sobe os Workers BullMQ. MAX_SESSIONS/SEATS altos: o modo comunidade limita
     // a 1 sessão e os testes (e o DB de dev, que pode ter sessões reais) precisam criar várias.
@@ -22,8 +24,8 @@ export default defineConfig({
       reporter: ['text-summary', 'html'],
     },
     // M3: dois projetos — `unit` roda SEM infra (docker); `e2e` exige Postgres/Redis/MinIO
-    // (`npm run infra:up`). Em Vitest 4 o extends:true precisa ser EXPLÍCITO para o projeto
-    // herdar plugins (SWC) e env da raiz — só vira default no Vitest 5 (guia de migração).
+    // (`npm run infra:up`). extends:true conserva explicitamente SWC/env da raiz,
+    // mesmo sendo o default dos projetos inline no Vitest 5.
     projects: [
       {
         extends: true,

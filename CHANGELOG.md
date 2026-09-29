@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Atualizado — Vitest 5 e preparação TypeScript (29/09 — E19/P-062 parte 4, D-045; sem deploy)
+
+- Vitest/coverage 5.0.2 sincronizados, SWC/decorators, projetos unit/e2e serial e mocks preservados; config gateway .mts e ignores para .vitest.
+- TS 5.9.3/CLI 11 mantidos; node20/node16 resolve exports com emissão CommonJS, elimina shims de proxy e explicita tipos/raiz de fontes/defaults futuros. TS 6 não foi instalado.
+- Instalação estrita/patches, coverage/efeitos, typechecks/builds/imagens e smokes são gates da entrega. P-100 permanece aberta; deploys C/D/E/F e canários manuais pendentes.
+
 ### Atualizado — Nest 12 no runtime (29/09 — E18/P-062 parte 3, D-044; sem deploy)
 
 - Nest 12.1.1 com companions compatíveis e Fastify 5.12.5; CLI/schematics 11 e TS 5.9.3 preservados. CommonJS, BullMQ 6/ioredis 5/ULID 3, pins, patches e instalação estrita mantidos.

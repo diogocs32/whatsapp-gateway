@@ -77,3 +77,5 @@
 
 Sigla resolve? Use a sigla. Não resolve? Cite completo: "arquivo § seção"
 (ex.: "ver `BASE_CONEXOZENVO.md` § R15").
+
+- E19/P-062 parte 4: [Vitest 5 e preparação TS](sessions/DONE-2026-09-29-1908-e19-vitest5.md), decisão [D-045](DECISOES.md#d-045--2026-09-29--vitest-5-e-preparação-ts-6-mantendo-ts-593cli-11-p-062-parte-4e19).
