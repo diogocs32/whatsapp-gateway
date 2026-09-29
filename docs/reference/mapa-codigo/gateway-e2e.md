@@ -13,6 +13,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/baileys-reaction.e2e-spec.ts` | 59 |
 | `gateway/test/baileys-restriction.e2e-spec.ts` | 296 |
 | `gateway/test/browser-fingerprint.e2e-spec.ts` | 41 |
+| `gateway/test/campaign-recovery.e2e-spec.ts` | 475 |
 | `gateway/test/config.e2e-spec.ts` | 61 |
 | `gateway/test/connect-links.e2e-spec.ts` | 1301 |
 | `gateway/test/conversas-encaminhar.e2e-spec.ts` | 1540 |
@@ -117,6 +118,20 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “nunca contém o rótulo antigo "WhatsApp Gateway"” · L13
   - it “devolve [plataforma, navegador, versão] plausível” · L26
   - it “distribui entre sessões diferentes (não é tudo o mesmo valor)” · L33
+
+## `gateway/test/campaign-recovery.e2e-spec.ts`
+
+475 linhas · caminho: `apps/gateway/test/campaign-recovery.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `infra/redis/redis-connection.ts`, `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/guardrail/guardrail.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `gateway/test/setup-app.ts`
+
+- describe “E14/P-057 — recuperação de campanhas no Postgres e Redis” · L37
+  - it “PAUSED não cria laço; resume invalida jobs antigos e envia com intervalo global” · L149
+  - it “não consome antes da reidratação; sessão ainda fora de WORKING não vira FAILED” · L192
+  - it “réplica sem lease libera reserva; após takeover, o mesmo destinatário é enviado uma vez” · L238
+  - it “reserva ainda em voo permanece pendente até expirar e não perde o job da retomada” · L282
+  - it “falha parcial no enfileiramento pausa e permite reagendar todos os pendentes” · L323
+  - it “pausa durante download de mídia não envia nem falha o destinatário” · L359
+  - it “downloads concorrentes de mídia ainda espaçam os envios efetivos” · L419
 
 ## `gateway/test/config.e2e-spec.ts`
 
@@ -583,7 +598,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 191 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L12

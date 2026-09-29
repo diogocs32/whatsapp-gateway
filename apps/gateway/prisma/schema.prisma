@@ -617,6 +617,8 @@ model Campaign {
   // mensagens (cold) e seus envios contam como cold no reply-rate. Explícito e auditável.
   firstContact  Boolean        @default(true)
   status        CampaignStatus @default(DRAFT)
+  // E14: cada start/resume invalida jobs pendentes da época anterior (pausa sem rajada).
+  scheduleEpoch Int            @default(0)
   total         Int            @default(0)
   sentCount     Int            @default(0)
   failedCount   Int            @default(0)

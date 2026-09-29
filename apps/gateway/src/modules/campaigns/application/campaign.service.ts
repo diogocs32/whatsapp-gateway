@@ -43,13 +43,13 @@ export class CampaignService {
     if (c.status === 'DONE' || c.status === 'CANCELLED') {
       throw new Error('Campanha finalizada — não pode reiniciar');
     }
-    const won = await this.repo.transitionToRunning(
+    const epoch = await this.repo.transitionToRunning(
       id,
       c.startedAt ?? new Date(),
     );
-    if (!won) return; // outro start venceu a corrida e já agendou
+    if (epoch === null) return; // outro start venceu a corrida e já agendou
 
-    const scheduled = await this.schedulePending(id, c, `campaign-${id}`);
+    const scheduled = await this.scheduleOrPause(id, c, epoch);
     this.logger.log(
       `Campanha "${c.name}" iniciada: ${scheduled} destinatários enfileirados`,
     );
@@ -58,7 +58,7 @@ export class CampaignService {
   private async schedulePending(
     id: string,
     c: { scheduledAt: Date | null; minDelaySec: number; maxDelaySec: number },
-    jobPrefix: string,
+    epoch: number,
   ): Promise<number> {
     const pending = await this.repo.listPendingRecipients(id);
     const baseOffset =
@@ -69,12 +69,27 @@ export class CampaignService {
     for (const r of pending) {
       cumulative += randInt(c.minDelaySec, c.maxDelaySec) * 1000;
       await this.queue.enqueueSend(
-        { campaignId: id, recipientId: r.id },
+        { campaignId: id, recipientId: r.id, scheduleEpoch: epoch },
         baseOffset + cumulative,
-        `${jobPrefix}-${r.id}`,
+        `campaign-${id}-e${epoch}-${r.id}`,
       );
     }
     return pending.length;
+  }
+
+  private async scheduleOrPause(
+    id: string,
+    c: { scheduledAt: Date | null; minDelaySec: number; maxDelaySec: number },
+    epoch: number,
+  ): Promise<number> {
+    try {
+      return await this.schedulePending(id, c, epoch);
+    } catch (e) {
+      // Se o Redis falha no meio do agendamento, os jobs já criados viram no-op enquanto
+      // PAUSED. Um novo /resume sobe a época e agenda TODOS os PENDING, sem deixá-los órfãos.
+      await this.repo.pauseIfRunning(id, epoch);
+      throw e;
+    }
   }
 
   async pause(id: string): Promise<void> {
@@ -88,16 +103,12 @@ export class CampaignService {
   async resume(id: string): Promise<void> {
     const c = await this.repo.findByIdOrThrow(id);
     if (c.status !== 'PAUSED') return;
-    const won = await this.repo.transitionToRunning(
+    const epoch = await this.repo.transitionToRunning(
       id,
       c.startedAt ?? new Date(),
     );
-    if (!won) return;
-    const n = await this.schedulePending(
-      id,
-      c,
-      `campaign-${id}-resume-${Math.floor(Date.now() / 1000)}`,
-    );
+    if (epoch === null) return;
+    const n = await this.scheduleOrPause(id, c, epoch);
     this.logger.log(
       `Campanha "${c.name}" retomada: ${n} pendentes reagendados`,
     );

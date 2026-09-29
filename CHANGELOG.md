@@ -6,6 +6,12 @@ Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) est�
 
 ## [Unreleased]
 
+### Corrigido — campanha sem rajada na retomada e sem FAILED transitório (29/09 — E14/P-057, D-040; sem deploy)
+
+- Pausa encerra jobs sem requeue de 30 s; start/resume incrementam a época persistida e agendam só PENDING com espaçamento. Enqueue parcial volta a PAUSED para permitir novo resume. Migration aditiva `20260929053000_campaign_schedule_epoch` aplicada só no banco local.
+- Worker BullMQ 5.81.5 aguarda a primeira reidratação das sessões; limiter global e slot Redis espaçam o início e o envio efetivo de texto/mídia em 8 s entre réplicas. Sessão fora de WORKING, perda de lease, shutdown e restrição transitória liberam reserva e atrasam o mesmo job sem FAILED. Reserva em voo não pausa indevidamente pelo teto diário.
+- E2E com Postgres/Redis locais e envios falsos; sem conta, QR, mensagem real, contrato `/api` novo ou deploy. Jobs legados já acumulados podem atrasar a drenagem inicial (P-099); primeiro deploy C permanece após E15 e B-004 stop-first.
+
 ### Corrigido — exclusividade de sessão entre processos (27/09 — E13/P-056, D-039; sem deploy)
 
 - Lease por sessão no PostgreSQL, renovada e com `authEpoch` crescente: só a réplica dona inicia/reidrata, grava auth/status e envia; a antiga drena ao perder a posse. O boot em espera assume após shutdown do dono e não religa uma sessão que virou `STOPPED`; `restart`/`stop` após crash podem assumir uma sessão sem engine mesmo se o status antigo ainda indicar `WORKING`/`FAILED`. Migration aditiva `20260927124000_session_lease_fencing` aplicada apenas no banco local.

@@ -8,9 +8,10 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch                      |
+| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------- |
+| e14-campanhas    | 29/09 05:08 | E14/P-057: pausa/retomada espaçada e destinatário preservado na reidratação                                   | `modules/campaigns/`, boot de `sessions/` + docs | feature/onda3-e14-campanhas |
+| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs        |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 

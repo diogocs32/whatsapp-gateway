@@ -22,8 +22,12 @@ export interface CreateCampaignData {
 
 // ABE-04: reserva de destinatário — quem reserva envia; os demais workers pulam.
 export type ReserveRecipientResult =
-  | { kind: 'reserved'; recipient: { id: string; to: string } }
-  | { kind: 'cap'; sentToday: number }
+  | {
+      kind: 'reserved';
+      recipient: { id: string; to: string; reservedAt: Date };
+    }
+  | { kind: 'cap'; sentToday: number; inFlight: number }
+  | { kind: 'busy'; retryAfterMs: number }
   | { kind: 'skip'; reason: string };
 
 // Teto de tentativas por destinatário (resultado indeterminado após worker morto no meio).
@@ -110,14 +114,36 @@ export class CampaignRepository {
     });
   }
 
+  // Um job da época anterior não pode pausar uma campanha já retomada em outra réplica.
+  pauseIfRunning(id: string, scheduleEpoch: number) {
+    return this.prisma.campaign.updateMany({
+      where: { id, status: 'RUNNING', scheduleEpoch },
+      data: { status: 'PAUSED' },
+    });
+  }
+
   // ABE-04: transição DRAFT/PAUSED → RUNNING atômica. Dois `start` concorrentes: só um vence
   // (count 1) e agenda; o outro vê count 0 e não duplica os jobs.
-  async transitionToRunning(id: string, startedAt: Date): Promise<boolean> {
-    const r = await this.prisma.campaign.updateMany({
-      where: { id, status: { in: ['DRAFT', 'PAUSED'] } },
-      data: { status: 'RUNNING', startedAt },
+  async transitionToRunning(
+    id: string,
+    startedAt: Date,
+  ): Promise<number | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const r = await tx.campaign.updateMany({
+        where: { id, status: { in: ['DRAFT', 'PAUSED'] } },
+        data: {
+          status: 'RUNNING',
+          startedAt,
+          scheduleEpoch: { increment: 1 },
+        },
+      });
+      if (r.count !== 1) return null;
+      const c = await tx.campaign.findUniqueOrThrow({
+        where: { id },
+        select: { scheduleEpoch: true },
+      });
+      return c.scheduleEpoch;
     });
-    return r.count === 1;
   }
 
   // ABE-04/ABE-05: reserva atômica do destinatário + orçamento diário, serializados pela linha
@@ -143,7 +169,13 @@ export class CampaignRepository {
       }
       const now = Date.now();
       if (r.reservedAt && now - r.reservedAt.getTime() < opts.staleMs) {
-        return { kind: 'skip', reason: 'reservado por outro worker' };
+        return {
+          kind: 'busy',
+          retryAfterMs: Math.max(
+            1_000,
+            opts.staleMs - (now - r.reservedAt.getTime()),
+          ),
+        };
       }
       if (r.attempts >= MAX_RECIPIENT_ATTEMPTS) {
         await tx.campaignRecipient.update({
@@ -172,21 +204,26 @@ export class CampaignRepository {
           }),
         ]);
         if (sentToday + inFlight >= opts.dailyCap) {
-          return { kind: 'cap', sentToday };
+          return { kind: 'cap', sentToday, inFlight };
         }
       }
+      const reservedAt = new Date(now);
       await tx.campaignRecipient.update({
         where: { id: r.id },
-        data: { reservedAt: new Date(now), attempts: { increment: 1 } },
+        data: { reservedAt, attempts: { increment: 1 } },
       });
-      return { kind: 'reserved', recipient: { id: r.id, to: r.to } };
+      return {
+        kind: 'reserved',
+        recipient: { id: r.id, to: r.to, reservedAt },
+      };
     });
   }
 
   // Devolve o destinatário à fila (pausa/cancelamento detectados após a reserva, antes do efeito).
-  releaseRecipient(id: string) {
+  // O timestamp identifica a reserva: um worker atrasado não solta a reserva nova de outro.
+  releaseRecipient(id: string, reservedAt: Date) {
     return this.prisma.campaignRecipient.updateMany({
-      where: { id, status: 'PENDING' },
+      where: { id, status: 'PENDING', reservedAt },
       data: { reservedAt: null, attempts: { decrement: 1 } },
     });
   }
