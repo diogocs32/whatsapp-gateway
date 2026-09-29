@@ -54,7 +54,7 @@ Legenda: ⬜ a fazer · 🟡 em andamento · ✅ feita · ⏸️ bloqueada (ver 
 | E12   | 2    | Baileys: pairing com guarda (409), LID do roster, caches, `countryCode` (P-052) → fecha a Onda 2                                                                                                                                     | `feature/onda2-baileys-e12`       | PR #16; merge após CI verde; depois **deploy B manual**                                                                                                            | ✅ código 26/09           |
 | E13   | 3    | Exclusividade de sessão entre processos: lease/fencing + auth store em transação (P-056)                                                                                                                                             | `feature/onda3-e13-exclusividade` | PR #19 mergeado; sem deploy C                                                                                                                                      | ✅ 27/09                  |
 | E14   | 3    | Campanhas: sem rajada ao retomar, sem FAILED no boot (P-057)                                                                                                                                                                         | `feature/onda3-e14-campanhas`     | PR #20 mergeado `b56ff27`; sem deploy C                                                                                                                            | ✅ código 29/09 · cfc2976 |
-| E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-e15-proxy`         | PR e merge ao fim; **deploy C manual** depois + B-001                                                                                                              | ✅ código 29/09           |
+| E15   | 3    | Proxy com afinidade por conta (P-058) → fecha a Onda 3                                                                                                                                                                               | `feature/onda3-e15-proxy`         | PR #21; **deploy C manual** pelo runbook, B-001 depois                                                                                                             | ✅ 29/09 · 0cf2cd4        |
 | E16   | 5    | Manutenção leve: nginx pinado, Actions node24 por SHA + `ubuntu-24.04`, Node por digest, remover `ts-node`; manter e atualizar `allowScripts` (incluir fsevents, decidir puppeteer@24.38.0), minors de tooling/React (P-062 parte 1) | `feature/onda5a-manutencao`       | merge ao fim; **deploy D manual** depois                                                                                                                           | ⬜                        |
 | E17   | 5    | BullMQ 6 com ioredis 5 + ulid 3 (P-062 parte 2)                                                                                                                                                                                      | `feature/onda5b-bullmq6`          | merge ao fim; **deploy E manual** depois                                                                                                                           | ⬜                        |
 | E18   | 5    | Nest 12.1.x só no runtime + e2e de contrato do node n8n (P-062 parte 3)                                                                                                                                                              | `feature/onda5c-nest12`           | merge ao fim; **deploy F manual** depois                                                                                                                           | ⬜                        |
@@ -384,13 +384,14 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 
 ## Diário de execução
 
-- **29/09 — E15/P-058 (`e15-proxy`, D-041, base `b56ff27` após merge E14):** afinidade
+- **29/09 — E15/P-058 (`e15-proxy`, D-041, PR #21, código `0cf2cd4`, base `b56ff27` após merge E14):** afinidade
   persistida inclusive RANGE/GLOBAL; configuração sem saída elegível falha explicitamente
   nas duas engines, sem fallback direto. DEAD restrito a auth/túnel, ID do transporte e
   transação da lease E13; E14/backoff preservados. PUT valida elegibilidade e disputa SINGLE
   sob lock; nome vivo resolve para ID preservando 200 de órfãs (P-097). Sem migration nova,
   payload novo, conta/QR/envio real. Runbook [deploy C](how-to/deploy-c-onda3.md) preparado
-  com B-004/B-005/B-007, inventário de proxies, P-099 e B-001 depois. PR/CI/merge ao fim.
+  com B-004/B-005/B-007, inventário de proxies, P-099 e B-001 depois. Validação local:
+  1.394 gateway + 292 painel, incluindo 15 e2e E15. CI e merge acompanhados no PR #21.
 
 - **29/09 — E14/P-057 (`e14-campanhas`, PR #20, código `cfc2976`,
   `feature/onda3-e14-campanhas` da `origin/main=5501593`):** D-040 separa cada retomada por época persistida e encerra jobs
