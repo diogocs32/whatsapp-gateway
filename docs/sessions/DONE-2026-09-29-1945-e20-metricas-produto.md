@@ -79,3 +79,10 @@
   anteriores não se tornam falsos. Base v4.3 e limites manuais preservados. How-to E20 descreve publicação.
 - **Retomada:** E21 pela mensagem no roteiro após merge E20; primeiro triagem com P-103,
   preservando D-039–D-046, contratos, métricas/cota observada e fronteiras operacionais.
+
+## PR e gates remotos
+
+- Código/docs `91b1cef`, base `5ffa267`, [PR #26](https://github.com/diogocs32/whatsapp-gateway/pull/26).
+- ESTADO reconciliado após abertura do PR; head final exige ci/imagens/advisories verdes.
+  Merge ao fim autorizado; estado/SHA de integração e checks finais no PR canônico.
+- P-100 aberta, P-099 sem drenar, produção/deploys/canários manuais preservados.
