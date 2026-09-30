@@ -21,3 +21,12 @@
 | P-078         | ACK e save são independentes em [message-persister.service.ts:28](../../apps/gateway/src/modules/messaging/application/message-persister.service.ts#L28) e `:41-67`. O SQL documenta zero linhas/no-op antes do INSERT em [prisma-message.repository.ts:178](../../apps/gateway/src/modules/messaging/infrastructure/prisma-message.repository.ts#L178). A memória do painel (`live-events.ts:158-190`) compensa durante a tela aberta.                                                                              | **Aberta.**                                                                                                                      | Provar ordenação e efeito em banco/GET/Inbox/reply-rate. Um mapa local sozinho não cobre restart nem persistência em outra réplica.                                                                           |
 
 As atualizações de status acima reconciliam o escopo do código existente. Nenhuma pendência foi considerada concluída em produção por esta triagem.
+
+## Continuação — QR inicial esgotado (30/09/2026, base 8f7683f)
+
+A tabela acima é a fotografia da triagem P-103. O recorte seguinte implementa somente P-018/P-091
+para o QR com auth ainda inicial: 408 com motivo exato da rc14 passa a STOPPED e sai do autostart;
+qualquer sinal de pairing ou auth ausente conserva a política anterior. Não muda expiração/revogação
+imediata do token nem purga legado. Decisão D-048, comportamento e limites no
+[how-to](../how-to/qr-esgotado-e21.md); testes de efeito em `test/baileys-qr-exhaustion.e2e-spec.ts`.
+Demais itens ficam abertos; P-100/P-101/P-102 e deploys/canários manuais preservados.

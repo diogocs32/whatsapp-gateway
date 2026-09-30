@@ -83,3 +83,4 @@ Sigla resolve? Use a sigla. Não resolve? Cite completo: "arquivo § seção"
 - E20/P-064 parte código + P-061: [Métricas/cota/inventário](how-to/metricas-produto-e20.md), decisão D-046 e mensagem E21 no [roteiro](ROTEIRO-ONDAS-2026-09.md).
 
 - E21/P-103: [Política de identidade/ambiguidade no reply-rate](how-to/reply-rate-identidade-e21.md), [triagem do backlog](reference/e21-triagem-backlog.md) e [reprodução histórica SELECT-only](reference/e20-reply-rate-key-collision.sql).
+- E21/P-018/P-091: [QR inicial esgotado: política e aceite manual](how-to/qr-esgotado-e21.md).

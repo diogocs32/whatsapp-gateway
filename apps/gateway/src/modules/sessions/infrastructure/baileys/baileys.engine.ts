@@ -1007,6 +1007,7 @@ export class BaileysEngine implements IEngine {
     }
 
     if (connection === 'close') {
+      const wasWorking = this.status === 'WORKING';
       this.cacheObserver?.close('close');
       this.cacheObserver = null;
       this.pairingReadySock = null;
@@ -1044,6 +1045,30 @@ export class BaileysEngine implements IEngine {
         (eventSock && eventSock !== this.sock)
       )
         return;
+
+      // P-018/P-091: 408 também significa queda de rede. Só a assinatura exata da rc14 com
+      // auth ainda inicial encerra o ciclo QR; me/registered podem indicar pairing em curso,
+      // sem provar uma conta pareada. Ausência de auth ou qualquer sinal de login é inconclusivo.
+      // Relê após onDisconnect: o pair-success pode ter atualizado creds durante o await.
+      const creds = this.sock?.authState?.creds;
+      if (
+        details.code === 408 &&
+        details.reason === 'QR refs attempts ended' &&
+        !wasWorking &&
+        creds?.registered === false &&
+        !creds.account &&
+        !creds.me &&
+        !this.sock?.user
+      ) {
+        // Já estamos na fila serialize: stop() esperaria a própria operação. doStop limpa
+        // socket/listeners/timer/QR diretamente, conserva auth e usa o status cercado existente.
+        await this.doStop({
+          error:
+            'QRs esgotados sem pareamento — conecte novamente para gerar um novo QR',
+          lastErrorDetails: details,
+        });
+        return;
+      }
 
       if (decision.action === 'logged_out') {
         // Deslogado pelo celular: as credenciais persistidas estão MORTAS — qualquer
@@ -2503,7 +2528,9 @@ export class BaileysEngine implements IEngine {
     return this.serialize(() => this.doStop());
   }
 
-  private async doStop(): Promise<void> {
+  private async doStop(
+    extra: Partial<SessionStatePayload> = { error: null },
+  ): Promise<void> {
     this.stopped = true;
     this.clearReconnectTimer();
     this.cacheObserver?.close('close');
@@ -2520,7 +2547,7 @@ export class BaileysEngine implements IEngine {
     }
     this.sock = null;
     this.qrBase64 = null;
-    this.setStatus('STOPPED', { error: null });
+    this.setStatus('STOPPED', extra);
   }
 
   private detachSocketListeners(): void {

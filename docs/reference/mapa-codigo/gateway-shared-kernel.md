@@ -118,7 +118,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `shared-kernel/domain-event.ts`
 
 7 linhas · caminho: `apps/gateway/src/shared-kernel/domain-event.ts`
-- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/event-bus/event-bus.ts`
+- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`
 
 **Tipos**
 - interface `DomainEvent` L2 · 3 propriedade(s)
@@ -127,7 +127,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 38 linhas · caminho: `apps/gateway/src/shared-kernel/event-bus/event-bus.ts`
 - importa (interno): `shared-kernel/domain-event.ts`
-- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/guardrail/guardrail.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/shared-kernel.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/webhook-bullmq6.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `infra/redis/event-fanout.ts`, `modules/events/interface/events.controller.ts`, `modules/guardrail/guardrail.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/application/reaction-persister.service.ts`, `modules/observability/session-event.logger.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/webhooks/application/webhook-dispatcher.service.ts`, `shared-kernel/shared-kernel.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`, `gateway/test/webhook-bullmq6.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **class `EventBus`** L9 · @Injectable
 - `logger` · L11 · private · campo
@@ -195,7 +195,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `totals` = `new Map<string, number>()` · L7
 - `recordProcessError(kind)` · L9
-  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:413), `AuditInterceptor.record` (audit.interceptor.ts:71), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1407), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:936), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1381), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1319)
+  - chamado por: `bootstrap` (main.ts:16), `GuardrailService.emitFailed` (guardrail.service.ts:413), `AuditInterceptor.record` (audit.interceptor.ts:71), `BaileysEngine.fetchReachoutTimelock` (baileys.engine.ts:1432), `BaileysEngine.onConnectionUpdate` (baileys.engine.ts:936), `BaileysEngine.onMessageCapping` (baileys.engine.ts:1406), `BaileysEngine.onMessagesUpdate` (baileys.engine.ts:1344)
 - `processErrorTotals()` · L13
   - chamado por: `MetricsService.refresh` (metrics.service.ts:112)
 

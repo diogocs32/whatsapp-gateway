@@ -145,7 +145,7 @@ O gateway é um monólito modular NestJS 12 sobre Fastify (runtime E18/D-044, CL
 3. **QR**: o Baileys recebe `'pair-device'` e emite `connection.update {qr}`: o 1º QR vale 60 s e os seguintes 20 s; sem refs → `end(408 'QR refs attempts ended')` (Socket/socket.js:694-725) → `onConnectionUpdate` (baileys.engine.ts:891-905) → `QRCode.toDataURL` em qrBase64 → setStatus SCAN_QR_CODE → persist + webhook `session.status`.
 4. `GET /api/sessions/:id/qr` (sessions.controller.ts:370-381): status vem do BANCO, qr da MEMÓRIA (`getQr` → `engine.getQrBase64`, session-manager.service.ts:691-693), pairingCode só se a engine implementar `getPairingCode` (a BaileysEngine não implementa — só o WWEBJS, wwebjs.engine.ts:375). O painel consulta a cada 2 s (apps/dashboard/src/routes/Sessions.tsx:121-141). Numa réplica que não é dona da engine, qr=null.
 5. Scan → `'pair-success'` (Socket/socket.js:729-744): `creds.update` → saveCreds (baileys.engine.ts:706-708 → postgres-auth-state.ts:77-82) → o servidor pede restart (comentário Socket/socket.js:728) → close 515 restartRequired (Types/index.js:21) → reconexão em 1 s SEM consumir tentativa (baileys.engine.ts:1005-1019) → connect com creds persistidas → `CB:success` → `'open'` (Socket/socket.js:746-765) → WORKING com meJid (baileys.engine.ts:908-922).
-6. **QR expirado sem scan**: 408 → reconexão → novo QR … 5 tentativas → DEGRADED com `'Falha ao reconectar'` (:745-750). DEGRADED está no findAutostart (prisma-session.repository.ts:188), então o ciclo se repete a cada boot (P-018).
+6. **QR esgotado sem scan (E21/P-018/P-091):** 408 com motivo exato `QR refs attempts ended` e auth ainda inicial (`registered=false`, sem `account`, `me` ou `sock.user`, não WORKING) → limpeza local `doStop` → STOPPED com diagnóstico → fora de `findAutostart`. Qualquer sinal de pairing ou falta de auth conserva a recuperação anterior; 408 genérico não autoriza parada. Não apaga creds/chaves nem muda autostart. Link expirado/revogado invalida token imediatamente, mas a engine só para por esse esgotamento. [Política/limites](how-to/qr-esgotado-e21.md).
 7. **Pairing code**: `POST /:id/pairing-code` (sessions.controller.ts) → ensure + `pairingSchema` → `SessionManager.requestPairingCode` (session-manager.service.ts:699-744; sob o lock de ciclo de vida e com teto de 45 s desde a E27 — §4.1 "Pairing code"): WORKING ou `creds.me` persistido → 409 antes de iniciar socket; STOPPED sem creds → start com teto, sem sleep → `BaileysEngine.requestPairingCode` (baileys.engine.ts:2413-2457): guarda WORKING/`sock.user`/`authState.creds.me`, espera `connecting` ou QR até 10 s, repete guarda e só então chama a rc14. A lib escreve `creds.me` e emite `creds.update` (Socket/socket.js:596-606); sucesso → PAIRING_CODE + `{code}`. Erro → 409 pelo controller.
 8. Confirmação no celular → notificação `link_code_companion_reg` → `creds.registered = true` + `creds.update` (Socket/messages-recv.js:940-941) → pair-success/restart → open → WORKING.
 9. **Limites**: a guarda e a espera foram provadas com socket/DB sintéticos na E12; o timer de QR continua em paralelo ao código (efeito **não verificado**) e o pareamento/reconexão com chip permanecem para o canário B-007.
@@ -1465,19 +1465,11 @@ Consolidado das verificações por área (mesclado, sem duplicar). IDs e título
 
 **P-018** — Baileys: sessões nunca pareadas em loop de QR
 
-- **Locais:**
-  - `BaileysEngine.onConnectionUpdate` baileys.engine.ts:852-1114
-  - `SessionManager.onApplicationBootstrap` session-manager.service.ts:69-93
-  - `PrismaSessionRepository.findAutostart` prisma-session.repository.ts:105-121 (DEGRADED em :115)
-  - Socket/socket.js:714-717
-- **O que muda:**
-  - 408 "QR refs attempts ended" (Socket/socket.js:716) cai no backoff genérico → 5 ciclos → DEGRADED → reidratado a cada boot.
-  - Se 408 e nunca pareada (sem `creds.me`: a lib escolhe o registro quando `!creds.me`, Socket/socket.js:320-325; `sock.user` é getter de creds.me, :931-932) → stopped=true e STOPPED com lastError acionável, sem reconectar.
-  - Opcional: bootstrap pular DEGRADED/SCAN_QR sem creds.
-  - Não confundir com 408 connectionLost de sessão pareada (Socket/socket.js:540): diferenciar pela mensagem do Boom e por creds.me.
-  - Diferenciar o 408 de QR esgotado na P-018/P-001; a E9/P-049 mantém o 408 no backoff genérico.
-- **Testes:**
-  - unit close 408 + creds sem me.
+- **Locais:** `BaileysEngine.onConnectionUpdate`/`doStop`, `SessionManager` (fila de status/lease), `PrismaSessionRepository.findAutostart`; linhas atuais no inventário gerado.
+- **Recorte E21/30-09:** 408 com motivo exato da rc14 e credenciais iniciais comprovadas passa a STOPPED sem novo ciclo. `registered=false` sozinho não basta; qualquer `me`, `account`, `sock.user`, WORKING ou auth ausente mantém a política anterior. Isso preserva sinais de pairing em andamento sem classificá-los como conta pareada.
+- **Efeito:** socket/listeners/timer/QR limpos diretamente na fila da engine, sem chamar `stop()` público de dentro dela. STOPPED/diagnóstico seguem o fence e a fila de status existentes; creds/chaves/epoch/autostart intactos. Novo boot não reidrata STOPPED; ação manual volta a gerar QR.
+- **P-091:** opção de parar ao esgotar QRs, sem parada imediata por expiração/revogação do token. DEGRADED legado ainda pode iniciar um ciclo antes de parar; sem migration ou purge.
+- **Testes:** matriz de desconexão com timers/socket falsos e `test/baileys-qr-exhaustion.e2e-spec.ts` (Postgres, HTTP, eventos/webhook, boot e fencing). [Política/canário manual](how-to/qr-esgotado-e21.md).
 
 #### P-022
 
