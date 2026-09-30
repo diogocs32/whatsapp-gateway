@@ -412,7 +412,7 @@ Preserve G4/G5 D-047 (identidade segura/universo completo/ambiguousMature/reliab
 Consulte documentação oficial da versão instalada antes de APIs; instalação estrita/patches, testes de efeito/typechecks/builds/guardas/mapa/docs e revisão final. Nenhuma conta/QR/check/envio real, produção, Dokploy, deploy ou canário. Smoke só com fixture SQL STOPPED/autostart=false e transporte falso (POST /sessions inicia engine mesmo autostart=false). Deploys C/D/E/F/B-004/B-005/B-007 e canários permanecem manuais; antes do primeiro enforce/canário E21 recalcular snapshots7d ou aguardar24h. Reconciliar docs e entregar mensagem do recorte seguinte.
 ```
 
-### E21 continuação — P-013 (tipos aditivos já aceitos pela API)
+### E21 continuação — P-013 (tipos aditivos já aceitos pela API) — 🟡 30/09
 
 ```text
 Continue E21/P-013 pelas Regras de toda etapa, em nova feature/* da origin/main após merge da P-078; um PR, revisão independente, CI verde e merge ao fim. Leia DONE-2026-09-30-1327-e21-ack-duravel, D-039–D-049, triagem E21, PENDENCIAS e MAPA-CODIGO messaging/contracts. Delimite e registre o recorte antes de implementar: formalizar em packages/contracts mentions?: string[] em SendTextRequest e SendReactionRequest { emoji }, conferindo os schemas reais das rotas e consumidores do painel/n8n0.4.1. Tipos aditivos devem refletir o comportamento existente; nenhuma nova restrição, rota ou comportamento de envio. Não editar o repo publicado do node n8n nem ampliar para o restante do backlog.

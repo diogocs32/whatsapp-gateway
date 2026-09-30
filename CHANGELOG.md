@@ -4,6 +4,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-09-30 — E21/P-013: tipos dos pedidos W5, sem deploy
+
+- `SendTextRequest` passa a declarar `mentions?: string[]`; novo `SendReactionRequest`
+  declara `emoji: string`, incluindo string vazia para remoção.
+- Formalização aditiva do comportamento existente, com fixtures compiladas e HTTP nos
+  schemas reais. Sem alteração de validação/envio, consumidores, dependências ou migration.
+
 ## 2026-09-30 — E21 continuação: ACK antes da persistência (D-049), sem deploy
 
 - ACK sem mensagem passa a permanecer no PostgreSQL até a gravação ao vivo ou histórica,

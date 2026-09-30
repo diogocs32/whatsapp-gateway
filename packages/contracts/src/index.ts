@@ -445,6 +445,12 @@ export interface InboxTriageResponse {
 export interface SendTextRequest {
   to: string; // número (E.164 sem +) ou JID completo
   text: string;
+  mentions?: string[]; // números/JIDs a mencionar; validação permanece na rota
+}
+
+// POST /api/sessions/:s/messages/:msgId/reaction — string vazia remove a reação.
+export interface SendReactionRequest {
+  emoji: string;
 }
 
 export interface SendTextResponse {

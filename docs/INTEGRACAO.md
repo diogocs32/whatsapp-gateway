@@ -46,6 +46,13 @@ retry in …"}` (janela fixa de 1 min contada do 1º request) com os headers `x-
 
 ## 2. Enviar mensagem (G1 — cold + idempotência)
 
+> **Tipos W5 (E21/P-013, 30/09/2026):** `packages/contracts` declara
+> `SendTextRequest.mentions?: string[]` e `SendReactionRequest { emoji: string }`.
+> `mentions` pode ser omitido ou vazio; `emoji: ''` remove a reação. São tipos
+> do comportamento já aceito, sem alterar rotas, limites, status ou transporte.
+> O painel e o node n8n0.4.1 mantêm seus pedidos HTTP existentes; o node publicado
+> não depende deste pacote privado. Os demais tipos ainda incompletos seguem P-040.
+
 ```
 POST /api/sessions/{sessao}/messages/text
 { "to": "5511999999999", "text": "olá", "cold": true, "idempotencyKey": "lead-42-msg-1" }

@@ -8,14 +8,21 @@
 
 ## 🟢 Sessões ativas
 
-| ID               | Início      | Objetivo                                                                                                      | Escopo                                           | Branch               |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------- |
-| lid-envio-wwebjs | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs | fix/lid-envio-wwebjs |
+| ID                               | Início      | Objetivo                                                                                                      | Escopo                                              | Branch                      |
+| -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------- |
+| 2026-09-30-1955-e21-contratos-w5 | 30/09 19:55 | E21/P-013: mentions e pedido de reação, tipos aditivos sem mudar envio                                        | contracts + testes/painel se necessário + docs/mapa | feature/onda21-contratos-w5 |
+| lid-envio-wwebjs                 | 31/08 19:30 | Consertar "No LID for user" no envio da engine WWEBJS (PN→LID local, sem rede; campanha congelada aguardando) | `modules/sessions/infrastructure/wwebjs/` + docs    | fix/lid-envio-wwebjs        |
 
 ## 📢 Avisos entre sessões (leitura obrigatória na abertura — R9)
 
 > Decisão/mudança que afeta outras sessões entra AQUI na hora: data, sessão, o quê,
 > quem precisa saber. A sessão que absorveu o aviso o remove no próprio encerramento.
+
+- **30/09 · e21-contratos-w5 (P-013; em código, sem deploy):** contracts ganha mentions
+  opcional no texto e SendReactionRequest com emoji string/vazio para remoção.
+  Schemas/rotas/envio e consumidores painel/n8n0.4.1 intactos; node consome HTTP, sem
+  dependência do pacote privado. Demais contratos incompletos seguem P-040. D-049/D-047/
+  D-048 e gates anteriores preservados, publicação/canários manuais.
 
 - **30/09 · e21-ack-duravel (D-049; em código, sem deploy):** migration aditiva
   `20260930163000_pending_message_acks`, tabela messaging `wa_pending_message_acks`.
