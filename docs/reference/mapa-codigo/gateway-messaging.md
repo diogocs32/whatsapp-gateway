@@ -30,6 +30,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/messaging/interface/content-disposition.ts` | 60 |
 | `modules/messaging/interface/inbox.controller.ts` | 203 |
 | `modules/messaging/interface/messages.controller.ts` | 862 |
+| `modules/messaging/interface/send-contracts.spec.ts` | 38 |
 | `modules/messaging/messaging.module.ts` | 37 |
 
 ## `modules/messaging/application/chat-jids.ts`
@@ -697,6 +698,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `groupSenderNames` L326
 - `toDto(m, mediaUrl, reactions, senderName)` · L199
   - chamado por: `toDtos` L291
+
+## `modules/messaging/interface/send-contracts.spec.ts`
+
+38 linhas · caminho: `apps/gateway/src/modules/messaging/interface/send-contracts.spec.ts`
+
+- describe “P-013 — tipos aditivos dos pedidos W5” · L9
+  - it “mantém texto legado e permite mentions omitido, vazio ou com números/JIDs” · L10
+  - it “exige emoji string e preserva a remoção com string vazia” · L30
 
 ## `modules/messaging/messaging.module.ts`
 

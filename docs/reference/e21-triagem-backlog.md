@@ -51,3 +51,15 @@ com N-1; coexistência com N-1 não recebe a garantia de serialização, portant
 exige stop-first. D-049 e [política/limites](../how-to/ack-persistencia-e21.md) são canônicos;
 evidência final dos gates fica na sessão deste recorte. Não houve publicação ou canário.
 Demais pendências permanecem abertas; D-047/G4/G5, D-048/QR e contrato n8n preservados.
+
+## Continuação — tipos W5 (30/09/2026, base86f9041)
+
+P-013 entrega somente `SendTextRequest.mentions?: string[]` e
+`SendReactionRequest { emoji: string }`, espelhando os schemas privados já existentes.
+Menções podem ser omitidas/vazias; reação vazia remove. Nenhuma restrição, rota ou
+comportamento de envio muda. Painel e n8n0.4.1 seguem seus payloads HTTP existentes;
+o node não depende do pacote privado de tipos e seu repo não foi editado.
+
+Fixtures compiladas pelo tsc e HTTP/SQL com manager falso comprovam o recorte.
+Demais divergências de contratos do mapa seguem P-040; demais itens da triagem
+continuam abertos. ACK D-049, G4/G5 D-047 e QR D-048 preservados; sem deploy/canário.

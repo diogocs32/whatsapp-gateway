@@ -6,16 +6,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
-| `contracts/index.ts` | 896 |
+| `contracts/index.ts` | 902 |
 
 ## `contracts/index.ts`
 
-896 linhas · caminho: `packages/contracts/src/index.ts`
+902 linhas · caminho: `packages/contracts/src/index.ts`
 - importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/chat/MediaView.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/components/chat/forward-context.ts`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/connect-link-memory.ts`, `dashboard/lib/connect-link.spec.ts`, `dashboard/lib/connect-link.ts`, `dashboard/lib/forward.spec.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/live-events.spec.ts`, `dashboard/lib/live-events.ts`, `dashboard/lib/message-format.ts`, `dashboard/lib/proxy-suggestion.spec.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/public-connect.ts`, `dashboard/lib/send-feedback.ts`, `dashboard/lib/session-filter.spec.ts`, `dashboard/lib/session-filter.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
 
 **Funções e constantes de topo**
 - `CONNECT_LINK_ERROR_CODES` = `[ 'CONNECT_LINK_NOT_FOUND', // 404: token ausente/inválido/desconheci…` · L288
-- `WEBHOOK_EVENTS` = `[ '*', 'message', 'message.ack', 'message.reaction', 'session.status'…` · L539
+- `WEBHOOK_EVENTS` = `[ '*', 'message', 'message.ack', 'message.reaction', 'session.status'…` · L545
 
 **Tipos**
 - type `Role` L4
@@ -62,63 +62,64 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - interface `InboxFeedItemDto` L410 · 14 propriedade(s)
 - interface `InboxTriageRequest` L433 · 3 propriedade(s)
 - interface `InboxTriageResponse` L439 · 3 propriedade(s)
-- interface `SendTextRequest` L445 · 2 propriedade(s)
-- interface `SendTextResponse` L450 · 2 propriedade(s)
-- interface `ForwardMessageRequest` L462 · 3 propriedade(s)
-- interface `ForwardResultDto` L468 · 13 propriedade(s)
-- interface `ForwardMessageResponse` L486 · 1 propriedade(s)
-- interface `WebhookDto` L491 · 8 propriedade(s)
-- interface `CreateWebhookRequest` L502 · 7 propriedade(s)
-- interface `SessionRestrictedPayload` L516 · 5 propriedade(s)
-- type `MessageAckStatus` L525
-- interface `MessageAckEventPayload` L526 · 5 propriedade(s)
-- interface `ApiKeyDto` L550 · 6 propriedade(s)
-- interface `CreateApiKeyRequest` L559 · 1 propriedade(s)
-- interface `CreatedApiKeyDto` L564 · 4 propriedade(s)
-- interface `UserDto` L572 · 5 propriedade(s)
-- interface `CreateUserRequest` L580 · 4 propriedade(s)
-- interface `UpdateUserRequest` L587 · 2 propriedade(s)
-- interface `UsersListResponse` L592 · 3 propriedade(s)
-- interface `LicenseStatus` L599 · 9 propriedade(s)
-- interface `InstallLicenseRequest` L611 · 1 propriedade(s)
-- interface `Branding` L616 · 4 propriedade(s)
-- interface `UpdateBrandingRequest` L623 · 4 propriedade(s)
-- interface `AuditLogDto` L631 · 7 propriedade(s)
-- type `ProxyProtocol` L642
-- type `ProxySource` L643
-- type `ProxyStatus` L644
-- type `ProxyMode` L645
-- type `ProxyStrategy` L646
-- interface `ProxyDto` L649 · 13 propriedade(s)
-- type `ProxySuggestionReason` L668
-- interface `ProxySuggestionDto` L670 · 6 propriedade(s)
-- interface `ProxySuggestionResponse` L679 · 1 propriedade(s)
-- interface `CreateProxyRequest` L683 · 6 propriedade(s)
-- interface `ProxyAssignmentDto` L692 · 6 propriedade(s)
-- interface `SetProxyAssignmentRequest` L703 · 5 propriedade(s)
-- interface `ProxyTestResult` L711 · 4 propriedade(s)
-- interface `BulkImportProxiesRequest` L718 · 2 propriedade(s)
-- interface `BulkImportResult` L724 · 3 propriedade(s)
-- interface `WebshareSyncResult` L730 · 4 propriedade(s)
-- type `GroupParticipantRole` L738
-- type `GroupParticipantAction` L739
-- interface `GroupParticipantDto` L741 · 4 propriedade(s)
-- interface `GroupDto` L748 · 8 propriedade(s)
-- interface `CreateGroupRequest` L759 · 2 propriedade(s)
-- interface `GroupParticipantsRequest` L764 · 2 propriedade(s)
-- interface `GroupSubjectRequest` L769 · 1 propriedade(s)
-- interface `GroupDescriptionRequest` L772 · 1 propriedade(s)
-- interface `GroupInviteDto` L775 · 2 propriedade(s)
-- interface `ContactCheckDto` L781 · 3 propriedade(s)
-- interface `ProfilePictureDto` L786 · 2 propriedade(s)
-- interface `BlockRequest` L790 · 2 propriedade(s)
-- interface `ContactDirectoryDto` L796 · 11 propriedade(s)
-- interface `ChannelDto` L811 · 4 propriedade(s)
-- interface `CreateChannelRequest` L817 · 2 propriedade(s)
-- type `CampaignStatus` L823
-- type `CampaignMessageType` L825
-- type `CampaignRecipientStatus` L827
-- interface `CampaignDto` L830 · 19 propriedade(s)
-- interface `CreateCampaignRequest` L854 · 15 propriedade(s)
-- interface `ReplyRateMetricDto` L873 · 13 propriedade(s)
-- interface `CampaignRecipientDto` L889 · 5 propriedade(s)
+- interface `SendTextRequest` L445 · 3 propriedade(s)
+- interface `SendReactionRequest` L452 · 1 propriedade(s)
+- interface `SendTextResponse` L456 · 2 propriedade(s)
+- interface `ForwardMessageRequest` L468 · 3 propriedade(s)
+- interface `ForwardResultDto` L474 · 13 propriedade(s)
+- interface `ForwardMessageResponse` L492 · 1 propriedade(s)
+- interface `WebhookDto` L497 · 8 propriedade(s)
+- interface `CreateWebhookRequest` L508 · 7 propriedade(s)
+- interface `SessionRestrictedPayload` L522 · 5 propriedade(s)
+- type `MessageAckStatus` L531
+- interface `MessageAckEventPayload` L532 · 5 propriedade(s)
+- interface `ApiKeyDto` L556 · 6 propriedade(s)
+- interface `CreateApiKeyRequest` L565 · 1 propriedade(s)
+- interface `CreatedApiKeyDto` L570 · 4 propriedade(s)
+- interface `UserDto` L578 · 5 propriedade(s)
+- interface `CreateUserRequest` L586 · 4 propriedade(s)
+- interface `UpdateUserRequest` L593 · 2 propriedade(s)
+- interface `UsersListResponse` L598 · 3 propriedade(s)
+- interface `LicenseStatus` L605 · 9 propriedade(s)
+- interface `InstallLicenseRequest` L617 · 1 propriedade(s)
+- interface `Branding` L622 · 4 propriedade(s)
+- interface `UpdateBrandingRequest` L629 · 4 propriedade(s)
+- interface `AuditLogDto` L637 · 7 propriedade(s)
+- type `ProxyProtocol` L648
+- type `ProxySource` L649
+- type `ProxyStatus` L650
+- type `ProxyMode` L651
+- type `ProxyStrategy` L652
+- interface `ProxyDto` L655 · 13 propriedade(s)
+- type `ProxySuggestionReason` L674
+- interface `ProxySuggestionDto` L676 · 6 propriedade(s)
+- interface `ProxySuggestionResponse` L685 · 1 propriedade(s)
+- interface `CreateProxyRequest` L689 · 6 propriedade(s)
+- interface `ProxyAssignmentDto` L698 · 6 propriedade(s)
+- interface `SetProxyAssignmentRequest` L709 · 5 propriedade(s)
+- interface `ProxyTestResult` L717 · 4 propriedade(s)
+- interface `BulkImportProxiesRequest` L724 · 2 propriedade(s)
+- interface `BulkImportResult` L730 · 3 propriedade(s)
+- interface `WebshareSyncResult` L736 · 4 propriedade(s)
+- type `GroupParticipantRole` L744
+- type `GroupParticipantAction` L745
+- interface `GroupParticipantDto` L747 · 4 propriedade(s)
+- interface `GroupDto` L754 · 8 propriedade(s)
+- interface `CreateGroupRequest` L765 · 2 propriedade(s)
+- interface `GroupParticipantsRequest` L770 · 2 propriedade(s)
+- interface `GroupSubjectRequest` L775 · 1 propriedade(s)
+- interface `GroupDescriptionRequest` L778 · 1 propriedade(s)
+- interface `GroupInviteDto` L781 · 2 propriedade(s)
+- interface `ContactCheckDto` L787 · 3 propriedade(s)
+- interface `ProfilePictureDto` L792 · 2 propriedade(s)
+- interface `BlockRequest` L796 · 2 propriedade(s)
+- interface `ContactDirectoryDto` L802 · 11 propriedade(s)
+- interface `ChannelDto` L817 · 4 propriedade(s)
+- interface `CreateChannelRequest` L823 · 2 propriedade(s)
+- type `CampaignStatus` L829
+- type `CampaignMessageType` L831
+- type `CampaignRecipientStatus` L833
+- interface `CampaignDto` L836 · 19 propriedade(s)
+- interface `CreateCampaignRequest` L860 · 15 propriedade(s)
+- interface `ReplyRateMetricDto` L879 · 13 propriedade(s)
+- interface `CampaignRecipientDto` L895 · 5 propriedade(s)
