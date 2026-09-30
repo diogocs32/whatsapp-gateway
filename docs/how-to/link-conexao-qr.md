@@ -1,8 +1,8 @@
 ---
 tipo: runbook
 dono: Diogo
-revisado_em: 2026-09-27
-validade: 2026-10-27
+revisado_em: 2026-09-30
+validade: 2026-10-30
 status: ativo
 origem: etapa E27 do roteiro (Onda 9) — P-086 (link público de conexão) + P-089 (filtro de sessões) — D-037
 ---
@@ -19,9 +19,10 @@ origem: etapa E27 do roteiro (Onda 9) — P-086 (link público de conexão) + P-
 
 1. CI verde no PR da E27 (`ci`, `imagens`, `advisories`).
 2. **Gateway primeiro** (a página nova do painel chama rotas que só existem no gateway novo). Se
-   houver deploys anteriores pendentes (A/G/W/B), eles sobem juntos — siga os runbooks deles na
-   mesma janela. O deploy reinicia o gateway: não faça em rajada com sessão real conectada
-   (start-first até o B-004 — [deploy-a-onda1.md](deploy-a-onda1.md) §3).
+   houver deploys anteriores pendentes (A/G/W/B/C/D/E/F), eles sobem juntos — siga os runbooks deles na
+   mesma janela. A primeira publicação que inclui E13 exige B-004 **stop-first**; preserve B-005
+   backup/restore e B-007 diagnóstico/canário. O deploy reinicia o gateway: não faça em rajada
+   com sessão real conectada ([deploy C](deploy-c-onda3.md)).
 3. Conferir: `/health` ok e uptime resetado; no log do boot, `Migration … 20260927013000_link_conexao_qr` aplicada.
 4. **Dashboard** em seguida. Conferir que `https://<painel>/conectar` abre a página "Conectar
    WhatsApp" (sem link, ela diz "Link inválido ou incompleto").
@@ -63,8 +64,15 @@ Use uma sessão **Baileys de teste** e um celular de teste — nada com número 
   novo QR agora e criar o link" (descarta o login atual).
 - **Sessão nova:** crie a sessão e use **Link para conectar de outro lugar** no próprio modal do QR.
 - O link vale até a validade escolhida (1 h, 24 h ou 72 h), serve para **uma** conexão e morre
-  quando a sessão conecta, quando você gera outro, revoga, para ou faz logout da sessão. A pessoa pode
+  quando a sessão conecta, quando você gera outro, revoga ou o operador para/faz logout da sessão. A pessoa pode
   pedir até 5 QRs novos pelo link (30 s entre eles).
+- **Sem leitura do QR (E21 · P-018/P-091):** depois de publicar o recorte E21, a tentativa com
+  credenciais iniciais para em `STOPPED` ao esgotar as referências QR, sem outro ciclo automático
+  nem reidratação no boot. O primeiro QR dura 60 s e os seguintes 20 s por padrão; o prazo do link
+  é independente. Expirar/revogar o link não para a engine imediatamente; para isso, marque
+  **também parar a sessão** ao revogar. Um link ainda válido pode pedir outro ciclo dentro da
+  cota/cooldown. Sinais de login ou pairing-code preservam a política anterior. Guarda, limite
+  para sessões legadas e [aceite manual do ciclo QR](qr-esgotado-e21.md) são o gate deste comportamento.
 - O link só aparece na hora de gerar (o sistema guarda só um código embaralhado). Se perder, gere
   outro — o anterior deixa de valer.
 - **Filtro de sessões (P-089):** a barra acima da tabela filtra por nome, status ("Desconectadas" =

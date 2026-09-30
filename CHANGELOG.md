@@ -4,6 +4,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-09-30 — E21 continuação: QR inicial esgotado (D-048), sem deploy
+
+- Baileys com credenciais iniciais encerra em STOPPED ao receber 408 com motivo exato de QR
+  esgotado; limpa socket/QR/timers e fica fora do autostart, preservando auth e ação manual.
+- Timeout comum e qualquer sinal de login/pareamento mantêm a recuperação anterior. P-091 usa
+  a parada ao fim do ciclo QR; expiração/revogação do link conserva a invalidação imediata do token.
+- Contrato n8n, épocas/lease, reply-rate/guardrail E21 e pendências P-100/P-101/P-102 preservados.
+  Sem migration/env/dependência nova; transporte falso nos testes, deploy/canário manuais.
+
 ## 2026-09-30 — E21: identidade da reação no reply-rate (D-047), sem deploy
 
 - G4 deixa de atribuir reação LID a múltiplas conversas por keyId colidido; chat explícito e

@@ -255,12 +255,18 @@ Após mexer em deps: confirmar `node_modules/<pkg>` e, se faltar declarada, `npm
   (invisível com `LOG_LEVEL=info`), `warn`/`error` → mesmo nível. Não use `console.*` no código
   do gateway; libs (libsignal, BullMQ) caem aí.
 
-### 6.14 — QR do Baileys fica em memória depois de expirar e depois de lido (E27)
+### 6.14 — QR esgotado e QR em memória depois de lido (E27/E21)
 
-- A engine só zera `qrBase64` no `open`, no 401, no stop/shutdown/logout. No close 408 ("QR refs
-  attempts ended") e no 515 pós-leitura, o status vira `DEGRADED` **só em memória** e o banco
-  continua `SCAN_QR_CODE`: por até ~30 s o `GET /sessions/:id/qr` devolve um QR já morto (o modal
-  mostra — P-094). Quem precisar decidir "QR válido agora" usa o estado **vivo** da engine
+- E21/P-018/P-091: close 408 com motivo **exato** `QR refs attempts ended`, fora de `WORKING`,
+  com credenciais presentes e iniciais (`registered=false`, sem `account`, `me` ou `sock.user`)
+  encerra em `STOPPED`, limpa `qrBase64` e cancela reconexões, sem apagar auth. O manager persiste
+  e publica o status sob fencing; `findAutostart` já exclui `STOPPED`. Qualquer sinal de login
+  ou credenciais inconclusivas mantém a política anterior; `me`/`registered` não provam pairing
+  concluído, mas são protegidos por prudência. Não chamar `stop()` público de dentro do callback
+  serializado da engine: aguardaria a própria fila. [Política, legados e aceite](how-to/qr-esgotado-e21.md).
+- No close que conserva retry e no 515 pós-leitura, o status vira `DEGRADED` **só em memória**;
+  o QR anterior pode continuar no `GET /sessions/:id/qr` durante o backoff (P-094). O banco mantém
+  o último status persistido até a próxima transição. Quem precisar decidir "QR válido agora" usa o estado **vivo** da engine
   (`SessionManager.liveView`), como a página pública do link de conexão (`publicPhase`).
 - `new-qr` apaga credenciais sem guarda de estado: nunca chame a partir de fluxo não autenticado sem
   exigir sessão parada e sem `creds.account` (D-037). `creds.me` sozinho não prova pareamento (o

@@ -33,19 +33,24 @@ type Restriction = {
 };
 type EngineInternals = {
   sock: unknown;
+  status: string;
+  qrBase64: string | null;
   stopped: boolean;
   reconnectAttempts: number;
   connectGeneration: number;
   connect: () => Promise<void>;
   clearCredentials: () => Promise<void>;
-  onConnectionUpdate: (update: Record<string, unknown>) => Promise<void>;
+  onConnectionUpdate: (
+    update: Record<string, unknown>,
+    eventSock?: unknown,
+  ) => Promise<void>;
 };
 
 function harness() {
   const events: Event[] = [];
   const restrictions: Restriction[] = [];
   const warn = vi.fn();
-  const onDisconnect = vi.fn(async () => undefined);
+  const onDisconnect = vi.fn(async (): Promise<void> => undefined);
   const engine = new BaileysEngine({
     sessionId: 'e9-disconnect',
     deviceName: 'test',
@@ -90,6 +95,22 @@ function harness() {
     clearCredentials,
     close,
   };
+}
+
+const QR_EXHAUSTED_REASON = 'QR refs attempts ended';
+
+function freshQrHarness() {
+  const h = harness();
+  const creds: Record<string, unknown> = { registered: false };
+  const keys = { initial: 'auth-preservada' };
+  const sock = h.internals.sock as {
+    authState?: { creds: Record<string, unknown>; keys: unknown };
+    user?: unknown;
+  };
+  sock.authState = { creds, keys };
+  h.internals.status = 'SCAN_QR_CODE';
+  h.internals.qrBase64 = 'data:image/png;base64,qr-inicial';
+  return { ...h, sock, creds, keys };
 }
 
 afterEach(() => {
@@ -396,6 +417,287 @@ describe('Baileys — desconexão por código (E9/P-049)', () => {
         ]),
       ),
     );
+  });
+});
+
+describe('Baileys — QR esgotado sem pareamento (P-018/P-091)', () => {
+  it('para, limpa QR/socket/listeners, preserva auth e ignora close duplicado', async () => {
+    vi.useFakeTimers();
+    const h = freshQrHarness();
+    const auth = h.sock.authState;
+    const authBefore = structuredClone(auth);
+
+    await h.close(408, QR_EXHAUSTED_REASON);
+
+    expect(h.engine.getStatus()).toBe('STOPPED');
+    expect(h.engine.getQrBase64()).toBeNull();
+    expect(h.internals.stopped).toBe(true);
+    expect(h.internals.sock).toBeNull();
+    expect(h.end).toHaveBeenCalledOnce();
+    expect(h.removeAllListeners).toHaveBeenCalledWith('connection.update');
+    expect(h.removeAllListeners).toHaveBeenCalledWith('creds.update');
+    expect(h.clearCredentials).not.toHaveBeenCalled();
+    expect(h.sock.authState).toBe(auth);
+    expect(h.sock.authState).toEqual(authBefore);
+    expect(h.onDisconnect).toHaveBeenCalledOnce();
+    expect(h.events).toEqual([
+      {
+        name: 'session.status',
+        payload: {
+          status: 'STOPPED',
+          error:
+            'QRs esgotados sem pareamento — conecte novamente para gerar um novo QR',
+          lastErrorDetails: { code: 408, reason: QR_EXHAUSTED_REASON },
+        },
+      },
+    ]);
+
+    await h.close(408, QR_EXHAUSTED_REASON);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(h.onDisconnect).toHaveBeenCalledOnce();
+    expect(h.end).toHaveBeenCalledOnce();
+    expect(h.events).toHaveLength(1);
+    expect(h.internals.reconnectAttempts).toBe(0);
+  });
+
+  it('cancela retry anterior e permite novo start explícito depois da parada', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const h = freshQrHarness();
+    await h.close(408, 'Connection lost');
+    expect(h.internals.reconnectAttempts).toBe(1);
+    await h.close(408, QR_EXHAUSTED_REASON);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(h.engine.getStatus()).toBe('STOPPED');
+
+    await h.engine.start();
+    expect(h.connect).toHaveBeenCalledOnce();
+    expect(h.internals.stopped).toBe(false);
+    expect(h.internals.reconnectAttempts).toBe(0);
+    expect(h.clearCredentials).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [408, 'Connection lost'],
+    [408, `${QR_EXHAUSTED_REASON} `],
+    [408, 'qr refs attempts ended'],
+    [428, QR_EXHAUSTED_REASON],
+  ])('preserva retry para código %i com motivo %s', async (code, reason) => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const h = freshQrHarness();
+    await h.close(code as number, reason as string);
+    expect(h.internals.stopped).toBe(false);
+    expect(h.engine.getStatus()).toBe('DEGRADED');
+    expect(h.end).not.toHaveBeenCalled();
+    expect(h.clearCredentials).not.toHaveBeenCalled();
+    expect(h.events.some((e) => e.payload.status === 'STOPPED')).toBe(false);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(h.connect).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    'account com registered=false',
+    'me de código sem account',
+    'registered=true sem account',
+    'sock.user',
+    'auth ausente',
+    'registered ausente',
+    'WORKING contraditório',
+  ])('preserva retry diante de %s', async (evidence) => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const h = freshQrHarness();
+    switch (evidence) {
+      case 'account com registered=false':
+        h.creds.account = { accountSignature: 'assinatura-sintética' };
+        break;
+      case 'me de código sem account':
+        h.creds.me = { id: '5511999990001@s.whatsapp.net', name: '~' };
+        h.creds.pairingCode = 'TESTCODE';
+        break;
+      case 'registered=true sem account':
+        h.creds.registered = true;
+        break;
+      case 'sock.user':
+        h.sock.user = { id: '5511999990001@s.whatsapp.net' };
+        break;
+      case 'auth ausente':
+        delete h.sock.authState;
+        break;
+      case 'registered ausente':
+        delete h.creds.registered;
+        break;
+      case 'WORKING contraditório':
+        h.internals.status = 'WORKING';
+        break;
+    }
+    const authBefore = structuredClone(h.sock.authState);
+    await h.close(408, QR_EXHAUSTED_REASON);
+    expect(h.internals.stopped).toBe(false);
+    expect(h.engine.getStatus()).toBe('DEGRADED');
+    expect(h.end).not.toHaveBeenCalled();
+    expect(h.clearCredentials).not.toHaveBeenCalled();
+    expect(h.sock.authState).toEqual(authBefore);
+    expect(h.events.some((e) => e.payload.status === 'STOPPED')).toBe(false);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(h.connect).toHaveBeenCalledOnce();
+  });
+
+  it.each(['account', 'me'])(
+    'relê %s que muda durante onDisconnect',
+    async (key) => {
+      vi.useFakeTimers();
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      const h = freshQrHarness();
+      let release!: () => void;
+      h.onDisconnect.mockImplementationOnce(
+        () => new Promise<void>((resolve) => (release = resolve)),
+      );
+      const closing = h.close(408, QR_EXHAUSTED_REASON);
+      expect(h.onDisconnect).toHaveBeenCalledOnce();
+      h.creds[key] = { id: 'credencial-atualizada-durante-await' };
+      release();
+      await closing;
+      expect(h.engine.getStatus()).toBe('DEGRADED');
+      expect(h.end).not.toHaveBeenCalled();
+      expect(h.clearCredentials).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(h.connect).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('ignora close do socket anterior sem tocar o QR/socket atuais', async () => {
+    vi.useFakeTimers();
+    const h = freshQrHarness();
+    await h.internals.onConnectionUpdate(
+      {
+        connection: 'close',
+        lastDisconnect: {
+          error: new Boom(QR_EXHAUSTED_REASON, { statusCode: 408 }),
+        },
+      },
+      { authState: { creds: { registered: false } } },
+    );
+    expect(h.engine.getStatus()).toBe('SCAN_QR_CODE');
+    expect(h.engine.getQrBase64()).not.toBeNull();
+    expect(h.internals.sock).toBe(h.sock);
+    expect(h.events).toHaveLength(0);
+    expect(h.onDisconnect).not.toHaveBeenCalled();
+    expect(h.end).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(h.connect).not.toHaveBeenCalled();
+  });
+
+  it.each(['geração', 'socket'])(
+    'ignora %s substituído durante onDisconnect',
+    async (changed) => {
+      vi.useFakeTimers();
+      const h = freshQrHarness();
+      let release!: () => void;
+      h.onDisconnect.mockImplementationOnce(
+        () => new Promise<void>((resolve) => (release = resolve)),
+      );
+      const closing = h.internals.onConnectionUpdate(
+        {
+          connection: 'close',
+          lastDisconnect: {
+            error: new Boom(QR_EXHAUSTED_REASON, { statusCode: 408 }),
+          },
+        },
+        h.sock,
+      );
+      expect(h.onDisconnect).toHaveBeenCalledOnce();
+      const currentSock =
+        changed === 'socket'
+          ? { authState: { creds: { registered: false } } }
+          : h.sock;
+      h.internals.sock = currentSock;
+      if (changed === 'geração') h.internals.connectGeneration += 1;
+      h.internals.status = 'SCAN_QR_CODE';
+      release();
+      await closing;
+      expect(h.engine.getStatus()).toBe('SCAN_QR_CODE');
+      expect(h.internals.sock).toBe(currentSock);
+      expect(h.engine.getQrBase64()).not.toBeNull();
+      expect(h.events).toHaveLength(0);
+      expect(h.end).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(600_000);
+      expect(h.connect).not.toHaveBeenCalled();
+    },
+  );
+
+  it('listener real serializado encerra o ciclo sem esperar o próprio stop', async () => {
+    vi.useFakeTimers();
+    versionMocks.makeSocket.mockReset();
+    versionMocks.auth.mockReset();
+    const creds = { registered: false };
+    const keys = {};
+    const state = { creds, keys };
+    const saveCreds = vi.fn(async () => undefined);
+    versionMocks.auth.mockResolvedValue({ state, saveCreds });
+    const handlers = new Map<
+      string,
+      (update: Record<string, unknown>) => void
+    >();
+    const end = vi.fn();
+    const removeAllListeners = vi.fn((name: string) => handlers.delete(name));
+    versionMocks.makeSocket.mockImplementation(() => ({
+      authState: state,
+      end,
+      ev: {
+        on: (
+          name: string,
+          listener: (update: Record<string, unknown>) => void,
+        ) => handlers.set(name, listener),
+        removeAllListeners,
+      },
+    }));
+    const events: Event[] = [];
+    const engine = new BaileysEngine({
+      sessionId: 'qr-exhausted-serial-listener',
+      deviceName: 'test',
+      prisma: {} as never,
+      lease: {} as never,
+      authEpoch: 1n,
+      logger: {
+        info() {},
+        warn() {},
+        error() {},
+        debug() {},
+        trace() {},
+      } as never,
+      onEvent: (name: string, payload: unknown) =>
+        events.push({ name, payload: payload as Record<string, unknown> }),
+      onDisconnect: async () => undefined,
+      baileysProtocolCanarySessionId: 'qr-exhausted-serial-listener',
+      baileysProtocolVersion: '2.3000.999',
+    } as never);
+    await engine.start();
+    const listener = handlers.get('connection.update');
+    expect(listener).toBeDefined();
+    listener!({
+      connection: 'close',
+      lastDisconnect: {
+        error: new Boom(QR_EXHAUSTED_REASON, { statusCode: 408 }),
+      },
+    });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(engine.getStatus()).toBe('STOPPED');
+    expect(engine.getQrBase64()).toBeNull();
+    expect(end).toHaveBeenCalledOnce();
+    expect(handlers.has('connection.update')).toBe(false);
+    expect(handlers.has('creds.update')).toBe(false);
+    expect(events.filter((e) => e.payload.status === 'STOPPED')).toHaveLength(
+      1,
+    );
+    expect(state).toEqual({ creds: { registered: false }, keys: {} });
+    expect(saveCreds).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(versionMocks.makeSocket).toHaveBeenCalledOnce();
+    await engine.stop();
   });
 });
 

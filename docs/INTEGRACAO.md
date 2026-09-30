@@ -618,8 +618,15 @@ a engine local deixa de aceitar envio pelo socket fechado; o retry do 440 não p
 grava `STARTING` por cima do estado de outra réplica. 515
 (`restartRequired`, inclusive após pareamento) reconecta após 1 s sem consumir o orçamento de
 falhas; mais de três 515 seguidos sem `open` deixam a sessão `DEGRADED` para evitar um loop.
-408/428/500/503 usam backoff limitado a cinco tentativas; 500 conserva o
-motivo bruto em `lastErrorDetails.reason`. Um `WORKING` novo limpa o erro. Estes estados são do
+408/428/500/503 usam backoff por cinco tentativas; 408/428/503 mantêm tentativas lentas a cada
+cinco minutos após esse orçamento. A E21 acrescenta uma exceção restrita:
+408 com `reason` **exatamente** `QR refs attempts ended`, engine fora de `WORKING` e credenciais
+presentes com `registered=false`, sem `account`, `me` nem `sock.user`, encerra o ciclo em
+`STOPPED`, limpa o QR e publica `session.status`, conservando as credenciais. O diagnóstico fica
+em `lastErrorDetails`; `lastError` orienta conectar novamente. `STOPPED` já é excluído do autostart
+no boot. Qualquer sinal de login, pairing-code ou credenciais inconclusivas preserva o backoff
+anterior; 408 sozinho não autoriza parar. [Guarda, legados e aceite manual](how-to/qr-esgotado-e21.md).
+500 conserva o motivo bruto em `lastErrorDetails.reason`. Um `WORKING` novo limpa o erro. Estes estados são do
 transporte; a pausa temporária de envio da E8 continua independente deles (§5).
 
 **Versão do protocolo:** cada tentativa de conexão Baileys registra no log do gateway
@@ -671,6 +678,10 @@ POST   /api/public/connect/new-qr            # Authorization: Bearer <token> —
 - **Um link ativo por sessão:** criar outro revoga o anterior (`revokedReason: "REPLACED"`). `POST
 /api/sessions/{sessao}/stop` e `/logout` também revogam o link ativo (`SESSION_STOPPED`); remover
   a sessão apaga os links.
+- **Expiração/revogação × ciclo QR (E21 · P-018/P-091):** o token vencido ou revogado perde o
+  acesso, mas não para a engine imediatamente. O ciclo com credenciais iniciais encerra em
+  `STOPPED` quando esgota as referências, conforme a guarda acima; um link ainda ativo pode
+  pedir outro ciclo dentro da cota/cooldown. A parada explícita do operador continua disponível.
 - **Erros do POST:** 400 (`ttlMinutes`/`expectedPhone` inválidos); 409 com `code`
   `CONNECT_LINK_ENGINE_UNSUPPORTED` (WWEBJS), `CONNECT_LINK_SESSION_WORKING` (já conectada) ou
   `CONNECT_LINK_SESSION_PAIRED` (tem login salvo — caiu por instabilidade: use Reiniciar; para
