@@ -44,6 +44,16 @@ export class RetentionService implements OnApplicationBootstrap {
           where: { createdAt: { lt: cut } },
         }),
     );
+    // P-078: somente recibos ainda órfãos. ACK válido renova lastSeenAt, sem regredir status.
+    await this.purge(
+      'wa_pending_message_acks',
+      'RETENTION_MESSAGES_DAYS',
+      90,
+      (cut) =>
+        this.prisma.pendingMessageAck.deleteMany({
+          where: { lastSeenAt: { lt: cut } },
+        }),
+    );
     await this.purge('wa_session_events', 'RETENTION_EVENTS_DAYS', 30, (cut) =>
       this.prisma.waSessionEvent.deleteMany({
         where: { createdAt: { lt: cut } },

@@ -6,6 +6,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
+| `gateway/test/ack-persistence.e2e-spec.ts` | 713 |
 | `gateway/test/audit.e2e-spec.ts` | 98 |
 | `gateway/test/auth.e2e-spec.ts` | 335 |
 | `gateway/test/baileys-disconnect.e2e-spec.ts` | 166 |
@@ -53,6 +54,31 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/webhook-bullmq6.e2e-spec.ts` | 526 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
 | `gateway/test/wwebjs-engine.e2e-spec.ts` | 1044 |
+
+## `gateway/test/ack-persistence.e2e-spec.ts`
+
+713 linhas · caminho: `apps/gateway/test/ack-persistence.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/domain/message.repository.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/observability/reply-rate.service.ts`, `modules/observability/retention.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`, `gateway/test/setup-app.ts`
+
+- describe “E21/P-078 — ACK durável antes da persistência” · L25
+  - it “ACK antes do INSERT aparece no banco, GET, Inbox e taxas G4” · L227
+  - it “duplicados e fora de ordem conservam read antes e depois do INSERT” · L271
+  - it “error permanece terminal e não conta entrega/leitura no G4” · L285
+  - it “inbound continua aceitando read-self sem integrar cold outbound no G4” · L312
+  - it “a mesma key em outra sessão mantém recibos e estados independentes” · L331
+  - it “ACK consumido e ACK inferior com UPDATE=0 não contaminam INSERT futuro da mesma key” · L344
+  - it “ACK de key duplicada existente segue atingindo somente timestamp mais recente” · L362
+  - it “restart perde clientes/barramento/persister anteriores e recupera ACK somente do banco” · L375
+  - it “saveHistorical reconcilia ACK, deduplica lote e não revive ACK consumido” · L414
+  - it “histórico >50: falha no segundo chunk preserva ACKs e retry insere somente faltantes” · L426
+  - it “idempotência duplica zero linhas e preserva pending de outra key até INSERT válido” · L475
+  - it “rollback de INSERT/status/delete mantém ACK pendente para a tentativa seguinte” · L503
+  - it “retenção padrão remove só ACK pendente além de 90 dias” · L530
+  - it “RETENTION_MESSAGES_DAYS=0 preserva ACK antigo” · L557
+  - it “ACK válido inferior renova lastSeenAt sem regredir; desconhecido não renova” · L575
+  - it “purge concorrente depois da leitura de pending não faz o INSERT/status rollback” · L596
+  - it “exclusão da sessão remove somente seus ACKs por FK cascade” · L666
+  - it “ACK read durável não transforma reação de alvo ambíguo em resposta confiável D-047” · L677
 
 ## `gateway/test/audit.e2e-spec.ts`
 
@@ -780,7 +806,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 197 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L13

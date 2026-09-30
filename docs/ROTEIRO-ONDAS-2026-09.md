@@ -400,10 +400,24 @@ Consulte fontes oficiais da versão instalada antes de usar APIs e reexecute gat
 
 ### E21 continuação — P-078 (ACK antes da persistência)
 
+**Entregue em código em 30/09 (D-049), sem deploy:** branch
+`feature/onda21-ack-duravel` da base `899e86d`; [DONE](sessions/DONE-2026-09-30-1327-e21-ack-duravel.md).
+ACK órfão durável com lock/consumo transacional, histórico e retenção;28 efeitos/quatro mutações
+recusadas,1576gateway+292painel/coverage/revisão verdes. CI/merge no PR final.
+[Política/limites e publicação manual](how-to/ack-persistencia-e21.md). Próximo recorte P-013 abaixo.
+
 ```text
 Continue E21/P-078 pelas Regras de toda etapa, em nova feature/* da origin/main após merge da continuação P-018/P-091; um PR, revisão independente, CI verde e merge ao fim. Leia DONE-2026-09-30-0853-e21-qr-esgotado, D-039–D-048, triagem E21, PENDENCIAS e MAPA-CODIGO de messaging/ACK. Reproduza primeiro ACK chegando antes do INSERT e registre o recorte antes de implementar. Prove efeitos em banco, GET/Inbox e reply-rate com fixtures, inclusive eventos duplicados/fora de ordem, restart e duas instâncias; um cache local sozinho não resolve persistência entre réplicas. Preserve a política existente de ACK/inbound e o contrato n8n0.4.1; não tocar engine/ATIVA lid-envio-wwebjs nem ampliar para todo o backlog.
 Preserve G4/G5 D-047 (identidade segura/universo completo/ambiguousMature/reliable=false), métrica30d/cota observe0 E20 e QR inicial D-048: 408 com assinatura exata e auth inicial → STOPPED, sinais inconclusivos de pairing preservados, token de link sem parada imediata implícita. Mantenha epochs/lease/CAS/8s, TS5.9.3/CLI11, Vitest5/.mts/SWC/e2e serial, node20/node16 CommonJS/buildinfo em dist e gates E16–E21. P-100/P-101/P-102 abertas; sem force-close/retries reduzidos nem drenar P-099.
 Consulte documentação oficial da versão instalada antes de APIs; instalação estrita/patches, testes de efeito/typechecks/builds/guardas/mapa/docs e revisão final. Nenhuma conta/QR/check/envio real, produção, Dokploy, deploy ou canário. Smoke só com fixture SQL STOPPED/autostart=false e transporte falso (POST /sessions inicia engine mesmo autostart=false). Deploys C/D/E/F/B-004/B-005/B-007 e canários permanecem manuais; antes do primeiro enforce/canário E21 recalcular snapshots7d ou aguardar24h. Reconciliar docs e entregar mensagem do recorte seguinte.
+```
+
+### E21 continuação — P-013 (tipos aditivos já aceitos pela API)
+
+```text
+Continue E21/P-013 pelas Regras de toda etapa, em nova feature/* da origin/main após merge da P-078; um PR, revisão independente, CI verde e merge ao fim. Leia DONE-2026-09-30-1327-e21-ack-duravel, D-039–D-049, triagem E21, PENDENCIAS e MAPA-CODIGO messaging/contracts. Delimite e registre o recorte antes de implementar: formalizar em packages/contracts mentions?: string[] em SendTextRequest e SendReactionRequest { emoji }, conferindo os schemas reais das rotas e consumidores do painel/n8n0.4.1. Tipos aditivos devem refletir o comportamento existente; nenhuma nova restrição, rota ou comportamento de envio. Não editar o repo publicado do node n8n nem ampliar para o restante do backlog.
+Preserve ACK durável D-049 (pending-only, ranking sent/delivered/read/error, latest session/key, inbound, lock e consumo transacional, histórico e retenção), G4/G5 D-047, métrica30d/cota observe0 e QR inicial D-048. Mantenha epochs/lease/CAS/8s, TS5.9.3/CLI11, Vitest5/.mts/SWC/e2e serial, node20/node16 CommonJS/buildinfo em dist e gates E16–E21. P-100/P-101/P-102 abertas, P-099 sem drenar; não tocar engine/ATIVA lid-envio-wwebjs.
+Consulte documentação oficial da versão instalada antes de APIs; prove compatibilidade com os schemas/fixtures e rode instalação estrita/patches/typechecks/builds/guardas/mapa/docs e revisão adequada ao diff. Nenhuma conta/QR/check/envio real, produção/Dokploy/deploy/canário. Smoke só com fixture SQL STOPPED/autostart=false e transporte falso. Deploys C/D/E/F/B-004/B-005/B-007 e canários manuais; D-049 exige migration aditiva e primeira publicação stop-first, snapshots7d E21 recalculados ou24h antes enforce/canário. Reconciliar docs e entregar mensagem do recorte seguinte.
 ```
 
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09

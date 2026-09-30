@@ -24,7 +24,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/messaging/domain/message.repository.ts` | 126 |
 | `modules/messaging/domain/reaction.repository.ts` | 35 |
 | `modules/messaging/infrastructure/prisma-inbox.repository.ts` | 207 |
-| `modules/messaging/infrastructure/prisma-message.repository.ts` | 344 |
+| `modules/messaging/infrastructure/prisma-message.repository.ts` | 425 |
 | `modules/messaging/infrastructure/prisma-reaction.repository.ts` | 64 |
 | `modules/messaging/interface/content-disposition.spec.ts` | 187 |
 | `modules/messaging/interface/content-disposition.ts` | 60 |
@@ -214,7 +214,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 71 linhas · caminho: `apps/gateway/src/modules/messaging/application/message-persister.service.ts`
 - importa (interno): `shared-kernel/domain-event.ts`, `shared-kernel/event-bus/event-bus.ts`, `modules/sessions/application/engine.port.ts`, `modules/messaging/domain/message.repository.ts`
-- importado por: `modules/messaging/messaging.module.ts`
+- importado por: `modules/messaging/messaging.module.ts`, `gateway/test/ack-persistence.e2e-spec.ts`
 
 **class `MessagePersister`** L15 · @Injectable · `implements OnModuleInit`
 - injeta (construtor): `repo: @Inject(MESSAGE_REPOSITORY) MessageRepository` · `eventBus: EventBus`
@@ -386,7 +386,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `modules/messaging/domain/message.repository.ts`
 
 126 linhas · caminho: `apps/gateway/src/modules/messaging/domain/message.repository.ts`
-- importado por: `modules/messaging/application/forward.service.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/messaging/messaging.module.ts`
+- importado por: `modules/messaging/application/forward.service.ts`, `modules/messaging/application/inbox-sync.service.ts`, `modules/messaging/application/message-persister.service.ts`, `modules/messaging/infrastructure/prisma-message.repository.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/messaging/messaging.module.ts`, `gateway/test/ack-persistence.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `MESSAGE_REPOSITORY` = `Symbol('MESSAGE_REPOSITORY')` · L125
@@ -401,31 +401,31 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - implementado por: `PrismaMessageRepository.save` (prisma-message.repository.ts:42)
     - chamado por: `MessagePersister.onModuleInit` (message-persister.service.ts:24)
   - `MessageRepository.saveHistorical(inputs)` · L78
-    - implementado por: `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:84)
+    - implementado por: `PrismaMessageRepository.saveHistorical` (prisma-message.repository.ts:83)
     - chamado por: `InboxSyncService.syncChat` (inbox-sync.service.ts:25)
   - `MessageRepository.findByIdempotencyKey(sessionId, idempotencyKey)` · L80
-    - implementado por: `PrismaMessageRepository.findByIdempotencyKey` (prisma-message.repository.ts:130)
+    - implementado por: `PrismaMessageRepository.findByIdempotencyKey` (prisma-message.repository.ts:151)
     - chamado por: `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.deduped` (messages.controller.ts:547)
   - `MessageRepository.updateStatusByKey(sessionId, keyId, status)` · L85
-    - implementado por: `PrismaMessageRepository.updateStatusByKey` (prisma-message.repository.ts:178)
+    - implementado por: `PrismaMessageRepository.updateStatusByKey` (prisma-message.repository.ts:199)
     - chamado por: `MessagePersister.onModuleInit` (message-persister.service.ts:24)
   - `MessageRepository.findInboundChat(sessionId, chatJids)` · L92
-    - implementado por: `PrismaMessageRepository.findInboundChat` (prisma-message.repository.ts:144)
+    - implementado por: `PrismaMessageRepository.findInboundChat` (prisma-message.repository.ts:165)
     - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
   - `MessageRepository.findByKeyId(sessionId, keyId)` · L97
-    - implementado por: `PrismaMessageRepository.findByKeyId` (prisma-message.repository.ts:157)
+    - implementado por: `PrismaMessageRepository.findByKeyId` (prisma-message.repository.ts:178)
     - chamado por: `MessagesController.markRead` (messages.controller.ts:484), `MessagesController.reaction` (messages.controller.ts:496)
   - `MessageRepository.listByChat(sessionId, chatJids, limit)` · L101
-    - implementado por: `PrismaMessageRepository.listByChat` (prisma-message.repository.ts:256)
+    - implementado por: `PrismaMessageRepository.listByChat` (prisma-message.repository.ts:337)
     - chamado por: `MessagesController.list` (messages.controller.ts:276)
   - `MessageRepository.findByRef(sessionId, ref)` · L108
-    - implementado por: `PrismaMessageRepository.findByRef` (prisma-message.repository.ts:296)
+    - implementado por: `PrismaMessageRepository.findByRef` (prisma-message.repository.ts:377)
     - chamado por: `ForwardService.forward` (forward.service.ts:102), `MessagesController.downloadMedia` (messages.controller.ts:442)
   - `MessageRepository.listConversations(sessionId, limit)` · L110
-    - implementado por: `PrismaMessageRepository.listConversations` (prisma-message.repository.ts:311)
+    - implementado por: `PrismaMessageRepository.listConversations` (prisma-message.repository.ts:392)
     - chamado por: `MessagesController.conversations` (messages.controller.ts:266)
   - `MessageRepository.searchMessages(sessionId, query, chatJids, limit)` · L117
-    - implementado por: `PrismaMessageRepository.searchMessages` (prisma-message.repository.ts:272)
+    - implementado por: `PrismaMessageRepository.searchMessages` (prisma-message.repository.ts:353)
     - chamado por: `MessagesController.search` (messages.controller.ts:359)
 
 ## `modules/messaging/domain/reaction.repository.ts`
@@ -478,53 +478,62 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/messaging/infrastructure/prisma-message.repository.ts`
 
-344 linhas · caminho: `apps/gateway/src/modules/messaging/infrastructure/prisma-message.repository.ts`
+425 linhas · caminho: `apps/gateway/src/modules/messaging/infrastructure/prisma-message.repository.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`, `modules/messaging/domain/message.repository.ts`
-- importado por: `modules/messaging/messaging.module.ts`
+- importado por: `modules/messaging/messaging.module.ts`, `gateway/test/ack-persistence.e2e-spec.ts`
 
 **class `PrismaMessageRepository`** L38 · @Injectable · `implements MessageRepository`
 - injeta (construtor): `prisma: PrismaService`
 - `constructor(prisma)` · L40
 - `save(input)` · L42 · async
   - implementa: `MessageRepository.save` (message.repository.ts:74)
-  - chama: `noNul` L20, `noNulDeep` L25, `newId` (ulid.ts:4)
-  - banco: `waMessage.create`
-- `saveHistorical(inputs)` · L84 · async
+  - chama: `noNul` L20, `noNulDeep` L25, `lockAckKeys` L222, `reconcileAck` L238, `newId` (ulid.ts:4)
+  - banco: `waMessage.createMany`
+- `saveHistorical(inputs)` · L83 · async
   - implementa: `MessageRepository.saveHistorical` (message.repository.ts:78)
-  - chama: `noNul` L20, `newId` (ulid.ts:4)
+  - chama: `noNul` L20, `lockAckKeys` L222, `reconcileAck` L238, `newId` (ulid.ts:4)
   - banco: `waMessage.createMany`, `waMessage.findMany`
-- `findByIdempotencyKey(sessionId, idempotencyKey)` · L130 · async
+- `findByIdempotencyKey(sessionId, idempotencyKey)` · L151 · async
   - implementa: `MessageRepository.findByIdempotencyKey` (message.repository.ts:80)
   - banco: `waMessage.findUnique`
-- `findInboundChat(sessionId, chatJids)` · L144 · async
+- `findInboundChat(sessionId, chatJids)` · L165 · async
   - implementa: `MessageRepository.findInboundChat` (message.repository.ts:92)
   - banco: `waMessage.findFirst`
-- `findByKeyId(sessionId, keyId)` · L157 · async
+- `findByKeyId(sessionId, keyId)` · L178 · async
   - implementa: `MessageRepository.findByKeyId` (message.repository.ts:97)
   - banco: `waMessage.findFirst`
-- `ACK_RANK` · L171 · private · static · campo
-- `updateStatusByKey(sessionId, keyId, status)` · L178 · async
+- `ACK_RANK` · L192 · private · static · campo
+- `updateStatusByKey(sessionId, keyId, status)` · L199 · async
   - implementa: `MessageRepository.updateStatusByKey` (message.repository.ts:85)
-- `toStored(r)` · L208 · private
-  - chamado por: `findByRef` L296, `listByChat` L256, `searchMessages` L272
-- `listByChat(sessionId, chatJids, limit)` · L256 · async
+  - chama: `lockAckKeys` L222, `reconcileAck` L238
+- `ackRankSql(status)` · L214 · private
+  - chamado por: `reconcileAck` L238
+- `lockAckKeys(tx, keys)` · L222 · private · async
+  - chamado por: `save` L42, `saveHistorical` L83, `updateStatusByKey` L199
+- `reconcileAck(tx, sessionId, keyId, incoming)` · L238 · private · async
+  - chama: `ackRankSql` L214
+  - chamado por: `save` L42, `saveHistorical` L83, `updateStatusByKey` L199
+  - banco: `pendingMessageAck.deleteMany`, `pendingMessageAck.findUnique`, `waMessage.findFirst`
+- `toStored(r)` · L289 · private
+  - chamado por: `findByRef` L377, `listByChat` L337, `searchMessages` L353
+- `listByChat(sessionId, chatJids, limit)` · L337 · async
   - implementa: `MessageRepository.listByChat` (message.repository.ts:101)
-  - chama: `toStored` L208
+  - chama: `toStored` L289
   - banco: `waMessage.findMany`
-- `searchMessages(sessionId, query, chatJids, limit)` · L272 · async
+- `searchMessages(sessionId, query, chatJids, limit)` · L353 · async
   - implementa: `MessageRepository.searchMessages` (message.repository.ts:117)
-  - chama: `toStored` L208
+  - chama: `toStored` L289
   - banco: `waMessage.findMany`
-- `findByRef(sessionId, ref)` · L296 · async
+- `findByRef(sessionId, ref)` · L377 · async
   - implementa: `MessageRepository.findByRef` (message.repository.ts:108)
-  - chama: `toStored` L208
+  - chama: `toStored` L289
   - banco: `waMessage.findFirst`
-- `listConversations(sessionId, limit)` · L311 · async
+- `listConversations(sessionId, limit)` · L392 · async
   - implementa: `MessageRepository.listConversations` (message.repository.ts:110)
 
 **Funções e constantes de topo**
 - `noNul(v)` · L20
-  - chamado por: `noNulDeep` L25, `save` L42, `saveHistorical` L84
+  - chamado por: `noNulDeep` L25, `save` L42, `saveHistorical` L83
 - `noNulDeep(v)` · L25
   - chama: `noNul` L20
   - chamado por: `save` L42

@@ -154,6 +154,7 @@ model WaSession {
 
   authKeys     WaAuthKey[]
   messages     WaMessage[]
+  pendingAcks  PendingMessageAck[]
   contacts     WaContact[]
   campaigns    Campaign[]
   sendIntents  SendIntent[]
@@ -361,6 +362,21 @@ model WaMessage {
   // Retenção (item 13): purge/strip do raw por idade varre createdAt — precisa do índice próprio.
   @@index([createdAt])
   @@map("wa_messages")
+}
+
+// P-078: somente ACKs sem mensagem alvo; consumidos na mesma transação do INSERT/update.
+// Não é um ledger permanente: keyId pode reaparecer e um ACK consumido não passa ao novo INSERT.
+model PendingMessageAck {
+  sessionId  String
+  keyId      String
+  status     String
+  lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+
+  session WaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, keyId])
+  @@index([lastSeenAt])
+  @@map("wa_pending_message_acks")
 }
 
 // P-066 (E22) — reações às mensagens, UMA linha por (sessão, mensagem-alvo, quem reagiu): no
