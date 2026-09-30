@@ -869,6 +869,23 @@ export interface CreateCampaignRequest {
   autostart?: boolean;
 }
 
+// G4/E21: não inferir ausência de resposta a partir de reação com alvo ambíguo.
+export interface ReplyRateMetricDto {
+  sessionId: string;
+  windowDays: number;
+  coldTotal: number;
+  coldMature: number;
+  responded: number;
+  ambiguousMature: number; // maduros sem resposta certa e com reação de alvo inconclusivo
+  replyRate: number; // responded/coldMature; ambíguos permanecem no denominador
+  sample: number; // coldMature
+  reliable: boolean; // sample >= Nmin e ambiguousMature = 0
+  deliveryRate: number;
+  readRate: number;
+  scoreSaude: number;
+  computedAt: string;
+}
+
 export interface CampaignRecipientDto {
   id: string;
   to: string;

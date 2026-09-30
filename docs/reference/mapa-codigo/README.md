@@ -5,27 +5,27 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 351 arquivos · 1825 símbolos (métodos/funções/assinaturas/constantes) · 1918 chamadas resolvidas · 1249 testes (it/test)
+- 352 arquivos · 1825 símbolos (métodos/funções/assinaturas/constantes) · 1918 chamadas resolvidas · 1264 testes (it/test)
 
 ## Áreas
 
 | Área | Arquivos | Linhas | Mapa |
 | --- | --- | --- | --- |
-| packages/contracts | 1 | 879 | [contracts.md](contracts.md) |
+| packages/contracts | 1 | 896 | [contracts.md](contracts.md) |
 | Dashboard (React) | 68 | 18275 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1916 | [gateway-bootstrap.md](gateway-bootstrap.md) |
 | módulo `campaigns` | 6 | 1239 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 4 | 473 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 45 | 15314 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 46 | 15874 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
-| módulo `guardrail` | 7 | 1697 | [gateway-guardrail.md](gateway-guardrail.md) |
+| módulo `guardrail` | 7 | 1701 | [gateway-guardrail.md](gateway-guardrail.md) |
 | módulo `health` | 3 | 127 | [gateway-health.md](gateway-health.md) |
 | módulo `iam` | 40 | 2623 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
 | módulo `messaging` | 25 | 4216 | [gateway-messaging.md](gateway-messaging.md) |
-| módulo `observability` | 9 | 846 | [gateway-observability.md](gateway-observability.md) |
+| módulo `observability` | 9 | 893 | [gateway-observability.md](gateway-observability.md) |
 | módulo `proxies` | 20 | 2613 | [gateway-proxies.md](gateway-proxies.md) |
 | Gateway — raiz (main.ts, app.module.ts) | 2 | 156 | [gateway-raiz.md](gateway-raiz.md) |
 | módulo `sessions` | 64 | 22511 | [gateway-sessions.md](gateway-sessions.md) |

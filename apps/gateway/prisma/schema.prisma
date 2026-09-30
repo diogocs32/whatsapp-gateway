@@ -283,7 +283,7 @@ model SessionMetric {
   responded    Int      @default(0) // cold maduros respondidos (inbound em até 72h)
   replyRate    Float    @default(0) // responded / coldMature (0..1); 0 se coldMature=0
   sample       Int      @default(0) // = coldMature (amostra do veredito)
-  reliable     Boolean  @default(false) // sample >= Nmin (20)
+  reliable     Boolean  @default(false) // sample >= Nmin e nenhuma reação ambígua relevante (E21/P-103)
   deliveryRate Float    @default(0) // delivered|read / coldTotal (0..1)
   readRate     Float    @default(0) // read / coldTotal (0..1)
   scoreSaude   Float    @default(0) // 0..100 (ponderação tunável de reply/read/delivery)

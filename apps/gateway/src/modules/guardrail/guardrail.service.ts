@@ -278,6 +278,10 @@ export class GuardrailService {
     } else if (rr.sample < c.nmin) {
       target = 'aquecimento';
       reason = `amostra ${rr.sample} < Nmin ${c.nmin} — sem veredito (aquecimento)`;
+    } else if ((rr.ambiguousMature ?? 0) > 0) {
+      // P-103: taxa é limite inferior; uma reação inconclusiva não prova ausência.
+      // Não cria quarentena nem libera uma anterior com base nesta suposição.
+      reason = `${rr.ambiguousMature} cold maduros com reação ambígua — mantém ${current}, sem veredito automático`;
     } else if (rr.replyRate < baseline * c.quarantineMult) {
       target = 'quarentena';
       reason = `reply ${pct(rr.replyRate)} < ${pct(baseline * c.quarantineMult)} (mediana×${c.quarantineMult})`;
