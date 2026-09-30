@@ -48,3 +48,9 @@
 - **Docs-n/a:** contracts e ARQUITETURA sem gatilho de novo DTO/payload/evento/provider/tabela; BASE/CLAUDE/env sem regra/script novo. D-047/rotasE20 mantidas. Nenhuma migration ou procedimento de deploy alterado.
 - **RETOMADA:** E21 continuação/P-078, mensagem pronta no roteiro; reprodução ACK antes do INSERT, recorte de persistência com efeitos e revisão, um PR próprio.
 - **ARTEFATOS LOCAIS:** logs `/private/tmp/conexozenvo-e21-qr-*.log`, mutações em `/private/tmp/conexozenvo-e21-qr-mutation-*`; infra dev e arquivos locais preservados.
+
+## PR e gates remotos
+
+- Código/docs `e72b324`, base `8f7683f`, [PR #28](https://github.com/diogocs32/whatsapp-gateway/pull/28).
+- Reconciliação da referência do PR antes dos checks finais; ci/imagens verdes no head final são pré-requisito do merge autorizado. Resultado/SHA de integração e checks finais no PR canônico.
+- P-100/P-101/P-102 abertas, P-099 sem drenar; nenhuma operação/consulta produtiva.

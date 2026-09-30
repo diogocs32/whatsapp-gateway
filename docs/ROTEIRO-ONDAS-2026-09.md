@@ -389,7 +389,7 @@ Mantenha TS5.9.3/CLI11, Vitest/coverage5.0.2/.mts/SWC/decorators/e2e serial, nod
 ### E21 continuação — P-018/P-091 (próximo recorte de backlog)
 
 ✅ 30/09: recorte QR inicial entregue em `sessions/DONE-2026-09-30-0853-e21-qr-esgotado.md`,
-branch `feature/onda21-qr-esgotado` da `origin/main=8f7683f`. Exaustão explícita encerra em
+branch `feature/onda21-qr-esgotado` da `origin/main=8f7683f`, [PR #28](https://github.com/diogocs32/whatsapp-gateway/pull/28). Exaustão explícita encerra em
 STOPPED; sinais inconclusivos de pairing preservam a política atual. Sem parada imediata pelo link.
 
 ```text
@@ -452,7 +452,7 @@ próxima aqui antes de entregá-la, já com o que aprendeu.
 
 ## Diário de execução
 
-- **30/09 — E21 continuação/P-018/P-091 (D-048; sem deploy):** QR inicial explicitamente esgotado para em STOPPED, com auth/chaves/epoch/autostart preservados. Sinais de pairing e timeout comum mantêm recuperação anterior; link só invalida token imediatamente. 19 testes unit novos e três de efeito (SQL/HTTP/Redis/boot/fencing), duas mutações recusadas;1548gateway+292painel/coverage/builds/guardas e revisão independente verdes. CI/merge da continuação são gates remotos. Legado pode abrir um ciclo antes de parar; publicação/canário manuais. P-100/P-101/P-102 abertas e P-099 sem drenar; mensagem P-078 preparada acima.
+- **30/09 — E21 continuação/P-018/P-091 (D-048; sem deploy):** QR inicial explicitamente esgotado para em STOPPED, com auth/chaves/epoch/autostart preservados. Sinais de pairing e timeout comum mantêm recuperação anterior; link só invalida token imediatamente. 19 testes unit novos e três de efeito (SQL/HTTP/Redis/boot/fencing), duas mutações recusadas;1548gateway+292painel/coverage/builds/guardas e revisão independente verdes. CI/merge da continuação no [PR #28](https://github.com/diogocs32/whatsapp-gateway/pull/28) são gates remotos. Legado pode abrir um ciclo antes de parar; publicação/canário manuais. P-100/P-101/P-102 abertas e P-099 sem drenar; mensagem P-078 preparada acima.
 
 - **30/09 — E21/P-103 + triagem (D-047; sem deploy):** identidade segura em G4,
   `ambiguousMature` aditivo, snapshots inconclusivos fora da mediana e G5 mantém estado.
