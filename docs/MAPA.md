@@ -82,4 +82,4 @@ Sigla resolve? Use a sigla. Não resolve? Cite completo: "arquivo § seção"
 
 - E20/P-064 parte código + P-061: [Métricas/cota/inventário](how-to/metricas-produto-e20.md), decisão D-046 e mensagem E21 no [roteiro](ROTEIRO-ONDAS-2026-09.md).
 
-- P-103: [Reprodução SQL somente leitura de colisão de reação no G4](reference/e20-reply-rate-key-collision.sql); triagem na E21.
+- E21/P-103: [Política de identidade/ambiguidade no reply-rate](how-to/reply-rate-identidade-e21.md), [triagem do backlog](reference/e21-triagem-backlog.md) e [reprodução histórica SELECT-only](reference/e20-reply-rate-key-collision.sql).

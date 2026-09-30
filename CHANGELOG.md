@@ -4,6 +4,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-09-30 — E21: identidade da reação no reply-rate (D-047), sem deploy
+
+- G4 deixa de atribuir reação LID a múltiplas conversas por keyId colidido; chat explícito e
+  chave unívoca preservam respostas seguras, inclusive remoção/relógio D-028.
+- `ambiguousMature` aditivo torna a dúvida visível; snapshot não confiável sai da mediana e
+  G5 mantém estado sem quarentena/liberação automática por essa suposição. Contratos existentes preservados, DTO aditivo e envios intactos.
+- Triagem do backlog anterior com evidência: P-001/P-022/P-036/P-044/P-046 reconciliadas;
+  demais itens em recortes próprios. P-100 aberta; P-099 e deploys/canários manuais preservados.
+
 ## 2026-09-29 — E20: métricas de produto (D-046), sem deploy
 
 - Métrica sob demanda de destinos individuais novos sem resposta30d, com respostas por mensagem/reação,

@@ -48,20 +48,20 @@ Fora de modules/:
 
 ## Linguagem ubíqua (glossário)
 
-| Termo           | Significado no domínio                                                                                                       |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| LID             | id anônimo da Meta (rollout de privacidade) que esconde o telefone; merge LID→PN é responsabilidade das engines não-oficiais |
-| PN              | phone number — jid tradicional `@s.whatsapp.net` com número                                                                  |
-| engine          | motor de conexão WhatsApp: Baileys 7 (principal) ou whatsapp-web.js (Store/leads); META_CLOUD planejado (M6)                 |
-| canal (channel) | newsletter do WhatsApp (módulo channels) — não confundir com engine                                                          |
-| guard-rail      | G1–G8: regras anti-ban — cold-send, reply-rate, quarentena, HTTP 423 (`GUARDRAIL_ENFORCE=false` = só observa)                |
-| cold-send       | 1º contato sem conversa prévia (`isCold` em `wa_messages`) — numerador do risco de ban                                       |
-| reply-rate      | responded/coldMature (só cold-sends >72h contam no denominador — correção C2)                                                |
-| quarentena      | estado do guard-rail que suspende cold-sends da sessão (423 quando enforce=true)                                             |
-| fan-out         | replicação de `wa.event` entre réplicas via canal Redis `wa:events`                                                          |
-| seat            | assento de usuário dentro da licença (IAM F9)                                                                                |
-| dead-letter     | webhook cujas entregas esgotaram retries — preservado p/ reentrega manual                                                    |
-| sticky          | estratégia de proxy que mantém a mesma saída por sessão                                                                      |
+| Termo           | Significado no domínio                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| LID             | id anônimo da Meta (rollout de privacidade) que esconde o telefone; merge LID→PN é responsabilidade das engines não-oficiais          |
+| PN              | phone number — jid tradicional `@s.whatsapp.net` com número                                                                           |
+| engine          | motor de conexão WhatsApp: Baileys 7 (principal) ou whatsapp-web.js (Store/leads); META_CLOUD planejado (M6)                          |
+| canal (channel) | newsletter do WhatsApp (módulo channels) — não confundir com engine                                                                   |
+| guard-rail      | G1–G8: regras anti-ban — cold-send, reply-rate, quarentena, HTTP 423 (`GUARDRAIL_ENFORCE=false` = só observa)                         |
+| cold-send       | 1º contato sem conversa prévia (`isCold` em `wa_messages`) — numerador do risco de ban                                                |
+| reply-rate      | responded/coldMature (maturidade72h/C2); E21/P-103: identidade segura, ambiguousMature e reliable falso pela dúvida, G5 mantém estado |
+| quarentena      | estado do guard-rail que suspende cold-sends da sessão (423 quando enforce=true)                                                      |
+| fan-out         | replicação de `wa.event` entre réplicas via canal Redis `wa:events`                                                                   |
+| seat            | assento de usuário dentro da licença (IAM F9)                                                                                         |
+| dead-letter     | webhook cujas entregas esgotaram retries — preservado p/ reentrega manual                                                             |
+| sticky          | estratégia de proxy que mantém a mesma saída por sessão                                                                               |
 
 ## Decisões de fronteira
 

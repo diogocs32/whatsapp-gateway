@@ -42,6 +42,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/proxy-affinity.e2e-spec.ts` | 451 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/proxy-suggestion.e2e-spec.ts` | 618 |
+| `gateway/test/reply-rate-identity.e2e-spec.ts` | 560 |
 | `gateway/test/session-account-inventory.e2e-spec.ts` | 213 |
 | `gateway/test/session-lease.e2e-spec.ts` | 486 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 149 |
@@ -686,6 +687,28 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “sem login → 401” · L607
     - it “OPERATOR → 403 (rota é ADMIN)” · L612
 
+## `gateway/test/reply-rate-identity.e2e-spec.ts`
+
+560 linhas · caminho: `apps/gateway/test/reply-rate-identity.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/guardrail.service.ts`, `modules/observability/reply-rate.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/event-bus/event-bus.ts`, `gateway/test/setup-app.ts`
+
+- describe “E21/P-103 — identidade da reação e evidência ambígua no G4/G5” · L21
+  - it “duplicatas do mesmo alvo/chat normalizado não criam colisão” · L246
+  - it “alias LID unívoco normaliza device/@c.us e ignora duplicatas do mesmo PN” · L269
+  - it “aliases conflitantes não autorizam inferência nem uma resposta artificial” · L276
+  - it “alias PN inequívoco divergente não é ignorado por keyId único” · L283
+  - it “PN explícito divergente não muda de conversa pelo alvo” · L291
+  - it “chaves e aliases de outra sessão não contaminam a inferência local” · L312
+  - it “reação no chat explícito após cold conta mesmo sem mensagem-alvo retida” · L321
+  - it “alvo inbound não pode virar follow-up nosso pela chave” · L347
+  - it “reação ao cold único tolera relógio do contato anterior ao envio” · L356
+  - it “remoção tardia preserva interação original; reação antiga alterada tarde não conta” · L362
+  - it “inbound confirmado resolve somente os colds que realmente responderam” · L374
+  - it “snapshots ambíguos persistidos não entram na mediana da frota” · L418
+  - it “amostra abaixo do Nmin mantém a decisão existente de aquecimento” · L481
+  - it “coorte madura sem resposta e sem ambiguidade continua gerando quarentena/evento” · L505
+  - it “sinal duro e override manual continuam efetivos; cold=false segue permitido em quarentena” · L527
+
 ## `gateway/test/session-account-inventory.e2e-spec.ts`
 
 213 linhas · caminho: `apps/gateway/test/session-account-inventory.e2e-spec.ts`
@@ -746,7 +769,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 197 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L13

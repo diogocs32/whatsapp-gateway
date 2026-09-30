@@ -297,12 +297,25 @@ boot deste processo, incluindo o 515 de reinício do pareamento; o rótulo `code
 O valor zera quando o processo reinicia; para alertas de frequência, use `rate()` no Prometheus.
 O endpoint responde 401 se `METRICS_TOKEN` estiver ausente ou incorreto.
 
-`reply_rate` exclui cold-sends com menos de **72h** (imaturos) e só dá veredito com **amostra ≥ 20**.
+`reply_rate` exclui cold-sends com menos de **72h** (imaturos); Nmin padrão **20**, configurável.
 Resposta = **mensagem OU reação do contato** em até 72h do cold (E22, D-028 — antes a reação contava
 por ser gravada como mensagem `other`; o voto em enquete continua contando como mensagem `poll_vote`).
 Deixam de contar como resposta desde a E22 (antes eram gravados como `other`): fixar/manter, resposta
 a evento, pedido de telefone (Baileys) e ligação (`call_log`, wwebjs) — raros; menção em status e
 notificações de sistema do wwebjs, que contavam por engano, também saem.
+
+**E21/P-103 (aditivo):** cada resultado do reply-rate inclui `ambiguousMature`, número de
+cold maduros sem resposta confirmada que têm reação de atribuição inconclusiva. `responded`
+conta apenas respostas comprovadas; `sample=coldMature` e o denominador permanecem iguais.
+`reliable` exige amostra ≥ Nmin **e** `ambiguousMature=0`. Um chat explícito desambigua o alvo;
+LID sem vínculo só herda chave pertencente a um único chat individual entre todas as mensagens
+da sessão, incluindo inbound, self-chat, grupos e mensagens fora da janela. Alias local
+contraditório não autoriza inferência. Duplicatas no mesmo chat não são conflito.
+Com amostra suficiente e ambiguidade relevante, G5 mantém o estado atual sem transição/evento
+automático: não impõe nova quarentena nem libera uma anterior por essa suposição. Reação
+removida e limites de tempo D-028 continuam válidos. Sticky, override manual, cooldown, Nmin,
+restrições nativas e HTTP 423 existente são preservados; nenhum status/código de envio novo.
+[Política, testes e limites P-103](how-to/reply-rate-identidade-e21.md).
 
 ### Métrica de novas relações em 30 dias (E20, aditivo)
 

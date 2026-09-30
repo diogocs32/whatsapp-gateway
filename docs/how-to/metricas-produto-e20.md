@@ -26,7 +26,8 @@ Os timestamps de mensagem do WhatsApp têm precisão de segundos. Inbound com ti
 estritamente anterior exclui a relação; no mesmo timestamp do primeiro outbound, a política
 observacional conta a interação como resposta. A ordem causal dentro desse segundo é
 indeterminada; `createdAt` reflete persistência assíncrona/importação e não desempata essa ordem.
-O reply-rate G4 continua com sua semântica anterior e é a métrica usada por G5.
+O reply-rate G4 mantém maturidade72h/amostra próprias e é usado por G5; a correlação
+segura atual segue [E21/P-103](reply-rate-identidade-e21.md).
 Grupos, broadcast/status, newsletter e conversa consigo mesmo ficam fora.
 
 JIDs de telefone `@c.us`/`@s.whatsapp.net` e sufixos de device são equivalentes. Um LID

@@ -11,7 +11,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/observability/new-recipients.service.ts` | 160 |
 | `modules/observability/observability.controller.ts` | 54 |
 | `modules/observability/observability.module.ts` | 24 |
-| `modules/observability/reply-rate.service.ts` | 205 |
+| `modules/observability/reply-rate.service.ts` | 252 |
 | `modules/observability/retention.service.spec.ts` | 39 |
 | `modules/observability/retention.service.ts` | 105 |
 | `modules/observability/session-event.logger.ts` | 53 |
@@ -93,7 +93,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `timeline(sessionId, limit)` · L24 · @Get('timeline/:sessionId')
   - chama: `MetricsService.timeline` (metrics.service.ts:97)
 - `replyRateMetrics(sessionId, window)` · L35 · @Get('reply-rate/:sessionId')
-  - chama: `ReplyRateService.compute` (reply-rate.service.ts:80), `ReplyRateService.snapshot` (reply-rate.service.ts:85)
+  - chama: `ReplyRateService.compute` (reply-rate.service.ts:69), `ReplyRateService.snapshot` (reply-rate.service.ts:74)
 - `newRecipientMetrics(sessionId)` · L49 · @Get('new-recipients/:sessionId')
   - chama: `NewRecipientsService.compute` (new-recipients.service.ts:18)
 
@@ -113,34 +113,34 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/observability/reply-rate.service.ts`
 
-205 linhas · caminho: `apps/gateway/src/modules/observability/reply-rate.service.ts`
+252 linhas · caminho: `apps/gateway/src/modules/observability/reply-rate.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`
-- importado por: `modules/guardrail/guardrail.service.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`
+- importado por: `modules/guardrail/guardrail.service.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`
 
-**class `ReplyRateService`** L41 · @Injectable
+**class `ReplyRateService`** L30 · @Injectable
 - injeta (construtor): `prisma: PrismaService` · `config: ConfigService<Env, true>`
-- `nminCache` · L43 · private · campo
-- `constructor(prisma, config)` · L45
-- `nmin()` · L51 · private · async
-  - chamado por: `computeFor` L93
+- `nminCache` · L32 · private · campo
+- `constructor(prisma, config)` · L34
+- `nmin()` · L40 · private · async
+  - chamado por: `computeFor` L82
   - banco: `guardrailConfig.findUnique`
-- `resolveSessionId(ref)` · L71 · private · async
-  - chamado por: `compute` L80, `snapshot` L85
+- `resolveSessionId(ref)` · L60 · private · async
+  - chamado por: `compute` L69, `snapshot` L74
   - banco: `waSession.findFirst`
-- `compute(ref, windowDays)` · L80 · async
-  - chama: `computeFor` L93, `resolveSessionId` L71
-  - chamado por: `GuardrailService.evaluate` (guardrail.service.ts:249), `GuardrailService.health` (guardrail.service.ts:591), `ObservabilityController.replyRateMetrics` (observability.controller.ts:35)
-- `snapshot(ref)` · L85 · async
-  - chama: `computeFor` L93, `resolveSessionId` L71
+- `compute(ref, windowDays)` · L69 · async
+  - chama: `computeFor` L82, `resolveSessionId` L60
+  - chamado por: `GuardrailService.evaluate` (guardrail.service.ts:249), `GuardrailService.health` (guardrail.service.ts:595), `ObservabilityController.replyRateMetrics` (observability.controller.ts:35)
+- `snapshot(ref)` · L74 · async
+  - chama: `computeFor` L82, `resolveSessionId` L60
   - chamado por: `ObservabilityController.replyRateMetrics` (observability.controller.ts:35)
-- `computeFor(sessionId, windowDays)` · L93 · private · async
-  - chama: `nmin` L51, `newId` (ulid.ts:4)
-  - chamado por: `compute` L80, `snapshot` L85
+- `computeFor(sessionId, windowDays)` · L82 · private · async
+  - chama: `nmin` L40, `newId` (ulid.ts:4)
+  - chamado por: `compute` L69, `snapshot` L74
   - banco: `sessionMetric.upsert`
 
 **Tipos**
-- interface `ReplyRateResult` L11 · 12 propriedade(s)
-- interface `RawRow` L33 · 5 propriedade(s)
+- type `ReplyRateResult` L12
+- interface `RawRow` L21 · 6 propriedade(s)
 
 ## `modules/observability/retention.service.spec.ts`
 
