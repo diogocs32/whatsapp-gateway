@@ -1,6 +1,6 @@
 # Sessão: E21 continuação — ACK antes da persistência (P-078)
 
-- **Status:** ✅ CÓDIGO E VALIDAÇÃO LOCAL CONCLUÍDOS; PR/CI/merge como gates finais, sem deploy.
+- **Status:** ✅ ENTREGUE EM CÓDIGO; CI/merge finais no [PR #29](https://github.com/diogocs32/whatsapp-gateway/pull/29), sem deploy.
 - **Início:** 30/09/2026 13:27 BRT.
 - **Branch/base:** `feature/onda21-ack-duravel`, `origin/main=899e86d`.
 - **Objetivo:** reproduzir ACK antes do INSERT e corrigir sua persistência entre restart/réplicas; um PR, revisão independente, CI verde e merge ao fim.
@@ -40,9 +40,9 @@ contrato n8n, G4/G5 D-047 e QR D-048. Migration aditiva; rollback N-1 mantém sc
 perde correção; primeira publicação stop-first. EventBus segue assíncrono: durabilidade
 começa no commit, sem outbox/replay sintético. Histórico é atômico por chunk50, retry dedup.
 
-- **Commits/PR/CI:** branch `feature/onda21-ack-duravel` da base `899e86d`; PR/CI/merge finais serão registrados aqui antes do handoff. Nenhuma publicação ou prova produtiva.
+- **Commits/PR/CI:** branch `feature/onda21-ack-duravel` da base `899e86d`; implementação `4d5b332`, [PR #29](https://github.com/diogocs32/whatsapp-gateway/pull/29). CI/merge finais são conferidos no PR canônico; docs de encerramento em commit próprio. Nenhuma publicação ou prova produtiva.
 - **Reprodução/validação:** RED comprovou `null` em vez de `read`; GREEN28/28 efeitos reais de banco/MessagePersister/HTTP/Inbox/G4 com transporte falso. Quatro mutações recusadas e revisão independente final aprovada. Gateway1576/1576 com coverage, painel292/292; typechecks, builds, lint, format/mapa/fronteiras e guardas patches/dist/deps/Prisma.
-- **Reconciliação R3:** schema/tabela → ARQUITETURA + migration/mapa; mudança de persistência/semântica → INTEGRACAO/how-to/D-049/CHANGELOG; recorte/limites → PENDENCIAS/triagem/roteiro/SESSOES/DONE; ESTADO atualizado após PR. Nenhuma env, dependência, regra de BASE, projeção CLAUDE ou payload novo; sem gatilho para alteração de contracts/env.example/README/BASE. Sem Docs-n/a.
+- **Reconciliação R3:** schema/tabela → ARQUITETURA + migration/mapa; mudança de persistência/semântica → INTEGRACAO/how-to/D-049/CHANGELOG; recorte/limites → PENDENCIAS/triagem/roteiro/SESSOES/DONE; ESTADO reconciliado após abertura do PR #29. Nenhuma env, dependência, regra de BASE, projeção CLAUDE ou payload novo; sem gatilho para alteração de contracts/env.example/README/BASE. Sem Docs-n/a.
 - **Pendências:** P-078 entrega código; publicação manual já coberta B-004/B-005/B-007 e checklist D-049. P-100/P-101/P-102 abertas; P-099 sem drenar. Próximo recorte P-013 em nova branch/PR após merge, mensagem no roteiro. Nenhuma sessão alheia/engine/arquivo local preexistente alterada.
 - **Arquivamento R9:** ATIVA→DONE; linha movida ao histórico; duas linhas mais antigas movidas integralmente ao SESSOES_ARQUIVO para manter15. Aviso D-049 preservado para outras conversas/publicação ainda não absorvida.
 
@@ -58,5 +58,5 @@ começa no commit, sem outbox/replay sintético. Histórico é atômico por chun
 - **BLOQUEADO EM VOCÊ:** nenhum para código/PR/merge; publicação/canários e B-004/B-005/B-007 seguem manuais.
 - **DOCS TOCADAS PELO DIFF:** CHANGELOG, ARQUITETURA, DECISOES, INTEGRACAO, MAPA-CODIGO e mapas gerados, MAPA, PENDENCIAS, ROTEIRO-ONDAS-2026-09, SESSOES/SESSOES_ARQUIVO, ESTADO (após PR), triagem E21, how-to ACK e este DONE.
 - **COMANDOS PARA VALIDAR:** npm ci --strict-allow-scripts · npm run test:cov -w apps/gateway · npm run test -w apps/dashboard · typechecks dos três pacotes · npm run lint · npm run format:check · npm run depcruise · npm run gateway:build · npm run dashboard:build · guardas-build.sh patches/dist/deps/prisma · node scripts/mapa-codigo.mjs --check. Lint/format locais excluem somente seeds preexistentes não versionados.
-- **SESSÃO ATUALIZADA:** sim; ESTADO após PR.
+- **SESSÃO ATUALIZADA:** sim; ESTADO reconciliado após PR #29.
 - **PARA CONTINUAR EM NOVA CONVERSA:** “Continuação P-013 pronta no roteiro (E21: tipos aditivos já aceitos pela API); leia ESTADO/SESSOES e execute o recorte em nova feature da origin/main.”

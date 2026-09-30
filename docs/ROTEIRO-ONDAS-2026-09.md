@@ -403,7 +403,7 @@ Consulte fontes oficiais da versão instalada antes de usar APIs e reexecute gat
 **Entregue em código em 30/09 (D-049), sem deploy:** branch
 `feature/onda21-ack-duravel` da base `899e86d`; [DONE](sessions/DONE-2026-09-30-1327-e21-ack-duravel.md).
 ACK órfão durável com lock/consumo transacional, histórico e retenção;28 efeitos/quatro mutações
-recusadas,1576gateway+292painel/coverage/revisão verdes. CI/merge no PR final.
+recusadas,1576gateway+292painel/coverage/revisão verdes. CI/merge finais no [PR #29](https://github.com/diogocs32/whatsapp-gateway/pull/29).
 [Política/limites e publicação manual](how-to/ack-persistencia-e21.md). Próximo recorte P-013 abaixo.
 
 ```text
