@@ -12,6 +12,9 @@
   [D-043](DECISOES.md#d-043--2026-09-29--bullmq-6-no-redis-com-ioredis-5-e-ulid-3-p-062-parte-2e17) e
   [DONE E17](sessions/DONE-2026-09-29-1424-e17-bullmq6.md).
 
+- E21/P-013: [tipos W5 e provas de compatibilidade](sessions/DONE-2026-09-30-1955-e21-contratos-w5.md),
+  [inventário contracts](reference/mapa-codigo/contracts.md) e [próximo recorte P-005](ROTEIRO-ONDAS-2026-09.md#e21-continuação--p-005-purge-de-refresh-tokens-expirados--próximo-recorte).
+
 ## Legenda de siglas
 
 | Sigla               | O que é                                                                                           | Onde encontrar                                                                             |
