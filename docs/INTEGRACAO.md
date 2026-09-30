@@ -317,6 +317,12 @@ removida e limites de tempo D-028 continuam válidos. Sticky, override manual, c
 restrições nativas e HTTP 423 existente são preservados; nenhum status/código de envio novo.
 [Política, testes e limites P-103](how-to/reply-rate-identidade-e21.md).
 
+**E21/P-078:** recibo que chegou antes da mensagem passa a ser guardado no banco e aplicado
+na persistência ao vivo ou no backfill. G4 pode passar a contar corretamente `delivered`/`read`
+recuperados; definição de resposta, identidade, `ambiguousMature` e `reliable` da D-047
+permanecem iguais. Não há novo evento de replay nem mudança no payload de `message.ack`,
+rotas ou contrato do node n8n 0.4.1. [Política, retenção e limites](how-to/ack-persistencia-e21.md).
+
 ### Métrica de novas relações em 30 dias (E20, aditivo)
 
 `GET /api/observability/new-recipients/{sessao}` (ID ou nome) retorna
@@ -733,6 +739,12 @@ GET  /api/sessions/{sessao}/messages/search?q=termo   # busca por termo (opciona
   Mesmo formato do `GET /messages` (traz `keyId` + `mediaUrl`). Funciona nas 2 engines e alcança o
   histórico já importado pelo backfill (busca o que está **persistido** — rode o `/sync` antes para
   incluir conversas anteriores à conexão).
+- **ACK persistido (E21/P-078):** `status` em `GET /messages`, `/search` e
+  `GET /api/inbox/messages` preserva o maior recibo `sent < delivered < read < error`,
+  inclusive quando o recibo chegou antes da gravação e o gateway reiniciou depois do commit.
+  ACK pendente é consumido uma vez: não é reaplicado a uma futura linha com a mesma chave.
+  A política anterior de alvo por sessão/key e timestamp mais recente permanece; em entrada,
+  `read` continua significando leitura no celular do operador. [Limites](how-to/ack-persistencia-e21.md).
 - **Reações e selo "Encaminhada" (E22, aditivo):** cada item do `GET /messages` e do `/search` traz
   `reactions: [{ emoji, senderJid, fromMe, timestamp }]` (reações vivas da mensagem, uma por pessoa,
   em ordem de horário; `[]` quando não há), `isForwarded` e `forwardingScore`. O `type`/`text` segue
@@ -817,7 +829,8 @@ POST /api/inbox/sessions/{sessao}/triage          # { "chatJid": "...@s.whatsapp
   (nunca pelo `chatJid`, que pode trocar de @lid para telefone; e nunca só pelo `keyId`: no Baileys
   duas sessões do gateway conversando entre si veem o mesmo id).
 - **`GET /api/inbox/messages` (E22, aditivo):** cada item traz também `status` — o ACK da mensagem
-  ENVIADA (`sent` | `delivered` | `read`; null enquanto não chega recibo). ⚠️ Aqui `status` é o ACK;
+  ENVIADA (`sent` | `delivered` | `read` | `error`; null enquanto não há recibo persistido).
+  E21/P-078 também recupera o ACK que chegou antes da mensagem. ⚠️ Aqui `status` é o ACK;
   no `GET /conversations` o `status` é a triagem (🔴🟢🟡). Mostre tique só em `fromMe: true` (numa
   entrada, `read` significa "lida no celular do operador"). Em **grupo** o Baileys não grava ACK
   (fica null). Também `isForwarded`/`forwardingScore`.

@@ -40,91 +40,112 @@ export class PrismaMessageRepository implements MessageRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async save(input: SaveMessageInput): Promise<void> {
-    try {
-      await this.prisma.waMessage.create({
-        data: {
-          id: newId(),
-          sessionId: input.sessionId,
-          keyId: input.keyId,
-          chatJid: input.chatJid,
-          senderJid: input.senderJid,
-          fromMe: input.fromMe,
-          type: input.type,
-          text: noNul(input.text) ?? null,
-          isCold: input.isCold ?? false,
-          idempotencyKey: input.idempotencyKey ?? null,
-          source: input.source ?? null,
-          timestamp: input.timestamp,
-          mediaType: input.mediaType ?? null,
-          mimetype: noNul(input.mimetype) ?? null,
-          fileName: noNul(input.fileName) ?? null,
-          mediaKey: input.mediaKey ?? null,
-          fileSize: input.fileSize ?? null,
-          isForwarded: input.isForwarded ?? false,
-          forwardingScore: input.forwardingScore ?? null,
-          raw:
-            input.raw != null
-              ? (noNulDeep(input.raw) as Prisma.InputJsonValue)
-              : undefined,
-        },
-      });
-    } catch (e) {
-      // P2002 = violação do unique (sessionId, idempotencyKey): o envio já foi persistido
-      // por uma chamada anterior com a mesma idempotencyKey. Dedup — ignora em silêncio.
-      if (
-        e instanceof Prisma.PrismaClientKnownRequestError &&
-        e.code === 'P2002'
-      ) {
-        return;
-      }
-      throw e;
-    }
+    await this.prisma.$transaction(
+      async (tx) => {
+        await this.lockAckKeys(tx, [
+          { sessionId: input.sessionId, keyId: input.keyId },
+        ]);
+        // Mantém a dedup por idempotencyKey; conflito com OUTRA key não consome seu ACK.
+        await tx.waMessage.createMany({
+          data: {
+            id: newId(),
+            sessionId: input.sessionId,
+            keyId: input.keyId,
+            chatJid: input.chatJid,
+            senderJid: input.senderJid,
+            fromMe: input.fromMe,
+            type: input.type,
+            text: noNul(input.text) ?? null,
+            isCold: input.isCold ?? false,
+            idempotencyKey: input.idempotencyKey ?? null,
+            source: input.source ?? null,
+            timestamp: input.timestamp,
+            mediaType: input.mediaType ?? null,
+            mimetype: noNul(input.mimetype) ?? null,
+            fileName: noNul(input.fileName) ?? null,
+            mediaKey: input.mediaKey ?? null,
+            fileSize: input.fileSize ?? null,
+            isForwarded: input.isForwarded ?? false,
+            forwardingScore: input.forwardingScore ?? null,
+            raw:
+              input.raw != null
+                ? (noNulDeep(input.raw) as Prisma.InputJsonValue)
+                : undefined,
+          },
+          skipDuplicates: true,
+        });
+        await this.reconcileAck(tx, input.sessionId, input.keyId);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
   }
 
   async saveHistorical(inputs: SaveMessageInput[]): Promise<number> {
-    if (!inputs.length) return 0;
-    const sessionId = inputs[0].sessionId;
-    const keyIds = inputs.map((i) => i.keyId).filter(Boolean);
-    // Dedup contra o que já existe no banco (histórico + ao vivo). Sem unique em (sessionId,keyId)
-    // no schema, a checagem é em aplicação; createMany(skipDuplicates) só cobre o unique de
-    // idempotencyKey (null no histórico → NULLS DISTINCT → não conflita).
-    const existing = await this.prisma.waMessage.findMany({
-      where: { sessionId, keyId: { in: keyIds } },
-      select: { keyId: true },
-    });
-    const seen = new Set(existing.map((e) => e.keyId));
-    const rows: Prisma.WaMessageCreateManyInput[] = [];
-    for (const i of inputs) {
-      if (!i.keyId || seen.has(i.keyId)) continue;
-      seen.add(i.keyId); // dedup também dentro do próprio lote
-      rows.push({
-        id: newId(),
-        sessionId: i.sessionId,
-        keyId: i.keyId,
-        chatJid: i.chatJid,
-        senderJid: i.senderJid,
-        fromMe: i.fromMe,
-        type: i.type,
-        text: noNul(i.text) ?? null,
-        isCold: i.isCold ?? false,
-        idempotencyKey: i.idempotencyKey ?? null,
-        source: i.source ?? null,
-        timestamp: i.timestamp,
-        mediaType: i.mediaType ?? null,
-        mimetype: noNul(i.mimetype) ?? null,
-        fileName: noNul(i.fileName) ?? null,
-        mediaKey: i.mediaKey ?? null,
-        fileSize: i.fileSize ?? null,
-        isForwarded: i.isForwarded ?? false,
-        forwardingScore: i.forwardingScore ?? null,
-      });
+    let count = 0;
+    // Backfill até 500 mensagens/chat: limita locks e duração sem serializar a sessão inteira.
+    for (let offset = 0; offset < inputs.length; offset += 50) {
+      const unique = new Map<string, SaveMessageInput>();
+      for (const input of inputs.slice(offset, offset + 50)) {
+        const identity = JSON.stringify([input.sessionId, input.keyId]);
+        if (input.keyId && !unique.has(identity)) unique.set(identity, input);
+      }
+      const chunk = [...unique.values()];
+      if (!chunk.length) continue;
+      count += await this.prisma.$transaction(
+        async (tx) => {
+          await this.lockAckKeys(tx, chunk);
+          const rows: Prisma.WaMessageCreateManyInput[] = [];
+          const existing = await tx.waMessage.findMany({
+            where: {
+              OR: chunk.map((i) => ({
+                sessionId: i.sessionId,
+                keyId: i.keyId,
+              })),
+            },
+            select: { sessionId: true, keyId: true },
+          });
+          const seen = new Set(
+            existing.map((i) => JSON.stringify([i.sessionId, i.keyId])),
+          );
+          for (const i of chunk) {
+            if (seen.has(JSON.stringify([i.sessionId, i.keyId]))) continue;
+            rows.push({
+              id: newId(),
+              sessionId: i.sessionId,
+              keyId: i.keyId,
+              chatJid: i.chatJid,
+              senderJid: i.senderJid,
+              fromMe: i.fromMe,
+              type: i.type,
+              text: noNul(i.text) ?? null,
+              isCold: i.isCold ?? false,
+              idempotencyKey: i.idempotencyKey ?? null,
+              source: i.source ?? null,
+              timestamp: i.timestamp,
+              mediaType: i.mediaType ?? null,
+              mimetype: noNul(i.mimetype) ?? null,
+              fileName: noNul(i.fileName) ?? null,
+              mediaKey: i.mediaKey ?? null,
+              fileSize: i.fileSize ?? null,
+              isForwarded: i.isForwarded ?? false,
+              forwardingScore: i.forwardingScore ?? null,
+            });
+          }
+          const inserted = rows.length
+            ? await tx.waMessage.createMany({
+                data: rows,
+                skipDuplicates: true,
+              })
+            : { count: 0 };
+          for (const i of chunk) {
+            await this.reconcileAck(tx, i.sessionId, i.keyId);
+          }
+          return inserted.count;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+      );
     }
-    if (!rows.length) return 0;
-    const r = await this.prisma.waMessage.createMany({
-      data: rows,
-      skipDuplicates: true,
-    });
-    return r.count;
+    return count;
   }
 
   async findByIdempotencyKey(
@@ -180,29 +201,89 @@ export class PrismaMessageRepository implements MessageRepository {
     keyId: string,
     status: string,
   ): Promise<void> {
-    const rank = PrismaMessageRepository.ACK_RANK[status] ?? 0;
-    if (rank === 0) return; // status desconhecido nunca persiste (mesma regra de antes)
-    // UM statement atômico no lugar de findFirst+update: além de cortar o round-trip (ACK é hot
-    // path — todo delivered/read passa aqui), a guarda de ranking DENTRO do UPDATE elimina a
-    // corrida read-modify-write entre ACKs concorrentes (um `delivered` atrasado não sobrescreve
-    // mais um `read` que commitou entre a leitura e a escrita). Alvo = linha mais recente de
-    // (sessionId, keyId), como no findFirst anterior (usa o índice [sessionId, keyId]).
-    // ACK de mensagem ainda não persistida (eco tardio) → 0 linhas, no-op — comportamento igual.
-    await this.prisma.$executeRaw`
-      UPDATE "wa_messages" SET "status" = ${status}
-      WHERE "id" = (
-        SELECT "id" FROM "wa_messages"
-        WHERE "sessionId" = ${sessionId} AND "keyId" = ${keyId}
-        ORDER BY "timestamp" DESC
-        LIMIT 1
-      )
-      AND (CASE "status"
-             WHEN 'sent' THEN 1
-             WHEN 'delivered' THEN 2
-             WHEN 'read' THEN 3
-             WHEN 'error' THEN 4
-             ELSE 0
-           END) < ${rank}`;
+    if (!Object.hasOwn(PrismaMessageRepository.ACK_RANK, status)) return;
+    await this.prisma.$transaction(
+      async (tx) => {
+        await this.lockAckKeys(tx, [{ sessionId, keyId }]);
+        await this.reconcileAck(tx, sessionId, keyId, status);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
+  }
+
+  private ackRankSql(status: Prisma.Sql): Prisma.Sql {
+    return Prisma.sql`CASE ${status}
+      WHEN 'sent' THEN 1 WHEN 'delivered' THEN 2
+      WHEN 'read' THEN 3 WHEN 'error' THEN 4 ELSE 0 END`;
+  }
+
+  // Mesmo lock para ACK/live/histórico; statement separado garante snapshot posterior à espera.
+  // Ordena os hashes EFETIVOS (inclusive colisões) para lotes concorrentes não fazerem deadlock.
+  private async lockAckKeys(
+    tx: Prisma.TransactionClient,
+    keys: Array<{ sessionId: string; keyId: string }>,
+  ): Promise<void> {
+    const identities = keys.map((k) =>
+      JSON.stringify(['message-ack', k.sessionId, k.keyId]),
+    );
+    const locks = await tx.$queryRaw<Array<{ key: bigint }>>`
+      SELECT DISTINCT hashtextextended(value, 0) AS key
+      FROM unnest(ARRAY[${Prisma.join(identities)}]::text[]) AS value
+      ORDER BY key`;
+    for (const lock of locks) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lock.key})`;
+    }
+  }
+
+  private async reconcileAck(
+    tx: Prisma.TransactionClient,
+    sessionId: string,
+    keyId: string,
+    incoming?: string,
+  ): Promise<void> {
+    // Mantém o alvo legado (latest timestamp por sessão/key), inclusive read-self inbound.
+    const target = await tx.waMessage.findFirst({
+      where: { sessionId, keyId },
+      orderBy: { timestamp: 'desc' },
+      select: { id: true },
+    });
+    if (!target) {
+      if (incoming) {
+        const rank = PrismaMessageRepository.ACK_RANK[incoming];
+        await tx.$executeRaw`
+          INSERT INTO "wa_pending_message_acks" ("sessionId", "keyId", "status", "lastSeenAt")
+          VALUES (${sessionId}, ${keyId}, ${incoming}, clock_timestamp())
+          ON CONFLICT ("sessionId", "keyId") DO UPDATE
+          SET "status" = CASE
+              WHEN ${this.ackRankSql(Prisma.sql`"wa_pending_message_acks"."status"`)} < ${rank}
+              THEN EXCLUDED."status" ELSE "wa_pending_message_acks"."status" END,
+              "lastSeenAt" = clock_timestamp()`;
+      }
+      return;
+    }
+    const pending = await tx.pendingMessageAck.findUnique({
+      where: { sessionId_keyId: { sessionId, keyId } },
+      select: { status: true },
+    });
+    const status =
+      pending &&
+      (PrismaMessageRepository.ACK_RANK[pending.status] ?? 0) >
+        (PrismaMessageRepository.ACK_RANK[incoming ?? ''] ?? 0)
+        ? pending.status
+        : incoming;
+    if (status) {
+      const rank = PrismaMessageRepository.ACK_RANK[status];
+      await tx.$executeRaw`
+        UPDATE "wa_messages" SET "status" = ${status}
+        WHERE "id" = ${target.id}
+          AND ${this.ackRankSql(Prisma.sql`"status"`)} < ${rank}`;
+    }
+    if (pending) {
+      // O purge pode ter removido o órfão após a leitura; 0 linhas não invalida o INSERT/status.
+      await tx.pendingMessageAck.deleteMany({
+        where: { sessionId, keyId },
+      });
+    }
   }
 
   private toStored(r: {

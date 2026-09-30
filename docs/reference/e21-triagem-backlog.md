@@ -1,3 +1,10 @@
+---
+tipo: reference
+dono: equipe gateway
+revisado_em: 2026-09-30
+validade: a cada release
+---
+
 # E21 — triagem do backlog anterior
 
 - **Data:** 30/09/2026.
@@ -18,7 +25,7 @@
 | P-044         | O item ao vivo continua com `name: null`, agora em [live-events.ts:365](../../apps/dashboard/src/lib/live-events.ts#L365), testado em `live-events.spec.ts:131-137`. Atendimento chama o helper em `:245` e recarrega a lista por debounce de 800 ms (`:210-217/248`).                                                                                                                                                                                                                                               | **Aberta/cosmética.** A referência antiga ao trecho que construía o item em Atendimento mudou de lugar.                          | Resolver o nome no evento ou reaproveitar cache de conversas.                                                                                                                                                 |
 | P-045         | O fluxo em [Atendimento.tsx:229](../../apps/dashboard/src/routes/Atendimento.tsx#L229) atualiza estado/lista. Não foram encontrados áudio, `Notification` ou contador de título para mensagem nova nessa tela; alterações de título existentes são branding e Conectar.                                                                                                                                                                                                                                              | **Aberta/decisão do dono.**                                                                                                      | Definir opt-in e gesto para áudio antes do recorte de UI.                                                                                                                                                     |
 | P-046         | [ConversationTriage:429](../../apps/gateway/prisma/schema.prisma#L429) não tem índice temporal; o sweep não a inclui. Há cascade da sessão (`:440`) **e limpeza manual** em `prisma-inbox.repository.ts:201-204`.                                                                                                                                                                                                                                                                                                    | **Aberta.** A afirmação antiga de que a tabela só é limpa por cascade é imprecisa; purge por idade segue ausente.                | Juntar com retenção, preservando marcas de conversas com entrada relevante.                                                                                                                                   |
-| P-078         | ACK e save são independentes em [message-persister.service.ts:28](../../apps/gateway/src/modules/messaging/application/message-persister.service.ts#L28) e `:41-67`. O SQL documenta zero linhas/no-op antes do INSERT em [prisma-message.repository.ts:178](../../apps/gateway/src/modules/messaging/infrastructure/prisma-message.repository.ts#L178). A memória do painel (`live-events.ts:158-190`) compensa durante a tela aberta.                                                                              | **Aberta.**                                                                                                                      | Provar ordenação e efeito em banco/GET/Inbox/reply-rate. Um mapa local sozinho não cobre restart nem persistência em outra réplica.                                                                           |
+| P-078         | **Fotografia da base 351a68b:** ACK e save eram independentes em `message-persister.service.ts`; `updateStatusByKey` era no-op antes do INSERT. A memória do painel (`live-events.ts:158-190`) compensava durante a tela aberta. **Continuação em base 899e86d:** ACK pendente passa a ser durável e consumido atomicamente; ver D-049 e seção abaixo.                                                                                                                                                               | **Aberta na triagem; continuação em código, sem deploy.**                                                                        | Publicação/canário manuais; banco/GET/Inbox/reply-rate e restart/réplicas são os gates do recorte.                                                                                                            |
 
 As atualizações de status acima reconciliam o escopo do código existente. Nenhuma pendência foi considerada concluída em produção por esta triagem.
 
@@ -30,3 +37,17 @@ qualquer sinal de pairing ou auth ausente conserva a política anterior. Não mu
 imediata do token nem purga legado. Decisão D-048, comportamento e limites no
 [how-to](../how-to/qr-esgotado-e21.md); testes de efeito em `test/baileys-qr-exhaustion.e2e-spec.ts`.
 Demais itens ficam abertos; P-100/P-101/P-102 e deploys/canários manuais preservados.
+
+## Continuação — ACK antes da persistência (30/09/2026, base 899e86d)
+
+A reprodução inicial em PostgreSQL retornou `expected null to be 'read'` depois de receber
+ACK antes do INSERT e criar outro repositório (`/tmp/conexozenvo-e21-ack-red.log`).
+O recorte P-078 usa `wa_pending_message_acks` e advisory lock transacional compartilhado por
+ACK/save/backfill; aplica o maior status e consome o pendente no mesmo commit. Preserva o alvo
+mais recente por sessão/key e inbound/read-self, sem reaplicar ACK consumido em INSERT futuro.
+
+Retenção pelo `lastSeenAt`/`RETENTION_MESSAGES_DAYS` existente. Migration aditiva compatível
+com N-1; coexistência com N-1 não recebe a garantia de serialização, portanto primeira publicação
+exige stop-first. D-049 e [política/limites](../how-to/ack-persistencia-e21.md) são canônicos;
+evidência final dos gates fica na sessão deste recorte. Não houve publicação ou canário.
+Demais pendências permanecem abertas; D-047/G4/G5, D-048/QR e contrato n8n preservados.

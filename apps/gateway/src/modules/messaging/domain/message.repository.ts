@@ -81,7 +81,7 @@ export interface MessageRepository {
     sessionId: string,
     idempotencyKey: string,
   ): Promise<IdempotentHit | null>;
-  // G3: grava o último ACK (sent→delivered→read) da mensagem identificada por keyId. Não regride.
+  // G3/P-078: ACK sent→delivered→read→error sem regredir; sem alvo, aguarda INSERT no banco.
   updateStatusByKey(
     sessionId: string,
     keyId: string,
