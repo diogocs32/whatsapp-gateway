@@ -14,6 +14,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `shared-kernel/event-bus/event-bus.ts` | 38 |
 | `shared-kernel/local-day.spec.ts` | 40 |
 | `shared-kernel/local-day.ts` | 48 |
+| `shared-kernel/memory.spec.ts` | 216 |
 | `shared-kernel/memory.ts` | 119 |
 | `shared-kernel/process-errors.ts` | 16 |
 | `shared-kernel/query-int.spec.ts` | 19 |
@@ -165,10 +166,23 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `startOfLocalDay(timeZone, now)` · L8
   - chamado por: `CampaignRepository.reserveRecipient` (campaign.repository.ts:154)
 
+## `shared-kernel/memory.spec.ts`
+
+216 linhas · caminho: `apps/gateway/src/shared-kernel/memory.spec.ts`
+- importa (interno): `shared-kernel/memory.ts`
+
+- describe “memoryStats — working set cgroup v2 pela API pública real” · L54
+  - it “subtrai somente inactive_file em bytes e usa o limite do container” · L55
+  - it “preserva o prefixo numérico da chave, sem endurecer a gramática” · L111
+  - it “não limita a 100% um consumo maior que o limite” · L127
+  - it “arredonda os ratios a duas casas, mantendo os bytes exatos” · L136
+  - it “relê current/stat em cada coleta, sem manter um resultado antigo” · L148
+- describe “memoryStats — fallback para pressão do heap V8” · L157
+
 ## `shared-kernel/memory.ts`
 
 119 linhas · caminho: `apps/gateway/src/shared-kernel/memory.ts`
-- importado por: `modules/health/health.service.ts`, `modules/observability/metrics.service.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`
+- importado por: `modules/health/health.service.ts`, `modules/observability/metrics.service.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `shared-kernel/memory.spec.ts`
 
 **Funções e constantes de topo**
 - `chromiumProcessTree(rootPid)` · L17

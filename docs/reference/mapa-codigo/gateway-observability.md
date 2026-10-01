@@ -6,6 +6,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
+| `modules/observability/metrics-memory.spec.ts` | 186 |
 | `modules/observability/metrics.controller.ts` | 41 |
 | `modules/observability/metrics.service.ts` | 165 |
 | `modules/observability/new-recipients.service.ts` | 160 |
@@ -15,6 +16,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/observability/retention.service.spec.ts` | 39 |
 | `modules/observability/retention.service.ts` | 115 |
 | `modules/observability/session-event.logger.ts` | 53 |
+
+## `modules/observability/metrics-memory.spec.ts`
+
+186 linhas · caminho: `apps/gateway/src/modules/observability/metrics-memory.spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `infra/redis/redis.service.ts`, `modules/observability/metrics.service.ts`
+
+- describe “MetricsService.summary — memória cgroup com memoryStats real” · L70
+  - it “expõe working set arredondado e métricas V8/RSS nas unidades originais” · L88
+  - it “prioriza pressão do container mesmo com heap acima dela” · L105
+  - it “publica consumo acima do limite sem truncar o ratio” · L117
+  - it “stat sem inactive_file reconhecido mantém consumo current no summary” · L160
+  - it “sem limite publica null e usa teto V8 em vez de heapTotal, sem ler arquivos” · L170
 
 ## `modules/observability/metrics.controller.ts`
 
@@ -33,7 +46,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 165 linhas · caminho: `apps/gateway/src/modules/observability/metrics.service.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `infra/redis/redis.service.ts`, `shared-kernel/memory.ts`, `shared-kernel/process-errors.ts`, `shared-kernel/disconnect-stats.ts`
-- importado por: `modules/observability/metrics.controller.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`
+- importado por: `modules/observability/metrics-memory.spec.ts`, `modules/observability/metrics.controller.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`
 
 **class `MetricsService`** L19 · @Injectable · `implements OnModuleInit`
 - injeta (construtor): `prisma: PrismaService` · `redis: RedisService`
