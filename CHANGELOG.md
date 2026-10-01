@@ -4,6 +4,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-01 — E21/P-022: agendamento de CampaignService (sem mudança de runtime)
+
+- 75 regressões por start/resume reais com repo/queue, relógio e aleatoriedade falsos:
+  offset após listagem/fixo durante enqueue, jitter inclusivo, atraso acumulado,
+  epoch/jobId, status/startedAt/CAS e falha parcial com pausa aguardada.
+- Revisão independente e24mutações com controles positivos;1259unit gateway+292painel verdes.
+  Provas SQL/Redis/worker/8s existentes preservadas, nenhuma operação produtiva.
+  P-022 parcial; próximo C10/Prisma/SQL/default, sem correção por hipótese.
+  [Provas/limites](docs/sessions/DONE-2026-10-01-0058-e21-campaign-scheduling-tests.md).
+
 ## 2026-09-30 — E21/P-022: withDeadline e probes health (sem mudança de runtime)
 
 - 30 regressões de resolução/rejeição/timeout, timers, resultados tardios e probes

@@ -6,6 +6,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
+| `modules/campaigns/application/campaign-scheduling.spec.ts` | 606 |
 | `modules/campaigns/application/campaign.service.ts` | 127 |
 | `modules/campaigns/campaigns.module.ts` | 17 |
 | `modules/campaigns/infrastructure/campaign-queue.ts` | 426 |
@@ -13,11 +14,31 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/campaigns/infrastructure/campaign.repository.ts` | 300 |
 | `modules/campaigns/interface/campaigns.controller.ts` | 200 |
 
+## `modules/campaigns/application/campaign-scheduling.spec.ts`
+
+606 linhas · caminho: `apps/gateway/src/modules/campaigns/application/campaign-scheduling.spec.ts`
+- importa (interno): `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/campaigns/application/campaign.service.ts`
+
+- describe “CampaignService — agendamento por start/resume” · L129
+  - it “min=max conserva intervalo fixo mesmo nos extremos do RNG” · L222
+  - it “lista vazia não agenda, não sorteia nem marca DONE” · L237
+  - it “offset futuro permanece fixo mesmo se o relógio avançar entre enqueues” · L253
+  - it “offset usa o relógio após a listagem pendente resolver” · L273
+  - it “época zero devolvida pelo CAS é válida e substitui a do snapshot” · L306
+  - it “CAS perdida encerra antes de consultar pendentes/sortear/agendar” · L336
+  - it “dois pedidos concorrentes que veem o mesmo snapshot agendam só o vencedor do CAS” · L351
+  - it “erro ao listar pendentes pausa a época adquirida e propaga a mesma falha” · L405
+  - it “aguarda o enqueue de um destinatário antes de sortear/enfileirar o próximo” · L437
+  - it “aguarda a pausa cercada, inclusive CAS sem efeito, antes de propagar a falha” · L461
+  - it “se a própria pausa falhar, propaga essa falha conforme política atual” · L495
+  - it “start aceita campanha PAUSED e usa a época devolvida pela transição” · L509
+  - it “resume após falha parcial agenda todos os PENDING com época e IDs novos” · L559
+
 ## `modules/campaigns/application/campaign.service.ts`
 
 127 linhas · caminho: `apps/gateway/src/modules/campaigns/application/campaign.service.ts`
 - importa (interno): `modules/campaigns/infrastructure/campaign.repository.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`
-- importado por: `modules/campaigns/campaigns.module.ts`, `modules/campaigns/interface/campaigns.controller.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
+- importado por: `modules/campaigns/application/campaign-scheduling.spec.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/interface/campaigns.controller.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`
 
 **class `CampaignService`** L12 · @Injectable
 - injeta (construtor): `repo: CampaignRepository` · `queue: CampaignQueue`
@@ -78,7 +99,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 426 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign-queue.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/redis/redis-connection.ts`, `shared-kernel/safe-fetch.ts`, `modules/guardrail/guardrail.service.ts`, `modules/guardrail/session-quarantined.exception.ts`, `modules/sessions/application/session-lease.error.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/campaigns/infrastructure/campaign.repository.ts`
-- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`
+- importado por: `modules/campaigns/application/campaign-scheduling.spec.ts`, `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-restriction.spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`
 
 **class `SendSlotUnavailableError`** L89 · `extends Error`
 
@@ -136,7 +157,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 300 linhas · caminho: `apps/gateway/src/modules/campaigns/infrastructure/campaign.repository.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/local-day.ts`, `shared-kernel/ulid.ts`
-- importado por: `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`
+- importado por: `modules/campaigns/application/campaign-scheduling.spec.ts`, `modules/campaigns/application/campaign.service.ts`, `modules/campaigns/campaigns.module.ts`, `modules/campaigns/infrastructure/campaign-queue.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`
 
 **class `CampaignRepository`** L37 · @Injectable
 - injeta (construtor): `prisma: PrismaService`
