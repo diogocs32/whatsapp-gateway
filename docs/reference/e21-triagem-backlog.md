@@ -114,3 +114,24 @@ P-022 continua parcial. Próximo candidato independente: withDeadline/probes hea
 (`health.service.ts:31-43/56-60`), ainda sem spec dedicado de resolução/rejeição/
 timeout/cleanup e probe pendurado encontrado. C10 e demais lacunas permanecem abertas.
 P-100/P-101/P-102 abertas/P-099 sem drenar, gates e publicação/canários manuais preservados.
+
+## Continuação — withDeadline e probes health (30/09/2026, base407620c)
+
+A lacuna foi confirmada após PR33/cgroup: health e2e somente caminho positivo,
+health-memory.spec cobre memória/limiar mas não probes pendurados. Novos specs
+with-deadline/health-probes exercitam helper/service/controller reais com relógio
+sintético e portas falsas, sem extrair funções nem mudar runtime/política.
+Resolução original, fallback por erro/timeout, cleanup e resultados tardios são
+caracterizados; timeout não cancela a operação. DB/Redis3000ms e storage5000ms
+partem juntos; storage informa, uma falha core degrada200, ambas dão unhealthy503.
+Precisão de relógio simulado não é SLA/prova produtiva; cache/S3/HTTP reais ficam fora.
+[Provas/gates/mutações](../sessions/DONE-2026-09-30-2333-e21-health-deadline-tests.md).
+
+P-022 parcial. Próximo candidato independente: CampaignService.start/resume
+(`campaigns/application/campaign.service.ts:59-80`), offset/jitter inclusivo/delay
+acumulado/época/jobId e falha parcial, por portas falsas/Math.random/relógio controlados.
+Não foi encontrado spec dedicado; e2e fixa min=max1 ou12 e prova recuperação/8s,
+não fronteiras aleatórias. Conferir a lacuna e registrar recorte antes de implementar,
+sem exportar randInt nem mexer no worker. StripRaw/HMAC já têm provas de efeito no
+webhook-bullmq6.e2e-spec/crypto.spec; C10 exige prova própria Prisma/SQL/default.
+P-100/P-101/P-102 abertas/P-099 sem drenar, demais gates/publicação manuais preservados.

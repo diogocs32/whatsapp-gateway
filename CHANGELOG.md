@@ -4,6 +4,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-09-30 — E21/P-022: withDeadline e probes health (sem mudança de runtime)
+
+- 30 regressões de resolução/rejeição/timeout, timers, resultados tardios e probes
+  simultâneos3/3/5s com relógio/portas falsos. Relatório e controller reais;
+  storage informativo e escolha200/503 preservados, sem infraestrutura produtiva.
+- Doze mutações com controles positivos e revisão independente aprovadas;
+  1184unit gateway+292painel verdes. P-022 parcial; próximo agendamento CampaignService.
+  [Provas/limites](docs/sessions/DONE-2026-09-30-2333-e21-health-deadline-tests.md).
+
 ## 2026-09-30 — E21/P-022: testes do parser cgroup (sem mudança de runtime)
 
 - Working set `memory.current−inactive_file`, leitura/valores inválidos e fallback
