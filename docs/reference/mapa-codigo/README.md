@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 356 arquivos · 1828 símbolos (métodos/funções/assinaturas/constantes) · 1926 chamadas resolvidas · 1293 testes (it/test)
+- 359 arquivos · 1838 símbolos (métodos/funções/assinaturas/constantes) · 1933 chamadas resolvidas · 1318 testes (it/test)
 
 ## Áreas
 
@@ -17,12 +17,12 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `campaigns` | 6 | 1239 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 4 | 473 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 49 | 17291 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 50 | 18012 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1701 | [gateway-guardrail.md](gateway-guardrail.md) |
 | módulo `health` | 3 | 127 | [gateway-health.md](gateway-health.md) |
-| módulo `iam` | 40 | 2623 | [gateway-iam.md](gateway-iam.md) |
+| módulo `iam` | 42 | 3012 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
 | módulo `messaging` | 26 | 4335 | [gateway-messaging.md](gateway-messaging.md) |
 | módulo `observability` | 9 | 903 | [gateway-observability.md](gateway-observability.md) |
@@ -267,7 +267,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `MEDIA_MAX_BYTES` | `base` (config.ts) |
 | `MEDIA_URL_TTL` | `base` (config.ts) |
 | `METRICS_TOKEN` | `MetricsController.scrape` (metrics.controller.ts) |
-| `NODE_ENV` | `base` (config.ts), `EventFanout.onModuleInit` (event-fanout.ts), `UndeliveredDetectorService.onApplicationBootstrap` (undelivered-detector.service.ts), `AuthController.setAuthCookies` (auth.controller.ts), `RetentionService.onApplicationBootstrap` (retention.service.ts), `ProxyService.onApplicationBootstrap` (proxy.service.ts) |
+| `NODE_ENV` | `base` (config.ts), `EventFanout.onModuleInit` (event-fanout.ts), `UndeliveredDetectorService.onApplicationBootstrap` (undelivered-detector.service.ts), `RefreshTokenPurgeService.onApplicationBootstrap` (refresh-token-purge.service.ts), `AuthController.setAuthCookies` (auth.controller.ts), `RetentionService.onApplicationBootstrap` (retention.service.ts), `ProxyService.onApplicationBootstrap` (proxy.service.ts) |
 | `PASSWORD_SCRYPT_LOG2N` | `base` (config.ts), `currentScryptCost` (crypto.ts) |
 | `PORT` | `base` (config.ts) |
 | `PROXY_RETEST_INTERVAL_MIN` | `ProxyService.onApplicationBootstrap` (proxy.service.ts) |
@@ -279,7 +279,8 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `REDIS_TLS` | `base` (config.ts) |
 | `REDIS_URL` | `base` (config.ts) |
 | `REDIS_USERNAME` | `base` (config.ts) |
-| `RETENTION_SWEEP_HOURS` | `RetentionService.onApplicationBootstrap` (retention.service.ts) |
+| `RETENTION_REFRESH_TOKENS_GRACE_DAYS` | `RefreshTokenPurgeService.runSweep` (refresh-token-purge.service.ts) |
+| `RETENTION_SWEEP_HOURS` | `RefreshTokenPurgeService.onApplicationBootstrap` (refresh-token-purge.service.ts), `RetentionService.onApplicationBootstrap` (retention.service.ts) |
 | `S3_ACCESS_KEY` | `base` (config.ts) |
 | `S3_BUCKET` | `base` (config.ts) |
 | `S3_ENDPOINT` | `base` (config.ts) |

@@ -11,6 +11,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/iam/application/auth-session.service.ts` | 160 |
 | `modules/iam/application/branding.service.ts` | 23 |
 | `modules/iam/application/license.service.ts` | 83 |
+| `modules/iam/application/refresh-token-purge.service.spec.ts` | 226 |
+| `modules/iam/application/refresh-token-purge.service.ts` | 86 |
 | `modules/iam/application/token.service.ts` | 37 |
 | `modules/iam/application/user.service.ts` | 112 |
 | `modules/iam/domain/api-key.repository.ts` | 31 |
@@ -20,17 +22,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/iam/domain/license-key.ts` | 8 |
 | `modules/iam/domain/license.repository.ts` | 9 |
 | `modules/iam/domain/license.ts` | 76 |
-| `modules/iam/domain/refresh-token.repository.ts` | 49 |
+| `modules/iam/domain/refresh-token.repository.ts` | 52 |
 | `modules/iam/domain/role.ts` | 18 |
 | `modules/iam/domain/user.entity.ts` | 14 |
 | `modules/iam/domain/user.repository.ts` | 31 |
-| `modules/iam/iam.module.ts` | 91 |
+| `modules/iam/iam.module.ts` | 93 |
 | `modules/iam/infrastructure/admin-seeder.ts` | 43 |
 | `modules/iam/infrastructure/prisma-api-key.repository.ts` | 77 |
 | `modules/iam/infrastructure/prisma-audit.repository.ts` | 44 |
 | `modules/iam/infrastructure/prisma-branding.repository.ts` | 42 |
 | `modules/iam/infrastructure/prisma-license.repository.ts` | 28 |
-| `modules/iam/infrastructure/prisma-refresh-token.repository.ts` | 91 |
+| `modules/iam/infrastructure/prisma-refresh-token.repository.ts` | 163 |
 | `modules/iam/infrastructure/prisma-user.repository.ts` | 89 |
 | `modules/iam/interface/api-key-auth.guard.ts` | 67 |
 | `modules/iam/interface/api-keys.controller.ts` | 56 |
@@ -162,6 +164,47 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `resolve(token)` · L71 · private
   - chama: `verifyLicense` (license.ts:46)
   - chamado por: `install` L55, `reload` L40
+
+## `modules/iam/application/refresh-token-purge.service.spec.ts`
+
+226 linhas · caminho: `apps/gateway/src/modules/iam/application/refresh-token-purge.service.spec.ts`
+- importa (interno): `modules/iam/application/refresh-token-purge.service.ts`
+
+- describe “RefreshTokenPurgeService — P-005” · L28
+  - it “não agenda timers nos testes; sweep explícito continua disponível” · L46
+  - it “agenda a primeira varredura após 2 min e as seguintes a cada 6 h” · L58
+  - it “usa carência padrão de 7 dias e lote de 500” · L90
+  - it “usa carência configurada e mantém o mesmo cutoff durante todos os lotes” · L100
+  - it “limita cada varredura a 20 lotes completos (10 mil linhas)” · L127
+  - it “encerra no lote parcial e registra somente o total removido” · L138
+  - it “encerra no lote vazio sem registrar remoções” · L149
+  - it “chamadas simultâneas compartilham uma execução e liberam a próxima varredura” · L157
+  - it “destroy cancela timers pendentes e impede varreduras posteriores” · L173
+  - it “destroy aguarda o lote em curso e impede o próximo, mesmo com lote completo” · L186
+  - it “registra erro sem rejeitar a execução e recupera na próxima varredura” · L208
+
+## `modules/iam/application/refresh-token-purge.service.ts`
+
+86 linhas · caminho: `apps/gateway/src/modules/iam/application/refresh-token-purge.service.ts`
+- importa (interno): `modules/iam/domain/refresh-token.repository.ts`
+- importado por: `modules/iam/application/refresh-token-purge.service.spec.ts`, `modules/iam/iam.module.ts`
+
+**class `RefreshTokenPurgeService`** L19 · @Injectable · `implements OnApplicationBootstrap`, `implements OnModuleDestroy`
+- injeta (construtor): `tokens: @Inject(REFRESH_TOKEN_REPOSITORY) RefreshTokenRepository`
+- `logger` · L23 · private · campo
+- `stopped` · L27 · private · campo
+- `constructor(tokens)` · L29
+- `onApplicationBootstrap()` · L34
+  - chama: `sweep` L51
+  - env: `NODE_ENV`, `RETENTION_SWEEP_HOURS`
+- `sweep()` · L51
+  - chama: `runSweep` L67
+  - chamado por: `onApplicationBootstrap` L34
+- `onModuleDestroy()` · L60 · async
+- `runSweep()` · L67 · private · async
+  - chama: `RefreshTokenRepository.purgeExpired` (refresh-token.repository.ts:48)
+  - chamado por: `sweep` L51
+  - env: `RETENTION_REFRESH_TOKENS_GRACE_DAYS`
 
 ## `modules/iam/application/token.service.ts`
 
@@ -341,11 +384,11 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/iam/domain/refresh-token.repository.ts`
 
-49 linhas · caminho: `apps/gateway/src/modules/iam/domain/refresh-token.repository.ts`
-- importado por: `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/prisma-refresh-token.repository.ts`
+52 linhas · caminho: `apps/gateway/src/modules/iam/domain/refresh-token.repository.ts`
+- importado por: `modules/iam/application/auth-session.service.ts`, `modules/iam/application/refresh-token-purge.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/prisma-refresh-token.repository.ts`, `gateway/test/refresh-token-purge.e2e-spec.ts`
 
 **Funções e constantes de topo**
-- `REFRESH_TOKEN_REPOSITORY` = `Symbol('REFRESH_TOKEN_REPOSITORY')` · L48
+- `REFRESH_TOKEN_REPOSITORY` = `Symbol('REFRESH_TOKEN_REPOSITORY')` · L51
 
 **Tipos**
 - interface `CreateRefreshTokenInput` L4 · 7 propriedade(s)
@@ -356,14 +399,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - implementado por: `PrismaRefreshTokenRepository.create` (prisma-refresh-token.repository.ts:14)
     - chamado por: `AuthSessionService.issue` (auth-session.service.ts:123)
   - `RefreshTokenRepository.rotate(input)` · L40
-    - implementado por: `PrismaRefreshTokenRepository.rotate` (prisma-refresh-token.repository.ts:31)
+    - implementado por: `PrismaRefreshTokenRepository.rotate` (prisma-refresh-token.repository.ts:35)
     - chamado por: `AuthSessionService.refresh` (auth-session.service.ts:85)
   - `RefreshTokenRepository.revokeFamilyByToken(tokenHash)` · L42
-    - implementado por: `PrismaRefreshTokenRepository.revokeFamilyByToken` (prisma-refresh-token.repository.ts:72)
+    - implementado por: `PrismaRefreshTokenRepository.revokeFamilyByToken` (prisma-refresh-token.repository.ts:77)
     - chamado por: `AuthSessionService.logout` (auth-session.service.ts:116)
   - `RefreshTokenRepository.revokeAllForUser(userId)` · L45
-    - implementado por: `PrismaRefreshTokenRepository.revokeAllForUser` (prisma-refresh-token.repository.ts:83)
+    - implementado por: `PrismaRefreshTokenRepository.revokeAllForUser` (prisma-refresh-token.repository.ts:91)
     - chamado por: `UserService.remove` (user.service.ts:97), `UserService.resetPassword` (user.service.ts:89), `UserService.update` (user.service.ts:69)
+  - `RefreshTokenRepository.purgeExpired(cutoff, batchSize)` · L48
+    - implementado por: `PrismaRefreshTokenRepository.purgeExpired` (prisma-refresh-token.repository.ts:102)
+    - chamado por: `RefreshTokenPurgeService.runSweep` (refresh-token-purge.service.ts:67)
 
 ## `modules/iam/domain/role.ts`
 
@@ -433,17 +479,17 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/iam/iam.module.ts`
 
-91 linhas · caminho: `apps/gateway/src/modules/iam/iam.module.ts`
-- importa (interno): `bootstrap/config.ts`, `modules/iam/application/api-key.service.ts`, `modules/iam/application/audit.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/branding.service.ts`, `modules/iam/application/license.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/domain/api-key.repository.ts`, `modules/iam/domain/audit.repository.ts`, `modules/iam/domain/branding.repository.ts`, `modules/iam/domain/license.repository.ts`, `modules/iam/domain/refresh-token.repository.ts`, `modules/iam/domain/user.repository.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-api-key.repository.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/iam/infrastructure/prisma-branding.repository.ts`, `modules/iam/infrastructure/prisma-license.repository.ts`, `modules/iam/infrastructure/prisma-refresh-token.repository.ts`, `modules/iam/infrastructure/prisma-user.repository.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/api-keys.controller.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/auth.guard.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/audit.interceptor.ts`, `modules/iam/interface/branding.controller.ts`, `modules/iam/interface/license.controller.ts`, `modules/iam/interface/roles.guard.ts`, `modules/iam/interface/users.controller.ts`
+93 linhas · caminho: `apps/gateway/src/modules/iam/iam.module.ts`
+- importa (interno): `bootstrap/config.ts`, `modules/iam/application/api-key.service.ts`, `modules/iam/application/audit.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/branding.service.ts`, `modules/iam/application/license.service.ts`, `modules/iam/application/refresh-token-purge.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/domain/api-key.repository.ts`, `modules/iam/domain/audit.repository.ts`, `modules/iam/domain/branding.repository.ts`, `modules/iam/domain/license.repository.ts`, `modules/iam/domain/refresh-token.repository.ts`, `modules/iam/domain/user.repository.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-api-key.repository.ts`, `modules/iam/infrastructure/prisma-audit.repository.ts`, `modules/iam/infrastructure/prisma-branding.repository.ts`, `modules/iam/infrastructure/prisma-license.repository.ts`, `modules/iam/infrastructure/prisma-refresh-token.repository.ts`, `modules/iam/infrastructure/prisma-user.repository.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/api-keys.controller.ts`, `modules/iam/interface/auth.controller.ts`, `modules/iam/interface/auth.guard.ts`, `modules/iam/interface/audit.controller.ts`, `modules/iam/interface/audit.interceptor.ts`, `modules/iam/interface/branding.controller.ts`, `modules/iam/interface/license.controller.ts`, `modules/iam/interface/roles.guard.ts`, `modules/iam/interface/users.controller.ts`
 - importado por: `app.module.ts`, `modules/campaigns/campaigns.module.ts`, `modules/channels/channels.module.ts`, `modules/contacts/contacts.module.ts`, `modules/events/events.module.ts`, `modules/groups/groups.module.ts`, `modules/guardrail/guardrail.module.ts`, `modules/messaging/messaging.module.ts`, `modules/observability/observability.module.ts`, `modules/proxies/proxies.module.ts`, `modules/sessions/sessions.module.ts`, `modules/webhooks/webhooks.module.ts`
 
-**@Module `IamModule`** L37
+**@Module `IamModule`** L38
 - imports: `[ JwtModule.registerAsync({ inject: [ConfigService], useFactory: (config: ConfigService<Env, true>) => ({ secret: config.get('JWT_SECRET', { infer: true }), signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', { infer: true }), // número (segundos) }, }), }), ]`
 - controllers: `[ AuthController, ApiKeysController, UsersController, LicenseController, BrandingController, AuditController, ]`
-- providers: `[ AuthSessionService, TokenService, UserService, LicenseService, BrandingService, AuditService, JwtAuthGuard, ApiKeyAuthGuard, RolesGuard, ApiKeyService, AdminSeeder, { provide: USER_REPOSITORY, useClass: PrismaUserRepository }, { provide: REFRESH_TOKEN_REPOSITORY, useClass: PrismaRefreshTokenRepository, }, { provide: API_KEY_REPOSITORY, useClass: PrismaApiKeyRepository }, { provide: LICENSE_REPO…`
+- providers: `[ AuthSessionService, RefreshTokenPurgeService, TokenService, UserService, LicenseService, BrandingService, AuditService, JwtAuthGuard, ApiKeyAuthGuard, RolesGuard, ApiKeyService, AdminSeeder, { provide: USER_REPOSITORY, useClass: PrismaUserRepository }, { provide: REFRESH_TOKEN_REPOSITORY, useClass: PrismaRefreshTokenRepository, }, { provide: API_KEY_REPOSITORY, useClass: PrismaApiKeyRepository …`
 - exports: `[ JwtModule, JwtAuthGuard, ApiKeyAuthGuard, RolesGuard, ApiKeyService, LicenseService, ]`
 
-**class `IamModule`** L37 · @Module({ imports: [ JwtModule.registerAsync({ inject: [ConfigServi…)
+**class `IamModule`** L38 · @Module({ imports: [ JwtModule.registerAsync({ inject: [ConfigServi…)
 
 ## `modules/iam/infrastructure/admin-seeder.ts`
 
@@ -545,25 +591,33 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/iam/infrastructure/prisma-refresh-token.repository.ts`
 
-91 linhas · caminho: `apps/gateway/src/modules/iam/infrastructure/prisma-refresh-token.repository.ts`
+163 linhas · caminho: `apps/gateway/src/modules/iam/infrastructure/prisma-refresh-token.repository.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `modules/iam/domain/refresh-token.repository.ts`
-- importado por: `modules/iam/iam.module.ts`
+- importado por: `modules/iam/iam.module.ts`, `gateway/test/refresh-token-purge.e2e-spec.ts`
 
 **class `PrismaRefreshTokenRepository`** L10 · @Injectable · `implements RefreshTokenRepository`
 - injeta (construtor): `prisma: PrismaService`
 - `constructor(prisma)` · L12
 - `create(input)` · L14 · async
   - implementa: `RefreshTokenRepository.create` (refresh-token.repository.ts:39)
+  - chama: `lockUser` L155
   - banco: `refreshToken.create`
-- `rotate(input)` · L31 · async
+- `rotate(input)` · L35 · async
   - implementa: `RefreshTokenRepository.rotate` (refresh-token.repository.ts:40)
+  - chama: `lockUser` L155
   - banco: `refreshToken.create`, `refreshToken.findUnique`, `refreshToken.updateMany`
-- `revokeFamilyByToken(tokenHash)` · L72 · async
+- `revokeFamilyByToken(tokenHash)` · L77 · async
   - implementa: `RefreshTokenRepository.revokeFamilyByToken` (refresh-token.repository.ts:42)
+  - chama: `lockUser` L155
   - banco: `refreshToken.findUnique`, `refreshToken.updateMany`
-- `revokeAllForUser(userId)` · L83 · async
+- `revokeAllForUser(userId)` · L91 · async
   - implementa: `RefreshTokenRepository.revokeAllForUser` (refresh-token.repository.ts:45)
+  - chama: `lockUser` L155
   - banco: `refreshToken.updateMany`
+- `purgeExpired(cutoff, batchSize)` · L102 · async
+  - implementa: `RefreshTokenRepository.purgeExpired` (refresh-token.repository.ts:48)
+- `lockUser(tx, userId)` · L155 · private · async
+  - chamado por: `create` L14, `revokeAllForUser` L91, `revokeFamilyByToken` L77, `rotate` L35
 
 ## `modules/iam/infrastructure/prisma-user.repository.ts`
 

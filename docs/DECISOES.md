@@ -114,7 +114,7 @@
   logout também receber o cookie e revogar a família.
 - **Alternativas:** sliding session (reemitir o cookie de 12h — rejeitado: não dá revogação nem
   detecção de roubo, é paliativo); refresh JWT com 2º secret (rejeitado: secret extra sem ganho real).
-- **Backlog:** job de purge de `refresh_tokens` expirados (índice em `expiresAt` já criado); revisar
+- **Atualização30/09 (E21/P-005/D-050):** purge entregue em código, preservando ancestral expirado de família protegida; publicação manual pendente. Backlog original: revisar
   se o node n8n precisa de algo (não — usa X-Api-Key). Detalhes: [how-to](how-to/auth-sessao-refresh-rotation.md).
 
 ## D-010 — 2026-07-21 — Upgrade da base de processo: universal v2.1 → v3.2 (R18)
@@ -1047,3 +1047,17 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
 - **Retenção:** env existente `RETENTION_MESSAGES_DAYS`, default 90 dias, 0 desliga; purge por `lastSeenAt`. ACK válido duplicado ou regressivo renova o carimbo sem regredir status. Consumo tolera purge concorrente; eventual remoção do pendente já lido não invalida INSERT/status.
 - **Compatibilidade/operação:** migration aditiva `20260930163000_pending_message_acks`, sem mudança em rota/payload/env/engine/n8n. N-1 ignora a tabela e mantém compatibilidade de schema, mas perde a correção e não participa do lock; primeira implantação exige stop-first. G4 delivery/read podem refletir os ACK recuperados, preservando identidade/ambiguidade/confiabilidade D-047. Publicação/canário manuais após C/D/E/F/B-004/B-005/B-007; recalcular snapshots7d ou aguardar24h antes do primeiro enforce/canário E21. P-100/P-101/P-102 abertas; P-099 sem drenar.
 - **Fontes e limites:** PostgreSQL local 18.4 e Prisma 7.10; documentação oficial PG18 de advisory locks/snapshots e Prisma de transações/SQL parametrizado conferida em 30/09. [Política, fontes e verificação](how-to/ack-persistencia-e21.md).
+
+## D-050 — 2026-09-30 — Purge preserva a trilha de reuso da família (P-005/E21)
+
+- **Evidência:** D-009 verifica revokedAt antes da expiração e renova expiresAt em cada rotação;
+  apagar A só pela data perderia a revogação de B. RED local confirmou purge inexistente;
+  fixtures SQL/HTTP e concorrência determinística validam o recorte, sem ocorrência produtiva nova.
+- **Decisão:** apagar em lotes500 somente expiresAt<cutoff; conservar família com qualquer
+  token não revogado expiresAt>=cutoff (margem7dias default,0 desliga). Todos os escritores
+  IAM coordenam por advisory xact lock userId; purge try-lock e DELETE posterior revalida
+  snapshot READ COMMITTED. CAS/leitura inicial preservam raced; TTL/cookies/HTTP intactos.
+- **Operação/limites:** até20lotes/sweep, timers2min/6h, single-flight e shutdown aguardado.
+  Famílias continuamente ativas retêm ancestrais sem horizonte arbitrário. Primeiro rollout
+  e rollback stop-first porque N-1 ignora lock; publicação manual e gates anteriores mantidos.
+  [Política, fontes oficiais e provas](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).

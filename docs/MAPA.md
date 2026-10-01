@@ -13,7 +13,7 @@
   [DONE E17](sessions/DONE-2026-09-29-1424-e17-bullmq6.md).
 
 - E21/P-013: [tipos W5 e provas de compatibilidade](sessions/DONE-2026-09-30-1955-e21-contratos-w5.md),
-  [inventário contracts](reference/mapa-codigo/contracts.md) e [próximo recorte P-005](ROTEIRO-ONDAS-2026-09.md#e21-continuação--p-005-purge-de-refresh-tokens-expirados--próximo-recorte).
+  [inventário contracts](reference/mapa-codigo/contracts.md) e [purge seguro P-005/D-050](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).
 
 ## Legenda de siglas
 
@@ -88,3 +88,7 @@ Sigla resolve? Use a sigla. Não resolve? Cite completo: "arquivo § seção"
 
 - E21/P-103: [Política de identidade/ambiguidade no reply-rate](how-to/reply-rate-identidade-e21.md), [triagem do backlog](reference/e21-triagem-backlog.md) e [reprodução histórica SELECT-only](reference/e20-reply-rate-key-collision.sql).
 - E21/P-018/P-091: [QR inicial esgotado: política e aceite manual](how-to/qr-esgotado-e21.md).
+
+- E21/P-005: [purge de refresh tokens preservando reuso](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050),
+  [provas/checkpoint](sessions/DONE-2026-09-30-2130-e21-refresh-purge.md), D-050;
+  [próximo recorte P-022](ROTEIRO-ONDAS-2026-09.md#e21-continuação--p-022-testes-do-domínio-de-licença--próximo-recorte).

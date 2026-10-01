@@ -44,6 +44,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/proxy-affinity.e2e-spec.ts` | 451 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
 | `gateway/test/proxy-suggestion.e2e-spec.ts` | 618 |
+| `gateway/test/refresh-token-purge.e2e-spec.ts` | 721 |
 | `gateway/test/reply-rate-identity.e2e-spec.ts` | 560 |
 | `gateway/test/send-contracts.e2e-spec.ts` | 232 |
 | `gateway/test/session-account-inventory.e2e-spec.ts` | 213 |
@@ -725,6 +726,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - it “sem login → 401” · L607
     - it “OPERATOR → 403 (rota é ADMIN)” · L612
 
+## `gateway/test/refresh-token-purge.e2e-spec.ts`
+
+721 linhas · caminho: `apps/gateway/test/refresh-token-purge.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `modules/iam/domain/refresh-token.repository.ts`, `modules/iam/infrastructure/prisma-refresh-token.repository.ts`, `shared-kernel/crypto.ts`, `gateway/test/setup-app.ts`
+
+- describe “E21/P-005 — purge seguro de refresh tokens” · L32
+  - it “reproduz acúmulo e remove expirados ativos/revogados sem remover ainda válidos” · L324
+  - it “limita cada lote e repete até drenar; nova execução é idempotente” · L339
+  - it “lote padrão remove no máximo 500 linhas” · L348
+  - it “ancestrais protegidos não ocupam o limite e não impedem coletar outra família” · L358
+  - it “usa expiresAt estritamente menor que cutoff e conserva família com terminal na margem” · L379
+  - it “A rotacionado/expirado sobrevive ao purge e seu reuso revoga B válido por HTTP e SQL” · L397
+  - it “reuso após purge e logout afetam somente a família, mesmo com outro login do usuário” · L431
+  - it “revokeAllForUser após purge revoga todas as famílias e preserva outro usuário” · L461
+  - it “logout com ancestral expirado retido pelo purge revoga o descendente e mantém outro login” · L477
+  - it “purge pula usuário com lock ocupado e coleta no retry após liberar” · L502
+  - it “dois purges com o mesmo snapshot contam cada DELETE uma vez e preservam token válido” · L547
+  - it “purge durante rotação na expiração não perde ancestral nem permite reuso do filho” · L576
+  - it “candidato anterior ao commit é revalidado sob lock e não apaga ancestral de filho novo” · L606
+  - it “duas abas que leram antes do lock continuam ok+raced; reuso posterior revoga o vencedor” · L649
+
 ## `gateway/test/reply-rate-identity.e2e-spec.ts`
 
 560 linhas · caminho: `apps/gateway/test/reply-rate-identity.e2e-spec.ts`
@@ -816,7 +838,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 197 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/send-contracts.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/refresh-token-purge.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/send-contracts.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L13

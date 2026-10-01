@@ -64,7 +64,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `shared-kernel/crypto.ts`
 
 157 linhas · caminho: `apps/gateway/src/shared-kernel/crypto.ts`
-- importado por: `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `shared-kernel/crypto.spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`
+- importado por: `modules/iam/application/api-key.service.ts`, `modules/iam/application/auth-session.service.ts`, `modules/iam/application/token.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `shared-kernel/crypto.spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/refresh-token-purge.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `scryptAsync` = `promisify< string, string, number, { N: number; r: number; p: number;…` · L18

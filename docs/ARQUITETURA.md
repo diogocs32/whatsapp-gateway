@@ -4,6 +4,10 @@
 > `schema.prisma` e o código real em 10/07/2026 (M0). Divergências do esboço original
 > registradas em [DECISOES.md](DECISOES.md) (D-002, D-003).
 
+P-005/E21: o IAM possui também `RefreshTokenPurgeService` interno (não exportado).
+Purge em lotes500 preserva a trilha de famílias protegidas e coordena mutações por
+advisory xact lock por usuário; [política/rollout D-050](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).
+
 ## Visão
 
 - Monorepo npm workspaces: `apps/gateway` (NestJS 12 no runtime, CLI 11 + Fastify 5; D-044) · `apps/dashboard` (React 19) · `packages/contracts` (tipos compartilhados)

@@ -1,6 +1,7 @@
 # Sessão do painel — refresh-token rotation (fim do 401 no meio do trabalho)
 
 > Substitui o modelo antigo de **JWT único de 12h**. Referência de arquitetura, operação e rollback.
+> Dono: equipe gateway · revisado em 30/09/2026 (P-005/E21).
 > Implementado na sessão R9 `2026-07-19-0332-auth-refresh-rotation`. Decisão: [D-009](../DECISOES.md).
 
 ## O problema que isto resolve
@@ -41,6 +42,62 @@ Cada `POST /api/auth/refresh` roda numa transação Postgres (`prisma-refresh-to
    próxima com o **mesmo `sessionId`**. Emite novo access + novo refresh.
 5. Corrida legítima de abas (duas rotam junto): a 2ª perde o `count===1` → `raced` → 401 **sem**
    revogar a família (a outra aba já entregou o par novo).
+
+### Retenção segura (P-005/E21 · D-050)
+
+`RefreshTokenPurgeService`, interno ao IAM, varre 2 minutos após o boot e depois
+cada `RETENTION_SWEEP_HOURS` (default6). `RETENTION_REFRESH_TOKENS_GRACE_DAYS`
+(default7; 0 desliga só este purge) define cutoff = agora − margem. Valores
+não finitos/negativos não executam limpeza. Não muda os TTLs nem os cookies.
+
+Cada chamada remove até500 linhas com `expiresAt < cutoff`. Uma família que
+possua qualquer token **não revogado com `expiresAt >= cutoff`** conserva todos
+os ancestrais, inclusive expirados/revogados. Isso também conserva a trilha
+quando o terminal expirou recentemente, dentro da margem. O registro de A
+continua disponível: A→B válido, expirar A, purge, reapresentar A → revogar B.
+Quando nenhuma linha não revogada estiver dentro da margem, só as expiradas
+antes do cutoff ficam elegíveis; revogadas ainda dentro do prazo não são apagadas.
+Famílias ativas por tempo indefinido podem conservar uma trilha longa; não se
+limita a cadeia porque isso enfraqueceria a detecção de reuso aprovada em D-009.
+
+Candidatos usam o índice existente `expiresAt` e excluem famílias protegidas
+antes do LIMIT. `create`, `rotate`, logout e `revokeAllForUser` compartilham
+advisory **transaction** lock por usuário (`iam-refresh-user:`). Purge tenta
+esse lock sem esperar: usuário ocupado fica para outra varredura. Depois do
+lock, um DELETE em comando separado revalida a família com snapshot atualizado
+READ COMMITTED. Evita apagar ancestral se uma rotação criou descendente depois
+da seleção. A leitura inicial/CAS da rotação permanece: duas requests que leram
+a linha válida retornam ok/raced; reuso observado depois da revogação revoga a
+família, mesmo com ancestral expirado. O lock coordena reset/rebaixamento com
+rotação; não muda a verificação de senha que ocorre antes de abrir novo login.
+
+Cada sweep tem até20 lotes500 (máximo10mil linhas); lote parcial/ocupado encerra
+esta passagem, e a próxima retoma. Transação curta por usuário, single-flight
+local, timers unref e erro registrado com retry na próxima varredura. Desligado
+no boot de testes; shutdown cancela timers, aguarda lote em voo e não inicia outro.
+Não exporta novo provider/porta para outros módulos. Sem migration/dependência nova.
+
+**Publicação e rollback:** primeira troca manual exige **stop-first**, pois N-1
+não participa do novo protocolo de lock. Não há limpeza em produção nesta etapa.
+Para desativar purge, usar margem0; para rollback, desativar purge e fazer troca
+stop-first na janela do dono. Registros legitimamente purgados não são recriados;
+famílias protegidas permanecem. Gates anteriores C/D/E/F/B-004/B-005/B-007,
+migration/stop-first D-049 e snapshots7d recalculados ou24h E21 continuam válidos.
+
+Provas locais: `npm run test:e2e -w apps/gateway -- refresh-token-purge.e2e-spec.ts`
+(PostgreSQL real/fixtures/HTTP, transporte falso) e
+`npm run test:unit -w apps/gateway -- refresh-token-purge.service.spec.ts`.
+Esses testes não demonstram publicação nem comportamento de conta WhatsApp real.
+
+Fontes conferidas para Prisma7.10.0/PostgreSQL18/Nest12.1.1/Node26:
+[Prisma7 SQL parametrizado](https://www.prisma.io/docs/orm/v7/prisma-client/using-raw-sql/raw-queries),
+[transações](https://www.prisma.io/docs/orm/v7/prisma-client/queries/transactions),
+[advisory locks PostgreSQL18](https://www.postgresql.org/docs/18/explicit-locking.html#ADVISORY-LOCKS),
+[snapshots READ COMMITTED](https://www.postgresql.org/docs/18/transaction-iso.html#XACT-READ-COMMITTED),
+[lifecycle Nest](https://docs.nestjs.com/fundamentals/lifecycle-events).
+Context7 ficou indisponível por transporte HTTP; docs oficiais e tipos/código
+instalados foram o fallback. A decisão de conservar a família deriva do fluxo
+D-009 existente e das fixtures; não é uma API de retenção oferecida pelo framework.
 
 ### Silent refresh no dashboard (`apps/dashboard/src/lib/api.ts`)
 
@@ -99,4 +156,4 @@ isto. Se precisar invalidar todas as sessões (ex.: suspeita de vazamento): `DEL
 - [x] Rotação de refresh + detecção de reuso (revoga família) — RFC 9700 §4.14.
 - [x] Refresh nunca em `localStorage` (cookie httpOnly); texto do refresh nunca persistido (só `sha512`).
 - [x] CORS com origem explícita + `Allow-Credentials: true` + `credentials:'include'`.
-- [ ] Purge de `refresh_tokens` expirados (job de limpeza) — backlog (não urgente; índice em `expiresAt` pronto).
+- [x] Purge de expirados no IAM preservando ancestrais de famílias protegidas (P-005/E21); código/CI/merge separados da publicação manual.

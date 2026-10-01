@@ -428,13 +428,27 @@ Preserve ACK durável D-049 (pending-only, ranking sent/delivered/read/error, la
 Consulte documentação oficial da versão instalada antes de APIs; prove compatibilidade com os schemas/fixtures e rode instalação estrita/patches/typechecks/builds/guardas/mapa/docs e revisão adequada ao diff. Nenhuma conta/QR/check/envio real, produção/Dokploy/deploy/canário. Smoke só com fixture SQL STOPPED/autostart=false e transporte falso. Deploys C/D/E/F/B-004/B-005/B-007 e canários manuais; D-049 exige migration aditiva e primeira publicação stop-first, snapshots7d E21 recalculados ou24h antes enforce/canário. Reconciliar docs e entregar mensagem do recorte seguinte.
 ```
 
-### E21 continuação — P-005 (purge de refresh tokens expirados) — próximo recorte
+### E21 continuação — P-005 (purge de refresh tokens expirados) — entregue em código30/09
+
+✅ P-005/D-050 ([PR #31](https://github.com/diogocs32/whatsapp-gateway/pull/31), implementação057ef42): purge IAM em lotes preserva ancestral expirado de família protegida;
+reuso após limpeza continua revogando descendente válido. Locks transacionais por
+usuário/recheck fresh READ COMMITTED e timers/lotes/shutdown testados. CI/merge
+no PR canônico; primeira publicação/rollback stop-first manual, sem migration nova.
+[Política e provas](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).
 
 ```text
 Continue E21/P-005 no ConexoZenvo pelas Regras de toda etapa. Atualize origin/main após merge do PR #30 e crie nova feature/*; um PR, revisão independente, CI verde e merge ao fim. Leia AGENTS.md, ESTADO, SESSOES completo, PENDENCIAS, DONE-2026-09-30-1955-e21-contratos-w5, D-009 e D-039–D-049, triagem E21 e MAPA-CODIGO iam/retention. Registre sessão e recorte antes de implementar.
 Objetivo limitado: purge de refresh_tokens expirados, usando o índice expiresAt existente. Inspecione rotação/famílias/detecção de reuso antes de definir a fronteira segura de exclusão; reproduza o acúmulo com fixtures e o caso A rotacionado/revogado e expirado, B descendente válido: após purge, reuso de A ainda precisa revogar B. Prove autenticação/logout, isolamento de famílias e concorrência purge/rotação; cada rotação renova o prazo, enquanto revokedAt é verificado antes de expiresAt. Não apagar registro ainda necessário à detecção de reuso nem ampliar para P-036/P-046 ou outros contratos/backlog. Se a política exigir decisão de produto, registre evidência/pendência antes de mudar comportamento público.
 Preserve ACK D-049, G4/G5 D-047, métrica30d/cota observe0, QR D-048 e tipos W5 P-013. Mantenha epochs/lease/CAS/8s, TS5.9.3/CLI11, Vitest5/.mts/SWC/e2e serial, node20/node16 CommonJS/buildinfo em dist e gates E16–E21. P-100/P-101/P-102 abertas, P-099 sem drenar; não tocar engine/ATIVA lid-envio-wwebjs nem repo publicado n8n.
 Consulte fontes oficiais da versão instalada antes de APIs; instalação estrita/patches, typechecks, testes de efeito adequados ao diff, builds/guardas/mapa/docs e revisão independente. Nenhuma conta/QR/check/envio real, produção/Dokploy/deploy/canário; smoke só SQL STOPPED/autostart=false e transporte falso. Deploys C/D/E/F/B-004/B-005/B-007 e canários manuais; primeira publicação D-049 exige migration aditiva e stop-first, E21 exige snapshots7d recalculados ou expiração24h antes enforce/canário. Reconciliar documentação, encerrar sessão, aguardar CI verde, fazer merge e entregar mensagem do recorte seguinte.
+```
+
+### E21 continuação — P-022 (testes do domínio de licença) — próximo recorte
+
+```text
+Continue E21/P-022 pelas Regras de toda etapa, em nova feature/* da origin/main após merge do PR #31/P-005; um PR, revisão independente, CI verde e merge ao fim. Leia ESTADO/SESSOES/PENDENCIAS, DONE-2026-09-30-2130-e21-refresh-purge, D-009/D-039–D-050, triagem E21 e MAPA-CODIGO iam/licença. Registre recorte antes de implementar: conferir cobertura existente e fechar somente lacuna dos testes de domínio de licença Ed25519 (assinatura/tampering/expiração/seat limites conforme comportamento e consumidor reais); sem funcionalidade nova, contrato ou alteração de política por hipótese. Use doc oficial da versão instalada e mutações com controle positivo; se lacuna já coberta, documente e escolha só outra lacuna independente da P-022.
+Preserve purge D-050 (família protegida/ancestral expirado/reuso, advisory userId/DELETE fresh READ COMMITTED/CAS/raced, lotes/timers/shutdown), ACK D-049, G4/G5 D-047, QR D-048, tipos W5, métrica30d/cota observe0 e gates E16–E21. TS5.9.3/CLI11/Vitest5/SWC/CJS/buildinfo e epochs/lease/CAS/8s mantidos; P-100/P-101/P-102 abertas/P-099 sem drenar; engine/ATIVA WWEBJS e node n8n intactos.
+Validação adequada ao diff, revisão, mapa e reconciliação R9. Nenhuma conta/QR/check/envio real, produção/Dokploy/deploy/canário; smoke só SQL STOPPED/autostart=false/transporte falso. Publicação e canários manuais C/D/E/F/B-004/B-005/B-007, primeira troca/rollback D-050 stop-first, migration/stop-first D-049, snapshots7d E21 recalculados ou expiração24h antes enforce/canário. Entregue mensagem do recorte seguinte.
 ```
 
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09

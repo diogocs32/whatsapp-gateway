@@ -43,6 +43,9 @@ export interface RefreshTokenRepository {
   // Revoga TODAS as famílias ativas do usuário (reset de senha, rebaixamento de papel, incidente —
   // ABE-09). Devolve quantos tokens foram revogados.
   revokeAllForUser(userId: string): Promise<number>;
+  // Remove até batchSize expirados antes do cutoff, conservando ancestrais de famílias
+  // com token não revogado dentro da margem. Revalida sob o lock usado pela rotação.
+  purgeExpired(cutoff: Date, batchSize?: number): Promise<number>;
 }
 
 export const REFRESH_TOKEN_REPOSITORY = Symbol('REFRESH_TOKEN_REPOSITORY');
