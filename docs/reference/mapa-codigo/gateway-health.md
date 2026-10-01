@@ -6,9 +6,21 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 | Arquivo | Linhas |
 | --- | --- |
+| `modules/health/health-memory.spec.ts` | 189 |
 | `modules/health/health.controller.ts` | 19 |
 | `modules/health/health.module.ts` | 10 |
 | `modules/health/health.service.ts` | 98 |
+
+## `modules/health/health-memory.spec.ts`
+
+189 linhas · caminho: `apps/gateway/src/modules/health/health-memory.spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `infra/redis/redis.service.ts`, `infra/storage/media-storage.service.ts`, `modules/health/health.service.ts`
+
+- describe “HealthService — pressão cgroup com memoryStats real” · L65
+  - it “mantém saúde pelo working set do container mesmo com heap acima de 90%” · L83
+  - it “degrada pelo container mesmo com heap abaixo de 90%” · L100
+  - it “mantém pressão current quando stat não fornece desconto reconhecido” · L165
+  - it “sem limite de container compara heap ao teto V8, sem usar heapTotal ou ler arquivos” · L175
 
 ## `modules/health/health.controller.ts`
 
@@ -38,7 +50,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 98 linhas · caminho: `apps/gateway/src/modules/health/health.service.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `infra/redis/redis.service.ts`, `infra/storage/media-storage.service.ts`, `shared-kernel/memory.ts`
-- importado por: `modules/health/health.controller.ts`, `modules/health/health.module.ts`
+- importado por: `modules/health/health-memory.spec.ts`, `modules/health/health.controller.ts`, `modules/health/health.module.ts`
 
 **class `HealthService`** L45 · @Injectable
 - injeta (construtor): `prisma: PrismaService` · `redis: RedisService` · `media: MediaStorage`

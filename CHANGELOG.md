@@ -4,6 +4,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-09-30 — E21/P-022: testes do parser cgroup (sem mudança de runtime)
+
+- Working set `memory.current−inactive_file`, leitura/valores inválidos e fallback
+  para heap V8 cobertos com arquivos/processo sintéticos, sem acessar cgroup do host.
+- Health e summary reais comprovam prioridade do container, arredondamento, limiar
+  existente e campos de métricas; gramática e política atuais preservadas.
+- Mutações com controles positivos e revisão independente. P-022 continua parcial;
+  próximo recorte: `withDeadline`/probes do health. [Evidência](docs/sessions/DONE-2026-09-30-2256-e21-cgroup-tests.md).
+
 ## 2026-09-30 — E21/P-022: testes de licença (sem mudança de runtime)
 
 - Regressões de licença Ed25519 real: assinatura, adulteração, formato/fallback,

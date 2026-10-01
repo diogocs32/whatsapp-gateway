@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. E13–E20/PRs19–26 e E21/PRs27–31 integradas; PR31 MERGED9db34ad/ci+imagensSUCCESS36798618238 reconfirmados30/09. **E21/P-022 licença entregue em testes**, sem mudança de runtime:58 regressões/6mutações,1096unitgateway+292painel, cobertura delimitada a licença100% e revisão independente verdes. [DONE](sessions/DONE-2026-09-30-2213-e21-license-tests.md), [PR #32](https://github.com/diogocs32/whatsapp-gateway/pull/32), implementação0433c79; CI/merge finais no PR canônico. P-022 segue parcial; próximo parser cgroup no roteiro. Purge D-050/ACK D-049/G4-G5 D-047/QR D-048 e gates anteriores preservados. P-100/P-101/P-102 abertas/P-099 sem drenar; publicação/canários C/D/E/F/B-004/B-005/B-007 manuais; primeira troca/rollback D-050 stop-first, migration/stop-first D-049, snapshots7d E21 recalculados ou24h antes enforce/canário. Produção último SHA documentado768fb26, sem conferência ao vivo; D-027 manual. [Mapa](MAPA-CODIGO.md).
+- **Execução em curso (desde25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. E13–E20/PRs19–26 e E21/PRs27–32 integradas; PR32 MERGEDc818f89/ci+imagensSUCCESS36801357400 e CI mainSUCCESS36802076236 reconfirmados30/09. **E21/P-022 parser cgroup entregue em testes**, sem runtime:58 regressões/oito mutações,1154unitgateway+292painel e revisão independente verdes. [DONE](sessions/DONE-2026-09-30-2256-e21-cgroup-tests.md), feature/onda21-cgroup-tests; CI/merge finais no PR canônico. P-022 parcial; próximo withDeadline/probes health no roteiro. Licença, D-050 purge/D-049 ACK/D-047 G4-G5/D-048 QR e gates anteriores preservados. P-100/P-101/P-102 abertas/P-099 sem drenar; publicação/canários C/D/E/F/B-004/B-005/B-007 manuais; primeira troca/rollback D-050 stop-first, migration/stop-first D-049, snapshots7d E21 recalculados ou24h antes enforce/canário. Produção último SHA documentado768fb26, sem conferência ao vivo; D-027 manual. [Mapa](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,14 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **30/09/2026 (E21/P-022 parser cgroup, sem mudança de runtime/deploy):**
+> memoryStats real tem working set/fallback/gramática permissiva cobertos com fontes
+> sintéticas, sem cgroup do host; health/summary reais provam arredondamento/limiar/campos.
+> 58 testes/oito mutações/1154unitgateway+292painel e revisão independente verdes.
+> [DONE](sessions/DONE-2026-09-30-2256-e21-cgroup-tests.md), feature/onda21-cgroup-tests;
+> CI/merge finais no PR canônico. P-022 parcial; próximo withDeadline/probes health.
+> Nenhuma operação produtiva; publicação/canários/gates anteriores manuais preservados.
 
 > **30/09/2026 (E21/P-005, D-050, [PR #31](https://github.com/diogocs32/whatsapp-gateway/pull/31), sem deploy):**
 > purge IAM em lotes500 preserva ancestral expirado de família protegida;

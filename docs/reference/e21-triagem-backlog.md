@@ -96,3 +96,21 @@ P-022 continua parcial. Próximo candidato independente: parse cgroup
 spec dedicado. Não criar extração/API/política por hipótese; conferir código/fonte
 oficial e provar working set/fallback sem Docker ou arquivos reais do host.
 P-100/P-101/P-102 abertas, P-099 sem drenar; gates/deploys/canários manuais preservados.
+
+## Continuação — testes do parser cgroup (30/09/2026, basec818f89)
+
+A lacuna sem spec dedicado foi reconfirmada após o merge do PR32/licença.
+O parser privado permanece dentro de memory.ts; testes exercitam memoryStats real
+com fs/process/v8 sintéticos, sem ler cgroup/proc do host. Working set usa somente
+inactive_file, chaves podem mudar de posição e erro de leitura devolve fallback V8.
+Ausência de chave equivale a desconto zero; working set não positivo após subtração
+devolve current. Gramática permissiva (Number(trim)/prefixo numérico) é caracterizada
+sem endurecimento. Health/summary reais provam prioridade container, ratios em duas
+casas, limiar <0.9 já existente e campos/unidades do resumo.
+
+[Provas/gates/mutações/limites](../sessions/DONE-2026-09-30-2256-e21-cgroup-tests.md).
+Chromium/PSS do mesmo arquivo fica fora do recorte; sem piso de cobertura novo.
+P-022 continua parcial. Próximo candidato independente: withDeadline/probes health
+(`health.service.ts:31-43/56-60`), ainda sem spec dedicado de resolução/rejeição/
+timeout/cleanup e probe pendurado encontrado. C10 e demais lacunas permanecem abertas.
+P-100/P-101/P-102 abertas/P-099 sem drenar, gates e publicação/canários manuais preservados.
