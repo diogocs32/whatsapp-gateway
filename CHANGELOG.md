@@ -4,6 +4,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-01 — E21/P-104: bootstrap C10 e aplicação efetiva (sem deploy)
+
+- Bootstrap sem transição recebe eventTs=epoch explícito, com updatedAt atual;
+  primeira aplicação no mesmo relógio funciona. getState preserva releituras;
+  bootstrap não zera/reclassifica eventTs legado.
+- evaluate.applied só é true quando esta chamada ganha a escrita e muda state;
+  false em replay/CAS perdido ou renovação de metadados no mesmo estado.
+  apply público/currentState/target/JSON, C10 estrito, CAS/retry/P2002/G6 preservados.
+- Regressões red/green SQL/gate/EventBus e concorrência por barreiras, controles
+  ORM/SQL de default e revisão/mutações. Sem migration/deps/operação produtiva.
+  P-022 parcial; P-105 registra advisory sharp em recorte separado.
+  [Provas/fontes/limites](docs/sessions/DONE-2026-10-01-0736-e21-guardrail-bootstrap.md).
+
 ## 2026-10-01 — E21/P-022: C10/default e ordenação GuardrailService (sem mudança de runtime)
 
 - 30 testes de efeito com GuardrailService/ReplyRate/Prisma/SQL/EventBus reais:

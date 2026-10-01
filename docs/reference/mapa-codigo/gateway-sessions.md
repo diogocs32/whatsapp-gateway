@@ -575,7 +575,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `onModuleDestroy()` · L346 · async
   - chama: `IEngine.shutdown` (engine.port.ts:338), `IEngine.stop` (engine.port.ts:330), `releaseLease` L241
 - `getOrCreateEngine(sessionId, engineType)` · L392 · private
-  - chama: `ContactDirectory.lidMap` (contact-directory.service.ts:190), `ContactDirectory.namesFor` (contact-directory.service.ts:150), `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.recordMany` (contact-directory.service.ts:69), `MediaStorage.put` (media-storage.service.ts:103), `GuardrailService.recordReachoutRestriction` (guardrail.service.ts:460), `ProxyResolver.reportFailure` (proxy-resolver.service.ts:139), `ProxyResolver.resolveAgent` (proxy-resolver.service.ts:223), `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:196), `ProxyResolver.resolveProxyConfig` (proxy-resolver.service.ts:173), `LeaseLostError.constructor` (session-lease.error.ts:2), `enqueueStatusWrite` L535, `epochOf` L133, `handleEngineEvent` L610, `isOwner` L128, `EngineFactory.create` (engine.factory.ts:11), `PostgresSessionLease.fenced` (postgres-session-lease.ts:63), `PostgresSessionLease.updateLastErrorDetails` (postgres-session-lease.ts:118)
+  - chama: `ContactDirectory.lidMap` (contact-directory.service.ts:190), `ContactDirectory.namesFor` (contact-directory.service.ts:150), `ContactDirectory.record` (contact-directory.service.ts:34), `ContactDirectory.recordMany` (contact-directory.service.ts:69), `MediaStorage.put` (media-storage.service.ts:103), `GuardrailService.recordReachoutRestriction` (guardrail.service.ts:506), `ProxyResolver.reportFailure` (proxy-resolver.service.ts:139), `ProxyResolver.resolveAgent` (proxy-resolver.service.ts:223), `ProxyResolver.resolveBaileysTransport` (proxy-resolver.service.ts:196), `ProxyResolver.resolveProxyConfig` (proxy-resolver.service.ts:173), `LeaseLostError.constructor` (session-lease.error.ts:2), `enqueueStatusWrite` L535, `epochOf` L133, `handleEngineEvent` L610, `isOwner` L128, `EngineFactory.create` (engine.factory.ts:11), `PostgresSessionLease.fenced` (postgres-session-lease.ts:63), `PostgresSessionLease.updateLastErrorDetails` (postgres-session-lease.ts:118)
   - chamado por: `requestPairingCodeUnlocked` L1201, `startUnlocked` L741
   - banco: `sessionConfig.findUnique`
 - `enqueueStatusWrite(sessionId, engine, operation, write)` · L535 · private
@@ -713,7 +713,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `IEngine.prepareForward` (engine.port.ts:378), `PreparedForward.send` (engine.port.ts:292), `ownedWorking` L1439, `sending` L1398
   - chamado por: `ForwardService.runReserved` (forward.service.ts:170)
 - `sending(sessionId)` · L1398 · private · async
-  - chama: `GuardrailService.canSendMessage` (guardrail.service.ts:442), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6), `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L200, `epochOf` L133, `working` L1426, `PostgresSessionLease.isCurrent` (postgres-session-lease.ts:55)
+  - chama: `GuardrailService.canSendMessage` (guardrail.service.ts:488), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6), `LeaseLostError.constructor` (session-lease.error.ts:2), `drain` L200, `epochOf` L133, `working` L1426, `PostgresSessionLease.isCurrent` (postgres-session-lease.ts:55)
   - chamado por: `prepareForward` L1377, `sendLocation` L1283, `sendMedia` L1275, `sendPoll` L1291, `sendReaction` L1359, `sendText` L1265
 - `working(sessionId)` · L1426 · private
   - chama: `IEngine.getStatus` (engine.port.ts:383), `constructor` L61, `epochOf` L133, `constructor` L70
@@ -2634,15 +2634,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `create(body)` · L102 · async · @Post · @MinRole('ADMIN')
   - chama: `LicenseService.effective` (license.service.ts:35), `MinRole` (roles.decorator.ts:8), `ProxyService.assignExclusive` (proxy.service.ts:258), `ProxyService.ensureAvailable` (proxy.service.ts:238), `SessionManager.start` (session-manager.service.ts:737), `SessionRepository.create` (session.repository.ts:32), `SessionRepository.delete` (session.repository.ts:48), `SessionRepository.findById` (session.repository.ts:33), `SessionRepository.findByName` (session.repository.ts:34), `SessionRepository.list` (session.repository.ts:35), `toDto` L46, `newId` (ulid.ts:4)
 - `list(state)` · L159 · async · @Get
-  - chama: `GuardrailService.statesFor` (guardrail.service.ts:621), `SessionRepository.list` (session.repository.ts:35), `toDto` L46
+  - chama: `GuardrailService.statesFor` (guardrail.service.ts:673), `SessionRepository.list` (session.repository.ts:35), `toDto` L46
 - `get(id)` · L179 · async · @Get(':id')
   - chama: `ensure` L422, `toDto` L46
 - `health(id)` · L185 · async · @Get(':id/health')
-  - chama: `GuardrailService.health` (guardrail.service.ts:595), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20)
+  - chama: `GuardrailService.health` (guardrail.service.ts:647), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20)
 - `getConfig(id)` · L194 · async · @Get(':id/config')
-  - chama: `GuardrailService.getState` (guardrail.service.ts:216), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20), `configDto` L65
+  - chama: `GuardrailService.getState` (guardrail.service.ts:218), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.get` (session-config.service.ts:20), `configDto` L65
 - `patchConfig(id, body)` · L201 · async · @Patch(':id/config')
-  - chama: `GuardrailService.getState` (guardrail.service.ts:216), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.update` (session-config.service.ts:28), `configDto` L65
+  - chama: `GuardrailService.getState` (guardrail.service.ts:218), `SessionConfigService.capFor` (session-config.service.ts:41), `SessionConfigService.update` (session-config.service.ts:28), `configDto` L65
 - `presence(id, body)` · L218 · async · @Post(':id/presence')
   - chama: `SessionManager.sendPresence` (session-manager.service.ts:1299)
 - `profileStatus(id, body)` · L234 · async · @Post(':id/profile/status')
@@ -2660,7 +2660,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `pause(id)` · L316 · @Post(':id/pause')
   - chama: `override` L321
 - `override(id, action)` · L321 · private · async
-  - chama: `GuardrailService.setManualState` (guardrail.service.ts:579)
+  - chama: `GuardrailService.setManualState` (guardrail.service.ts:631)
   - chamado por: `activate` L311, `pause` L316, `quarantine` L301, `warmup` L306
 - `start(id)` · L326 · async · @Post(':id/start')
   - chama: `SessionManager.start` (session-manager.service.ts:737), `ensure` L422

@@ -155,7 +155,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `runReserved` L170, `SendIntentService.fail` (send-intent.service.ts:105)
   - chamado por: `forward` L102
 - `runReserved(sessionId, orig, dests, input, reserved)` · L170 · private · async
-  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:423), `GuardrailService.canSendMessage` (guardrail.service.ts:442), `batchFingerprint` (forward.decision.ts:153), `batchStatus` (forward.decision.ts:176), `derivedKey` (forward.decision.ts:146), `destinationFingerprint` (forward.decision.ts:167), `exceedsFrequentLimit` (forward.decision.ts:135), `failAll` L460, `finishBatch` L479, `limitError` L520, `sendOne` L402, `toSource` L530, `SendIntentService.reserve` (send-intent.service.ts:26), `MessageRepository.findByIdempotencyKey` (message.repository.ts:80), `MessageRepository.findInboundChat` (message.repository.ts:92), `SessionManager.prepareForward` (session-manager.service.ts:1377)
+  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:469), `GuardrailService.canSendMessage` (guardrail.service.ts:488), `batchFingerprint` (forward.decision.ts:153), `batchStatus` (forward.decision.ts:176), `derivedKey` (forward.decision.ts:146), `destinationFingerprint` (forward.decision.ts:167), `exceedsFrequentLimit` (forward.decision.ts:135), `failAll` L460, `finishBatch` L479, `limitError` L520, `sendOne` L402, `toSource` L530, `SendIntentService.reserve` (send-intent.service.ts:26), `MessageRepository.findByIdempotencyKey` (message.repository.ts:80), `MessageRepository.findInboundChat` (message.repository.ts:92), `SessionManager.prepareForward` (session-manager.service.ts:1377)
   - chamado por: `run` L148
 - `sendOne(sessionId, prepared, p, results)` · L402 · private · async
   - chama: `pace` L445, `withTimeout` L547, `SendIntentService.complete` (send-intent.service.ts:88), `SendIntentService.fail` (send-intent.service.ts:105), `PreparedForward.send` (engine.port.ts:292)
@@ -633,7 +633,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `logger` · L237 · private · campo
 - `constructor(repo, reactions, manager, mediaStorage, guardrail, inboxSyn…)` · L239
 - `assertColdAllowed(id, cold)` · L257 · private · async
-  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:423), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6)
+  - chama: `GuardrailService.canSendCold` (guardrail.service.ts:469), `SessionQuarantinedException.constructor` (session-quarantined.exception.ts:6)
   - chamado por: `sendWithIntent` L562
 - `conversations(id, limit)` · L266 · async · @Get('conversations')
   - chama: `MessageRepository.listConversations` (message.repository.ts:110), `clampInt` (query-int.ts:4)

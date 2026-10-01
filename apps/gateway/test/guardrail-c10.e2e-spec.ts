@@ -157,11 +157,12 @@ function harness(client: PrismaClient, enforce = true, hooks: Hooks = {}) {
   };
 }
 
-describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais', () => {
+describe('E21/P-104 C10 — bootstrap, aplicação efetiva e efeitos SQL reais', () => {
   let fixture: Fixture;
   let prisma: PrismaClient;
   let sessionId: string;
   const base = new Date('2020-01-01T00:00:00.000Z');
+  const now = new Date('2040-01-01T00:00:00.000Z');
   const at = (milliseconds: number) => new Date(base.getTime() + milliseconds);
   const row = () =>
     prisma.sessionGuardrail.findUniqueOrThrow({ where: { sessionId } });
@@ -189,7 +190,7 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
     await fixture.seedSession(sessionId);
     // Só Date: timers/microtasks/socket SQL continuam reais.
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2040-01-01T00:00:00.000Z'));
+    vi.setSystemTime(now);
   });
   afterEach(async () => {
     vi.useRealTimers();
@@ -205,6 +206,7 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
     const h = harness(prisma);
     const initial = await h.service.getState(sessionId);
     expect(initial.state).toBe('ativa');
+    expect(initial.eventTs).toEqual(new Date(0));
     expect(initial.sessionId).toBe(sessionId);
     vi.setSystemTime(new Date('2050-01-01T00:00:00.000Z'));
     expect(await h.service.getState(sessionId)).toEqual(initial);
@@ -215,6 +217,32 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
     await h.flush();
     expect(h.events).toEqual([]);
   });
+
+  it.each([
+    ['anterior à sentinela', -1],
+    ['igual à sentinela', 0],
+  ] as const)(
+    'bootstrap recusa evento explícito %s sem mudar SQL/gate/eventos',
+    async (_label, eventTs) => {
+      const h = harness(prisma);
+      const initial = await h.service.getState(sessionId);
+      const returned = await h.service.apply(
+        sessionId,
+        'quarentena',
+        'evento explícito não aplicado',
+        new Date(eventTs),
+      );
+      expect(initial.eventTs).toEqual(new Date(0));
+      expect(returned).toEqual(initial);
+      expect(await row()).toEqual(initial);
+      expect(await h.service.canSendCold(sessionId)).toEqual({
+        allowed: true,
+        state: 'ativa',
+      });
+      await h.flush();
+      expect(h.events).toEqual([]);
+    },
+  );
 
   it.each([
     ['antigo', -1],
@@ -330,22 +358,21 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
     });
   });
 
-  it.each(['getState', 'health', 'canSendCold'] as const)(
+  it.each(['health', 'canSendCold'] as const)(
     'primeira transição manual após bootstrap por %s muda SQL/saúde/gate/eventos',
     async (bootstrap) => {
       const h = harness(prisma, false);
       await h.service[bootstrap](sessionId);
       const initial = await row();
       expect(initial.state).toBe('ativa');
+      expect(initial.eventTs).toEqual(new Date(0));
       await h.flush();
       expect(h.events).toEqual([]);
-      const next = new Date(initial.eventTs.getTime() + 1);
-      vi.setSystemTime(next);
       const result = await h.service.setManualState(sessionId, 'quarantine');
       expect(result.state).toBe('quarentena');
       expect(await row()).toMatchObject({
         state: 'quarentena',
-        eventTs: next,
+        eventTs: now,
         reason: 'override manual: quarantine',
       });
       await h.flush();
@@ -354,7 +381,7 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
       ]);
       expect(await h.service.health(sessionId)).toMatchObject({
         state: 'quarentena',
-        quarentena_desde: next.toISOString(),
+        quarentena_desde: now.toISOString(),
         enforce: false,
       });
       expect(await h.service.canSendCold(sessionId)).toEqual({
@@ -370,11 +397,9 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
     },
   );
 
-  it('evaluate novo após bootstrap persiste aquecimento medido pelo ReplyRate real', async () => {
+  it('evaluate no mesmo milissegundo do bootstrap aplica aquecimento e publica G6', async () => {
     const h = harness(prisma);
-    const initial = await h.service.getState(sessionId);
-    const next = new Date(initial.eventTs.getTime() + 1);
-    vi.setSystemTime(next);
+    await h.service.getState(sessionId);
     const result = await h.service.evaluate(sessionId);
     expect(result).toMatchObject({
       currentState: 'ativa',
@@ -385,7 +410,8 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
     });
     expect(await row()).toMatchObject({
       state: 'aquecimento',
-      eventTs: next,
+      eventTs: now,
+      reason: result.reason,
       quarentenaDesde: null,
       cooldownAte: null,
     });
@@ -393,55 +419,80 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
       state: 'aquecimento',
       amostra: 0,
     });
+    expect(await h.service.canSendCold(sessionId)).toEqual({
+      allowed: true,
+      state: 'aquecimento',
+    });
     await h.flush();
     expect(h.events.map((event) => event.event)).toEqual(['session.warming']);
+    expect(h.events[0].payload).toMatchObject({
+      state: 'aquecimento',
+      motivo: result.reason,
+      reply_rate: 0,
+      amostra: 0,
+    });
   });
 
-  it('evaluate no mesmo milissegundo reporta applied mas C10 mantém ativa sem evento', async () => {
-    const h = harness(prisma);
-    const initial = await h.service.getState(sessionId);
-    vi.setSystemTime(initial.eventTs);
-    const result = await h.service.evaluate(sessionId);
-    // Documenta o retorno atual do consumidor; applied sozinho não comprova escrita.
-    expect(result).toMatchObject({
-      currentState: 'ativa',
-      targetState: 'aquecimento',
-      applied: true,
-    });
-    expect(await row()).toEqual(initial);
-    expect(await h.service.canSendCold(sessionId)).toEqual({
-      allowed: true,
-      state: 'ativa',
-    });
-    await h.flush();
-    expect(h.events).toEqual([]);
-  });
-
-  it('override manual igual ao bootstrap mantém ativa e gate aberto sem evento', async () => {
+  it('override manual no mesmo milissegundo do bootstrap fecha gate e publica quarentena', async () => {
     const h = harness(prisma, false);
-    const initial = await h.service.getState(sessionId);
-    vi.setSystemTime(initial.eventTs);
-    expect(await h.service.setManualState(sessionId, 'quarantine')).toEqual(
-      initial,
-    );
-    expect(await row()).toEqual(initial);
+    await h.service.getState(sessionId);
+    const saved = await h.service.setManualState(sessionId, 'quarantine');
+    expect(await row()).toEqual(saved);
+    expect(saved).toMatchObject({
+      state: 'quarentena',
+      eventTs: now,
+      quarentenaDesde: now,
+      cooldownAte: new Date(now.getTime() + 48 * 3_600_000),
+      reason: 'override manual: quarantine',
+    });
     expect(await h.service.canSendCold(sessionId)).toEqual({
-      allowed: true,
-      state: 'ativa',
+      allowed: false,
+      state: 'quarentena',
+      reason: 'override manual: quarantine',
     });
     await h.flush();
-    expect(h.events).toEqual([]);
+    expect(h.events.map((event) => event.event)).toEqual([
+      'session.quarantined',
+      'send.blocked',
+    ]);
   });
 
-  it('sinal duro novo após bootstrap persiste banida/ultimoSinal e publica G6', async () => {
+  it.each([
+    ['antigo', -1],
+    ['igual', 0],
+  ] as const)(
+    'evaluate com timestamp %s à última transição retorna applied=false sem efeitos',
+    async (_label, offset) => {
+      const initial = await seed({ eventTs: now });
+      vi.setSystemTime(new Date(now.getTime() + offset));
+      const writes: number[] = [];
+      const h = harness(prisma, true, {
+        afterUpdate: (count) => writes.push(count),
+      });
+      expect(await h.service.evaluate(sessionId)).toMatchObject({
+        currentState: 'ativa',
+        targetState: 'aquecimento',
+        applied: false,
+      });
+      expect(writes).toEqual([]);
+      expect(await row()).toEqual(initial);
+      expect(await h.service.canSendCold(sessionId)).toEqual({
+        allowed: true,
+        state: 'ativa',
+      });
+      await h.flush();
+      expect(h.events).toEqual([]);
+    },
+  );
+
+  it('sinal duro no mesmo milissegundo após bootstrap persiste banida/ultimoSinal e publica G6', async () => {
     const h = harness(prisma);
     const initial = await h.service.getState(sessionId);
-    const next = new Date(initial.eventTs.getTime() + 1);
-    vi.setSystemTime(next);
+    expect(initial.eventTs).toEqual(new Date(0));
     await h.service.recordHardSignal(sessionId, 'ban');
     expect(await row()).toMatchObject({
       state: 'banida',
-      eventTs: next,
+      eventTs: now,
       reason: 'sinal duro: ban',
       ultimoSinal: 'ban',
     });
@@ -466,10 +517,93 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
     expect(h.events[2].event).toBe('send.blocked');
   });
 
+  it.each([
+    ['401', true, []],
+    ['ban', false, ['signal.restriction']],
+  ] as const)(
+    'sinal %s com enforce=%s cria bootstrap sem evento de transição e permite override imediato',
+    async (signal, enforce, signalEvents) => {
+      const h = harness(prisma, enforce);
+      await h.service.recordHardSignal(sessionId, signal);
+      const initial = await row();
+      expect(initial).toMatchObject({
+        state: 'ativa',
+        eventTs: new Date(0),
+        ultimoSinal: signal,
+      });
+      await h.flush();
+      expect(h.events.map((event) => event.event)).toEqual(signalEvents);
+      const returned = await h.service.setManualState(sessionId, 'quarantine');
+      expect(returned).toEqual(await row());
+      expect(returned).toMatchObject({
+        state: 'quarentena',
+        eventTs: now,
+        reason: 'override manual: quarantine',
+        ultimoSinal: signal,
+      });
+      expect(await h.service.canSendCold(sessionId)).toEqual({
+        allowed: false,
+        state: 'quarentena',
+        reason: 'override manual: quarantine',
+      });
+      await h.flush();
+      expect(h.events.map((event) => event.event)).toEqual([
+        ...signalEvents,
+        'session.quarantined',
+        'send.blocked',
+      ]);
+    },
+  );
+
+  it('evaluate em observação mantém bootstrap ativa, applied=false e gate aberto', async () => {
+    const writes: number[] = [];
+    const h = harness(prisma, false, {
+      afterUpdate: (count) => writes.push(count),
+    });
+    const result = await h.service.evaluate(sessionId);
+    expect(result).toMatchObject({
+      currentState: 'ativa',
+      targetState: 'aquecimento',
+      applied: false,
+      enforce: false,
+    });
+    const saved = await row();
+    expect(saved).toMatchObject({
+      state: 'ativa',
+      eventTs: new Date(0),
+      reason: null,
+    });
+    expect(await h.service.getState(sessionId)).toEqual(saved);
+    expect(writes).toEqual([]);
+    expect(await h.service.canSendCold(sessionId)).toEqual({
+      allowed: true,
+      state: 'ativa',
+    });
+    await h.flush();
+    expect(h.events).toEqual([]);
+  });
+
+  it('bootstraps concorrentes por upsert SQL retornam a mesma linha sem transição', async () => {
+    const first = harness(prisma);
+    const second = harness(await fixture.client());
+    const returned = await Promise.all([
+      first.service.getState(sessionId),
+      second.service.getState(sessionId),
+    ]);
+    const saved = await row();
+    expect(returned).toEqual([saved, saved]);
+    expect(saved).toMatchObject({ state: 'ativa', eventTs: new Date(0) });
+    expect(await prisma.sessionGuardrail.count({ where: { sessionId } })).toBe(
+      1,
+    );
+    await Promise.all([first.flush(), second.flush()]);
+    expect([...first.events, ...second.events]).toEqual([]);
+  });
+
   it('pausa manual nova bloqueia cold sem publicar evento de transição do catálogo', async () => {
     const h = harness(prisma, false);
     const initial = await h.service.getState(sessionId);
-    vi.setSystemTime(new Date(initial.eventTs.getTime() + 1));
+    expect(initial.eventTs).toEqual(new Date(0));
     await h.service.setManualState(sessionId, 'pause');
     expect(await row()).toMatchObject({
       state: 'pausa_manual',
@@ -633,6 +767,121 @@ describe('E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais'
       ).toBe(1);
     },
   );
+
+  it.each([
+    ['estado diferente mais novo', 'throttled', 1, false, [0]],
+    ['mesmo alvo e timestamp', 'aquecimento', 0, false, [0]],
+    ['mesmo alvo mais velho', 'aquecimento', -1, false, [0, 1]],
+    ['estado diferente mais velho', 'throttled', -1, true, [0, 1]],
+  ] as const)(
+    'evaluate após CAS vencida por %s reporta só a transição desta chamada',
+    async (_label, winnerState, offset, applied, expectedCounts) => {
+      await seed();
+      const held = deferred();
+      const release = deferred();
+      const counts: number[] = [];
+      const snapshots: Array<Date | undefined> = [];
+      const delayed = harness(prisma, true, {
+        beforeUpdate: async (args) => {
+          snapshots.push(args.where?.eventTs as Date | undefined);
+          if (snapshots.length === 1) {
+            held.resolve();
+            await release.promise;
+          }
+        },
+        afterUpdate: (count) => counts.push(count),
+      });
+      const winner = harness(prisma);
+      const winnerTs = new Date(now.getTime() + offset);
+      const operation = delayed.service.evaluate(sessionId);
+      let won!: Row;
+      try {
+        await reached(held.promise, operation);
+        won = await winner.service.apply(
+          sessionId,
+          winnerState,
+          'vencedor',
+          winnerTs,
+        );
+        await winner.flush();
+      } finally {
+        release.resolve();
+        await Promise.allSettled([operation]);
+      }
+      const result = await operation;
+      const saved = await row();
+      expect(result).toMatchObject({
+        currentState: 'ativa',
+        targetState: 'aquecimento',
+        applied,
+      });
+      expect(counts).toEqual(expectedCounts);
+      expect(snapshots).toEqual(offset < 0 ? [base, winnerTs] : [base]);
+      if (offset < 0) {
+        expect(saved).toMatchObject({
+          state: 'aquecimento',
+          eventTs: now,
+          reason: result.reason,
+        });
+      } else {
+        expect(saved).toEqual(won);
+      }
+      await delayed.flush();
+      expect(winner.events.map((event) => event.event)).toEqual([
+        winnerState === 'throttled' ? 'session.throttled' : 'session.warming',
+      ]);
+      expect(delayed.events.map((event) => event.event)).toEqual(
+        applied ? ['session.warming'] : [],
+      );
+      expect(await delayed.service.canSendCold(sessionId)).toEqual({
+        allowed: true,
+        state: saved.state,
+      });
+      await delayed.flush();
+      expect(delayed.events).toHaveLength(applied ? 1 : 0);
+      expect(
+        await prisma.sessionGuardrail.count({ where: { sessionId } }),
+      ).toBe(1);
+    },
+  );
+
+  it('evaluate após quatro CAS perdidas retorna applied=false sem publicar transição', async () => {
+    await seed();
+    const snapshots: Array<Date | undefined> = [];
+    const counts: number[] = [];
+    const h = harness(prisma, true, {
+      beforeUpdate: async (args) => {
+        snapshots.push(args.where?.eventTs as Date | undefined);
+        await prisma.sessionGuardrail.update({
+          where: { sessionId },
+          data: {
+            state: 'aquecimento',
+            reason: `concorrente-${snapshots.length}`,
+            eventTs: at(snapshots.length),
+          },
+        });
+      },
+      afterUpdate: (count) => counts.push(count),
+    });
+    expect(await h.service.evaluate(sessionId)).toMatchObject({
+      currentState: 'ativa',
+      targetState: 'aquecimento',
+      applied: false,
+    });
+    expect(snapshots).toEqual([base, at(1), at(2), at(3)]);
+    expect(counts).toEqual([0, 0, 0, 0]);
+    expect(await row()).toMatchObject({
+      state: 'aquecimento',
+      reason: 'concorrente-4',
+      eventTs: at(4),
+    });
+    expect(await h.service.canSendCold(sessionId)).toEqual({
+      allowed: true,
+      state: 'aquecimento',
+    });
+    await h.flush();
+    expect(h.events).toEqual([]);
+  });
 
   it('CAS perdido repetidamente faz no máximo quatro writes e retorna última linha SQL sem G6', async () => {
     await seed();

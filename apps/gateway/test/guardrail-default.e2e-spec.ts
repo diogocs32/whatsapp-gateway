@@ -15,9 +15,9 @@ import { ReplyRateService } from '../src/modules/observability/reply-rate.servic
 import { EventBus } from '../src/shared-kernel/event-bus/event-bus';
 import { createGuardrailFixture } from './guardrail-c10.fixture';
 
-// CURRENT_TIMESTAMP existe no DDL, mas este upsert materializa now() no cliente.
-// SQL/params + relógios separados provam o caminho instalado; INSERT SQL omitindo
-// eventTs é o controle positivo do default do banco, sem sleep nem relógio produtivo.
+// P-104: bootstrap recebe sentinela explícita, sem depender de now(). O controle
+// ORM sem eventTs ainda demonstra now() do cliente7.10; INSERT SQL omitindo
+// eventTs prova o default do banco, sem sleep nem relógio produtivo.
 describe('E21/P-022 C10 — origem do default eventTs (Prisma/SQL)', () => {
   let fixture: Awaited<ReturnType<typeof createGuardrailFixture>>;
   const nodeTime = new Date('2001-02-03T04:05:06.007Z');
@@ -76,9 +76,11 @@ describe('E21/P-022 C10 — origem do default eventTs (Prisma/SQL)', () => {
 
   for (const timeZone of ['UTC', 'America/Sao_Paulo', 'Asia/Tokyo']) {
     for (const mode of ['autocommit', 'transaction'] as const) {
-      it(`${timeZone}/${mode}: getState envia eventTs Node no INSERT e o persiste`, async () => {
+      it(`${timeZone}/${mode}: getState persiste sentinela; ORM omitido materializa now Node`, async () => {
         const sessionId = `prisma-${timeZone}-${mode}`;
+        const controlId = `control-${timeZone}-${mode}`;
         await fixture.seedSession(sessionId);
+        await fixture.seedSession(controlId);
         const client = await fixture.client(timeZone);
         vi.useFakeTimers({ toFake: ['Date'] });
         vi.setSystemTime(nodeTime);
@@ -101,13 +103,20 @@ describe('E21/P-022 C10 — origem do default eventTs (Prisma/SQL)', () => {
           >`
             SELECT "eventTs", "updatedAt", state::text FROM session_guardrail
             WHERE "sessionId" = ${sessionId}`;
-          expect(row.eventTs).toEqual(nodeTime);
+          expect(row.eventTs).toEqual(new Date(0));
           expect(row.updatedAt).toEqual(nodeTime);
           expect(persisted).toEqual({
-            eventTs: nodeTime,
+            eventTs: new Date(0),
             updatedAt: nodeTime,
             state: 'ativa',
           });
+          const control = await port.sessionGuardrail.create({
+            data: { id: controlId, sessionId: controlId, state: 'ativa' },
+          });
+          expect(control.eventTs).toEqual(nodeTime);
+          const [controlSql] = await port.$queryRaw<Array<{ eventTs: Date }>>`
+            SELECT "eventTs" FROM session_guardrail WHERE "sessionId" = ${controlId}`;
+          expect(controlSql.eventTs).toEqual(nodeTime);
         }
 
         if (mode === 'transaction') {
@@ -134,10 +143,26 @@ describe('E21/P-022 C10 — origem do default eventTs (Prisma/SQL)', () => {
           .map((column) => column.trim().replaceAll('"', ''));
         const params = JSON.parse(insert!.params) as unknown[];
         expect(columns).toContain('eventTs');
-        expect(params[columns.indexOf('eventTs')]).toBe(nodeTime.toISOString());
+        expect(params[columns.indexOf('eventTs')]).toBe(
+          new Date(0).toISOString(),
+        );
         expect(params[columns.indexOf('updatedAt')]).toBe(
           nodeTime.toISOString(),
         );
+        const controlInsert = fixture.queries.find(
+          (query) =>
+            query.query.startsWith('INSERT INTO') &&
+            query.query.includes('"session_guardrail"') &&
+            JSON.parse(query.params).includes(controlId),
+        );
+        expect(controlInsert).toBeDefined();
+        const controlColumns = controlInsert!.query
+          .match(/\(([^)]+)\) VALUES/)![1]
+          .split(',')
+          .map((column) => column.trim().replaceAll('"', ''));
+        expect(
+          JSON.parse(controlInsert!.params)[controlColumns.indexOf('eventTs')],
+        ).toBe(nodeTime.toISOString());
       });
     }
 
