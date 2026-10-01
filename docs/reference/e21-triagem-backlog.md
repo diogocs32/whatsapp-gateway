@@ -135,3 +135,31 @@ não fronteiras aleatórias. Conferir a lacuna e registrar recorte antes de impl
 sem exportar randInt nem mexer no worker. StripRaw/HMAC já têm provas de efeito no
 webhook-bullmq6.e2e-spec/crypto.spec; C10 exige prova própria Prisma/SQL/default.
 P-100/P-101/P-102 abertas/P-099 sem drenar, demais gates/publicação manuais preservados.
+
+## Continuação — agendamento CampaignService.start/resume (01/10/2026, base8987018)
+
+Lacuna reconfirmada após PR34/health: não existia spec dedicado ao serviço; os e2e
+recovery/BullMQ6 fixam min=max1/12 e scheduledAt null, provando recuperação/fila/8s.
+O novo campaign-scheduling.spec chama start/resume reais com repo/queue falsos,
+Date e Math.random controlados, sem exportar randInt nem alterar runtime/worker.
+Resultados literais cobrem offset futuro/passado/igual/null, jitter inclusivo e
+fronteiras internas, primeiro atraso/soma/ordem, epoch devolvida pelo CAS (inclui0)
+e jobId, startedAt/status/no-op/CAS perdida. Falhas pré-schedule não pausam;
+list/queue rejeitados pausam a mesma época; falha parcial não agenda o restante e
+resume posterior agenda todos PENDING em outra época. Barreiras verificam enqueue
+serial, winner/loser CAS e pausa aguardada, inclusive count0. Se pause falha, seu
+erro substitui o original conforme política existente, que não foi alterada.
+[Provas/gates/mutações](../sessions/DONE-2026-10-01-0058-e21-campaign-scheduling-tests.md).
+
+As portas falsas provam o contrato do serviço, sem nova prova de CAS SQL, jobs Redis,
+worker ou pontualidade de entrega. Essas provas de efeito continuam nos e2e existentes.
+Reconciliadas descrições antigas de prefixo resume-timestamp e requeue PAUSED no mapa;
+nenhuma mudança de política, API, deps, schema ou operação produtiva neste recorte.
+
+P-022 permanece parcial. Próximo recorte independente C10: getState omite eventTs no
+create, schema tem @default(now()) e migration DEFAULT CURRENT_TIMESTAMP. Fakes
+atuais assumem data; não decidem a origem do default nem comprovam ordenação contra
+clock Node/TimeZone SQL. Exige fixture Prisma/SQL isolada, relógio/TimeZone explícitos
+e eventos antigo/igual/novo pelo serviço real; não aplicar correção por hipótese.
+StripRaw/HMAC já têm provas de efeito. P-100/P-101/P-102 abertas/P-099 sem drenar,
+gates/publicação/canários manuais preservados.

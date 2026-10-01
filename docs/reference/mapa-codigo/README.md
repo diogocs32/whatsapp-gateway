@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 368 arquivos · 1838 símbolos (métodos/funções/assinaturas/constantes) · 1933 chamadas resolvidas · 1362 testes (it/test)
+- 369 arquivos · 1838 símbolos (métodos/funções/assinaturas/constantes) · 1933 chamadas resolvidas · 1375 testes (it/test)
 
 ## Áreas
 
@@ -14,7 +14,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | packages/contracts | 1 | 902 | [contracts.md](contracts.md) |
 | Dashboard (React) | 68 | 18275 | [dashboard.md](dashboard.md) |
 | Gateway — bootstrap (config, logs, adapter) | 15 | 1916 | [gateway-bootstrap.md](gateway-bootstrap.md) |
-| módulo `campaigns` | 6 | 1239 | [gateway-campaigns.md](gateway-campaigns.md) |
+| módulo `campaigns` | 7 | 1845 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 4 | 473 | [gateway-contacts.md](gateway-contacts.md) |
 | Gateway — testes e2e (apps/gateway/test) | 50 | 18012 | [gateway-e2e.md](gateway-e2e.md) |
