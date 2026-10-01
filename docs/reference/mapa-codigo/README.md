@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 366 arquivos · 1838 símbolos (métodos/funções/assinaturas/constantes) · 1933 chamadas resolvidas · 1350 testes (it/test)
+- 368 arquivos · 1838 símbolos (métodos/funções/assinaturas/constantes) · 1933 chamadas resolvidas · 1362 testes (it/test)
 
 ## Áreas
 
@@ -21,7 +21,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1701 | [gateway-guardrail.md](gateway-guardrail.md) |
-| módulo `health` | 4 | 316 | [gateway-health.md](gateway-health.md) |
+| módulo `health` | 6 | 837 | [gateway-health.md](gateway-health.md) |
 | módulo `iam` | 45 | 3493 | [gateway-iam.md](gateway-iam.md) |
 | Gateway — infra (prisma, redis, storage, directory) | 10 | 684 | [gateway-infra.md](gateway-infra.md) |
 | módulo `messaging` | 26 | 4335 | [gateway-messaging.md](gateway-messaging.md) |
