@@ -163,3 +163,28 @@ clock Node/TimeZone SQL. Exige fixture Prisma/SQL isolada, relógio/TimeZone exp
 e eventos antigo/igual/novo pelo serviço real; não aplicar correção por hipótese.
 StripRaw/HMAC já têm provas de efeito. P-100/P-101/P-102 abertas/P-099 sem drenar,
 gates/publicação/canários manuais preservados.
+
+## Continuação — C10 GuardrailService.getState/apply (01/10/2026, baseb842d4b)
+
+Dois specs com30testes por serviço/ReplyRate/Prisma/SQL/EventBus reais cobrem origem
+eventTs/default, ordenação antigo/igual/novo, bootstrap/consumidores, CAS/P2002
+concorrentes e limite4writes. Fixture aplica migrations versionadas em schema
+local exclusivo, sem copiar dados reais; relógio controla somente Date e barreiras
+de Promise ordenam concorrência/efeitos, sem sleep arbitrário.
+
+Prisma Client/adapter7.10.0/engine0edf envia eventTs/updatedAt gerados pelo Node no
+INSERT getState, embora DEFAULT CURRENT_TIMESTAMP exista no DDL. Seis caminhos
+autocommit/transação×UTC/SãoPaulo/Tokyo confrontam SQL/params/valor persistido com
+Node2001 e SQL atual. Três INSERTs SQL omitindo eventTs comprovam default real do
+banco, horário da mesma transação e deslocamento da coluna sem fuso pelo adapter.
+Hipótese de defaultDB/fuso no getState descartada; fonte primária da versão
+instalada explica a materialização cliente. [Fontes/provas/limites](../sessions/DONE-2026-10-01-0213-e21-guardrail-c10-tests.md).
+
+Dezessete mutações recusadas por assertions, com controles30/30 antes/depois;
+um mutante retryP2002→throw causou dois erros semânticos e foi contabilizado à parte.
+P-022 permanece parcial. **P-104 nova, reproduzida localmente:** empate após
+getState conserva ativa no override manual; evaluate retorna applied=true/target
+aquecimento sem escrever/emitir. Runtime atual foi caracterizado, não corrigido;
+próximo recorte delimita bootstrap/resultado efetivo sem abrir eventos explícitos
+antigos/iguais. Nenhuma ocorrência ou TimeZone de produção consultada. P-100/P-101/
+P-102 abertas/P-099 sem drenar; publicação/canários/gates anteriores mantidos.
