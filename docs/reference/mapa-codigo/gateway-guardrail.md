@@ -9,7 +9,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/guardrail/guardrail.controller.ts` | 56 |
 | `modules/guardrail/guardrail.module.ts` | 18 |
 | `modules/guardrail/guardrail.service.spec.ts` | 776 |
-| `modules/guardrail/guardrail.service.ts` | 631 |
+| `modules/guardrail/guardrail.service.ts` | 683 |
 | `modules/guardrail/session-quarantined.exception.ts` | 19 |
 | `modules/guardrail/undelivered-detector.service.spec.ts` | 88 |
 | `modules/guardrail/undelivered-detector.service.ts` | 113 |
@@ -28,7 +28,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `updateConfig(body)` · L37 · @Patch('config') · @MinRole('ADMIN')
   - chama: `GuardrailService.updateConfig` (guardrail.service.ts:177), `MinRole` (roles.decorator.ts:8)
 - `evaluate(sessionId)` · L51 · @Get(':sessionId')
-  - chama: `GuardrailService.evaluate` (guardrail.service.ts:249)
+  - chama: `GuardrailService.evaluate` (guardrail.service.ts:251)
 
 **Funções e constantes de topo**
 - `updateConfigSchema` = `z.object({ nmin: z.number().int().positive().optional(), throttleMult…` · L16
@@ -94,7 +94,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `modules/guardrail/guardrail.service.ts`
 
-631 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.service.ts`
+683 linhas · caminho: `apps/gateway/src/modules/guardrail/guardrail.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `shared-kernel/process-errors.ts`, `shared-kernel/ulid.ts`, `modules/sessions/application/engine.port.ts`, `modules/observability/reply-rate.service.ts`
 - importado por: `modules/campaigns/infrastructure/campaign-queue.ts`, `modules/guardrail/guardrail.controller.ts`, `modules/guardrail/guardrail.module.ts`, `modules/guardrail/guardrail.service.spec.ts`, `modules/messaging/application/forward.service.ts`, `modules/messaging/interface/messages.controller.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/sessions.controller.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/guardrail-c10.e2e-spec.ts`, `gateway/test/guardrail-default.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`
 
@@ -105,7 +105,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `constructor(prisma, replyRate, eventBus, config)` · L133
 - `isEnforcing()` · L151
 - `cfg()` · L157 · private · async
-  - chamado por: `apply` L333, `evaluate` L249, `fleetMedianReplyRate` L230, `getConfig` L173
+  - chamado por: `applyTransition` L362, `evaluate` L251, `fleetMedianReplyRate` L232, `getConfig` L173
   - banco: `guardrailConfig.findUnique`
 - `getConfig()` · L173 · async
   - chama: `cfg` L157
@@ -116,50 +116,53 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - banco: `guardrailConfig.upsert`
 - `emit(sessionId, event, payload)` · L190 · private · async
   - chama: `EventBus.publish` (event-bus.ts:21), `newId` (ulid.ts:4)
-  - chamado por: `apply` L333, `canSendCold` L423, `canSendMessage` L442, `recordHardSignal` L553, `recordReachoutRestriction` L460
+  - chamado por: `applyTransition` L362, `canSendCold` L469, `canSendMessage` L488, `recordHardSignal` L599, `recordReachoutRestriction` L506
   - banco: `waSession.findUnique`
   - publica evento: `'wa.event'`
-- `getState(sessionId)` · L216 · async
+- `getState(sessionId)` · L218 · async
   - chama: `newId` (ulid.ts:4)
-  - chamado por: `canSendCold` L423, `evaluate` L249, `health` L595, `SessionsController.getConfig` (sessions.controller.ts:194), `SessionsController.patchConfig` (sessions.controller.ts:201)
+  - chamado por: `canSendCold` L469, `evaluate` L251, `health` L647, `SessionsController.getConfig` (sessions.controller.ts:194), `SessionsController.patchConfig` (sessions.controller.ts:201)
   - banco: `sessionGuardrail.upsert`
-- `fleetMedianReplyRate()` · L230 · async
+- `fleetMedianReplyRate()` · L232 · async
   - chama: `cfg` L157
-  - chamado por: `evaluate` L249
+  - chamado por: `evaluate` L251
   - banco: `sessionMetric.findMany`
-- `evaluate(ref)` · L249 · async
-  - chama: `apply` L333, `cfg` L157, `fleetMedianReplyRate` L230, `getState` L216, `ReplyRateService.compute` (reply-rate.service.ts:69)
+- `evaluate(ref)` · L251 · async
+  - chama: `applyTransition` L362, `cfg` L157, `fleetMedianReplyRate` L232, `getState` L218, `ReplyRateService.compute` (reply-rate.service.ts:69)
   - chamado por: `GuardrailController.evaluate` (guardrail.controller.ts:51)
-- `apply(sessionId, state, reason, eventTs, ctx, attempt)` · L333 · async
-  - chama: `cfg` L157, `emit` L190, `emitFailed` L413, `newId` (ulid.ts:4)
-  - chamado por: `evaluate` L249, `recordHardSignal` L553, `setManualState` L579
+- `apply(sessionId, state, reason, eventTs, ctx, attempt)` · L341 · async
+  - chama: `applyTransition` L362
+  - chamado por: `recordHardSignal` L599, `setManualState` L631
+- `applyTransition(sessionId, state, reason, eventTs, ctx, attempt)` · L362 · private · async
+  - chama: `cfg` L157, `emit` L190, `emitFailed` L459, `newId` (ulid.ts:4)
+  - chamado por: `apply` L341, `evaluate` L251
   - banco: `sessionGuardrail.create`, `sessionGuardrail.findUnique`, `sessionGuardrail.updateMany`
-- `emitFailed(event, sessionId, e)` · L413 · private
+- `emitFailed(event, sessionId, e)` · L459 · private
   - chama: `recordProcessError` (process-errors.ts:9)
-  - chamado por: `apply` L333, `canSendCold` L423, `canSendMessage` L442, `recordHardSignal` L553, `recordReachoutRestriction` L460
-- `canSendCold(sessionId)` · L423 · async
-  - chama: `canSendMessage` L442, `emit` L190, `emitFailed` L413, `getState` L216
+  - chamado por: `applyTransition` L362, `canSendCold` L469, `canSendMessage` L488, `recordHardSignal` L599, `recordReachoutRestriction` L506
+- `canSendCold(sessionId)` · L469 · async
+  - chama: `canSendMessage` L488, `emit` L190, `emitFailed` L459, `getState` L218
   - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.assertColdAllowed` (messages.controller.ts:257)
-- `canSendMessage(sessionId)` · L442 · async
-  - chama: `emit` L190, `emitFailed` L413
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `canSendCold` L423, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:1398)
+- `canSendMessage(sessionId)` · L488 · async
+  - chama: `emit` L190, `emitFailed` L459
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `canSendCold` L469, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:1398)
   - banco: `sessionGuardrail.findUnique`
-- `recordReachoutRestriction(sessionId, signal, options)` · L460 · async
-  - chama: `emit` L190, `emitFailed` L413, `recordHardSignal` L553
+- `recordReachoutRestriction(sessionId, signal, options)` · L506 · async
+  - chama: `emit` L190, `emitFailed` L459, `recordHardSignal` L599
   - chamado por: `SessionManager.getOrCreateEngine` (session-manager.service.ts:392)
   - banco: `sessionGuardrail.updateMany`
-- `recordHardSignal(sessionId, signal)` · L553 · async
-  - chama: `apply` L333, `emit` L190, `emitFailed` L413, `newId` (ulid.ts:4)
-  - chamado por: `recordReachoutRestriction` L460
+- `recordHardSignal(sessionId, signal)` · L599 · async
+  - chama: `apply` L341, `emit` L190, `emitFailed` L459, `newId` (ulid.ts:4)
+  - chamado por: `recordReachoutRestriction` L506
   - banco: `sessionGuardrail.upsert`
-- `setManualState(ref, action)` · L579 · async
-  - chama: `apply` L333
+- `setManualState(ref, action)` · L631 · async
+  - chama: `apply` L341
   - chamado por: `SessionsController.override` (sessions.controller.ts:321)
   - banco: `waSession.findFirst`
-- `health(ref)` · L595 · async
-  - chama: `getState` L216, `ReplyRateService.compute` (reply-rate.service.ts:69)
+- `health(ref)` · L647 · async
+  - chama: `getState` L218, `ReplyRateService.compute` (reply-rate.service.ts:69)
   - chamado por: `SessionsController.health` (sessions.controller.ts:185)
-- `statesFor(sessionIds)` · L621 · async
+- `statesFor(sessionIds)` · L673 · async
   - chamado por: `SessionsController.list` (sessions.controller.ts:159)
   - banco: `sessionGuardrail.findMany`
 

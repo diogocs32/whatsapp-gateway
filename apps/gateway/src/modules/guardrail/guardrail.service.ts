@@ -58,7 +58,7 @@ export interface GuardrailEvaluation {
   enforce: boolean;
   currentState: GuardrailState;
   targetState: GuardrailState;
-  applied: boolean; // só true quando enforce aplicou a transição
+  applied: boolean; // só true quando esta chamada ganhou a escrita e mudou o estado
   replyRate: number;
   sample: number;
   reliable: boolean;
@@ -212,11 +212,13 @@ export class GuardrailService {
     });
   }
 
-  // Lê o estado (cria default 'ativa' idempotente). sessionId deve existir (FK).
+  // Bootstrap não é transição: epoch marca ausência de evento aplicado. Não disputa
+  // com a primeira transição no mesmo milissegundo; releituras mantêm linhas legadas.
+  // sessionId deve existir (FK).
   async getState(sessionId: string) {
     return this.prisma.sessionGuardrail.upsert({
       where: { sessionId },
-      create: { id: newId(), sessionId, state: 'ativa' },
+      create: { id: newId(), sessionId, state: 'ativa', eventTs: new Date(0) },
       update: {},
     });
   }
@@ -303,11 +305,17 @@ export class GuardrailService {
 
     let applied = false;
     if (this.enforce && target !== current && !STICKY.has(current)) {
-      await this.apply(sessionId, target, reason, now, {
-        replyRate: rr.replyRate,
-        sample: rr.sample,
-      });
-      applied = true;
+      const result = await this.applyTransition(
+        sessionId,
+        target,
+        reason,
+        now,
+        {
+          replyRate: rr.replyRate,
+          sample: rr.sample,
+        },
+      );
+      applied = result.applied;
     }
 
     return {
@@ -338,11 +346,32 @@ export class GuardrailService {
     ctx?: { replyRate?: number; sample?: number },
     attempt = 0,
   ): Promise<GuardrailRow> {
+    const result = await this.applyTransition(
+      sessionId,
+      state,
+      reason,
+      eventTs,
+      ctx,
+      attempt,
+    );
+    return result.row;
+  }
+
+  // A autoria vem do create/CAS, não do estado/timestamp retornado: um concorrente
+  // pode ter gravado o mesmo alvo. apply público conserva seu retorno de linha.
+  private async applyTransition(
+    sessionId: string,
+    state: GuardrailState,
+    reason: string,
+    eventTs: Date,
+    ctx?: { replyRate?: number; sample?: number },
+    attempt = 0,
+  ): Promise<{ row: GuardrailRow; applied: boolean }> {
     const existing = await this.prisma.sessionGuardrail.findUnique({
       where: { sessionId },
     });
     if (existing && existing.eventTs >= eventTs) {
-      return existing; // evento antigo/duplicado — ignora (C10)
+      return { row: existing, applied: false }; // antigo/duplicado — ignora (C10)
     }
     const previousState = existing?.state as GuardrailState | undefined;
     const quarentenaDesde =
@@ -368,7 +397,14 @@ export class GuardrailService {
         });
       } catch (e) {
         if ((e as { code?: string })?.code !== 'P2002' || attempt >= 3) throw e;
-        return this.apply(sessionId, state, reason, eventTs, ctx, attempt + 1);
+        return this.applyTransition(
+          sessionId,
+          state,
+          reason,
+          eventTs,
+          ctx,
+          attempt + 1,
+        );
       }
     } else {
       const won = await this.prisma.sessionGuardrail.updateMany({
@@ -380,11 +416,21 @@ export class GuardrailService {
           this.logger.warn(
             `guard-rail ${sessionId}: transição para ${state} perdeu a corrida 3× — mantida a última gravada`,
           );
-          return (await this.prisma.sessionGuardrail.findUnique({
-            where: { sessionId },
-          }))!;
+          return {
+            row: (await this.prisma.sessionGuardrail.findUnique({
+              where: { sessionId },
+            }))!,
+            applied: false,
+          };
         }
-        return this.apply(sessionId, state, reason, eventTs, ctx, attempt + 1);
+        return this.applyTransition(
+          sessionId,
+          state,
+          reason,
+          eventTs,
+          ctx,
+          attempt + 1,
+        );
       }
       saved = { ...existing, ...data };
     }
@@ -405,7 +451,7 @@ export class GuardrailService {
         }).catch((e: unknown) => this.emitFailed(event, sessionId, e));
       }
     }
-    return saved;
+    return { row: saved, applied: previousState !== state };
   }
 
   // WA-07: falha ao publicar um evento de proteção NÃO pode ser silenciosa — o n8n espera o
@@ -570,7 +616,13 @@ export class GuardrailService {
     }
     await this.prisma.sessionGuardrail.upsert({
       where: { sessionId },
-      create: { id: newId(), sessionId, state: 'ativa', ultimoSinal: signal },
+      create: {
+        id: newId(),
+        sessionId,
+        state: 'ativa',
+        ultimoSinal: signal,
+        eventTs: new Date(0),
+      },
       update: { ultimoSinal: signal },
     });
   }

@@ -390,6 +390,7 @@ Estados: `ativa | throttled | quarentena | aquecimento | banida | pausa_manual`.
 - **MODO OBSERVAÇÃO (padrão em instalação nova):** `GUARDRAIL_ENFORCE=false` → a avaliação
   automática mede, mas não aplica quarentena. Override manual ainda pode bloquear. **Ligue
   (`true`) só depois de ter a mediana real da frota.**
+- **Avaliação:** `GET /api/guardrail/{sessao}` mantém `currentState` como estado lido antes da tentativa e `targetState` como alvo calculado. `applied=true` significa que esta chamada ganhou a escrita e mudou o estado; replay antigo/igual, derrota concorrente ou escrita que só renova metadados devolvem false. Não comprova entrega do webhook. Bootstrap sem transição não disputa a primeira aplicação no mesmo milissegundo. Forma da resposta e C10 de eventos explícitos preservadas (E21/P-104); [provas/limites](sessions/DONE-2026-10-01-0736-e21-guardrail-bootstrap.md).
 - **Override manual:** `POST /api/sessions/{sessao}/quarantine|warmup|activate|pause`.
 - **Tunar limiares sem redeploy:** `GET`/`PATCH /api/guardrail/config`
   (`{ nmin, throttleMult, quarantineMult, targetReplyRate, cooldownHours }`).

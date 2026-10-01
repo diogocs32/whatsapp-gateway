@@ -188,3 +188,24 @@ aquecimento sem escrever/emitir. Runtime atual foi caracterizado, não corrigido
 próximo recorte delimita bootstrap/resultado efetivo sem abrir eventos explícitos
 antigos/iguais. Nenhuma ocorrência ou TimeZone de produção consultada. P-100/P-101/
 P-102 abertas/P-099 sem drenar; publicação/canários/gates anteriores mantidos.
+
+## Continuação — P-104 bootstrap C10 e retorno efetivo (01/10/2026, base57267e7)
+
+A reprodução anterior foi convertida em regressões red/green: bootstrap sem
+transição recebe eventTs=epoch explícito em getState e no create de registro de
+sinal, com updatedAt atual. getState preserva releituras; bootstrap não zera/reclassifica eventTs legado.
+apply público mantém retorno de linha; helper privado conserva C10/CAS/P2002
+e retorna autoria de transição. evaluate.applied só é true quando esta chamada
+ganha escrita e muda state. Vencedor no mesmo target/timestamp, retry que só
+renova metadados e derrota terminal retornam false.
+
+SQL/gate/EventBus reais e barreiras verificam primeira aplicação no mesmo relógio,
+consumidores/observe/sinais, antigos/iguais explícitos, CAS/retry/P2002. Controles
+ORM omitido e SQL omitido preservam a prova de origem do default7.10 e fuso.
+Não há migration/default/fuso/dep/API nova ou garantia nova de entrega webhook.
+[Provas/fontes/limites](../sessions/DONE-2026-10-01-0736-e21-guardrail-bootstrap.md). P-022 parcial; P-104 concluída em código.
+
+P-105 separada: cron Advisories da main identificou sharp0.35.4 vulnerável
+(GHSA-wq5f-xc86-pv6w high), com correção oficial0.35.5. Não alterada em P-104;
+próximo recorte deve validar patch/lock/imagens locais/CI sem WhatsApp.
+P-100/P-101/P-102 abertas/P-099 sem drenar; publicação/canários/gates mantidos.
