@@ -76,12 +76,12 @@ primeira troca e rollback stop-first porque N-1 ignora protocolo. Até20lotes500
 2min/6h, single-flight e shutdown aguardado. Famílias ativas indefinidamente
 conservam trilha longa; reset versus login fora do lock não é coberto por este recorte.
 
-- **PR/CI/merge:** um PR na feature da basebc2896d; link/checks finais no PR canônico
+- **PR/CI/merge:** implementação057ef42; [PR #31](https://github.com/diogocs32/whatsapp-gateway/pull/31) na feature da basebc2896d; checks finais no PR canônico
   após publicar o commit e a reconciliação final. Revisão independente código/testes aprovada;
-  revisão final documental acompanha fechamento. Nenhuma consulta/operação produtiva.
+  revisão final documental APROVADA (16links/âncoras sem erro, histórico15 e sessão alheia preservados, mapa em dia). Nenhuma consulta/operação produtiva.
 - **Reconciliação R3:** env nova → dois exemplos; política/rollout → how-to auth/D-050;
   scheduler/fluxo → ARQUITETURA/MAPA-CODIGO/inventários gerados; entrega/limites →
-  PENDENCIAS/triagem/roteiro/SESSOES/SESSOES_ARQUIVO/MAPA/este DONE; ESTADO após abrir PR.
+  PENDENCIAS/triagem/roteiro/SESSOES/SESSOES_ARQUIVO/MAPA/este DONE; ESTADO reconciliado após abrir PR31.
   Sem gatilho de rota/payload/schema/dependência/base ou README/CLAUDE novo.
 - **Pendências:** P-005 concluída em código. P-036/P-046 fora do recorte, próximo P-022
   testes de domínio de licença no roteiro. P-100/P-101/P-102 abertas/P-099 sem drenar.
@@ -110,7 +110,7 @@ conservam trilha longa; reset versus login fora do lock não é coberto por este
   e gates operacionais anteriores continuam manuais.
 - **DOCS TOCADAS:** CHANGELOG, ARQUITETURA, DECISOES, how-to/auth-sessao-refresh-rotation,
   MAPA-CODIGO e mapas gerados, MAPA, PENDENCIAS, triagem E21, ROTEIRO, SESSOES/ARQUIVO,
-  ESTADO após PR e este DONE. Exemplos env atualizados; sem n/a omitido.
+  ESTADO e este DONE. Exemplos env atualizados; sem n/a omitido.
 - **COMANDOS PARA VALIDAR:** npm ci --strict-allow-scripts/PUPPETEER_SKIP_DOWNLOAD=true;
   prisma generate; tsc gateway/dashboard/fixturee2e; npm run test:unit;
   npm run test:cov -w apps/gateway; builds gateway/dashboard; lint/formato/fronteiras;

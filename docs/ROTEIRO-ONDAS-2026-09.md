@@ -430,7 +430,7 @@ Consulte documentação oficial da versão instalada antes de APIs; prove compat
 
 ### E21 continuação — P-005 (purge de refresh tokens expirados) — entregue em código30/09
 
-✅ P-005/D-050: purge IAM em lotes preserva ancestral expirado de família protegida;
+✅ P-005/D-050 ([PR #31](https://github.com/diogocs32/whatsapp-gateway/pull/31), implementação057ef42): purge IAM em lotes preserva ancestral expirado de família protegida;
 reuso após limpeza continua revogando descendente válido. Locks transacionais por
 usuário/recheck fresh READ COMMITTED e timers/lotes/shutdown testados. CI/merge
 no PR canônico; primeira publicação/rollback stop-first manual, sem migration nova.
@@ -446,7 +446,7 @@ Consulte fontes oficiais da versão instalada antes de APIs; instalação estrit
 ### E21 continuação — P-022 (testes do domínio de licença) — próximo recorte
 
 ```text
-Continue E21/P-022 pelas Regras de toda etapa, em nova feature/* da origin/main após merge do PR P-005; um PR, revisão independente, CI verde e merge ao fim. Leia ESTADO/SESSOES/PENDENCIAS, DONE-2026-09-30-2130-e21-refresh-purge, D-009/D-039–D-050, triagem E21 e MAPA-CODIGO iam/licença. Registre recorte antes de implementar: conferir cobertura existente e fechar somente lacuna dos testes de domínio de licença Ed25519 (assinatura/tampering/expiração/seat limites conforme comportamento e consumidor reais); sem funcionalidade nova, contrato ou alteração de política por hipótese. Use doc oficial da versão instalada e mutações com controle positivo; se lacuna já coberta, documente e escolha só outra lacuna independente da P-022.
+Continue E21/P-022 pelas Regras de toda etapa, em nova feature/* da origin/main após merge do PR #31/P-005; um PR, revisão independente, CI verde e merge ao fim. Leia ESTADO/SESSOES/PENDENCIAS, DONE-2026-09-30-2130-e21-refresh-purge, D-009/D-039–D-050, triagem E21 e MAPA-CODIGO iam/licença. Registre recorte antes de implementar: conferir cobertura existente e fechar somente lacuna dos testes de domínio de licença Ed25519 (assinatura/tampering/expiração/seat limites conforme comportamento e consumidor reais); sem funcionalidade nova, contrato ou alteração de política por hipótese. Use doc oficial da versão instalada e mutações com controle positivo; se lacuna já coberta, documente e escolha só outra lacuna independente da P-022.
 Preserve purge D-050 (família protegida/ancestral expirado/reuso, advisory userId/DELETE fresh READ COMMITTED/CAS/raced, lotes/timers/shutdown), ACK D-049, G4/G5 D-047, QR D-048, tipos W5, métrica30d/cota observe0 e gates E16–E21. TS5.9.3/CLI11/Vitest5/SWC/CJS/buildinfo e epochs/lease/CAS/8s mantidos; P-100/P-101/P-102 abertas/P-099 sem drenar; engine/ATIVA WWEBJS e node n8n intactos.
 Validação adequada ao diff, revisão, mapa e reconciliação R9. Nenhuma conta/QR/check/envio real, produção/Dokploy/deploy/canário; smoke só SQL STOPPED/autostart=false/transporte falso. Publicação e canários manuais C/D/E/F/B-004/B-005/B-007, primeira troca/rollback D-050 stop-first, migration/stop-first D-049, snapshots7d E21 recalculados ou expiração24h antes enforce/canário. Entregue mensagem do recorte seguinte.
 ```
