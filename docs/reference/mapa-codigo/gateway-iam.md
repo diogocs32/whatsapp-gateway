@@ -10,10 +10,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/iam/application/audit.service.ts` | 23 |
 | `modules/iam/application/auth-session.service.ts` | 160 |
 | `modules/iam/application/branding.service.ts` | 23 |
+| `modules/iam/application/license.service.spec.ts` | 238 |
 | `modules/iam/application/license.service.ts` | 83 |
 | `modules/iam/application/refresh-token-purge.service.spec.ts` | 226 |
 | `modules/iam/application/refresh-token-purge.service.ts` | 86 |
 | `modules/iam/application/token.service.ts` | 37 |
+| `modules/iam/application/user.service.spec.ts` | 63 |
 | `modules/iam/application/user.service.ts` | 112 |
 | `modules/iam/domain/api-key.repository.ts` | 31 |
 | `modules/iam/domain/audit.repository.ts` | 20 |
@@ -21,6 +23,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/iam/domain/branding.ts` | 15 |
 | `modules/iam/domain/license-key.ts` | 8 |
 | `modules/iam/domain/license.repository.ts` | 9 |
+| `modules/iam/domain/license.spec.ts` | 180 |
 | `modules/iam/domain/license.ts` | 76 |
 | `modules/iam/domain/refresh-token.repository.ts` | 52 |
 | `modules/iam/domain/role.ts` | 18 |
@@ -137,11 +140,24 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `BrandingRepository.set` (branding.repository.ts:6)
   - chamado por: `BrandingController.update` (branding.controller.ts:35)
 
+## `modules/iam/application/license.service.spec.ts`
+
+238 linhas · caminho: `apps/gateway/src/modules/iam/application/license.service.spec.ts`
+- importa (interno): `bootstrap/config.ts`, `modules/iam/domain/license.ts`, `modules/iam/application/license.service.ts`
+
+- describe “LicenseService — licença assinada e efeitos locais” · L63
+  - it “carrega os claims assinados do repositório antes do bootstrap do env” · L75
+  - it “usa LICENSE_KEY quando não há token persistido, sem gravar o bootstrap” · L92
+  - it “instala token com espaços, persiste o token limpo e troca o cache” · L136
+  - it “não substitui o cache se a persistência da instalação falhar” · L173
+  - it “observa expiração no reload; effective mantém o cache entre recargas” · L185
+  - it “falha ao limpar não substitui o cache nem recarrega outra licença” · L226
+
 ## `modules/iam/application/license.service.ts`
 
 83 linhas · caminho: `apps/gateway/src/modules/iam/application/license.service.ts`
 - importa (interno): `bootstrap/config.ts`, `modules/iam/domain/license.ts`, `modules/iam/domain/license.repository.ts`
-- importado por: `modules/iam/application/user.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/interface/license.controller.ts`, `modules/sessions/interface/sessions.controller.ts`
+- importado por: `modules/iam/application/license.service.spec.ts`, `modules/iam/application/user.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/interface/license.controller.ts`, `modules/sessions/interface/sessions.controller.ts`
 
 **class `LicenseService`** L20 · @Injectable · `implements OnModuleInit`
 - injeta (construtor): `repo: @Inject(LICENSE_REPOSITORY) LicenseRepository` · `config: ConfigService<Env, true>`
@@ -224,11 +240,20 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chama: `sha512` (crypto.ts:154)
   - chamado por: `AuthSessionService.logout` (auth-session.service.ts:116), `AuthSessionService.refresh` (auth-session.service.ts:85)
 
+## `modules/iam/application/user.service.spec.ts`
+
+63 linhas · caminho: `apps/gateway/src/modules/iam/application/user.service.spec.ts`
+- importa (interno): `modules/iam/domain/user.repository.ts`, `modules/iam/application/user.service.ts`
+
+- describe “UserService — limite de assentos da licença” · L29
+  - it “cria usuário abaixo do limite efetivo” · L30
+  - it “seats expõe ocupação e limite efetivo da licença” · L58
+
 ## `modules/iam/application/user.service.ts`
 
 112 linhas · caminho: `apps/gateway/src/modules/iam/application/user.service.ts`
 - importa (interno): `shared-kernel/crypto.ts`, `shared-kernel/ulid.ts`, `modules/iam/domain/refresh-token.repository.ts`, `modules/iam/domain/role.ts`, `modules/iam/domain/user.entity.ts`, `modules/iam/domain/user.repository.ts`, `modules/iam/application/license.service.ts`
-- importado por: `modules/iam/iam.module.ts`, `modules/iam/interface/users.controller.ts`
+- importado por: `modules/iam/application/user.service.spec.ts`, `modules/iam/iam.module.ts`, `modules/iam/interface/users.controller.ts`
 
 **class `UserService`** L30 · @Injectable
 - injeta (construtor): `users: @Inject(USER_REPOSITORY) UserRepository` · `refreshTokens: @Inject(REFRESH_TOKEN_REPOSITORY) RefreshTokenRepository` · `license: LicenseService`
@@ -362,11 +387,27 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
     - implementado por: `PrismaLicenseRepository.clear` (prisma-license.repository.ts:24)
     - chamado por: `LicenseService.remove` (license.service.ts:66)
 
+## `modules/iam/domain/license.spec.ts`
+
+180 linhas · caminho: `apps/gateway/src/modules/iam/domain/license.spec.ts`
+- importa (interno): `modules/iam/domain/license.ts`
+
+- describe “verifyLicense — Ed25519/P-022” · L63
+  - it “confere a assinatura real do emissor e preserva todos os claims/limites” · L64
+  - it “aceita espaços externos ao token emitido” · L73
+  - it “mantém os limites mínimos do modo comunidade” · L81
+  - it “rejeita assinatura com um byte adulterado” · L117
+  - it “rejeita assinatura Ed25519 válida produzida por outra chave” · L126
+  - it “confere os bytes base64url, sem aceitar assinatura sobre JSON decodificado” · L133
+  - it “JSON inválido com assinatura correta cai no fallback sem lançar” · L149
+  - it “expira um milissegundo após exp e retira todos os claims pagos” · L167
+  - it “exp null permanece perpétua mesmo após a expiração do outro vetor” · L171
+
 ## `modules/iam/domain/license.ts`
 
 76 linhas · caminho: `apps/gateway/src/modules/iam/domain/license.ts`
 - importa (interno): `modules/iam/domain/license-key.ts`
-- importado por: `modules/iam/application/license.service.ts`, `modules/iam/interface/license.controller.ts`
+- importado por: `modules/iam/application/license.service.spec.ts`, `modules/iam/application/license.service.ts`, `modules/iam/domain/license.spec.ts`, `modules/iam/interface/license.controller.ts`
 
 **Funções e constantes de topo**
 - `LICENSE_PREFIX` = `'CZL1'` · L5
@@ -440,7 +481,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 31 linhas · caminho: `apps/gateway/src/modules/iam/domain/user.repository.ts`
 - importa (interno): `modules/iam/domain/role.ts`, `modules/iam/domain/user.entity.ts`
-- importado por: `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-user.repository.ts`
+- importado por: `modules/iam/application/auth-session.service.ts`, `modules/iam/application/user.service.spec.ts`, `modules/iam/application/user.service.ts`, `modules/iam/iam.module.ts`, `modules/iam/infrastructure/admin-seeder.ts`, `modules/iam/infrastructure/prisma-user.repository.ts`
 
 **Funções e constantes de topo**
 - `USER_REPOSITORY` = `Symbol('USER_REPOSITORY')` · L30

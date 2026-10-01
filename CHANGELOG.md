@@ -4,6 +4,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-09-30 — E21/P-022: testes de licença (sem mudança de runtime)
+
+- Regressões de licença Ed25519 real: assinatura, adulteração, formato/fallback,
+  expiração em ms/perpétua, bootstrap, persistência/cache e limites dos consumidores.
+- Chaves/tokens sintéticos; portas falsas comprovam rejeição antes de criar usuário
+  ou sessão. Política, contratos, dependências e produção preservados.
+- P-022 continua parcial; próximo recorte: parser cgroup. [Evidência](docs/sessions/DONE-2026-09-30-2213-e21-license-tests.md).
+
 ## 2026-09-30 — E21/P-005: purge seguro de refresh tokens (sem deploy)
 
 - IAM limpa expirados em lotes preservando ancestrais de famílias protegidas; reuso de

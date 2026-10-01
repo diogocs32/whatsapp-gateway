@@ -68,6 +68,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `modules/sessions/interface/public-connect.controller.ts` | 44 |
 | `modules/sessions/interface/session-account-inventory.controller.ts` | 17 |
 | `modules/sessions/interface/session-ref.pipe.ts` | 30 |
+| `modules/sessions/interface/sessions-license.spec.ts` | 110 |
 | `modules/sessions/interface/sessions.controller.ts` | 428 |
 | `modules/sessions/sessions.module.ts` | 51 |
 
@@ -914,7 +915,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `modules/sessions/domain/session-status.ts`
 
 15 linhas · caminho: `apps/gateway/src/modules/sessions/domain/session-status.ts`
-- importado por: `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-account-inventory.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/domain/connect-link.spec.ts`, `modules/sessions/domain/connect-link.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`
+- importado por: `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-account-inventory.service.ts`, `modules/sessions/application/session-manager.lifecycle.spec.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/domain/connect-link.spec.ts`, `modules/sessions/domain/connect-link.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts`, `modules/sessions/interface/sessions-license.spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `SESSION_STATUSES` = `[ 'STOPPED', 'STARTING', 'SCAN_QR_CODE', 'PAIRING_CODE', 'WORKING', '…` · L2
@@ -928,7 +929,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 26 linhas · caminho: `apps/gateway/src/modules/sessions/domain/session.entity.ts`
 - importa (interno): `modules/sessions/domain/session-status.ts`
-- importado por: `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/baileys/disconnect-policy.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/interface/sessions.controller.ts`
+- importado por: `modules/sessions/application/engine.port.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/infrastructure/baileys/baileys.engine.ts`, `modules/sessions/infrastructure/baileys/disconnect-policy.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/interface/sessions-license.spec.ts`, `modules/sessions/interface/sessions.controller.ts`
 
 **class `Session`** L8
 - injeta (construtor): `id: string` · `name: string` · `engine: Engine` · `status: SessionStatus` · `meJid: string | null` · `mePushName: string | null` · `phoneNumber: string | null` · `autostart: boolean` · `lastError: string | null` · `createdAt: Date` · `updatedAt: Date` · `lastErrorDetails: SessionErrorDetails | null` · `lastMeJid: string | null`
@@ -942,7 +943,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 57 linhas · caminho: `apps/gateway/src/modules/sessions/domain/session.repository.ts`
 - importa (interno): `modules/sessions/domain/session-status.ts`, `modules/sessions/domain/session.entity.ts`
-- importado por: `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`
+- importado por: `modules/sessions/application/connect-link.service.spec.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/application/session-status-order.spec.ts`, `modules/sessions/infrastructure/postgres-session-lease.ts`, `modules/sessions/infrastructure/prisma-session.repository.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/interface/sessions-license.spec.ts`, `modules/sessions/interface/sessions.controller.ts`, `modules/sessions/sessions.module.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/nest12-shutdown.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/session-status-dedup.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `SESSION_REPOSITORY` = `Symbol('SESSION_REPOSITORY')` · L56
@@ -2613,11 +2614,19 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `transform(value)` · L21 · async
   - chama: `SessionRepository.findById` (session.repository.ts:33), `SessionRepository.findByName` (session.repository.ts:34)
 
+## `modules/sessions/interface/sessions-license.spec.ts`
+
+110 linhas · caminho: `apps/gateway/src/modules/sessions/interface/sessions-license.spec.ts`
+- importa (interno): `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/domain/session-status.ts`, `modules/sessions/interface/sessions.controller.ts`
+
+- describe “SessionsController — limite de sessões da licença” · L55
+  - it “cria e chama o manager falso abaixo do limite efetivo” · L56
+
 ## `modules/sessions/interface/sessions.controller.ts`
 
 428 linhas · caminho: `apps/gateway/src/modules/sessions/interface/sessions.controller.ts`
 - importa (interno): `shared-kernel/safe-fetch.ts`, `shared-kernel/ulid.ts`, `modules/guardrail/guardrail.service.ts`, `modules/iam/application/license.service.ts`, `modules/proxies/application/proxy.service.ts`, `modules/iam/interface/api-key-auth.guard.ts`, `modules/iam/interface/roles.decorator.ts`, `modules/iam/interface/roles.guard.ts`, `modules/sessions/application/connect-link.service.ts`, `modules/sessions/application/session-config.service.ts`, `modules/sessions/application/session-manager.service.ts`, `modules/sessions/interface/session-ref.pipe.ts`, `modules/sessions/domain/session.entity.ts`, `modules/sessions/domain/session.repository.ts`, `modules/sessions/interface/dto.ts`
-- importado por: `modules/sessions/sessions.module.ts`
+- importado por: `modules/sessions/interface/sessions-license.spec.ts`, `modules/sessions/sessions.module.ts`
 
 **class `SessionsController`** L89 · @UseGuards(ApiKeyAuthGuard, RolesGuard) · @Controller('sessions')
 - injeta (construtor): `repo: @Inject(SESSION_REPOSITORY) SessionRepository` · `manager: SessionManager` · `license: LicenseService` · `guardrail: GuardrailService` · `sessionConfig: SessionConfigService` · `proxies: ProxyService` · `connectLinks: ConnectLinkService`
