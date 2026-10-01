@@ -4,6 +4,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-01 — E21/P-022: C10/default e ordenação GuardrailService (sem mudança de runtime)
+
+- 30 testes de efeito com GuardrailService/ReplyRate/Prisma/SQL/EventBus reais:
+  default efetivamente materializado pelo cliente7.10, SQL/default/params/persistência
+  em três fusos/autocommit/transação; antigo/igual/novo, bootstrap/consumidores e
+  concorrência CAS/P2002 com barreiras, sem sleep arbitrário.
+- 17 mutações recusadas por assertions, controles30/30 e revisão independente;
+  1890gateway/coverage+292painel e gates locais verdes. Runtime/API/schema intactos.
+  P-022 parcial; P-104 registra empate bootstrap e applied=true sem escrita/evento,
+  reproduzidos localmente. Nenhuma ocorrência/TimeZone/operação produtiva consultada.
+  [Provas/fontes/limites](docs/sessions/DONE-2026-10-01-0213-e21-guardrail-c10-tests.md).
+
 ## 2026-10-01 — E21/P-022: agendamento de CampaignService (sem mudança de runtime)
 
 - 75 regressões por start/resume reais com repo/queue, relógio e aleatoriedade falsos:

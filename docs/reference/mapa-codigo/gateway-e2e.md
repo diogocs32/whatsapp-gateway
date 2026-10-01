@@ -33,6 +33,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/g7.e2e-spec.ts` | 114 |
 | `gateway/test/g8.e2e-spec.ts` | 151 |
 | `gateway/test/groups-leads-fixtures.e2e-spec.ts` | 212 |
+| `gateway/test/guardrail-c10.e2e-spec.ts` | 675 |
+| `gateway/test/guardrail-c10.fixture.ts` | 127 |
+| `gateway/test/guardrail-default.e2e-spec.ts` | 182 |
 | `gateway/test/health.e2e-spec.ts` | 24 |
 | `gateway/test/inbox-triage.e2e-spec.ts` | 375 |
 | `gateway/test/media.e2e-spec.ts` | 554 |
@@ -511,6 +514,42 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - describe “P-061/E20 — A/B de leads exclusivamente com fixtures” · L149
   - it “all=true/1 conserva LID sem telefone e nunca inventa seu número” · L179
   - it “mostra diferença de cobertura quando só o Store fixture conhece um par LID” · L200
+
+## `gateway/test/guardrail-c10.e2e-spec.ts`
+
+675 linhas · caminho: `apps/gateway/test/guardrail-c10.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `generated/prisma/client.ts`, `infra/prisma/prisma.service.ts`, `modules/guardrail/guardrail.service.ts`, `modules/observability/reply-rate.service.ts`, `modules/sessions/application/engine.port.ts`, `shared-kernel/event-bus/event-bus.ts`, `gateway/test/guardrail-c10.fixture.ts`
+
+- describe “E21/P-022 C10 — ordenação e efeitos GuardrailService/Prisma reais” · L160
+  - it “getState cria ativa, não emite e conserva id/datas/campos nas releituras” · L204
+  - it “novo aplica quarentena no SQL, payload G6 e releitura idempotente de getState” · L248
+  - it “novo mesmo estado renova eventTs/reason/cooldown, preserva início e não duplica G6” · L290
+  - it “recuperação nova limpa início/cooldown e emite sessão recuperada uma vez” · L310
+  - it “evaluate novo após bootstrap persiste aquecimento medido pelo ReplyRate real” · L373
+  - it “evaluate no mesmo milissegundo reporta applied mas C10 mantém ativa sem evento” · L400
+  - it “override manual igual ao bootstrap mantém ativa e gate aberto sem evento” · L420
+  - it “sinal duro novo após bootstrap persiste banida/ultimoSinal e publica G6” · L436
+  - it “pausa manual nova bloqueia cold sem publicar evento de transição do catálogo” · L469
+  - it “CAS perdido repetidamente faz no máximo quatro writes e retorna última linha SQL sem G6” · L637
+
+## `gateway/test/guardrail-c10.fixture.ts`
+
+127 linhas · caminho: `apps/gateway/test/guardrail-c10.fixture.ts`
+- importa (interno): `generated/prisma/client.ts`
+- importado por: `gateway/test/guardrail-c10.e2e-spec.ts`, `gateway/test/guardrail-default.e2e-spec.ts`
+
+**Funções e constantes de topo**
+- `createGuardrailFixture()` · L11 · async
+  - banco: `waSession.create`
+  - env: `DATABASE_URL`, `DB_HOST`, `DB_NAME`, `DB_PASSWORD`, `DB_PORT`, `DB_USER`
+
+## `gateway/test/guardrail-default.e2e-spec.ts`
+
+182 linhas · caminho: `apps/gateway/test/guardrail-default.e2e-spec.ts`
+- importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `modules/guardrail/guardrail.service.ts`, `modules/observability/reply-rate.service.ts`, `shared-kernel/event-bus/event-bus.ts`, `gateway/test/guardrail-c10.fixture.ts`
+
+- describe “E21/P-022 C10 — origem do default eventTs (Prisma/SQL)” · L21
+  - it “migration mantém eventTs TIMESTAMP(3) sem fuso e DEFAULT CURRENT_TIMESTAMP” · L48
 
 ## `gateway/test/health.e2e-spec.ts`
 

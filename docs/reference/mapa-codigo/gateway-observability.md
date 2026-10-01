@@ -128,7 +128,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 252 linhas · caminho: `apps/gateway/src/modules/observability/reply-rate.service.ts`
 - importa (interno): `bootstrap/config.ts`, `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`
-- importado por: `modules/guardrail/guardrail.service.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`
+- importado por: `modules/guardrail/guardrail.service.ts`, `modules/observability/observability.controller.ts`, `modules/observability/observability.module.ts`, `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/guardrail-c10.e2e-spec.ts`, `gateway/test/guardrail-default.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`
 
 **class `ReplyRateService`** L30 · @Injectable
 - injeta (construtor): `prisma: PrismaService` · `config: ConfigService<Env, true>`

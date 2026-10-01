@@ -5,7 +5,7 @@
 Inventário determinístico gerado pelo compilador do TypeScript (type-checker). Relações de alto nível, fluxos e “onde mexer” por pendência: [MAPA-CODIGO.md](../../MAPA-CODIGO.md).
 
 - Regenerar: `node scripts/mapa-codigo.mjs` · conferir se está em dia: `node scripts/mapa-codigo.mjs --check`
-- 369 arquivos · 1838 símbolos (métodos/funções/assinaturas/constantes) · 1933 chamadas resolvidas · 1375 testes (it/test)
+- 372 arquivos · 1839 símbolos (métodos/funções/assinaturas/constantes) · 1933 chamadas resolvidas · 1386 testes (it/test)
 
 ## Áreas
 
@@ -17,7 +17,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | módulo `campaigns` | 7 | 1845 | [gateway-campaigns.md](gateway-campaigns.md) |
 | módulo `channels` | 2 | 87 | [gateway-channels.md](gateway-channels.md) |
 | módulo `contacts` | 4 | 473 | [gateway-contacts.md](gateway-contacts.md) |
-| Gateway — testes e2e (apps/gateway/test) | 50 | 18012 | [gateway-e2e.md](gateway-e2e.md) |
+| Gateway — testes e2e (apps/gateway/test) | 53 | 18996 | [gateway-e2e.md](gateway-e2e.md) |
 | módulo `events` | 3 | 92 | [gateway-events.md](gateway-events.md) |
 | módulo `groups` | 2 | 268 | [gateway-groups.md](gateway-groups.md) |
 | módulo `guardrail` | 7 | 1701 | [gateway-guardrail.md](gateway-guardrail.md) |
@@ -219,7 +219,7 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `waContact` | `ContactDirectory.record` | `ContactDirectory.lidMap`, `ContactDirectory.list`, `ContactDirectory.namesFor` |
 | `waLicense` | `PrismaLicenseRepository.clear`, `PrismaLicenseRepository.set` | `PrismaLicenseRepository.get` |
 | `waMessage` | `BaileysEngine.markMessage`, `BaileysEngine.mergeLidMessages`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.save`, `RetentionService.sweep`, `WWebJSEngine.mergeLidMessages` | `BaileysEngine.loadMessageForRetry`, `BaileysEngine.mergeKnownLids`, `BaileysEngine.onMessagesUpsert`, `BaileysEngine.prepareForward`, `MetricsService.counters`, `PrismaInboxRepository.findLastInbound`, `PrismaMessageRepository.findByIdempotencyKey`, `PrismaMessageRepository.findByKeyId`, `PrismaMessageRepository.findByRef`, `PrismaMessageRepository.findInboundChat`, `PrismaMessageRepository.listByChat`, `PrismaMessageRepository.reconcileAck`, `PrismaMessageRepository.saveHistorical`, `PrismaMessageRepository.searchMessages`, `WWebJSEngine.mergeExistingLids` |
-| `waSession` | `PostgresSessionLease.clearAuth`, `PostgresSessionLease.setLastMeJid`, `PostgresSessionLease.updateLastErrorDetails`, `PostgresSessionLease.updateStatus`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.removeUnlocked`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `NewRecipientsService.compute`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.resolveSessionId`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `SessionManager.startUnlocked`, `usePostgresAuthState` |
+| `waSession` | `PostgresSessionLease.clearAuth`, `PostgresSessionLease.setLastMeJid`, `PostgresSessionLease.updateLastErrorDetails`, `PostgresSessionLease.updateStatus`, `PrismaSessionRepository.create`, `PrismaSessionRepository.delete`, `PrismaSessionRepository.setLastMeJid`, `PrismaSessionRepository.updateLastErrorDetails`, `PrismaSessionRepository.updateStatus`, `SessionManager.removeUnlocked`, `createGuardrailFixture`, `removeSession`, `seedSession`, `usePostgresAuthState` | `GuardrailService.emit`, `GuardrailService.setManualState`, `MetricsService.counters`, `NewRecipientsService.compute`, `PrismaProxyRepository.proxyOwnerName`, `PrismaProxyRepository.resolveSessionId`, `PrismaProxyRepository.usedProxyIds`, `PrismaSessionRepository.findAutostart`, `PrismaSessionRepository.findById`, `PrismaSessionRepository.findByName`, `PrismaSessionRepository.list`, `ReplyRateService.resolveSessionId`, `SessionManager.requestPairingCodeUnlocked`, `SessionManager.startUnlocked`, `usePostgresAuthState` |
 | `waSessionEvent` | `RetentionService.sweep`, `SessionEventLogger.onModuleInit` | `MetricsService.timeline`, `PrismaConnectLinkRepository.hasWorkingSince` |
 | `webhook` | `PrismaWebhookRepository.create`, `PrismaWebhookRepository.delete`, `PrismaWebhookRepository.setEnabled` | `PrismaWebhookRepository.findById`, `PrismaWebhookRepository.listEnabled`, `PrismaWebhookRepository.list`, `WebhookQueue.redeliverDeadLetters` |
 | `webhookDeadLetter` | `WebhookQueue.redeliverDeadLetters`, `WebhookQueue.toDeadLetter` | `WebhookQueue.listDeadLetters`, `WebhookQueue.redeliverDeadLetters` |
@@ -236,18 +236,18 @@ Inventário determinístico gerado pelo compilador do TypeScript (type-checker).
 | `CORS_ORIGIN` | `base` (config.ts) |
 | `DASHBOARD_PASSWORD` | `base` (config.ts) |
 | `DASHBOARD_USERNAME` | `base` (config.ts) |
-| `DATABASE_URL` | `base` (config.ts) |
-| `DB_HOST` | `base` (config.ts) |
-| `DB_NAME` | `base` (config.ts) |
-| `DB_PASSWORD` | `base` (config.ts) |
+| `DATABASE_URL` | `base` (config.ts), `createGuardrailFixture` (guardrail-c10.fixture.ts) |
+| `DB_HOST` | `base` (config.ts), `createGuardrailFixture` (guardrail-c10.fixture.ts) |
+| `DB_NAME` | `base` (config.ts), `createGuardrailFixture` (guardrail-c10.fixture.ts) |
+| `DB_PASSWORD` | `base` (config.ts), `createGuardrailFixture` (guardrail-c10.fixture.ts) |
 | `DB_POOL_CONNECT_TIMEOUT_MS` | `base` (config.ts) |
 | `DB_POOL_IDLE_TIMEOUT_MS` | `base` (config.ts) |
 | `DB_POOL_MAX` | `base` (config.ts) |
-| `DB_PORT` | `base` (config.ts) |
+| `DB_PORT` | `base` (config.ts), `createGuardrailFixture` (guardrail-c10.fixture.ts) |
 | `DB_SSL` | `base` (config.ts) |
 | `DB_SSL_CA` | `base` (config.ts) |
 | `DB_SSL_REJECT_UNAUTHORIZED` | `base` (config.ts) |
-| `DB_USER` | `base` (config.ts) |
+| `DB_USER` | `base` (config.ts), `createGuardrailFixture` (guardrail-c10.fixture.ts) |
 | `EGRESS_ALLOW_HOSTS` | `base` (config.ts) |
 | `EGRESS_ALLOW_PRIVATE` | `base` (config.ts) |
 | `EVENT_FANOUT` | `EventFanout.onModuleInit` (event-fanout.ts) |
