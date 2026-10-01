@@ -75,3 +75,24 @@ boot2min/6h, single-flight/shutdown aguardado; nenhuma mudança de TTL/HTTP/sche
 Primeira troca/rollback stop-first, publicação/canários manuais; não cobre P-036/P-046.
 Próximo recorte proposto P-022: testes de domínio de licença, sem funcionalidade nova.
 P-100/P-101/P-102 abertas, P-099 sem drenar; D-047/D-048/D-049 e tipos W5 preservados.
+
+## Continuação — testes de licença (30/09/2026, base9db34ad)
+
+A lacuna da licença foi confirmada sem specs dedicados na base do PR31/P-005.
+E21/P-022 acrescenta testes de domínio com Node crypto real e somente a confiança
+pública substituída; fixtures fixas vieram do emissor offline com chave de teste
+RFC8032 temporária. Service usa par sintético descartável, repo/config e consumidores
+com portas falsas. Não foi acessada a chave privada real nem iniciada engine.
+
+O recorte fixa o comportamento atual: exp em ms e igualdade aceita, null perpétua;
+repo precede env inclusive vazio/inválido, comunidade usa limites configurados,
+persistência falha preserva cache, remove pode restaurar o env. Assentos/sessões
+bloqueiam em >=, incluindo zero; maxSessions conta registros de todos os status.
+Claims sem schema e cache até reload/install permanecem limites documentados.
+[Provas/gates/mutações](../sessions/DONE-2026-09-30-2213-e21-license-tests.md).
+
+P-022 continua parcial. Próximo candidato independente: parse cgroup
+`shared-kernel/memory.ts:70-83`, usado por `memoryStats` e `/health`, ainda sem
+spec dedicado. Não criar extração/API/política por hipótese; conferir código/fonte
+oficial e provar working set/fallback sem Docker ou arquivos reais do host.
+P-100/P-101/P-102 abertas, P-099 sem drenar; gates/deploys/canários manuais preservados.
