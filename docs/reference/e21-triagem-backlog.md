@@ -63,3 +63,15 @@ o node não depende do pacote privado de tipos e seu repo não foi editado.
 Fixtures compiladas pelo tsc e HTTP/SQL com manager falso comprovam o recorte.
 Demais divergências de contratos do mapa seguem P-040; demais itens da triagem
 continuam abertos. ACK D-049, G4/G5 D-047 e QR D-048 preservados; sem deploy/canário.
+
+## Continuação — purge de refresh tokens (30/09/2026, basebc2896d)
+
+P-005 entregue no IAM: cutoff com margem7dias/0desliga, lotes500 e família
+protegida retém ancestrais expirados/revogados. Reapresentar ancestral após purge
+continua revogando descendente válido. Locks de escritores por usuário e DELETE
+fresh READ COMMITTED explícito coordenam com rotação/revogação. Até20lotes/sweep,
+boot2min/6h, single-flight/shutdown aguardado; nenhuma mudança de TTL/HTTP/schema.
+[D-050/política/provas/limites](../how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).
+Primeira troca/rollback stop-first, publicação/canários manuais; não cobre P-036/P-046.
+Próximo recorte proposto P-022: testes de domínio de licença, sem funcionalidade nova.
+P-100/P-101/P-102 abertas, P-099 sem drenar; D-047/D-048/D-049 e tipos W5 preservados.

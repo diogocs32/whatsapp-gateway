@@ -8,6 +8,7 @@ import { AuditService } from './application/audit.service';
 import { AuthSessionService } from './application/auth-session.service';
 import { BrandingService } from './application/branding.service';
 import { LicenseService } from './application/license.service';
+import { RefreshTokenPurgeService } from './application/refresh-token-purge.service';
 import { TokenService } from './application/token.service';
 import { UserService } from './application/user.service';
 import { API_KEY_REPOSITORY } from './domain/api-key.repository';
@@ -56,6 +57,7 @@ import { UsersController } from './interface/users.controller';
   ],
   providers: [
     AuthSessionService,
+    RefreshTokenPurgeService,
     TokenService,
     UserService,
     LicenseService,
