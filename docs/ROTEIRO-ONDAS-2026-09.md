@@ -447,6 +447,7 @@ Consulte fontes oficiais da versão instalada antes de APIs; instalação estrit
 
 Recorte entregue sem mudança de runtime na branch `feature/onda21-license-tests`,
 base `9db34ad` após PR31 MERGED/ci+imagens SUCCESS. [DONE](sessions/DONE-2026-09-30-2213-e21-license-tests.md).
+[PR #32](https://github.com/diogocs32/whatsapp-gateway/pull/32), implementação0433c79.
 58 testes novos (31 domínio/27 serviço+consumidores), seis mutações recusadas com
 controles positivos e revisão independente. P-022 segue parcial; próximo parser cgroup.
 CI/merge finais no PR canônico; nenhuma implantação ou operação produtiva.

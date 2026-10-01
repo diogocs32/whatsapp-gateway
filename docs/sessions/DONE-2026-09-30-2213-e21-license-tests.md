@@ -65,8 +65,9 @@ Portas de persistência/manager falsas provam efeitos de aplicação, sem HTTP/b
 real nesta etapa. A suíte remota completa e imagens são gates do PR canônico.
 
 - **Base/remoto:** PR31 MERGED9db34ad e ci/imagensSUCCESS36798618238 reconfirmados.
-  Um PR próprio, revisão independente, CI verde e merge ao fim; endereço/status finais
-  no PR canônico anexado após criação. Nenhuma consulta/operação produtiva.
+  Implementação0433c79 no [PR #32](https://github.com/diogocs32/whatsapp-gateway/pull/32), feature própria; revisão independente
+  de código/documentação APROVADA (16links/âncora/histórico15 conferidos). CI/merge
+  finais no PR canônico antes de integrar; nenhum deploy/consulta/operação produtiva.
 - **R3:** diff só specs/inventários/documentação; sem gatilho de rota/payload/schema/env/
   provider/decisão cara/build/deps. Contratos/INTEGRACAO/ARQUITETURA/DECISOES não exigem
   alteração por este diff. Documentação de estado/triagem/roteiro/mapa reconciliada.
