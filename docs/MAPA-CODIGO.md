@@ -6,6 +6,11 @@ Mapa das relações do código: quem chama quem, por onde entra cada fluxo, que 
 O acesso Redis passa por `getBackend().client`; referências de linha às versões 5 abaixo
 são históricas. Fluxos atuais de campanha estão em §3.6; prova N-1 e deploy em P-062.
 
+**Atualização E21/P-105 (02/10):** sharp 0.35.5/@img/libvips 1.3.4 no lock.
+O gate nativo `scripts/smoke-sharp.cjs` executa helpers reais após prune na imagem final,
+como node e sem rede; PNG/SVG → seis JPEGs, rsvg >= 2.63.2, dimensões/pixels conferidos.
+[Provas e limites](sessions/DONE-2026-10-02-1043-e21-sharp-p105.md); audit residual segue P-106.
+
 ## 1. Como usar
 
 - **Leia a §2 (visão de 1 minuto) e a seção da área em que vai mexer** (§4.x). Antes de alterar um fluxo, leia o fluxo ponta a ponta correspondente (§3). Para uma pendência, vá direto à §5.
@@ -1362,6 +1367,8 @@ Consolidado das verificações por área (mesclado, sem duplicar). IDs e título
 | **P-086** — link público de conexão por QR (✅ E27)                | sessions/domain/connect-link.ts (regras puras: estado, fase, número, DDI) + connect-link.repository.ts; sessions/infrastructure/prisma-connect-link.repository.ts; prisma-session.repository.ts (`findConnectSnapshot`, `setLastMeJid`, `lastMeJid`); sessions/application/connect-link.service.ts; session-manager.service.ts (`runExclusive`, `newQrForConnectLink`, `rejectConnectedAccount`, `liveView`, teto de 45 s do pairing); sessions/interface/{connect-links.controller,public-connect.controller,connect-link-token.guard}.ts; iam audit.interceptor.ts (`auditActor`); bootstrap/rate-limit.ts; main.ts (CORS `maxAge`); painel routes/Conectar.tsx, components/sessions/ConnectLinkDialog.tsx, lib/{connect-link,connect-link-memory,connect-path,public-connect,auth}.ts(x); contracts (`ConnectLink*`, `PublicConnect*`, `CONNECT_LINK_ERROR_CODES`) — detalhe em §4.1/§4.4/§4.5 | Nunca apaga login salvo nem derruba conta já conectada (só desfaz a conexão feita pelo link com número errado); fase pelo estado vivo; token só no fragmento/Bearer; número esperado com DDI. Unit de domínio/serviço/lock + e2e + vitest do painel. [§5.1](#p-086)                                                                                                                                                                          |
 | **P-089** — filtro de sessões por nome/status/número (✅ E27)      | painel lib/session-filter.ts; routes/Sessions.tsx (`useSearchParams`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Só painel; número por dígitos com 9º dígito BR e `lastMeJid`. vitest puro. [§5.1](#p-089)                                                                                                                                                                                                                                                                                                                                                    |
 | **P-097** — ✅ corrigida na E15; compatibilidade preservada        | ProxiesController.getAssignment/setAssignment; ProxyService.resolveSessionId; PrismaProxyRepository.resolveSessionId; test/proxy-affinity.e2e-spec.ts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | GET/PUT por nome vivo resolvem id sem criar linha com nome. Desconhecido permanece cru para preservar legado/órfãs; sem SessionRefPipe estrito/404 novo.                                                                                                                                                                                                                                                                                     |
+| **P-105** — sharp/librsvg corrigidos em código                     | package-lock.json; apps/gateway/Dockerfile:88-96; scripts/smoke-sharp.cjs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Gate nativo pós-prune, helpers reais e imagens sintéticas sem rede; publicação manual. [§5.1](#p-105)                                                                                                                                                                                                                                                                                                                                        |
+| **P-106** — triagem residual do npm audit                          | lock, npm ls e fontes instaladas das cadeias archiver/minimatch/brace-expansion; docs/auditoria-melhorias-2026-09.md §7.5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Primeiro mapear cópias/pais/alcance build/dev/runtime; não presumir exploração. [§5.1](#p-106)                                                                                                                                                                                                                                                                                                                                               |
 
 ### 5.1 Detalhe por pendência
 
@@ -1970,6 +1977,11 @@ node:26.10.0-bookworm-slim` nos 2 estágios (undici embutido 8.10.2; a tag móve
     com o binário e o `prisma.config.ts` do entrypoint, sem banco).
   - apps/gateway/Dockerfile: `patches` depois do `npm ci`; `dist` depois do build; no estágio
     production, `patches` + `dist` + `deps apps/gateway/dist` + `prisma` antes do ENTRYPOINT.
+  - **E21/P-105 (02/10):** `apps/gateway/Dockerfile:88-96` copia o smoke para `/tmp/guardas`,
+    executa a partir de `/app/apps/gateway` após prune, como node com `RUN --network=none`,
+    e remove a pasta. `scripts/smoke-sharp.cjs` resolve sharp/Baileys pelo package.json do gateway;
+    o import de Baileys sozinho não executa o binding dinâmico. Versions/native, PNG/SVG,
+    extractImageThumb/generateProfilePicture/generateThumbnail e decode JPEG provam o efeito.
   - apps/dashboard/Dockerfile: **sem** `COPY patches` (o `npm ci` do dashboard não instala o
     whatsapp-web.js; com o patch presente e a flag nova, o build quebraria — achado da revisão
     adversarial de 25/09).
@@ -2199,6 +2211,29 @@ node:26.10.0-bookworm-slim` nos 2 estágios (undici embutido 8.10.2; a tag móve
 - **Como ficou:** ver §4.4 "Atribuição de proxy" (itens 3, 6 e 7), §4.5 "Sessões: criar…" e as invariantes em §3.11/§4.4/§4.5. Os ajustes da revisão já estão no código: ordem REMOVED → IN_USE → DISABLED → DEAD e `inUseBySession` só com IN_USE; `decideAfterHold` com a mesma guarda no erro/teto; `cache: 'no-store'` no GET; `refresh()` depois de um create que falha; lista de livres mantida numa recarga que falha.
 - **Testes:** proxy-suggestion.spec.ts (domínio, 24), proxy.service.suggestion.spec.ts (19), retention.service.spec.ts (guarda da D-038), session-manager.lifecycle.spec.ts:558-583, test/proxy-suggestion.e2e-spec.ts (30 casos); painel lib/proxy-suggestion.spec.ts (34) e api.spec.ts (3).
 - **Não coberto:** o componente do formulário (sem teste de componente); exclusões anteriores ao deploy ou atendidas pelo container antigo no start-first (B-004) não geram sugestão; o node n8n 0.4.1 não cria sessão (a sugestão vale para o painel).
+
+#### P-105
+
+**P-105 — corrigida em E21/02-10, em código:** sharp 0.35.5/@img/libvips 1.3.4,
+com manifests/allowScripts e patches intactos. `scripts/smoke-sharp.cjs` exige versões
+corrigidas sharp/rsvg, usa PNG/SVG sem recurso externo e helpers Baileys reais para
+verificar seis JPEGs decodificados, dimensões e pixels. `apps/gateway/Dockerfile:88-96`
+executa o gate após prune, como node e sem rede, removendo o script temporário.
+Targets executados: darwin/arm64 e linux/x64 glibc 2.36; demais targets não testados.
+[Provas/revisão/limites](sessions/DONE-2026-10-02-1043-e21-sharp-p105.md).
+Advisories estrito zero sem aceite novo; npm audit residual permanece P-106.
+
+#### P-106
+
+**P-106 — triagem residual separada:** antes/depois de P-105, npm audit exit 1 com
+15 pacotes (1 moderate/14 high), 13 GHSAs e vulnerabilities idêntico. Primeiro candidato:
+duas cópias brace-expansion 2.1.4 via WWEBJS/archiver/archiver-utils/glob/minimatch 9 e
+WWEBJS/archiver/readdir-glob/minimatch 5. Conferir todos os pais/faixas e os advisories
+oficiais; mapear alcance em build/dev/runtime e entrada não confiável antes de delimitar
+correção. RemoteAuth.js:207/217 usa archiver, mas o gateway configura FencedLocalAuth em
+wwebjs.engine.ts:916; a presença instalada não comprova exploração. Não mudar engines,
+major/downgrade/override/aceite ou produção por hipótese. Demais cadeias residuais seguem
+P-038/P-062 e PENDENCIAS, sem correção nesta etapa.
 
 ## 6. Divergências doc × código
 
