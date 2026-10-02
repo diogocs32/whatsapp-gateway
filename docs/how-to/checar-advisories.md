@@ -1,7 +1,7 @@
 ---
 tipo: runbook
 dono: Diogo
-revisado_em: 2026-09-29
+revisado_em: 2026-10-02
 validade: 2026-12-25
 status: ativo
 origem: P-054 (etapa E3 — patches de segurança sem major)
@@ -63,6 +63,29 @@ gh api 'repos/nestjs/nest/security-advisories?state=published&per_page=100' --pa
   --jq '.[] | [.ghsa_id, .severity, .published_at[0:10],
         (.vulnerabilities[]? | "\(.package.name) \(.vulnerable_version_range) → \(.patched_versions)")] | @tsv'
 ```
+
+### Prova nativa de sharp (P-105, 02/10/2026)
+
+Advisory e lock corrigidos precisam da prova do binário utilizado: Baileys carrega sharp
+somente ao executar helpers de imagem. `scripts/smoke-sharp.cjs` exige sharp >= 0.35.5 e
+librsvg >= 2.63.2, processa PNG/SVG sintéticos sem recursos externos e confere seis JPEGs
+por formato, dimensões e pixels. O Dockerfile executa após prune, como node e sem rede;
+o script temporário é removido da imagem final. Execute a partir de `apps/gateway`
+para resolver as dependências do workspace; para repetir no artefato final, forneça o
+script pela entrada padrão a partir da raiz, sem iniciar o entrypoint do gateway:
+
+```bash
+(cd apps/gateway && node ../../scripts/smoke-sharp.cjs)
+docker run --rm -i --platform linux/amd64 --network none --user node \
+  --entrypoint node -w /app/apps/gateway conexozenvo:p105-amd64 < scripts/smoke-sharp.cjs
+```
+
+A tag acima é a imagem local testada, substituível por outro artefato recém-construído.
+Prova de 02/10: darwin/arm64 e Linux x64/glibc 2.36, sharp 0.35.5/rsvg 2.63.2/vips 8.18.7;
+outros targets não testados. Advisories estrito passou de uma pendência para zero sem
+aceite novo; npm audit permaneceu exit 1 com residual idêntico, acompanhado em P-106.
+[Fontes/gates/limites](../sessions/DONE-2026-10-02-1043-e21-sharp-p105.md). Não comprova deploy
+ou versão produtiva.
 
 ## 3. Ler o relatório
 

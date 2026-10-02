@@ -1,7 +1,7 @@
 ---
 tipo: reference
 dono: equipe gateway
-revisado_em: 2026-09-30
+revisado_em: 2026-10-02
 validade: a cada release
 ---
 
@@ -209,3 +209,27 @@ P-105 separada: cron Advisories da main identificou sharp0.35.4 vulnerável
 (GHSA-wq5f-xc86-pv6w high), com correção oficial0.35.5. Não alterada em P-104;
 próximo recorte deve validar patch/lock/imagens locais/CI sem WhatsApp.
 P-100/P-101/P-102 abertas/P-099 sem drenar; publicação/canários/gates mantidos.
+
+## Continuação — P-105 sharp/librsvg (02/10/2026, base cbb40a9)
+
+Atualização nomeada de 27 entradas sharp/@img: sharp 0.35.5 e libvips 1.3.4,
+com manifests/allowScripts e patches preservados. Loader Baileys importa sharp dentro
+dos helpers; a guarda de import anterior não provava binding/libvips. Smoke explícito
+na imagem final pós-prune, como node e sem rede, usa PNG/SVG sem recursos externos e
+helpers reais para conferir seis JPEGs, dimensões e pixels. Host darwin/arm64 e imagem
+Linux x64/glibc 2.36 aprovados, rsvg 2.63.2/vips 8.18.7; outros targets não executados.
+[Provas/fontes/revisão/limites](../sessions/DONE-2026-10-02-1043-e21-sharp-p105.md).
+
+Advisories estrito: uma pendência → zero, sem aceite novo. npm audit continua exit 1,
+com vulnerabilities idêntico antes/depois: 1 moderate/14 high em 15 pacotes/13 GHSAs.
+P-106 registra triagem residual separada, vinculada a P-038/P-062; cadeias Prisma e
+extract-zip já têm contexto em §7.5, enquanto basic-ftp/brace-expansion/ip-address
+precisam triagem detalhada atual. Primeiro candidato: brace-expansion 2.1.4 em duas
+cadeias WWEBJS/archiver/minimatch 9 e 5. Mapear pais/cópias/faixas/alcance build/dev/runtime
+antes de qualquer correção: RemoteAuth usa archiver, mas gateway usa FencedLocalAuth.
+Presença não comprova entrada não confiável nem exploração produtiva. Sem major,
+downgrade, override ou aceite por hipótese; nenhuma dependência residual alterada.
+
+P-022 parcial, P-100/P-101/P-102 abertas e P-099 sem drenar; D-047/D-048/D-049/D-050,
+P-104 e publicação/canários/gates manuais anteriores preservados. Nenhuma consulta ou
+operação produtiva, conta/QR/check/envio real. PR/CI/merge finais são canônicos no PR.

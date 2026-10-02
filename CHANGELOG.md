@@ -4,6 +4,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-02 — E21/P-105: sharp/librsvg e gate nativo (sem deploy)
+
+- sharp 0.35.5/@img e libvips 1.3.4 no lock corrigem GHSA-wq5f-xc86-pv6w,
+  com manifests/allowScripts e patches Baileys/WWEBJS preservados.
+- Imagem final executa smoke nativo após prune, como node e sem rede: PNG/SVG
+  sintéticos produzem seis JPEGs pelos helpers Baileys, com formato/dimensões/pixels
+  conferidos e librsvg >= 2.63.2 exigido. O script temporário é removido da imagem.
+- Revisão e suites/gates/imagens locais aprovados; advisories estrito sem pendências
+  ou aceites novos. npm audit mantém residual idêntico (1 moderate/14 high, exit 1),
+  separado em P-106 de triagem. Publicação/canários permanecem manuais.
+  [Provas/fontes/limites](docs/sessions/DONE-2026-10-02-1043-e21-sharp-p105.md).
+
 ## 2026-10-01 — E21/P-104: bootstrap C10 e aplicação efetiva (sem deploy)
 
 - Bootstrap sem transição recebe eventTs=epoch explícito, com updatedAt atual;
