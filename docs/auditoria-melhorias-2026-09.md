@@ -779,6 +779,16 @@ O scanner prova presença de versões em ranges conhecidos no ambiente auditado;
 > [Inventário/fontes/alcance atual](reference/e21-triagem-backlog.md#continuação--p-106-brace-expansion-2x-02102026-base-130e8bdf),
 > [provas/contagens/limites](sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md).
 
+> **Atualização02/10/2026 — basic-ftp/P-106, triagem documental:** fix oficial6.2.1
+> existe, mas é major fora de ^5.0.2 do get-uri6.0.5; última5.x5.3.1 sem backport
+> publicado. fixAvailable=false não significa ausência upstream. Cadeia runtime
+> regular via browser tooling/PAC FTP/MDTM fallback mapeada; entrada FTP não
+> confiável no produto não demonstrada, sem consulta produtiva. Nenhuma alteração
+> de deps/lock ou aceite; audit residual idêntico/exit1. P-106 parcial, responsável
+> equipe gateway, reavaliar02/11 ou antes com backport/pai compatível.
+> [Fonte canônica](reference/e21-triagem-backlog.md#continuação--p-106-basic-ftp-02102026-base-8f7ca681),
+> [provas/limites](sessions/DONE-2026-10-02-2138-e21-basic-ftp-p106.md). Histórico da tabela seguinte preservado.
+
 #### Triagem por cadeia, ordenada por ação
 
 | Cadeia e prioridade local                                                    | Evidência no checkout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Correção publicada / condição relevante                                                                                                               | Aplicabilidade e ação recomendada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |

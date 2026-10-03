@@ -285,3 +285,68 @@ sem atualização automática; cópias dev1/5 continuam explicitamente P-106.
 
 P-022 parcial; P-100/P-101/P-102 abertas/P-099 sem drenar. D-047/D-048/D-049/D-050,
 P-104/C10/default/CAS/P2002 e publicação/canários/gates manuais preservados.
+
+## Continuação — P-106 basic-ftp (02/10/2026, base 8f7ca681)
+
+**Triagem concluída; dependência não corrigida e risco não aceito.** Uma cópia
+runtime de basic-ftp5.3.1 permanece no lock. O advisory oficial
+[GHSA-c475-qrg2-pj4r](https://github.com/patrickjuchli/basic-ftp/security/advisories/GHSA-c475-qrg2-pj4r)
+afeta <=6.2.0, corrigido em6.2.1. O [registry oficial](https://registry.npmjs.org/basic-ftp)
+consultado02/10 tem latest6.2.1 e última5.x=5.3.1, sem backport publicado.
+get-uri6.0.5 exige ^5.0.2; até get-uri latest8.0.1 exige ^5.3.1, sem solução
+compatível publicada encontrada. 6.2.1 é major fora da faixa; o
+[changelog6.0](https://github.com/patrickjuchli/basic-ftp/blob/v6.2.1/CHANGELOG.md)
+documenta bloqueio de hosts separados de transferência por padrão.
+Nenhuma atualização, major, downgrade, override, patch novo ou aceite foi aplicado.
+
+fixAvailable=false descreve a remediação calculada pelo scanner para a árvore,
+sem negar a correção upstream. A restrição pelas faixas é inferência apoiada no
+lock/registry e [cálculo de metavulnerabilidades do npm](https://docs.npmjs.com/cli/v11/commands/npm-audit/#calculating-meta-vulnerabilities-and-remediations).
+Audit --omit=dev antes/depois mantém vulnerabilities integralmente idêntico e exit1;
+contagens e comandos ficam no [DONE](../sessions/DONE-2026-10-02-2138-e21-basic-ftp-p106.md).
+
+| Pai instalado                   | Faixa declarada do filho   | Uso observado                                            |
+| ------------------------------- | -------------------------- | -------------------------------------------------------- |
+| WWEBJS1.34.7                    | puppeteer 24.38.0 (exato)  | Engine runtime; pin/SHA e patches preservados            |
+| puppeteer/puppeteer-core24.38.0 | @puppeteer/browsers 2.13.0 | Download/gestão de browsers; Chromium externo no produto |
+| @puppeteer/browsers2.13.0       | proxy-agent ^6.5.0         | Transporte HTTP dos downloads de tooling                 |
+| proxy-agent6.5.0                | pac-proxy-agent ^7.1.0     | PAC carregado sob demanda, inclusive pac+ftp             |
+| pac-proxy-agent7.2.0            | get-uri ^6.0.1             | Carregamento do arquivo PAC                              |
+| get-uri6.0.5                    | basic-ftp ^5.0.2           | FTP; LIST como fallback da data MDTM                     |
+
+Fonte instalada: lock:6525/9080/11132; proxy-agent/dist/index.js:47/62/121
+faz lazy load do PAC; pac-proxy-agent/dist/index.js:132 chama getUri.
+get-uri/dist/ftp.js:34/44/55 acessa FTP, tenta lastMod e chama list se MDTM não
+produzir data. basic-ftp/dist/Client.js contém list/_list e parseListUnix.js:40-46
+conserva os dois quantificadores ambíguos. O
+[commit corretivo oficial](https://github.com/patrickjuchli/basic-ftp/commit/d0d9e07c56e519587bb50532ac6eadbb0cb0cfe9)
+ancora regex Unix/DOS e limita owner/group; leitura estática, sem payload hostil.
+Pacote e pais não têm dev:true nem optional:true; são retidos após prune.
+
+**Build/dev:** Puppeteer lifecycle negado por allowScripts, skip download em
+CI/Dockerfiles; não foi encontrado comando do produto para browser install/PAC.
+O painel instala somente seus workspaces e publica bundle/nginx, sem essa cadeia.
+**Runtime:** WWEBJS usa executablePath/Chromium externo e proxy-server; os tipos de
+proxy do produto são HTTP/HTTPS/SOCKS4/SOCKS5, sem PAC. safe-fetch.ts:111-114
+recusa esquemas fora de HTTP/HTTPS antes do transporte. O import WWEBJS isolado
+carrega browsers/proxy-agent, mas não PAC/get-uri/basic-ftp. Isto não garante que
+uma chamada futura/manual ao tooling nunca possa receber PAC FTP; envs/proxies
+reais e estado produtivo não foram consultados. Não foi demonstrada entrada FTP
+não confiável pelo fluxo examinado do produto; o caminho da biblioteca permanece.
+
+Prova sintética offline: import sem Client WhatsApp/socket; parse de duas linhas
+Unix normais; getUri com access/lastMod/list/downloadTo falsos. MDTM positivo evita
+LIST; sem MDTM, Unix alcança o parser antes de ENOTFOUND (modifiedAt ausente), MLSD
+normal alcança parser/download. Zero tentativa de conexão; não prova resistência
+à CPU, correção ou exploração. A mesma prova passou no artefato pruned anterior,
+como node/sem rede; smokes sharp/brace intactos reexecutados. Novo PR documental
+passa por CI/imagens; detalhes/limites no DONE.
+
+P-106 permanece parcial para basic-ftp, brace dev1/5 e demais residuais.
+Responsável: equipe gateway; reavaliar upstream em02/11/2026 (cadência R17) ou
+antes se houver backport5.x/pai compatível, em recorte próprio. Próximo candidato
+independente: ip-address, com inventário/GHSAs do audit reconfirmados antes de
+qualquer edição; não triado/corrigido nesta sessão. Prisma/mysql2/deepmerge e
+Puppeteer/extract-zip continuam P-038/P-062/§7.5, sem duplicar pendências.
+P-022 parcial/P-100/P-101/P-102 abertas/P-099 sem drenar; gates operacionais,
+publicação, stop-first e snapshots E21 permanecem manuais.

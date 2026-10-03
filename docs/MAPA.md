@@ -16,7 +16,7 @@
   [inventário contracts](reference/mapa-codigo/contracts.md) e [purge seguro P-005/D-050](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).
 
 - E21/P-106: [triagem e alcance brace-expansion](reference/e21-triagem-backlog.md#continuação--p-106-brace-expansion-2x-02102026-base-130e8bdf),
-  [provas/checkpoint runtime2.x](sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md); residual parcial, próximo basic-ftp.
+  [provas/checkpoint runtime2.x](sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md); residual parcial; [triagem basic-ftp](reference/e21-triagem-backlog.md#continuação--p-106-basic-ftp-02102026-base-8f7ca681) sem correção/aceite, [checkpoint](sessions/DONE-2026-10-02-2138-e21-basic-ftp-p106.md); próximo ip-address.
 
 ## Legenda de siglas
 

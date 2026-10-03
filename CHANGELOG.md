@@ -4,6 +4,17 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-02 — E21/P-106: triagem basic-ftp (somente docs, sem deploy)
+
+- Correção upstream6.2.1 confirmada; major fora da faixa ^5.0.2 do get-uri6.0.5,
+  sem backport5.x publicado. Nenhuma dependência/lock/patch/aceite alterado.
+- Mapeados browser tooling/PAC FTP/MDTM fallback e limites build/dev/runtime;
+  fixture offline com entradas normais, sem WhatsApp Client/rede/DoS. Entrada
+  FTP não confiável pelo produto e exploração não demonstradas.
+- Audit residual permanece idêntico e exit1; P-106 parcial, próxima triagem
+  ip-address. Publicação/canários/gates anteriores manuais preservados.
+  [Fontes/provas/checkpoint](docs/sessions/DONE-2026-10-02-2138-e21-basic-ftp-p106.md).
+
 ## 2026-10-02 — E21/P-106: brace-expansion runtime 2.x (sem deploy)
 
 - Atualização mínima das duas cópias optional/runtime2.1.4→2.1.7, sem alterar
