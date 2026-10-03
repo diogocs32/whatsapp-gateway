@@ -767,6 +767,18 @@ O scanner prova presença de versões em ranges conhecidos no ambiente auditado;
 >
 > **📎 Resultado 25/09/2026 (etapa E3 — P-054):** a primeira varredura de advisories de repositório (41 repos) achou **12 advisories afetando o lockfile, 10 invisíveis ao `npm audit`** (404 no banco global): GHSA-9c5c (Nest), GHSA-8cmm (`@fastify/proxy-addr` 5.1.0, **critical** — latente, o `trustProxy: true` booleano não chama o `compile`), GHSA-gxm5 (`@fastify/busboy`), GHSA-hrr3/-jvvf (`fast-uri`) e 5 do fastify 5.11.3 (p68q, 9q9j, hwr6, 667r, 4mh8; w2qp e 3m5p o audit vê). Corrigidos na E3: Nest 11.2.6, proxy-addr 5.1.1, busboy 3.2.2, fast-uri 4.2.1/3.1.8. Os 7 do fastify 5.11.3 ficam aceitos até 30/11/2026 (sem condição de exploração no código; saem com o Nest 12 — P-062). A checagem virou workflow diário ([how-to/checar-advisories.md](how-to/checar-advisories.md), D-023).
 
+> **Atualização02/10/2026 — E21/P-106, sem deploy:** o recorte brace-expansion das
+> duas cadeias optional/runtime WWEBJS/archiver passou de2.1.4 para2.1.7 dentro das
+> faixas dos pais, com smoke real após prune como node/sem rede. O import WWEBJS
+> carrega archiver via RemoteAuth, mas o gateway usa FencedLocalAuth; directory()
+> no RemoteAuth não fornece padrão. Não foi demonstrada entrada não confiável ou
+> exploração no produto. Audit --omit=dev retirou apenas brace-expansion/três GHSAs;
+> o restante permanece idêntico e exit1. Cópias dev1.1.18/5.0.9 e demais residuais
+> continuam P-106; Prisma/Puppeteer mantêm os contextos P-038/P-062 abaixo. A tabela
+> seguinte conserva o snapshot histórico09/09, não as versões atuais.
+> [Inventário/fontes/alcance atual](reference/e21-triagem-backlog.md#continuação--p-106-brace-expansion-2x-02102026-base-130e8bdf),
+> [provas/contagens/limites](sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md).
+
 #### Triagem por cadeia, ordenada por ação
 
 | Cadeia e prioridade local                                                    | Evidência no checkout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Correção publicada / condição relevante                                                                                                               | Aplicabilidade e ação recomendada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |

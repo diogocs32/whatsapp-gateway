@@ -15,6 +15,9 @@
 - E21/P-013: [tipos W5 e provas de compatibilidade](sessions/DONE-2026-09-30-1955-e21-contratos-w5.md),
   [inventário contracts](reference/mapa-codigo/contracts.md) e [purge seguro P-005/D-050](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).
 
+- E21/P-106: [triagem e alcance brace-expansion](reference/e21-triagem-backlog.md#continuação--p-106-brace-expansion-2x-02102026-base-130e8bdf),
+  [provas/checkpoint runtime2.x](sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md); residual parcial, próximo basic-ftp.
+
 ## Legenda de siglas
 
 | Sigla               | O que é                                                                                           | Onde encontrar                                                                             |
