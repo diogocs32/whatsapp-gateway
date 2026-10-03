@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde 25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. E13–E20 e E21 até P-104 integradas; PR #37 mergeado em `cbb40a9`, ci/imagens `36852460625` aprovados na abertura; CI main `36853494564` SUCCESS reconferido. Cron Advisories main `36996073507` FAILED com o lock antigo, antes do merge P-105. **E21/P-105 corrigida em código:** sharp 0.35.5/libvips 1.3.4, gate nativo após prune e revisão independente; 1.901 testes gateway/coverage + 292 painel, gates/imagens/smokes locais aprovados. [DONE](sessions/DONE-2026-10-02-1043-e21-sharp-p105.md), `feature/onda21-sharp-p105`; PR/CI/merge finais canônicos. Advisories estrito sem pendências/aceites novos; npm audit residual idêntico (1 moderate/14 high), próximo recorte P-106 de triagem. P-022 parcial, P-100/P-101/P-102 abertas e P-099 sem drenar. Publicação/canários e gates manuais D-027/D-050/D-049, snapshots de 7 dias/24 h e C/D/E/F/B-004/B-005/B-007 preservados. Produção no último SHA documentado `768fb26`, sem consulta ao vivo. [Mapa](MAPA-CODIGO.md).
+- **Execução em curso (desde 25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. E13–E20/E21 até P-105 integradas; PR #38 MERGED em `130e8bdf`, ci/imagens/advisories SUCCESS reconfirmados na abertura. **E21/P-106 parcial em código:** duas cópias runtime brace-expansion2.1.4→2.1.7, gate final pós-prune/node/sem rede e revisão/controles/suites/imagens/HTTP sintéticos aprovados. [DONE](sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md); PR/CI/merge finais canônicos. Audit residual continua exit1; dev1/5 e demais cadeias abertas, próximo triagem basic-ftp. P-022 parcial/P-100/P-101/P-102 abertas/P-099 sem drenar; publicações/canários D-027/D-049/D-050/C/D/E/F/B-004/B-005/B-007 e snapshots7dias/24h manuais preservados. Produção no último SHA documentado768fb26, sem consulta ao vivo. [Mapa](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,15 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **02/10/2026 (E21/P-106 runtime2.x, sem deploy):** somente duas cópias optional
+> brace-expansion2.1.4→2.1.7 dentro das faixas dos pais; smoke da imagem final após
+> prune, node/sem rede, prova seleção e ZIP/conteúdo/directory, sharp/librsvg intactos.
+> Revisão/controles/suites/gates/imagens/HTTP sintéticos aprovados. Audit retira apenas
+> brace-expansion/três GHSAs e permanece exit1; P-106 parcial para dev1/5 e demais
+> residuais, próximo basic-ftp. Presença/carregamento não demonstram exploração.
+> [Provas/fontes/limites](sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md); PR/CI/merge finais canônicos.
+> Nenhuma operação/consulta produtiva, conta/QR/check/envio real; gates manuais preservados.
 
 > **02/10/2026 (E21/P-105, sem deploy):** sharp 0.35.5/libvips 1.3.4 corrigem GHSA-wq5f-xc86-pv6w. Imagem final Linux x64/glibc 2.36 comprova rsvg 2.63.2/vips 8.18.7 após prune, como node e sem rede; seis JPEGs PNG/SVG pelos helpers Baileys, com dimensões e pixels conferidos. Revisão independente, 1.901 gateway/coverage + 292 painel, gates/imagens/smokes locais aprovados. Advisories estrito: uma pendência → zero, sem aceite novo. npm audit continua exit 1 com 1 moderate/14 high idênticos; P-106 registra triagem separada. [DONE](sessions/DONE-2026-10-02-1043-e21-sharp-p105.md); PR/CI/merge finais canônicos. Nenhuma operação/consulta produtiva; publicação/canários/gates anteriores preservados.
 

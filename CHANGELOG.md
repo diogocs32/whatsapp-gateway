@@ -4,6 +4,17 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-02 — E21/P-106: brace-expansion runtime 2.x (sem deploy)
+
+- Atualização mínima das duas cópias optional/runtime2.1.4→2.1.7, sem alterar
+  pais/manifests/allowScripts/patches ou a família sharp/librsvg.
+- Gate na imagem final após prune, node/sem rede: resolve minimatch9/5, prova
+  seleção/exclusão e ZIP/conteúdo/directory sintéticos. Smoke sharp preservado.
+- Audit --omit=dev remove somente brace-expansion/três GHSAs; residual continua
+  exit1. P-106 parcial para dev1/5 e demais cadeias, próximo triagem basic-ftp.
+  Presença/carregamento não demonstram exploração. Publicação/canários manuais.
+  [Provas/fontes/limites](docs/sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md).
+
 ## 2026-10-02 — E21/P-105: sharp/librsvg e gate nativo (sem deploy)
 
 - sharp 0.35.5/@img e libvips 1.3.4 no lock corrigem GHSA-wq5f-xc86-pv6w,

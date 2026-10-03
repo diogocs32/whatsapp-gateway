@@ -233,3 +233,55 @@ downgrade, override ou aceite por hipótese; nenhuma dependência residual alter
 P-022 parcial, P-100/P-101/P-102 abertas e P-099 sem drenar; D-047/D-048/D-049/D-050,
 P-104 e publicação/canários/gates manuais anteriores preservados. Nenhuma consulta ou
 operação produtiva, conta/QR/check/envio real. PR/CI/merge finais são canônicos no PR.
+
+## Continuação — P-106 brace-expansion 2.x (02/10/2026, base 130e8bdf)
+
+Recorte corrigido em código: somente as duas cópias optional/runtime 2.1.4 passam
+para 2.1.7. P-106 permanece parcial para os demais residuais e as cópias dev.
+A atualização nomeada gerou quatro candidatos em cópia descartável; apenas os dois
+objetos 2.x regenerados foram retidos. npm ci estrito valida lock/resolução, sem
+major, override, downgrade, dependência direta ou aceite novo.
+
+| Cadeia/cópia baseline                                                                                   | Faixa do pai imediato | Uso e destino                                         |
+| ------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------- |
+| WWEBJS1.34.7 → archiver7.0.1 → archiver-utils5.0.2 → glob10.5.0 → minimatch9.0.9 → brace-expansion2.1.4 | ^2.0.2                | Optional/runtime; corrigida para2.1.7                 |
+| WWEBJS → archiver → readdir-glob1.1.3 → minimatch5.1.9 → brace-expansion2.1.4                           | ^2.0.1                | Optional/runtime; corrigida para2.1.7                 |
+| Nest CLI11.0.24 → fork-ts-checker-webpack-plugin9.1.0 → minimatch3.1.5 → brace-expansion1.1.18          | ^1.1.7                | Dev/build; inventariada, fora do recorte, segue P-106 |
+| ESLint/TS-eslint → minimatch10.2.6 → brace-expansion5.0.9                                               | ^5.0.8                | Dev; inventariada, fora do recorte, segue P-106       |
+
+Fontes oficiais consultadas02/10: [6j4f](https://github.com/advisories/GHSA-6j4f-fj2g-mc7p)
+fix2.1.5; [qhr7](https://github.com/juliangruber/brace-expansion/security/advisories/GHSA-qhr7-859c-m2p7)
+fix2.1.6; [q2hr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr) fix2.1.7.
+[Compare oficial](https://github.com/juliangruber/brace-expansion/compare/v2.1.4...v2.1.7)
+preserva CommonJS/balanced-match e não adiciona lifecycle install. Os três descrevem
+DoS ao receber padrão não confiável; nenhum payload de DoS foi executado.
+
+Alcance confirmado por fonte instalada: WWEBJS index.js:32 importa RemoteAuth,
+que requer archiver em src/authStrategies/RemoteAuth.js:7. Gateway importa WWEBJS,
+mas configura FencedLocalAuth extends LocalAuth (wwebjs.engine.ts:93/916).
+compressSession:200-218 chama directory(tempDir,false), que fornece somente
+stat/dot a readdir-glob (archiver/lib/core.js:632-635/679); readdir-glob/index.js:130-157
+só cria Minimatch com pattern/ignore/skip. Expansão da cadeia9 existe em
+archiver-utils/file.js:53-65; archive.glob usa cadeia5 (core.js:725-752).
+Busca em src/test/scripts não encontrou invocação RemoteAuth ou padrão do produto
+nesses caminhos. Import puro carregou archiver e as duas cópias, sem chamar expansão.
+Presença/carregamento não demonstram exploração nem ausência global de risco;
+nenhuma versão/incidente produtivo foi consultado. Dashboard não instala gateway e
+publica só bundle/nginx. Runtime do gateway retém optional após prune.
+
+Baseline sintética com2.1.4 e smoke com2.1.7 comprovam seleção/exclusão pelos pais
+reais e ZIP/conteúdo/directory, sem Client/rede/extração. Gate na imagem final
+exige ambas as versões corrigidas após prune, como node/sem rede; sharp smoke
+permanece intacto. [Provas, controles, revisão e limites](../sessions/DONE-2026-10-02-2045-e21-brace-expansion-p106.md).
+
+npm audit --omit=dev baseline confirmou vulnerabilities idêntico à P-105;
+após o recorte, somente brace-expansion e seus três GHSAs saíram. Demais objetos
+vulnerabilities permanecem integralmente idênticos. npm audit continua exit1;
+contagens medidas estão no DONE. Advisories estrito nos repos configurados passou,
+sem aceite novo; não substitui o audit residual. Prisma/mysql2/deepmerge e
+Puppeteer/extract-zip continuam vinculados a P-038/P-062 e auditoria §7.5,
+sem pendências duplicadas. Próximo candidato independente: triagem basic-ftp,
+sem atualização automática; cópias dev1/5 continuam explicitamente P-106.
+
+P-022 parcial; P-100/P-101/P-102 abertas/P-099 sem drenar. D-047/D-048/D-049/D-050,
+P-104/C10/default/CAS/P2002 e publicação/canários/gates manuais preservados.
