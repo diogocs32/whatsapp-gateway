@@ -460,3 +460,138 @@ reconfirmados antes de editar; não analisado/corrigido aqui. Prisma/Puppeteer
 permanecem P-038/P-062, sem duplicação. P-022 parcial/P-100/P-101/P-102 abertas/
 P-099 sem drenar; contratos/patches/allowScripts e D-047/48/49/50/P-104 preservados.
 Publicação/canários C/D/E/F/B-004/B-005/B-007, stop-first e snapshots7dias/24h manuais.
+
+## Continuação — P-106 brace-expansion dev 1/5 (04/10/2026, base 1ab06ee)
+
+**Recorte corrigido em código; P-106 permanece parcial.** Fetch confirmou
+`origin/main=1ab06ee97c887ac4cdeae2e347785ce1bbe448a1` após PR #42, antes da nova
+feature. Somente duas entradas `dev:true` do lock passam de 1.1.18→1.1.21 e
+5.0.9→5.0.12; seis campos (`version`, `resolved`, `integrity`). `npm update brace-expansion --package-lock-only --ignore-scripts --no-audit --no-fund` nomeado no checkout e numa cópia descartável
+gerou objetos idênticos; o diff retém somente os dois objetos dev autorizados.
+`npm ci` estrito passou com aplicação dos patches existentes. Pais/manifests,
+overrides, allowScripts e instalação estrita permanecem intactos; sem major,
+downgrade, dependência direta ou aceite novo.
+
+### Fontes oficiais, faixas e mínimo comum
+
+Consultadas ao vivo em04/10/2026: [advisories do mantenedor](https://github.com/juliangruber/brace-expansion/security/advisories),
+[base oficial revisada](https://api.github.com/advisories?ecosystem=npm&affects=brace-expansion&per_page=100)
+e [registry npm](https://registry.npmjs.org/brace-expansion). A base revisada lista
+dez GHSAs do pacote; o repositório lista oito, sem os dois antigos2017/2025.
+Somente estes três afetam as versões dev instaladas no baseline:
+
+| Advisory                                                                 | Faixa afetada na linha1 | Fix1   | Faixa afetada na linha5 | Fix5   | Falha descrita                                                       |
+| ------------------------------------------------------------------------ | ----------------------- | ------ | ----------------------- | ------ | -------------------------------------------------------------------- |
+| [GHSA-6j4f-fj2g-mc7p](https://github.com/advisories/GHSA-6j4f-fj2g-mc7p) | <1.1.19                 | 1.1.19 | >=4.0.0,<5.0.10         | 5.0.10 | Recursão/append de arrays no parser de partes separadas por vírgulas |
+| [GHSA-qhr7-859c-m2p7](https://github.com/advisories/GHSA-qhr7-859c-m2p7) | <1.1.20                 | 1.1.20 | >=4.0.0,<5.0.11         | 5.0.11 | Recursão de grupos aninhados                                         |
+| [GHSA-q2hr-2g5m-vwhr](https://github.com/advisories/GHSA-q2hr-2g5m-vwhr) | <1.1.21                 | 1.1.21 | >=4.0.0,<5.0.12         | 5.0.12 | Custo quadrático ao reescrever grupo literal seguido de conjunto     |
+
+Os sete advisories anteriores já estavam fora das duas versões dev no baseline;
+não são sete correções novas desta etapa:
+
+| Advisory                                                                 | Primeira corrigida1 | Primeira corrigida5 | Situação de1.1.18/5.0.9 |
+| ------------------------------------------------------------------------ | ------------------- | ------------------- | ----------------------- |
+| [GHSA-832h-xg76-4gv6](https://github.com/advisories/GHSA-832h-xg76-4gv6) | 1.1.7               | Linha5 não afetada  | Fora das faixas         |
+| [GHSA-v6h2-p8h4-qcjw](https://github.com/advisories/GHSA-v6h2-p8h4-qcjw) | 1.1.12              | Linha5 não afetada  | Fora das faixas         |
+| [GHSA-f886-m6hf-6m8v](https://github.com/advisories/GHSA-f886-m6hf-6m8v) | 1.1.13              | 5.0.5               | Fora das faixas         |
+| [GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2) | Linha1 não listada  | 5.0.6               | Fora das faixas         |
+| [GHSA-3jxr-9vmj-r5cp](https://github.com/advisories/GHSA-3jxr-9vmj-r5cp) | 1.1.16              | 5.0.7               | Fora das faixas         |
+| [GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg) | 1.1.17              | 5.0.8               | Fora das faixas         |
+| [GHSA-rgw5-rvv9-x895](https://github.com/advisories/GHSA-rgw5-rvv9-x895) | 1.1.18              | 5.0.9               | Fora das faixas         |
+
+Mínimos comuns1.1.21/5.0.12 publicados14/09/2026; são também os últimos patches
+publicados dessas linhas no registry. `maintenance-v1=1.1.18` é uma tag antiga,
+sem substituir `1.x=1.1.21`; `latest=5.0.12`. 1.1.19/5.0.10 e1.1.20/5.0.11
+corrigiriam apenas parte dos três advisories.
+[Compare1.x](https://github.com/juliangruber/brace-expansion/compare/v1.1.18...v1.1.21)
+e [compare5.x](https://github.com/juliangruber/brace-expansion/compare/v5.0.9...v5.0.12)
+confirmam os commits corretivos; tags finais1.1.21=`8e81e187` e5.0.12=`f3410159`.
+Tarballs dos baselines e alvos tiveram SHA512 conferido contra o registry.
+
+**Compatibilidade verificada:**1.x preserva função CommonJS/`main=index.js`, sem
+engine Node declarada, `balanced-match:^1.0.0` e `concat-map:0.0.1`; metadata muda
+só versão. 5.x preserva `type:module`, exports condicionais CJS/ESM e tipos,
+`node:20 || >=22` e `balanced-match:^4.0.2`; metadata muda versão e acrescenta
+script editorial `format:check`, sem mudança de lifecycle de instalação.
+Código/tarball substitui recursão/`push.apply` do parser por iteração e adiciona
+`maxDepth=1000`/`maxRewrites=1000`, preservando `max`/`maxLength` e API anterior.
+5.x acrescenta constantes/opções/tipos de forma aditiva. Os novos limites podem
+retornar literalmente trechos que ultrapassam o teto; sem inferir equivalência
+para toda entrada ou executar payload de DoS. Fixtures pequenas e consumidores
+reais são a validação deste recorte, com resultados no DONE.
+
+### Consumidores, alcance e limites
+
+Inventário físico/lock/`npm ls`/`npm explain` confirmam quatro cópias: estas duas
+dev e duas optional/runtime2.1.7 da cadeia WWEBJS/archiver, que permanecem intactas.
+
+| Cópia alterada                                                                        | Pais imediatos e faixas                                                                                                                                  | Consumo observado                                                                                   |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `fork-ts-checker-webpack-plugin/node_modules/brace-expansion`1.1.18→1.1.21; lock:8908 | minimatch3.1.5/^1.1.7; fork9.1.0 usa minimatch^3.0.4; Nest CLI11.0.24 fixa fork9.1.0                                                                     | Filtro de issues e padrões ignored do watcher, quando fork é ativado no webpack                     |
+| `node_modules/brace-expansion`5.0.9→5.0.12; lock:6571                                 | minimatch10.2.6/^5.0.8; ESLint10.11.0/^10.2.5, config-array0.23.5/^10.2.4, typescript-estree8.71.0/^10.2.2 e glob13.0.6/^10.2.2 convergem em minimatch10 | Configuração files/ignores e globs CLI do ESLint; opções de parser e assets Nest quando habilitadas |
+
+**Dev1/build:** fonte instalada `fork-ts-checker-webpack-plugin/lib/issue/issue-match.js:10–17`
+separa padrão `match.file` do caminho relativo `issue.file`; `issue-config.js:19–26`
+monta include/exclude. `watch/inclusive-node-watch-file-system.js:14–32/49` usa
+`watchOptions.ignored`. CLI `lib/compiler/defaults/webpack-defaults.js:87–94`
+instancia fork no webpack; `actions/build.action.js:74–95/122–134` escolhe
+compilador/watch. `apps/gateway/nest-cli.json:5–8` não declara webpack/assets;
+os defaults instalados (`lib/configuration/defaults.js:14–22`) são
+tsc/false/[]. Assim, o caminho fork está instalado, mas não é acionado pelo gateway:build atual.
+A [documentação oficial fork9.1.0](https://github.com/TypeStrong/fork-ts-checker-webpack-plugin/blob/v9.1.0/README.md)
+confirma a semântica de includes/excludes como glob; não demonstra alcance produtivo.
+
+**Dev5:** `eslint.config.mjs:9–20/25/29` contém ignores e padrão dashboard `{ts,tsx}`
+real. Fonte instalada `@eslint/config-array/dist/cjs/index.cjs:412–429` compila
+padrões; `eslint/lib/eslint/eslint-helpers.js:603–617/285–291` converte globs CLI.
+A [documentação oficial ESLint](https://eslint.org/docs/latest/use/configure/configuration-files#specifying-files-and-ignores)
+confirma minimatch para files/ignores. Parser `@typescript-eslint/typescript-estree/dist/useProgramFromProjectService.js:243–244`
+oferece allowDefaultProject; configuração atual não habilita projectService.
+A [documentação oficial do parser](https://typescript-eslint.io/packages/parser/#allowdefaultproject)
+confirma que é opção de glob, sem tornar esse caminho ativo no projeto. CLI
+`lib/compiler/assets-manager.js:37–39` retorna sem assets; quando configurados,
+`:45–53/71–92` expande includes/excludes via glob13.0.6.
+
+**Entrada e runtime:** padrões observados vêm de configs/CLI do repositório;
+arquivos lintados/issues fornecem caminhos, não padrões. Busca em TS do produto
+não encontrou import brace/minimatch/glob/fork, nem request/mensagem WhatsApp
+chegando às cópias dev1/5. Isto delimita o fluxo examinado, sem provar ausência
+global ou impedir uso futuro/manual de tooling com configuração não confiável.
+`apps/gateway/Dockerfile:43–48` remove dev com prune; as duas runtime2.1.7 e os
+smokes finais permanecem. Dashboard publica bundle/nginx
+(`apps/dashboard/Dockerfile:28–30`). Inventário da imagem desta etapa, node/sem
+rede, e demais resultados ficam no [DONE](../sessions/DONE-2026-10-04-0852-e21-brace-dev-p106.md);
+nenhum estado/versionamento produtivo foi consultado. Presença no lock, import
+ou êxito de build não provam exploração. Nenhum padrão hostil, PoC ou acesso
+externo para exploração foi executado.
+
+### Validação, residual e próximo candidato
+
+Audit completo antes/depois: exit1,0moderate/18high→17high,
+18pacotes/10GHSAs→17pacotes/7GHSAs. Saíram somente brace-expansion e seus três
+GHSAs; todos os objetos `vulnerabilities` sobreviventes são integralmente
+idênticos. `--omit=dev` segue exit1,0moderate/13high,13pacotes/6GHSAs, com todos
+os objetos `vulnerabilities` integralmente idênticos ao baseline/PR #42.
+
+Baseline reconstruído redireciona somente a resolução das duas brace-expansion
+no processo para os tarballs oficiais1.1.18/5.0.9, preservando os pais/consumidores
+reais atuais; passa com rede negada/zero tentativas. Não é uma instalação npm
+antiga completa. Fixture candidata exerce os mesmos consumidores reais dev1/dev5
+com padrões pequenos normais, rede negada e zero tentativas; positiva passa e
+quatro controles negativos falham pelas assertions específicas, sem copiar implementação ou usar
+payload DoS. Fixtures benignas não provam resistência CPU/memória/stack para toda
+entrada. Comparações audit/controles/suites/gates/imagens e limites ficam no
+[DONE](../sessions/DONE-2026-10-04-0852-e21-brace-dev-p106.md); PR/CI/merge finais
+são canônicos no PR único. npm audit residual permanece exit1.
+
+P-106 permanece parcial: basic-ftp5.3.1 segue afetado, fix6.2.1 major fora de
+^5.0.2/sem backport5.x encontrado, sem correção ou aceite. Próximo candidato
+independente observado somente no audit: `braces3.0.3/GHSA-vfj7-8cjw-p6xm`, via
+micromatch/find-yarn-workspace-root/patch-package; ainda não triado/corrigido,
+sem ampliar esta etapa para a cadeia. Prisma/Puppeteer seguem P-038/P-062/§7.5,
+sem duplicação. Brace runtime2.1.7/ip-address10.7.1/sharp0.35.5/librsvg2.63.2 e
+os três smokes permanecem preservados. P-022 parcial/P-100/P-101/P-102 abertas/
+P-099 sem drenar; contratos/guardas/patches/allowScripts/arquivos locais intactos.
+Nenhuma conta/QR/contact-check/envio real, produção/Dokploy/deploy/canário;
+publicação/canários C/D/E/F/B-004/B-005/B-007, stop-first e snapshots E21
+7dias/24h continuam manuais.
