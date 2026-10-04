@@ -595,3 +595,154 @@ P-099 sem drenar; contratos/guardas/patches/allowScripts/arquivos locais intacto
 Nenhuma conta/QR/contact-check/envio real, produção/Dokploy/deploy/canário;
 publicação/canários C/D/E/F/B-004/B-005/B-007, stop-first e snapshots E21
 7dias/24h continuam manuais.
+
+## Continuação — P-106 braces (04/10/2026, base d19f056)
+
+**Triagem documental concluída; pacote afetado, sem atualização compatível
+corrigida publicada encontrada. P-106 permanece parcial/aberta, sem aceite.**
+Fetch confirmou `origin/main=d19f056e5006b4ee18e0a0638a1979ba0d6de4c4` após
+PR #43 antes da nova feature. `braces` é um pacote distinto de
+`brace-expansion`; nenhuma versão, manifest, lock, patch, override ou decisão
+de instalação foi alterada neste recorte. Entendimento, viabilidade, impacto
+e validação foram apresentados antes de registrar a decisão documental.
+
+### Fontes oficiais e viabilidade
+
+Consultadas em 04/10/2026: [advisory GitHub revisado
+GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm),
+[registry npm](https://registry.npmjs.org/braces),
+[tags upstream](https://github.com/micromatch/braces/tags) e
+[compare 3.0.3/master](https://github.com/micromatch/braces/compare/3.0.3...master).
+O advisory high/CVE-2026-93687, atualizado em 02/10, afeta `<=3.0.3` e não
+declara primeira versão corrigida. A falha descrita é exaustão de stack por
+walkers recursivos de AST sem guarda de profundidade; o limite de caracteres
+não resolve essa classe. Isto não demonstra exploração no ConexoZenvo.
+
+O registry publica somente até `3.0.3`, também `latest`, desde 21/05/2024.
+Tag `3.0.3=74b2db2938fad48a2ea54a9c8bf27a37a62c350d`; master
+`e53730e6f935498326c72d768889ac194eedc0e0` tem 16 commits posteriores, mas
+`index.js`, `lib/compile.js`, `expand.js`, `stringify.js`, `utils.js` e
+`constants.js` são byte a byte idênticos à tag. As mudanças de `parse.js`
+tratam quotes e vírgulas. O tarball oficial `braces-3.0.3.tgz` teve SHA512
+conferido contra registry/lock; os arquivos de implementação e package.json
+instalados foram comparados ao tarball e à tag, sem divergência.
+
+**Existe proposta upstream:** [PR #72](https://github.com/micromatch/braces/pull/72),
+aberto e não mergeado na consulta, com oito commits/head
+`28d440b5dd449dbf1fe6f3506cf94ecca4d02660`, propõe `maxDepth` com teto 100 no
+parser e nos walkers. Essa proposta não foi aplicada nem homologada nesta
+sessão e não é uma release npm corrigida comprovada. A ausência de candidato
+publicado não significa ausência de trabalho upstream; merge sem publicação
+também não resolve a dependência instalada.
+
+Os outros três advisories revisados do pacote não afetam 3.0.3:
+[GHSA-grv7-fg5c-xmjg](https://github.com/advisories/GHSA-grv7-fg5c-xmjg)
+afeta `<3.0.3`, com fix 3.0.3; [GHSA-cwfw-4gq5-mrqx](https://github.com/advisories/GHSA-cwfw-4gq5-mrqx)
+afeta `>=2.2.0,<2.3.1`; [GHSA-g95f-p29q-9xw4](https://github.com/advisories/GHSA-g95f-p29q-9xw4)
+afeta `<2.3.1`. A correção antiga em 3.0.3 não corrige o novo vfj7, que inclui
+essa versão. Context7 retornou somente picomatch, biblioteca diferente;
+foram usadas as fontes primárias exatas de braces 3.0.3.
+
+Metadata instalada `node_modules/braces/package.json:23–32`: CommonJS,
+`main=index.js`, sem `type`/`exports`, Node `>=8`, dependência
+`fill-range:^7.1.1`, sem lifecycle de instalação. Fonte
+`node_modules/braces/lib/compile.js:48–57`, `expand.js:102–110` e
+`stringify.js:22–30` mantém recursão sem guarda de profundidade.
+`parse.js:36–40` limita caracteres ao máximo 10000 de `constants.js:4`;
+`expand.js:34/57–62` limita sequências por `rangeLimit=1000`. Não foram
+executados payloads DoS, padrões hostis ou benchmarks de exaustão.
+
+Não há alvo npm corrigido para atualização mínima nomeada dentro de `^3.0.3`
+com a evidência atual. A sugestão do scanner `patch-package@6.0.7`, marcada
+`isSemVerMajor:true`, seria downgrade do pai 8.0.1 e não constitui correção
+compatível autorizada. Sem major/downgrade/override/patch ou aceite por
+hipótese; dependências ficam intactas.
+
+### Pais, consumidores e entrada não confiável
+
+Inventário físico recursivo, lock, `npm ls` e resolução pelos pais confirmam
+uma única cópia `node_modules/braces@3.0.3`, `dev:true`
+(`package-lock.json:6584`). Cadeia única instalada:
+
+| Relação                                  | Versões/faixa instalada                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| Raiz → patch-package                     | 8.0.1 / `^8.0.1` (`package.json:41`)                                       |
+| patch-package → find-yarn-workspace-root | 2.0.0 / `^2.0.0` (`node_modules/patch-package/package.json:77`)            |
+| find-yarn-workspace-root → micromatch    | 4.0.8 / `^4.0.2` (`node_modules/find-yarn-workspace-root/package.json:23`) |
+| micromatch → braces                      | 3.0.3 / `^3.0.3` (`node_modules/micromatch/package.json:40`)               |
+
+**Instalação/build/dev:** a raiz executa `patch-package --error-on-fail` no
+postinstall (`package.json:31`). Fonte instalada
+`node_modules/patch-package/dist/index.js:66–84/85–104` separa criação de
+patch com nome de pacote da aplicação sem argumentos. A aplicação do
+postinstall não chama `detectPackageManager`; sua cadeia importada pode
+carregar braces, sem executar os walkers por esse fato. O detector
+`dist/detectPackageManager.js:32–55` retorna npm ao encontrar package-lock;
+só o fallback sem lock chama o finder. A criação de patch para Yarn pode
+chamar o finder também em `dist/getPackageResolution.js:17–24`.
+`--include`/`--exclude` são RegExp (`dist/makeRegExp.js:8–14` e
+`filterFiles.js:10–14`), não padrões passados ao parser braces.
+
+O finder lê `package.json` ao subir diretórios e extrai `workspaces`/packages
+(`node_modules/find-yarn-workspace-root/index.js:22–28/42–50`). A raiz usa
+os padrões locais `apps/*` e `packages/*` (`package.json:6–9`).
+Sua chamada `micromatch([relativePath], workspaces)` usa picomatch na função
+principal (`node_modules/micromatch/index.js:32–54`), sem chamar braces.
+Os helpers explícitos `parse`, `braces` e `braceExpand` alcançam braces
+(`index.js:424–465`); não foram encontrados chamadores desses helpers no
+fluxo do finder/patch-package examinado. A [documentação oficial micromatch
+4.0.8](https://github.com/micromatch/micromatch/tree/4.0.8) e a
+[fonte oficial do finder](https://github.com/square/find-yarn-workspace-root/blob/master/index.js)
+permitem conferir a distinção de APIs.
+
+**Entrada/runtime:** as entradas observadas são manifest, caminho de diretório
+e opções CLI locais. Não foi demonstrado fluxo de request, mensagem WhatsApp,
+mídia ou outro dado não confiável do produto até os walkers braces. Isso
+delimita o exame, sem prova global de ausência de alcance futuro/manual.
+Os builds dos dois apps instalam devDependencies e executam o postinstall
+(`apps/gateway/Dockerfile:25–28`, `apps/dashboard/Dockerfile:17–24`). Gateway
+remove dev antes da cópia final (`:41–46/68–74`); dashboard publica somente
+bundle no nginx (`apps/dashboard/Dockerfile:29–32`). Presença no lock ou
+import não prova exploração, e o resultado físico pós-prune desta etapa fica
+no [checkpoint](../sessions/DONE-2026-10-04-1541-e21-braces-p106.md).
+
+### Validação, decisão residual e continuação
+
+Baseline reconfirmada com Node 26.10.0/npm 11.19.1: `npm audit --json`
+exit 1, 0 moderate/17 high, 17 pacotes/7 GHSAs; `npm audit --omit=dev --json`
+exit 1, 0 moderate/13 high, 13 pacotes/6 GHSAs. Todos os objetos
+`vulnerabilities` são idênticos aos respectivos resultados da etapa anterior;
+nenhum alerta removido nesta triagem.
+
+Fixture scratch `/tmp/conexozenvo-p106-braces/consumer-probe.cjs` exerce
+finder/micromatch/detector reais com manifests/diretórios sintéticos, os
+padrões reais do repo e pequenos padrões benignos de conjuntos/sequências/
+padding/escape/incompletos. Baseline e controle positivo passaram exit 0 sob
+Node 26.10.0, rede negada/zero tentativas. Workspace e seleção de manager
+tiveram zero chamadas braces; somente a fase dos helpers explícitos fez
+oito chamadas da implementação real. Quatro controles negativos in-memory
+falharam exit 1 nas assertions específicas de versão, seleção workspace,
+resultado de helper e manager npm. Não foram alterados os arquivos instalados
+e não houve chamada ao CLI que criaria patch ou instalaria pacotes.
+Esses casos demonstram resolução/semântica/alcance do fluxo examinado, sem
+provar resistência stack/CPU/memória ou corrigir a vulnerabilidade.
+Gates, imagens finais após prune/node/sem rede, smokes preservados, revisão
+independente e resultados finais ficam no [DONE da sessão](../sessions/DONE-2026-10-04-1541-e21-braces-p106.md);
+PR/CI/merge são os gates canônicos do PR único, sem operação produtiva.
+
+**Decisão:** braces 3.0.3 permanece afetado, sem correção ou aceite. Equipe
+gateway reavalia em **02/11/2026**, ou antes diante de publicação compatível,
+merge do PR #72 ou pai compatível que altere a cadeia. Cada sinal exige
+reconferir release/faixas/lock/consumidores; merge sem release não resolve.
+P-106 permanece parcial/aberta, inclusive basic-ftp 5.3.1 afetado sem
+correção/aceite. Prisma/Puppeteer continuam P-038/P-062/§7.5, sem duplicação.
+Brace-expansion runtime 2.1.7/dev 1.1.21/5.0.12, ip-address 10.7.1,
+sharp 0.35.5/librsvg 2.63.2 e três smokes, patches/allowScripts/instalação
+estrita, contratos/guardas e arquivos locais permanecem preservados.
+
+Próxima continuação: **E21/P-022**, reconciliação da baseline de testes/
+coverage e seleção de uma lacuna restante com código/consumidores/fontes;
+nenhuma lacuna nova foi escolhida ou implementada nesta sessão. P-022 parcial,
+P-100/P-101/P-102 abertas, P-099 sem drenar. Nenhuma conta/QR/contact-check/
+envio real, produção/Dokploy/deploy/canário. Publicação e gates operacionais
+manuais, stop-first D-049/D-050 e snapshots E21 de 7 dias/24 h preservados.

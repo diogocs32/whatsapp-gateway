@@ -815,6 +815,27 @@ O scanner prova presença de versões em ranges conhecidos no ambiente auditado;
 > braces3.0.3/GHSA-vfj7-8cjw-p6xm, só observado no audit, ainda não triado/corrigido.
 > Prisma/Puppeteer seguem P-038/P-062; snapshots históricos abaixo preservados.
 
+> **Atualização 04/10/2026 — braces/P-106, triagem documental (base d19f056,
+> sem deploy):** única cópia dev `braces@3.0.3`, via patch-package8.0.1 →
+> find-yarn-workspace-root2.0.0 → micromatch4.0.8. Advisory oficial
+> [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+> afeta `<=3.0.3`, sem versão corrigida declarada; registry latest/máximo3.0.3
+> e tarball/tag/integridade conferidos. Há [PR upstream #72 aberto](https://github.com/micromatch/braces/pull/72)
+> propondo guarda de profundidade, mas nenhuma release npm corrigida compatível
+> encontrada. Sem alteração de deps/lock/patch/override/downgrade ou aceite.
+> Não confundir com brace-expansion corrigido nas etapas anteriores.
+> Finder/matcher e detector npm reais não chamaram walkers braces nos casos
+> benignos; helpers explícitos micromatch os alcançam. Entrada não confiável
+> do produto não demonstrada, sem inferência de exploração. Baseline e controle
+> positivo passaram, quatro controles negativos falharam em assertions específicas,
+> rede negada/zero tentativas; limites/fontes/alcance na [triagem canônica](reference/e21-triagem-backlog.md#continuação--p-106-braces-04102026-base-d19f056)
+> e resultados finais no [checkpoint](sessions/DONE-2026-10-04-1541-e21-braces-p106.md).
+> Audit completo17high/17pacotes/7GHSAs e omit13high/13pacotes/6GHSAs, ambos
+> exit1, objetos idênticos à etapa anterior. P-106 parcial/aberta; equipe gateway
+> reavalia02/11 ou antes com publicação compatível/merge72/pai compatível;
+> merge sem release não resolve a dependência. Prisma/Puppeteer continuam
+> P-038/P-062. A tabela abaixo mantém o snapshot histórico09/09.
+
 #### Triagem por cadeia, ordenada por ação
 
 | Cadeia e prioridade local                                                    | Evidência no checkout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Correção publicada / condição relevante                                                                                                               | Aplicabilidade e ação recomendada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |

@@ -4,6 +4,20 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-04 — E21/P-106: triagem independente braces (sem deploy)
+
+- Única cópia dev3.0.3 afetada por GHSA-vfj7-8cjw-p6xm, sem release npm
+  corrigida publicada. PR upstream72 aberto é proposta; não foi incorporado.
+  Lock/deps/pais/patches/allowScripts intactos, sem downgrade/override/aceite.
+- Alcance de workspace matching (picomatch) separado dos helpers que chamam
+  braces; entrada não confiável pelo produto não demonstrada. Fixtures pequenas
+  offline e controles específicos; prova de prune/smokes finais no checkpoint.
+- Audit full17high/7GHSAs e omit13high/6GHSAs, ambos exit1 e objetos idênticos
+  ao PR43. P-106 parcial/braces e basic-ftp afetados sem aceite; reavaliar02/11
+  ou antes com candidato compatível. Prisma/Puppeteer seguem P-038/P-062.
+  Próximo E21/P-022: reconciliar baseline/selecionar lacuna restante comprovada.
+  [Fontes/provas/limites/checkpoint](docs/sessions/DONE-2026-10-04-1541-e21-braces-p106.md).
+
 ## 2026-10-04 — E21/P-106: brace-expansion dev1/5 (sem deploy)
 
 - Somente duas entradas dev1.1.18→1.1.21 e5.0.9→5.0.12, mínimos comuns dos três
