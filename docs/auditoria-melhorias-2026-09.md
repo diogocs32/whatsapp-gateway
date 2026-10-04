@@ -49,7 +49,7 @@ Também foi executado `npm audit --json --ignore-scripts`, sem instalação ou c
 
 ## 3. Fotografia do projeto e divergências documentais
 
-O último diagnóstico operacional disponível é de **07/09/2026**, não de hoje: 19 sessões, sendo 6 WORKING, 12 SCAN_QR_CODE e 1 STARTING. Esse diagnóstico registra logouts em agosto/setembro, um `initialize()` que não termina e ausência de `WA_REQUIRE_PROXY` no novo Dokploy. As causas dos logouts e do insucesso de pareamento ainda precisam de evidência do celular e teste controlado. Fonte: [docs/sessions/ATIVA-2026-09-07-1150-diagnostico-nao-conecta.md:43](../docs/sessions/ATIVA-2026-09-07-1150-diagnostico-nao-conecta.md#L43) e [docs/PENDENCIAS.md:140](../docs/PENDENCIAS.md#L140).
+O último diagnóstico operacional disponível é de **07/09/2026**, não de hoje: 19 sessões, sendo 6 WORKING, 12 SCAN_QR_CODE e 1 STARTING. Esse diagnóstico registra logouts em agosto/setembro, um `initialize()` que não termina e ausência de `WA_REQUIRE_PROXY` no novo Dokploy. As causas dos logouts e do insucesso de pareamento ainda precisam de evidência do celular e teste controlado. Fonte: [docs/sessions/DONE-2026-09-07-1150-diagnostico-nao-conecta.md:43](../docs/sessions/DONE-2026-09-07-1150-diagnostico-nao-conecta.md#L43) e [docs/PENDENCIAS.md:140](../docs/PENDENCIAS.md#L140).
 
 | Afirmação anterior                          | Evidência que exige ajuste                                                                                                   | Orientação                                                                                                        |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -211,7 +211,7 @@ A flag `cold` é opcional e o gate depende dela; a campanha usa outro caminho. *
 
 #### WA-08 — crítico operacional, P-025: initialize wwebjs pode prender o ciclo de vida indefinidamente
 
-**Evidência local:** [apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts:411–418](../apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts#L411) serializa início; `:668` aguarda `client.initialize()` sem deadline. [apps/gateway/src/modules/sessions/application/session-manager.service.ts:278–323](../apps/gateway/src/modules/sessions/application/session-manager.service.ts#L278) encerra somente a espera HTTP em 15 s e deixa a operação rodando. [docs/sessions/ATIVA-2026-09-07-1150-diagnostico-nao-conecta.md:73](../docs/sessions/ATIVA-2026-09-07-1150-diagnostico-nao-conecta.md#L73) registra incidente STARTING por 6,6 dias observado em 07/09, não verificado ao vivo agora.
+**Evidência local:** [apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts:411–418](../apps/gateway/src/modules/sessions/infrastructure/wwebjs/wwebjs.engine.ts#L411) serializa início; `:668` aguarda `client.initialize()` sem deadline. [apps/gateway/src/modules/sessions/application/session-manager.service.ts:278–323](../apps/gateway/src/modules/sessions/application/session-manager.service.ts#L278) encerra somente a espera HTTP em 15 s e deixa a operação rodando. [docs/sessions/DONE-2026-09-07-1150-diagnostico-nao-conecta.md:73](../docs/sessions/DONE-2026-09-07-1150-diagnostico-nao-conecta.md#L73) registra incidente STARTING por 6,6 dias observado em 07/09, não verificado ao vivo agora.
 
 **Fonte oficial:** código publicado da lib usa `page.goto(... timeout: 0)` antes da injeção; timeout do seletor de autenticação não cobre esse estágio. [Client.js oficial](https://docs.wwebjs.dev/Client.js.html).
 
@@ -798,6 +798,22 @@ O scanner prova presença de versões em ranges conhecidos no ambiente auditado;
 > nenhum DoS/exploração/produção. Audit remove só ip-address/quatro GHSAs;
 > residual idêntico e exit1/P-106 parcial; próximo brace dev1/5.
 > [triagem ip-address](reference/e21-triagem-backlog.md#continuação--p-106-ip-address-04102026-base-fb00f9b3), [checkpoint](sessions/DONE-2026-10-03-2332-e21-ip-address-p106.md). Snapshot histórico abaixo preservado.
+
+> **Atualização04/10/2026 — brace-expansion dev1/5/P-106, sem deploy:** somente
+> duas entradas dev do lock1.1.18→1.1.21 e5.0.9→5.0.12, mínimos comuns dos três
+> GHSAs residuais dentro das faixas dos pais. Update nomeado no checkout/cópia
+> descartável gerou objetos idênticos; seis campos retidos e npm ci estrito passou.
+> Pais/manifests/exports/Node/deps/patches/allowScripts intactos; novos limites
+> maxDepth/maxRewrites1000, sem payload DoS ou inferência de exploração.
+> Cópias dev/build separadas das duas runtime2.1.7 preservadas. Audit completo
+> 18high/18pacotes/10GHSAs→17high/17pacotes/7GHSAs: sai somente brace-expansion/
+> três GHSAs, sobreviventes idênticos. --omit=dev13high/13pacotes/6GHSAs idêntico;
+> ambos exit1. Fixture consumidores reais/rede negada/zero tentativas e quatro
+> controles negativos específicos; fontes/validação/limites no [recorte canônico](reference/e21-triagem-backlog.md#continuação--p-106-brace-expansion-dev-15-04102026-base-1ab06ee) e
+> [checkpoint](sessions/DONE-2026-10-04-0852-e21-brace-dev-p106.md).
+> P-106 parcial/basic-ftp afetado e sem aceite; próximo candidato independente
+> braces3.0.3/GHSA-vfj7-8cjw-p6xm, só observado no audit, ainda não triado/corrigido.
+> Prisma/Puppeteer seguem P-038/P-062; snapshots históricos abaixo preservados.
 
 #### Triagem por cadeia, ordenada por ação
 

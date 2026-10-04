@@ -4,6 +4,23 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-04 — E21/P-106: brace-expansion dev1/5 (sem deploy)
+
+- Somente duas entradas dev1.1.18→1.1.21 e5.0.9→5.0.12, mínimos comuns dos três
+  GHSAs nas faixas dos pais; seis campos lock, update nomeado checkout/scratch
+  idêntico e instalação estrita com patches. Pais/manifests/allowScripts intactos.
+- Fontes oficiais/tarballs/exports/Node/deps reconfirmados; parser iterativo e
+  limites novos1000. Consumidores/entrada não confiável dev/build delimitados,
+  sem payload DoS ou exploração. Runtime2.1.7/ip-address10.7.1/sharp0.35.5/
+  librsvg2.63.2 e três smokes finais preservados.
+- Audit completo retira só brace-expansion/três GHSAs, sobreviventes idênticos;
+  --omit=dev integralmente idêntico e ambos exit1. Fixture com consumidores reais,
+  padrões pequenos/rede negada/zero tentativas e quatro controles específicos.
+- P-106 parcial/basic-ftp afetado, sem correção ou aceite. Próximo candidato
+  braces3.0.3/GHSA-vfj7-8cjw-p6xm, só audit e ainda não triado/corrigido;
+  Prisma/Puppeteer seguem P-038/P-062. Gates operacionais/publicação manuais.
+  [Fontes/provas/limites/checkpoint](docs/sessions/DONE-2026-10-04-0852-e21-brace-dev-p106.md).
+
 ## 2026-10-04 — E21/P-106: ip-address10.7.1 e gate dos consumidores (sem deploy)
 
 - Única cópia runtime10.5.0→10.7.1, mínimo compatível aos quatro GHSAs, sem
