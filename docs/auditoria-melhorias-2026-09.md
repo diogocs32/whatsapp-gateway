@@ -789,6 +789,16 @@ O scanner prova presença de versões em ranges conhecidos no ambiente auditado;
 > [Fonte canônica](reference/e21-triagem-backlog.md#continuação--p-106-basic-ftp-02102026-base-8f7ca681),
 > [provas/limites](sessions/DONE-2026-10-02-2138-e21-basic-ftp-p106.md). Histórico da tabela seguinte preservado.
 
+> **Atualização04/10/2026 — ip-address/P-106, sem deploy:** única cópia runtime
+> 10.5.0→10.7.1, mínimo comum dos quatro GHSAs dentro de ^10.2.0/rate-limit e
+> ^10.1.1/socks. Só versão/resolved/integrity do lock; pais/manifests/patches/
+> allowScripts intactos. Parser/conversões alcançáveis; classificadores especiais
+> de confiança não observados no produto, egress net.BlockList separado.
+> Gate final pós-prune/node/sem rede usa consumidores dist e fixtures pequenas;
+> nenhum DoS/exploração/produção. Audit remove só ip-address/quatro GHSAs;
+> residual idêntico e exit1/P-106 parcial; próximo brace dev1/5.
+> [triagem ip-address](reference/e21-triagem-backlog.md#continuação--p-106-ip-address-04102026-base-fb00f9b3), [checkpoint](sessions/DONE-2026-10-03-2332-e21-ip-address-p106.md). Snapshot histórico abaixo preservado.
+
 #### Triagem por cadeia, ordenada por ação
 
 | Cadeia e prioridade local                                                    | Evidência no checkout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Correção publicada / condição relevante                                                                                                               | Aplicabilidade e ação recomendada                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |

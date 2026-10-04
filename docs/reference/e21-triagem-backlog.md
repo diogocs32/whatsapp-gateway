@@ -1,7 +1,7 @@
 ---
 tipo: reference
 dono: equipe gateway
-revisado_em: 2026-10-02
+revisado_em: 2026-10-04
 validade: a cada release
 ---
 
@@ -350,3 +350,113 @@ qualquer edição; não triado/corrigido nesta sessão. Prisma/mysql2/deepmerge 
 Puppeteer/extract-zip continuam P-038/P-062/§7.5, sem duplicar pendências.
 P-022 parcial/P-100/P-101/P-102 abertas/P-099 sem drenar; gates operacionais,
 publicação, stop-first e snapshots E21 permanecem manuais.
+
+## Continuação — P-106 ip-address (04/10/2026, base fb00f9b3)
+
+**Recorte corrigido em código; P-106 permanece parcial.** Uma única cópia runtime
+regular em `node_modules/ip-address`:10.5.0→10.7.1. Lock:9470 altera apenas versão,
+resolved e integrity; nenhum pai/manifest/override/allowScripts/patch/aceite novo.
+Instalação estrita confirma resolução deduplicada e patches existentes.
+
+| Pai imediato instalado    | Faixa ip-address | Resolução e uso                                   |
+| ------------------------- | ---------------- | ------------------------------------------------- |
+| @fastify/rate-limit11.2.0 | ^10.2.0          | Mesma cópia10.7.1; normalização do IP do request  |
+| socks2.8.9                | ^10.1.1          | Mesma cópia10.7.1; conversão e serialização SOCKS |
+
+`socks` é compartilhado por proxy-chain2.7.1 e quatro socks-proxy-agent:10.1.0
+na raiz e8.0.5 aninhados em proxy-chain/proxy-agent/pac-proxy-agent. Todos exigem
+socks^2.8.3, deduplicado2.8.9. `npm ls`/`npm explain`, lock e inventário físico
+confirmam somente uma ip-address, sem cópia dev isolada. Preservada após prune.
+
+### Fontes oficiais e alvo mínimo
+
+Consultadas ao vivo04/10/2026; advisories do mantenedor e base revisada concordam:
+
+| Advisory                                                                                              | Afetadas          | Primeira corrigida | Condição da falha                                                   |
+| ----------------------------------------------------------------------------------------------------- | ----------------- | ------------------ | ------------------------------------------------------------------- |
+| [rpw4-54j3-4h4q](https://github.com/beaugunderson/ip-address/security/advisories/GHSA-rpw4-54j3-4h4q) | <=10.5.0          | 10.5.1             | isLinkLocal restringia indevidamente link-local a /64 em vez de /10 |
+| [2vr4-cq9g-pvrc](https://github.com/beaugunderson/ip-address/security/advisories/GHSA-2vr4-cq9g-pvrc) | >=10.2.0 <=10.5.0 | 10.5.1             | isPrivate não reconhecia NAT64 local-use64:ff9b:1::/48              |
+| [j6r3-76f7-8jcv](https://github.com/beaugunderson/ip-address/security/advisories/GHSA-j6r3-76f7-8jcv) | <=10.7.0          | 10.7.1             | Contenção de subnet comparava famílias distintas                    |
+| [h3mg-xc3c-68pw](https://github.com/beaugunderson/ip-address/security/advisories/GHSA-h3mg-xc3c-68pw) | <=10.7.0          | 10.7.1             | Diagnóstico do parser crescia com string não limitada               |
+
+[Registry oficial](https://registry.npmjs.org/ip-address) confirma10.7.1 publicada
+15/09/2026; latest10.7.3 não é o alvo deste recorte. Mínimo comum10.7.1 nas duas
+faixas dos pais; Node>=12, CommonJS/main/types e zero dependencies preservados.
+Não há10.5.2/10.6.1 publicado;10.5.1 corrige somente dois dos quatro. Registries
+[socks2.8.9](https://registry.npmjs.org/socks/2.8.9) e
+[rate-limit11.2.0](https://registry.npmjs.org/@fastify%2frate-limit/11.2.0)
+confirmam as faixas exatas. SHA512 do tarball10.7.1 conferido contra registry.
+
+Não há CHANGELOG nessa tag. A [release10.7.1](https://github.com/beaugunderson/ip-address/releases/tag/v10.7.1)
+menciona dev lock, mas o [compare10.5.0...10.7.1](https://github.com/beaugunderson/ip-address/compare/v10.5.0...v10.7.1)
+contém os fixes: [d03e960/link-local](https://github.com/beaugunderson/ip-address/commit/d03e960c7cc3179ef25c8a44b4f94dd499625546),
+[ab3dc88/NAT64](https://github.com/beaugunderson/ip-address/commit/ab3dc88bcf5374344168a2ba075ca7ac4ff257f8),
+[1343629/famílias](https://github.com/beaugunderson/ip-address/commit/1343629d57fea413644a5c9d41ff1e59619f3f28),
+[469ead1/limite](https://github.com/beaugunderson/ip-address/commit/469ead1231b4cc059f2150c626e1e0c2895c0134)
+via [8b34a21](https://github.com/beaugunderson/ip-address/commit/8b34a21e0839b37c094066816fb2c2c48a2adcf5).
+Tarball confirma common.js:52, ipv6.js:153–158/1084/1197 e ipv4.js:82–87.
+Context7 `/beaugunderson/ip-address` consultado; docs main confrontadas com a tag/
+fonte empacotada, sem substituir evidência de versão. A
+[política oficial](https://github.com/beaugunderson/ip-address/blob/v10.7.1/SECURITY.md)
+não mantém LTS e exige considerar DNS/redirect/socket na defesa SSRF.
+
+### Consumidores e entrada não confiável
+
+**Runtime HTTP:** FastifyAdapter usa trustProxy:true (`bootstrap/fastify-adapter.ts:14`),
+main.ts:67–68 registra rate-limit, rate-limit.ts:36–46 não troca keyGenerator.
+`@fastify/rate-limit/index.js:32–48/58` normaliza req.ip: net.isIPv6 precede
+Address6, isMapped4/to4/correctForm ou startAddress(/64). IP do request/forwarded
+é entrada HTTP possível; configuração real de Traefik/headers não consultada.
+Não usa classificadores especiais de confiança como isLinkLocal/isPrivate.
+isMapped4 chama isHostInSubnet internamente entre Address6; não foi demonstrada
+comparação entre famílias pelo consumidor. Presença do parser não prova que
+string grande alcance o diagnóstico: net.isIPv6 filtra antes do construtor.
+
+**Runtime SOCKS:** factory.ts:15–20 cria SocksProxyAgent para SOCKS4/5;
+proxy-resolver.service.ts:196–218 escolhe Agent usado pelo Baileys socket/upload.
+Health-tester:24–30 usa a mesma factory; resposta ipify não passa pelos classificadores.
+socks-proxy-agent/dist/index.js:93–107/128 resolve destino/chama SocksClient.
+socks/build/common/helpers.js:104–110/147–160 limita destino e valida net.isIPv4/6
+antes de Address4.toArray/Address6.canonicalForm. Resposta IPv6 do protocolo tem
+16bytes, convertida por fromByteArray/canonicalForm (socksclient.js:679–688).
+UDP é API da biblioteca, sem caller do produto encontrado. Destino/config/protocolo
+podem fornecer dados, mas nestes caminhos foram observadas conversões, não decisões
+SSRF com classificadores especiais. Mídia recebida com SOCKS continua recusada
+(factory.ts:25–28/resolver:215–218), sem fallback direto novo.
+
+WWEBJS usa anonymizeProxy (`wwebjs.engine.ts:887–895`): proxy-chain
+chain_socks.js:47–58/forward_socks.js:25–36 também converge nessa cópia.
+Tooling Puppeteer/browsers→proxy-agent e PAC→socks-proxy-agent convergem em socks;
+PUPPETEER_SKIP_DOWNLOAD/allowScripts negam o download conhecido no install.
+Não há tipo PAC na API de proxies. Não inferir impossibilidade futura/manual
+ou reabrir as triagens Prisma/Puppeteer de P-038/P-062. Build/dev carregam esses
+módulos nos testes/ferramentas; compilação não processa IP remoto por si só.
+Dashboard instala seus workspaces e publica bundle/nginx, sem esta cópia runtime.
+
+**Egress separado:** `safe-fetch.ts:2/95–102/104–122/133–171/235–269` usa
+Node net.BlockList/isIP, URL WHATWG, DNS e revalidação de redirects. Media-url,
+fotos, campanhas e webhooks chegam a esse helper, sem import de ip-address.
+Fixture recusa cinco destinos privados pequenos sem chamar ip-address. Não
+comprova DNS rebinding, topologia real, resistência DoS ou exploração produtiva.
+Nenhuma consulta/ação de produção, conta/QR/contact-check/envio real.
+
+### Validação e residual
+
+`scripts/smoke-ip-address.cjs` exige linha10/piso10.7.1 e mesma resolução pelos dois
+pais, exerce módulos reais do dist para rate-limit/SOCKS/egress. Fixtures pequenas
+provam bytes SOCKS4/5, /64 e IPv4 mapeado, classificadores corrigidos e famílias
+separadas. Entrada fixa46 caracteres, só um além de45 após remover CIDR/zone,
+prova AddressError sem parseMessage; não é teste de carga/DoS/CPU/memória.
+Sockets/DNS/TLS/fetch negados, zero tentativa de rede; UDP só API sintética separada.
+Dockerfile executa no estágio final após prune, como node/sem rede, junto aos
+smokes brace/sharp intactos, e remove os scripts. Controles negativos, suites,
+imagens, revisão e evidências/limites no [DONE](../sessions/DONE-2026-10-03-2332-e21-ip-address-p106.md).
+
+Audit --omit=dev remove somente ip-address/quatro GHSAs; demais objetos
+vulnerabilities integralmente idênticos e exit1. P-106 parcial: basic-ftp5.3.1
+segue afetado, sem correção/aceite; brace dev1.1.18/5.0.9 e demais residuais abertos.
+Próximo candidato independente: brace-expansion dev1/5, inventário e audit completo
+reconfirmados antes de editar; não analisado/corrigido aqui. Prisma/Puppeteer
+permanecem P-038/P-062, sem duplicação. P-022 parcial/P-100/P-101/P-102 abertas/
+P-099 sem drenar; contratos/patches/allowScripts e D-047/48/49/50/P-104 preservados.
+Publicação/canários C/D/E/F/B-004/B-005/B-007, stop-first e snapshots7dias/24h manuais.
