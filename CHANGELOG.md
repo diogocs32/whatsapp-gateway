@@ -4,6 +4,17 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-04 — E21/P-106: ip-address10.7.1 e gate dos consumidores (sem deploy)
+
+- Única cópia runtime10.5.0→10.7.1, mínimo compatível aos quatro GHSAs, sem
+  atualizar pais/manifests/allowScripts/patches ou acrescentar override/aceite.
+- Smoke da imagem final pós-prune/node/sem rede exige resolução corrigida e
+  consumidores reais dist/rate-limit/SOCKS/egress, com fixtures pequenas.
+  Classificadores corrigidos não comprovam exploração nem defesa SSRF inteira.
+- Audit remove só ip-address/quatro GHSAs; residual idêntico e exit1/P-106 parcial.
+  basic-ftp aberto, próximo brace dev1/5; smokes brace/sharp e gates preservados.
+  [Fontes/provas/checkpoint](docs/sessions/DONE-2026-10-03-2332-e21-ip-address-p106.md).
+
 ## 2026-10-02 — E21/P-106: triagem basic-ftp (somente docs, sem deploy)
 
 - Correção upstream6.2.1 confirmada; major fora da faixa ^5.0.2 do get-uri6.0.5,

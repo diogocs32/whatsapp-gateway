@@ -85,7 +85,7 @@ RUN chmod +x /docker-entrypoint.sh
 # `Cannot find module 'zod'` de 16/08 — hoisting parcial + prune — que antes só aparecia no boot) e o
 # 1º comando do entrypoint (Prisma CLI + prisma.config.ts, fora do dist) funciona. Os scripts somem
 # do filesystem final (seguem numa camada de ~20 KB — sem efeito em runtime).
-COPY scripts/guardas-build.sh scripts/verificar-deps-runtime.cjs scripts/smoke-sharp.cjs scripts/smoke-brace-expansion.cjs /tmp/guardas/
+COPY scripts/guardas-build.sh scripts/verificar-deps-runtime.cjs scripts/smoke-sharp.cjs scripts/smoke-brace-expansion.cjs scripts/smoke-ip-address.cjs /tmp/guardas/
 RUN cd /app && sh /tmp/guardas/guardas-build.sh patches \
     && sh /tmp/guardas/guardas-build.sh dist \
     && sh /tmp/guardas/guardas-build.sh deps apps/gateway/dist \
@@ -93,8 +93,10 @@ RUN cd /app && sh /tmp/guardas/guardas-build.sh patches \
 # P-105: Baileys importa sharp só ao processar imagens; o import acima não prova o binding.
 # Executar após prune, como node e sem rede, exige librsvg corrigido e JPEGs reais sintéticos.
 # P-106: ambas as cadeias brace-expansion corrigidas devem selecionar arquivos/gerar ZIP sintético.
+# P-106: ip-address corrigido nos consumidores rate-limit/SOCKS reais, com fixtures pequenas.
 RUN --network=none cd /app/apps/gateway && gosu node node /tmp/guardas/smoke-sharp.cjs \
     && gosu node node /tmp/guardas/smoke-brace-expansion.cjs \
+    && gosu node node /tmp/guardas/smoke-ip-address.cjs \
     && rm -rf /tmp/guardas
 
 EXPOSE 3000
