@@ -599,7 +599,7 @@ integralmente idêntico e ambos exit1. [Triagem/alcance](reference/e21-triagem-b
 [checkpoint](sessions/DONE-2026-10-04-0852-e21-brace-dev-p106.md); PR/CI/merge finais
 canônicos no PR único. Sem deploy; P-106 parcial/basic-ftp afetado/sem aceite.
 
-### E21 continuação — P-106 (braces3.0.3/GHSA-vfj7-8cjw-p6xm) — próximo candidato independente
+### E21 continuação — P-106 (braces3.0.3/GHSA-vfj7-8cjw-p6xm) — ✅ triagem documental04/10, residual aberto
 
 ```text
 Continue E21/P-106 do ConexoZenvo em /Users/diogosantos/Projects/conexozenvo pela triagem independente de braces3.0.3/GHSA-vfj7-8cjw-p6xm, observado no audit completo via micromatch/find-yarn-workspace-root/patch-package. Ainda não triado/corrigido; não confundir braces com brace-expansion.
@@ -607,6 +607,24 @@ Faça fetch e confirme origin/main após o PR brace-expansion dev1/5 antes de cr
 Baseline: somente duas entradas dev brace-expansion1.1.18→1.1.21 e5.0.9→5.0.12 corrigidas, seis campos lock, mínimos comuns dos três GHSAs/faixas; update nomeado checkout/scratch idêntico, npm ci estrito com patches. Consumidores reais com padrões pequenos/rede negada/zero tentativas e quatro controles específicos. Audit completo segue exit1,0moderate/17high,17pacotes/7GHSAs; saiu só brace-expansion/três GHSAs, sobreviventes idênticos. Audit --omit=dev segue exit1,0moderate/13high,13pacotes/6GHSAs, TODOS os objetos idênticos ao PR #42. basic-ftp5.3.1 segue afetado, fix6.2.1 major fora ^5.0.2/sem backport5.x encontrado, sem correção/aceite. P-106 parcial.
 Reconfirme audit completo e --omit=dev, versões instaladas/lock/todas cópias/pais/faixas e fontes oficiais do advisory braces. Mapeie consumidores e alcance build/dev/runtime de entrada não confiável antes de apresentar entendimento, viabilidade, impacto e validação. Só aplique atualização mínima nomeada e compatível comprovada no recorte próprio, com diff delimitado; se inviável, registre triagem mantendo P-106 aberta. Não inferir exploração ou ausência upstream pelo scanner. Sem major/downgrade/override/aceite por hipótese, payload DoS/exploração externa ou expansão para todas as cadeias.
 Preserve patches/allowScripts/instalação estrita, brace-expansion runtime2.1.7/dev1.1.21/5.0.12, ip-address10.7.1/sharp0.35.5/librsvg2.63.2 e os três smokes finais, contratos/guardas anteriores e arquivos locais. Não toque na ATIVA WWEBJS. Prisma/Puppeteer seguem P-038/P-062 sem duplicação. P-022 parcial; P-100/P-101/P-102 abertas; P-099 sem drenar. Nenhuma conta/QR/contact-check/envio real, produção/Dokploy/deploy/canário; gates operacionais manuais, stop-first D-049/D-050 e snapshots E21 7dias/24h preservados. Reconcile documentação/mapa/checkpoint R9 e entregue a próxima mensagem conforme evidência.
+```
+
+Resultado desta triagem: [fontes/alcance/política](reference/e21-triagem-backlog.md#continuação--p-106-braces-04102026-base-d19f056),
+[checkpoint](sessions/DONE-2026-10-04-1541-e21-braces-p106.md). Única cópia dev3.0.3,
+sem release npm corrigida; PR upstream72 aberto é proposta, não incorporada.
+Lock/deps/patches/allowScripts intactos, sem aceite. Audit full17high/7GHSAs e
+omit13high/6GHSAs idênticos/exit1; P-106 parcial/braces e basic-ftp abertos.
+Reavaliar02/11/2026 ou antes com release/pai compatível ou merge72, ainda confirmando
+publicação. Prisma/Puppeteer continuam P-038/P-062; nenhum residual novo independente
+foi escolhido por suposição. Próximo recorte abaixo, sem ampliar a triagem braces.
+
+### E21 continuação — P-022 baseline agregada e lacuna restante — próximo recorte
+
+```text
+Continue E21/P-022 do ConexoZenvo em /Users/diogosantos/Projects/conexozenvo pela reconciliação da baseline agregada e seleção de uma lacuna restante comprovada, após o PR da triagem documental braces/P-106. Faça fetch e confirme origin/main/PR/ci/imagens/advisories antes de criar feature/*; não presumir SHA futuro. Leia AGENTS/BASE/ESTADO/SESSOES completo/PENDENCIAS, roteiro, triagem E21, MAPA-CODIGO e DONE-2026-10-04-1541-e21-braces-p106.md. Abra sessão com ECO DE LEITURA; um PR, revisão independente, CI verde e merge ao fim.
+P-106 parcial: bracesdev3.0.3/GHSA-vfj7-8cjw-p6xm afetada, sem release corrigida publicada; PR upstream72 aberto é proposta, não incorporada. Matching workspace usa picomatch; helpers adicionais alcançam braces, entrada não confiável do produto não demonstrada. basic-ftp5.3.1 afetado/fix6.2.1 major fora ^5.0.2/sem backport5 encontrado; sem correção/aceite para ambos. Reavaliar02/11 ou antes com candidato compatível; Prisma/mysql2/deepmerge e Puppeteer/extract-zip continuam P-038/P-062 sem duplicação. Audit full17high/17pacotes/7GHSAs e omit13high/13pacotes/6GHSAs, ambos exit1 e objetos idênticos ao PR43. Não transformar scanner em exploração nem ausência upstream.
+Recorte P-022: licença/cgroup/withDeadline/probes/agendamento/C10/P-104 já têm testes/provas; não duplicar essas entregas nem fechar P-022 inteira. Última baseline full documentada1901gateway/118arquivos e292painel/14arquivos; nesta triagem docs local1259unitgateway+292painel, sem nova full local. Reconfirme full com coverage/infra exclusiva sintética/transporte falso e compare fontes/specs/consumidores/matriz de invariantes. D-018 mantém piso após baseline acordada: não inventar threshold nem modificar política. Apresente evidência e registre SOMENTE uma lacuna de comportamento demonstrada antes de testes/código. Se não houver lacuna comprovada, documente a reconciliação e mantenha pendência; não fabricar candidato por ausência de arquivo dedicado. Consulte fonte oficial da versão instalada, provas de efeito e controles específicos; sem refactor/funcionalidade por hipótese.
+Preserve patches/allowScripts/instalação estrita, brace-expansion runtime2.1.7/dev1.1.21/5.0.12, ip-address10.7.1/sharp0.35.5/librsvg2.63.2 e três smokes finais; TS5.9.3/CLI11/Vitest5/SWC/CJS/buildinfo, P-104/C10/CAS/P2002, D-047/D-048/D-049/D-050, W5/E20/épocas/lease/8s e arquivos locais. ATIVA WWEBJS intacta. P-100/P-101/P-102 abertas/P-099 sem drenar. Nenhuma conta/QR/contact-check/envio real/produção/Dokploy/deploy/canário; publicação/canários C/D/E/F/B-004/B-005/B-007, stop-first D-049/D-050 e snapshots E21 7dias/24h manuais preservados. Reconcilie docs/mapa/checkpoint R9 e entregue próxima mensagem conforme evidência.
 ```
 
 ### E27 — link público de conexão por QR (P-086) + filtro de sessões (P-089) — onda 9 (produto) — ✅ 27/09
@@ -1073,3 +1091,13 @@ Revisão/CI/merge finais canônicos no PR único; nenhuma ação produtiva.
 - P-106 parcial/basic-ftp afetado/sem aceite; próximo candidato braces3.0.3,
   só observado no audit, ainda não triado/corrigido. PR/CI/merge finais canônicos;
   publicação/canários/gates/stop-first/snapshots anteriores manuais preservados.
+
+### 04/10 — E21/P-106 braces (triagem documental, sem deploy)
+
+- Base d19f056/PR43 reconfirmada antes da feature. Bracesdev3.0.3 afetada;
+  registry sem release corrigida, PR upstream72 aberto não incorporado.
+- Lock/deps/pais/patches/allowScripts/três smokes intactos, sem correção/aceite.
+  Probes pequenos/zero rede/quatro controles, inventário pós-prune e smokes finais.
+- Audit full17high/7GHSAs e omit13high/6GHSAs, ambos exit1 e objetos idênticos;
+  P-106 parcial, reavaliar02/11 ou antes com candidato compatível. Prisma/Puppeteer
+  seguem P-038/P-062; próximo P-022 baseline/lacuna comprovada. [DONE](sessions/DONE-2026-10-04-1541-e21-braces-p106.md).

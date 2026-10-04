@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. Fetch04/10 confirmou `origin/main=1ab06ee97c887ac4cdeae2e347785ce1bbe448a1` após PR #42 antes da nova feature. E21/P-106 brace-expansion dev1.1.18→1.1.21 e5.0.9→5.0.12 corrigidas em código/local: duas entradas/seis campos lock, update nomeado checkout/scratch idêntico e npm ci estrito com patches. Fontes/faixas/compatibilidade/consumidores/limites1000, fixtures pequenas/rede negada/zero tentativas/quatro controles, revisão,1901gateway+292painel/gates/imagens/HTTP sintéticos aprovados. Três smokes finais reexecutados frescos como node/read-only/sem rede; brace runtime2.1.7x2/ip-address10.7.1/sharp0.35.5/librsvg2.63.2 preservados e dev1/5 ausentes após prune. Audit completo remove só brace-expansion/três GHSAs, sobreviventes idênticos, exit1/0moderate/17high/17pacotes/7GHSAs; --omit=dev integralmente idêntico, exit1/0moderate/13high/13pacotes/6GHSAs. P-106 parcial; basic-ftp5.3.1 afetado/fix6.2.1 major fora ^5.0.2/sem backport5, sem correção/aceite. Próximo candidato independente braces3.0.3/GHSA-vfj7-8cjw-p6xm, somente audit e ainda não triado/corrigido. [DONE](sessions/DONE-2026-10-04-0852-e21-brace-dev-p106.md); PR/CI/merge finais canônicos no PR desta feature. Prisma/Puppeteer seguem P-038/P-062; P-022 parcial/P-100/P-101/P-102 abertas/P-099 sem drenar. D-027/D-049/D-050/C/D/E/F/B-004/B-005/B-007 e snapshots7dias/24h manuais preservados. Produção no último SHA documentado768fb26, sem consulta ao vivo. [Mapa](MAPA-CODIGO.md).
+- **Execução em curso (desde25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. Base reconfirmada04/10 antes da feature: `origin/main=d19f056e5006b4ee18e0a0638a1979ba0d6de4c4`, PR #43 MERGED/ci/imagens/advisories verdes. E21/P-106 bracesdev3.0.3 triada documentalmente: afetada por GHSA-vfj7-8cjw-p6xm, sem release npm corrigida publicada; PR upstream72 aberto propõe limite de profundidade. Deps/lock/patches/allowScripts intactos, sem correção/aceite. Fonte/grafo distinguem imports, matching workspace picomatch e helpers que chamam braces; entrada não confiável pelo produto não demonstrada. Probes benignos/4controles/rede negada,1259unitgateway+292painel/gates/imagens e3smokes finais frescos node/read-only/sem rede aprovados; scan pós-prune remove cadeia dev. Brace-expansion runtime2.1.7×2/dev1.1.21/5.0.12/ip-address10.7.1/sharp0.35.5/librsvg2.63.2 preservados. Audit full17high/17pacotes/7GHSAs e omit13high/13pacotes/6GHSAs, todos objetos idênticos ao PR43, ambos exit1. [DONE](sessions/DONE-2026-10-04-1541-e21-braces-p106.md); PR/revisão/CI/merge finais canônicos no PR desta feature. P-106 parcial/braces e basic-ftp afetados sem aceite; equipe gateway reavalia02/11 ou antes com candidato compatível. Próximo E21/P-022: reconciliação baseline agregada e lacuna restante demonstrada. Prisma/Puppeteer seguem P-038/P-062, P-022 parcial/P-100/P-101/P-102 abertas/P-099 sem drenar. D-027/D-049/D-050/C/D/E/F/B-004/B-005/B-007 e snapshots7dias/24h manuais preservados; nenhuma consulta produtiva, último SHA documentado768fb26. [Mapa](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,20 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **04/10/2026 (E21/P-106 braces, triagem documental/sem deploy):** cópia dev3.0.3
+> segue afetada; sem release npm corrigida, PR upstream72 open/mergedfalse.
+> Lock/deps/pais/patches/allowScripts/três smokes intactos, sem correção/aceite.
+> Fonte/consumidores/fixtures offline/quatro controles/revisão,1259unitgateway+
+> 292painel/gates/imagens; scan final pós-prune elimina a cadeia dev e três smokes
+> frescos node/read-only/sem rede provam preservações runtime. Audit full17high/
+> 7GHSAs e omit13high/6GHSAs, ambos exit1 e objetos idênticos ao PR43.
+> [Fontes/provas/limites](sessions/DONE-2026-10-04-1541-e21-braces-p106.md); PR/CI/merge canônicos.
+> P-106 parcial/braces e basic-ftp sem aceite; reavaliar02/11 ou antes com release/
+> pai compatível ou merge72, confirmando publicação. Próximo E21/P-022 baseline/
+> lacuna restante comprovada, sem piso por hipótese. Prisma/Puppeteer P-038/P-062,
+> P-100/P-101/P-102/P-099, publicação/canários/stop-first/snapshots E21 preservados.
+> Nenhuma conta/QR/contact-check/envio real/produção/Dokploy/deploy/canário.
 
 > **04/10/2026 (E21/P-106 brace-expansion dev1/5, sem deploy):** duas entradas
 > dev1.1.18→1.1.21 e5.0.9→5.0.12, mínimos dos três GHSAs nas faixas dos pais;
