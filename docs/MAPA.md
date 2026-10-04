@@ -94,4 +94,4 @@ Sigla resolve? Use a sigla. Não resolve? Cite completo: "arquivo § seção"
 
 - E21/P-005: [purge de refresh tokens preservando reuso](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050),
   [provas/checkpoint](sessions/DONE-2026-09-30-2130-e21-refresh-purge.md), D-050;
-  [próximo recorte P-022](ROTEIRO-ONDAS-2026-09.md#e21-continuação--p-022-testes-do-domínio-de-licença--próximo-recorte).
+  [recorte histórico P-022/licença](sessions/DONE-2026-09-30-2213-e21-license-tests.md).
