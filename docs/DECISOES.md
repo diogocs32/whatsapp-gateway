@@ -1061,3 +1061,52 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
   Famílias continuamente ativas retêm ancestrais sem horizonte arbitrário. Primeiro rollout
   e rollback stop-first porque N-1 ignora lock; publicação manual e gates anteriores mantidos.
   [Política, fontes oficiais e provas](how-to/auth-sessao-refresh-rotation.md#retenção-segura-p-005e21--d-050).
+
+## D-051 — 2026-10-11 — Proxy fixo compartilhado só por escolha explícita; uso visível e exclusão em lote (P-107/E28)
+
+- **Contexto:** pedido do dono (11/10): marcar vários proxies e excluir com uma confirmação só; nos
+  seletores de proxy (sessão já criada e criação), verde = livre, vermelho = já em uso com quantas
+  sessões usam, **sem impedir** usar o mesmo proxy em outra sessão. Até aqui, D-008/D-041 tornavam o
+  `SINGLE` exclusivo: proxy de outra sessão viva → 400 "Proxy já está em uso por outra sessão" no
+  `POST /api/sessions` e no `PUT /api/sessions/{sessao}/proxy`.
+- **Decisão:** (1) compartilhar é **opt-in por pedido**: `allowSharedProxy: true` (aditivo, nos dois
+  corpos) dispensa só a checagem de dono — existir, habilitado e não-DEAD continuam obrigatórios, sob
+  o mesmo `SELECT … FOR UPDATE` do proxy. Sem o campo, a exclusividade D-008/D-041 segue idêntica, para
+  quem já integra (o contrato publicado não muda); repetir o PRÓPRIO `SINGLE` de uma sessão viva no
+  mesmo proxy não precisa da flag nem quando ele já está dividido ("repetir o próprio proxy é
+  permitido", reconferido sob o lock). (2) O painel só envia o campo quando o dono **escolheu** na lista
+  um proxy que estava vermelho **naquela hora** (consentimento registrado no clique da opção): valor
+  herdado, pré-seleção da sugestão E26, "Usar este proxy" e um verde que virou vermelho depois da
+  escolha (outra sessão — ou outra linha da mesma tela — pegou) nunca contam; o envio vai sem a flag,
+  volta 400 "em uso" com a dica e o dono reescolhe o vermelho se quiser. A sugestão E26 não
+  pré-seleciona um sugerido que a lista do pool (mais nova) mostra em uso: compartilhar nunca é
+  automático.
+  (3) "Em uso" = régua única do domínio (`proxyUsageMap`, igual ao `usedProxyIds`): `currentProxyId` de
+  atribuição `mode ≠ NONE` de sessão viva; em RANGE/GLOBAL conta a afinidade atual (D-041); órfã não
+  conta. Exposto aditivamente no `GET /api/proxies` (`sessionCount`, `sessions[{id,name}]`);
+  `/proxies/available` e `/proxies/suggestion` não mudam. (4) Exclusão em lote por rota aditiva
+  `POST /api/proxies/bulk-delete {ids}` (ADMIN, 200, `{deleted, notFound}`), apagando sob `FOR UPDATE`
+  em ordem de posição numa transação; como o `DELETE` unitário, não bloqueia proxy em uso (o painel
+  avisa antes, com os nomes) e loga posições apagadas + `WARN` das que estavam em uso — o uso é lido
+  DENTRO da transação, depois do lock (quem gravou segurando o lock aparece no aviso).
+- **Alternativas rejeitadas:** remover a exclusividade para todos (mudaria o comportamento do contrato
+  publicado e da garantia de concorrência da D-041 para integradores); confirmar no painel com
+  `confirm()` nativo (o dono pediu menos confirmações; a confirmação única fica na própria página);
+  `<select>` nativo colorido (MDN: estilo de `<option>` "depends on the browser and operating system"
+  — no Chrome/Safari do macOS não pinta) → combobox "select-only" do WAI-ARIA APG.
+- **Consequências:** contas no mesmo IP ficam correlacionáveis pelo WhatsApp (decisão do dono, tela
+  avisa); um proxy compartilhado marcado DEAD derruba a próxima conexão de todas as sessões SINGLE nele
+  (E15). B-001 (1 IP residencial por sessão) continua sendo a política operacional recomendada.
+- **Fontes conferidas:** Prisma/client 7.10.0 instalado (`deleteMany` → `BatchPayload {count}`, sem
+  variante que devolva linhas, `src/generated/prisma/models/Proxy.ts:956`; `Prisma.join` já usado em
+  `prisma-refresh-token.repository.ts:141`); zod 3.25.76 (`RawCreateParams.message`,
+  `zod/v3/types.d.ts:26-32`); React 19.3.0 (ref como prop, react.dev `forwardRef`); WAI-ARIA APG
+  [select-only combobox](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/);
+  MDN [`<option>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/option) — 11/10.
+- **Aceite:** unit do domínio/serviço, e2e com Postgres real (uso, opt-in nos dois corpos, DEAD/
+  desabilitado, 401/403/400, lote com repetidos/inexistentes, atribuição pendurada, próprio SINGLE
+  dividido, lote esperando um lock segurado por transação manual) com quatro mutações recusadas, e
+  harnesses do painel no Chrome com gateway falso (inclusive gateway antigo); sem conta/QR/envio real.
+  Revisão independente (gateway e painel) aplicada antes do commit. Sem migration/env. Deploy manual dos dois apps,
+  **gateway antes do painel** (painel novo com gateway velho não quebra, mas tudo aparece verde — o
+  gateway velho não manda o uso —, escolher um proxy ocupado volta 400 "em uso" e o lote volta 404).

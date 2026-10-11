@@ -2,10 +2,13 @@
 // nome de uma sessão apagada, o painel sugere o proxy fixo que ela usava (não obriga). Puro (sem
 // React/DOM) → testável em vitest `environment: 'node'`.
 //
-// Tudo é DERIVADO na renderização a partir de (nome, resposta da sugestão, lista de livres,
+// Tudo é DERIVADO na renderização a partir de (nome, resposta da sugestão, lista de selecionáveis,
 // escolha do dono): a lista que chega depois da sugestão pré-seleciona sozinha, mudar o nome
 // desfaz sozinho e a escolha manual é preservada. Invariante: o que se vê no seletor é o que se
 // envia no POST (`selectValue` sempre existe nas opções, ou é '' = sem proxy).
+// E28 (P-107, D-051): a lista deixou de ser só a dos livres — são os selecionáveis (habilitados e
+// não-DEAD), livres (verde) e em uso (vermelho, compartilhável). A pré-seleção continua só para o
+// sugerido LIVRE: compartilhar nunca é automático.
 import type { ProxyDto, ProxySuggestionDto } from '@contracts';
 import { fullDateTime, since } from './time-format';
 
@@ -32,17 +35,22 @@ export interface SuggestionNote {
 export interface SuggestionViewInput {
   trimmedName: string;
   suggestion: SuggestionState | null;
-  availableProxies: readonly ProxyDto[];
+  // Habilitados e não-DEAD (livres e em uso), em ordem de posição — E28.
+  selectableProxies: readonly ProxyDto[];
   // null = automático (aceita a pré-seleção); '' = o dono escolheu "Sem proxy"; id = escolha manual.
   choice: string | null;
   now: number;
   // O "Criar" foi segurado para mostrar a sugestão deste nome (Enter antes da resposta).
   held?: boolean;
+  // E28 — quem usa cada proxy segundo a lista do pool (recarregada ao abrir o seletor, mais nova
+  // que a resposta da sugestão). Sugerido "livre" que a lista mostra em uso NÃO é pré-selecionado
+  // (compartilhar nunca é automático): vira o aviso de "em uso", com o nome de quem usa.
+  inUseBy?: (proxyId: string) => readonly string[];
 }
 
 export interface SuggestionView {
-  // Livres ∪ o sugerido disponível que ainda não está na lista (lista velha: o servidor acabou de
-  // aplicar a mesma régua do `ensureAvailable` e o POST revalida).
+  // Selecionáveis ∪ o sugerido disponível que ainda não está na lista (lista velha: o servidor
+  // acabou de aplicar a mesma régua do `ensureAvailable` e o POST revalida).
   options: ProxyDto[];
   selectValue: string;
   preselectId: string | null;
@@ -88,17 +96,26 @@ function sessionRef(
   return `"${data.fromSession}" (${releasedText(data.releasedAt, now)}${caseNote})`;
 }
 
-// Frase para uma sugestão que NÃO pode ser usada agora. `proxy` só é lido quando não é null.
-function unavailableText(data: ProxySuggestionDto, ref: string): string {
+// Frase para uma sugestão que NÃO pode ser pré-selecionada agora. `proxy` só é lido quando não é
+// null. `pickable` (E28): o proxy em uso está na lista e pode ser escolhido para compartilhar.
+function unavailableText(
+  data: ProxySuggestionDto,
+  ref: string,
+  pickable: boolean,
+): string {
   if (!data.proxy || data.reason === 'REMOVED') {
     return `A sessão ${ref} usava um proxy que foi excluído do pool.`;
   }
   const base = `A sessão ${ref} usava o ${proxyShortLabel(data.proxy)}`;
   switch (data.reason) {
-    case 'IN_USE':
-      return data.inUseBySession
+    case 'IN_USE': {
+      const inUse = data.inUseBySession
         ? `${base}, mas ele já está em uso pela sessão "${data.inUseBySession}".`
         : `${base}, mas ele já está em uso por outra sessão.`;
+      return pickable
+        ? `${inUse} Para compartilhar, escolha-o na lista (em vermelho).`
+        : inUse;
+    }
     case 'DEAD':
       return `${base}, mas ele está fora do ar (DEAD). Teste-o em Proxies para voltar a usá-lo.`;
     case 'DISABLED':
@@ -109,14 +126,24 @@ function unavailableText(data: ProxySuggestionDto, ref: string): string {
 }
 
 export function suggestionView(input: SuggestionViewInput): SuggestionView {
-  const { trimmedName, availableProxies, choice, now } = input;
-  const data =
+  const { trimmedName, selectableProxies, choice, now } = input;
+  const raw =
     input.suggestion && input.suggestion.forName === trimmedName
       ? input.suggestion.data
       : null;
+  const listUsers = raw?.proxy ? (input.inUseBy?.(raw.proxy.id) ?? []) : [];
+  const data: ProxySuggestionDto | null =
+    raw?.available && listUsers.length > 0
+      ? {
+          ...raw,
+          available: false,
+          reason: 'IN_USE',
+          inUseBySession: listUsers[0],
+        }
+      : raw;
   const suggested = data?.available && data.proxy ? data.proxy : null;
 
-  const options = [...availableProxies];
+  const options = [...selectableProxies];
   if (suggested && !options.some((p) => p.id === suggested.id)) {
     // Entra na ordem de posição (a lista do servidor vem ordenada por `position`).
     const at = options.findIndex((p) => p.position > suggested.position);
@@ -147,13 +174,19 @@ export function suggestionView(input: SuggestionViewInput): SuggestionView {
       body = `A sessão ${ref} usava o ${proxyShortLabel(suggested)}, que está livre.`;
     } else {
       tone = 'warn';
-      body = unavailableText(data, ref);
+      body = unavailableText(
+        data,
+        ref,
+        !!data.proxy && data.reason === 'IN_USE' && inOptions(data.proxy.id),
+      );
     }
   }
 
   let note: SuggestionNote | null = null;
   if (manualChoiceLost) {
-    const lost = 'O proxy escolhido não está mais livre.';
+    // E28: a lista traz livres e em uso — some só o excluído, desativado ou DEAD.
+    const lost =
+      'O proxy escolhido não está mais disponível (excluído, desativado ou DEAD).';
     note = {
       tone: 'warn',
       text: `${PREFIX.warn}${body ? `${lost} ${body}` : lost}`,

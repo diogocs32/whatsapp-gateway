@@ -942,7 +942,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `MIN_ROLE_KEY` = `'minRole'` · L4
 - `MinRole(role)` · L8
-  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:102), `SessionsController.remove` (sessions.controller.ts:358)
+  - chamado por: `GuardrailController.updateConfig` (guardrail.controller.ts:37), `BrandingController.update` (branding.controller.ts:35), `SessionsController.create` (sessions.controller.ts:102), `SessionsController.remove` (sessions.controller.ts:369)
 
 ## `modules/iam/interface/roles.guard.ts`
 

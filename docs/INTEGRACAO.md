@@ -542,14 +542,15 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
 ```
 
 - **`proxyId` é OPCIONAL e aditivo** — sem ele, o comportamento é o de sempre (sessão sem proxy).
-- Com `proxyId`, a sessão **nasce** com atribuição `SINGLE`/`STICKY` àquele proxy (1 proxy = 1 sessão);
-  o proxy some imediatamente de `/proxies/available`.
-- Erros (HTTP 400, mensagem clara): proxy inexistente, desabilitado, `DEAD` ou **já em uso** — nesse
-  caso a sessão NÃO é criada (sem sessão órfã).
+- Com `proxyId`, a sessão **nasce** com atribuição `SINGLE`/`STICKY` àquele proxy (1 proxy = 1 sessão,
+  salvo `allowSharedProxy: true` — E28, abaixo); o proxy some imediatamente de `/proxies/available`.
+- Erros (HTTP 400, mensagem clara): proxy inexistente, desabilitado, `DEAD` ou **já em uso** (sem
+  `allowSharedProxy: true`) — nesse caso a sessão NÃO é criada (sem sessão órfã).
 - A atribuição `SINGLE` valida existência, enabled, status diferente de DEAD e uso por outra
-  sessão viva, tanto no POST quanto no PUT. Repetir o próprio proxy é permitido; inválido
-  responde HTTP 400 com mensagem, sem alterar a atribuição. PUTs SINGLE concorrentes são
-  serializados por proxy; `RANGE`/`GLOBAL_ROUND_ROBIN` continuam podendo compartilhar o pool.
+  sessão viva (esta última dispensada com `allowSharedProxy: true`), tanto no POST quanto no PUT.
+  Repetir o próprio proxy é permitido; inválido responde HTTP 400 com mensagem, sem alterar a
+  atribuição. PUTs SINGLE concorrentes são serializados por proxy; `RANGE`/`GLOBAL_ROUND_ROBIN`
+  continuam podendo compartilhar o pool.
 - `GET/PUT /api/sessions/{sessao}/proxy` aceita ID ou nome de sessão existente (E15/P-097).
   Por compatibilidade, referência inexistente/órfã ainda é aceita; nenhum 404 novo foi introduzido.
   Payloads de pedido/resposta permanecem iguais.
@@ -608,9 +609,41 @@ GET /api/proxies/suggestion?sessionName=vendas-02   # ADMIN — { "suggestion": 
 - A rota responde sobre a **última sessão apagada** com esse nome — não confere se já existe uma
   sessão viva com o mesmo nome (nesse caso o proxy dela aparece como `IN_USE` pela própria sessão).
 - É só uma sugestão: o `POST /api/sessions` **não muda** — quem cria escolhe (ou não) o `proxyId`, e
-  a exclusividade continua validada na criação (D-008).
+  a exclusividade continua validada na criação (D-008), salvo `allowSharedProxy: true` (E28).
 - Um `PUT /api/sessions/{id}/proxy` sobre a atribuição de uma sessão já apagada apaga essa memória.
 - Erros: 400 (`sessionName` ausente ou fora de `[a-zA-Z0-9_-]{1,64}`); 401/403 (só ADMIN).
+
+### Uso por proxy, proxy compartilhado e exclusão em lote (E28 · P-107 · D-051)
+
+```
+GET  /api/proxies                  # cada item ganha sessionCount + sessions[{id,name}] (ADITIVO)
+POST /api/proxies/bulk-delete      # ADMIN — { "ids": ["<id>", ...] } → 200 { "deleted": 2, "notFound": [] }
+POST /api/sessions                 # + "allowSharedProxy": true (opcional, junto do proxyId)
+PUT  /api/sessions/{sessao}/proxy  # + "allowSharedProxy": true (opcional, só pesa no SINGLE)
+```
+
+- **Uso por proxy** (`ProxyListItemDto`): `sessionCount` e `sessions` (id e nome, em ordem de nome)
+  das sessões vivas que saem pelo proxy — `currentProxyId` de atribuição com modo diferente de `NONE`.
+  Em `RANGE`/`GLOBAL_ROUND_ROBIN` conta a afinidade atual (E15). Sessão apagada (atribuição órfã,
+  inclusive a memória da E26) não conta. É a mesma régua do `/proxies/available`, que não muda.
+- **`allowSharedProxy: true`** aceita no `SINGLE` um proxy já usado por outra sessão: as duas passam a
+  sair pelo mesmo IP. Ausente ou `false` = exclusividade de sempre (400 "Proxy já está em uso por outra
+  sessão"). Nunca libera proxy inexistente, desabilitado ou `DEAD` (mesmos 400 de antes). Valor
+  não-booleano → 400. Repetir o PRÓPRIO `SINGLE` (mesma sessão viva, mesmo proxy) não precisa do campo,
+  nem depois que outra sessão entrou no proxy com ele. O painel só manda o campo quando o dono escolhe
+  na lista um proxy que estava vermelho (em uso) naquela hora.
+- **Compartilhar tem custo:** contas no mesmo IP ficam correlacionáveis pelo WhatsApp, e um proxy
+  marcado `DEAD` (teste ou falha em uso, E15) faz falhar a próxima conexão de todas as sessões `SINGLE`
+  que o dividem. A recomendação operacional continua 1 IP por sessão (B-001).
+- **Exclusão em lote:** `ids` com 1 a 1000 itens (cada um com 1 a 64 caracteres); repetidos contam uma
+  vez; inexistentes voltam em `notFound` sem falhar (200 mesmo com `deleted: 0`). Como no
+  `DELETE /api/proxies/{id}`, não há trava de uso: a atribuição que apontava para um proxy apagado
+  fica sem ele — sessão `SINGLE` falha ao conectar (FAILED, E15) até receber outro proxy;
+  `RANGE`/`GLOBAL` escolhem outro na próxima conexão. O gateway loga as posições apagadas e, em
+  `WARN`, as que estavam em uso com os nomes das sessões (lidas sob o lock da exclusão). Erros: 400
+  (lista vazia, ausente ou que não é lista; id fora de `[0-9A-Za-z_-]{1,64}`; mais de 1000), 401/403
+  (só ADMIN).
+- O node n8n 0.4.1 não usa rotas de proxy (P-003); nada muda para ele.
 
 ### Diagnóstico de desconexão Baileys (E9)
 

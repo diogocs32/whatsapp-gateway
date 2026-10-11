@@ -14,6 +14,7 @@ import {
   PROXY_REPOSITORY,
   type ProxyRepository,
 } from '../domain/proxy.repository';
+import type { ProxyUsageSession } from '../domain/proxy-usage';
 import type {
   ProxyMode,
   ProxyProtocol,
@@ -58,6 +59,19 @@ export interface SetAssignmentData {
   rangeEnd: number | null;
   strategy: ProxyStrategy;
   proxyId: string | null;
+  // E28 (D-051): SINGLE aceita proxy já usado por outra sessão (escolha explícita do dono).
+  allowShared?: boolean;
+}
+
+// E28 (D-051): compartilhar o proxy SINGLE com outra sessão só por escolha explícita.
+export interface ShareOptions {
+  allowShared?: boolean;
+}
+
+// E28 (P-107): item da listagem do pool com as sessões vivas que usam o proxy.
+export interface ProxyWithUsage {
+  proxy: Proxy;
+  sessions: ProxyUsageSession[];
 }
 
 // Executa `tasks` com no máximo `limit` em paralelo (evita abrir centenas de sockets ao testar o pool inteiro).
@@ -114,6 +128,19 @@ export class ProxyService implements OnApplicationBootstrap {
 
   list(): Promise<Proxy[]> {
     return this.repo.list();
+  }
+
+  // E28 (P-107, D-051): o pool com quem usa cada proxy — o painel pinta verde (livre) / vermelho
+  // (em uso) e mostra quantas sessões. Régua do domínio `proxyUsageMap` (= `usedProxyIds`).
+  async listWithUsage(): Promise<ProxyWithUsage[]> {
+    const [proxies, usage] = await Promise.all([
+      this.repo.list(),
+      this.repo.proxyUsage(),
+    ]);
+    return proxies.map((proxy) => ({
+      proxy,
+      sessions: usage.get(proxy.id) ?? [],
+    }));
   }
 
   async create(data: CreateProxyData): Promise<Proxy> {
@@ -187,6 +214,40 @@ export class ProxyService implements OnApplicationBootstrap {
     await this.repo.delete(id);
   }
 
+  // E28 (P-107): exclusão em lote. Ids repetidos contam uma vez; os que não existem (outra aba já
+  // apagou) voltam em `notFound` sem falhar o lote. Como no DELETE unitário, as atribuições que
+  // apontavam para eles ficam penduradas (sem FK): SINGLE falha ao conectar até ganhar outro proxy
+  // (E15) e RANGE/GLOBAL escolhem outro na próxima conexão — por isso o log nomeia as sessões.
+  async removeMany(
+    ids: readonly string[],
+  ): Promise<{ deleted: number; notFound: string[] }> {
+    const unique = [...new Set(ids)];
+    // O uso de cada apagado vem do repositório, lido sob o lock da própria exclusão.
+    const removed = await this.repo.deleteMany(unique);
+    const gone = new Set(removed.map((r) => r.id));
+    const notFound = unique.filter((id) => !gone.has(id));
+    if (removed.length > 0) {
+      this.logger.log(
+        `Exclusão em lote: ${removed.length} proxy(s) apagado(s) — ${removed
+          .map((r) => `#${r.position}`)
+          .join(', ')}`,
+      );
+      const inUse = removed.filter((r) => r.sessions.length > 0);
+      if (inUse.length > 0) {
+        const which = inUse
+          .map(
+            (r) =>
+              `#${r.position} (${r.sessions.map((s) => s.name).join(', ')})`,
+          )
+          .join('; ');
+        this.logger.warn(
+          `Exclusão em lote apagou proxy em uso: ${which} — sessão com proxy fixo nele não conecta até receber outro proxy; faixa/global troca na próxima conexão`,
+        );
+      }
+    }
+    return { deleted: removed.length, notFound };
+  }
+
   async setEnabled(id: string, enabled: boolean): Promise<void> {
     await this.repo.setEnabled(id, enabled);
   }
@@ -222,6 +283,7 @@ export class ProxyService implements OnApplicationBootstrap {
   // Proxies LIVRES p/ a criação de sessão (backlog 10/07, D-008): enabled, não-DEAD e que não são
   // o proxy atual de nenhuma sessão existente. Exclusividade vale p/ o fluxo SINGLE — modos
   // RANGE/GLOBAL_ROUND_ROBIN podem usar qualquer proxy em runtime (limitação consciente, D-008).
+  // Desde a E28 o painel usa `listWithUsage` (mostra os ocupados em vermelho); esta fica para a API.
   async listAvailable(): Promise<Proxy[]> {
     const [all, used] = await Promise.all([
       this.repo.list(),
@@ -233,11 +295,14 @@ export class ProxyService implements OnApplicationBootstrap {
     );
   }
 
-  // Valida que o proxy pode ser atribuído com exclusividade. Lança Error com mensagem clara —
-  // o controller que chamar mapeia para o HTTP adequado.
+  // Valida que o proxy pode ser atribuído como SINGLE. Lança Error com mensagem clara — o
+  // controller que chamar mapeia para o HTTP adequado. Exclusivo por padrão (D-008/D-041);
+  // `allowShared` (E28/D-051) aceita proxy já usado por outra sessão, mas existir, estar habilitado
+  // e não-DEAD continua obrigatório.
   async ensureAvailable(
     proxyId: string,
     ownSessionId?: string,
+    opts: ShareOptions = {},
   ): Promise<Proxy> {
     const proxy = await this.repo.findById(proxyId);
     if (!proxy) throw new ProxyUnavailableError('Proxy não encontrado');
@@ -247,25 +312,29 @@ export class ProxyService implements OnApplicationBootstrap {
       throw new ProxyUnavailableError(
         'Proxy está DEAD — teste-o ou escolha outro',
       );
+    if (opts.allowShared) return proxy;
     const used = new Set(await this.repo.usedProxyIds(ownSessionId));
     if (used.has(proxyId))
       throw new ProxyUnavailableError('Proxy já está em uso por outra sessão');
     return proxy;
   }
 
-  // Revalida antes de gravar; o repositório repete a validação sob lock para SINGLE.
+  // Atribuição SINGLE/STICKY da criação de sessão (D-008). Revalida antes de gravar; o repositório
+  // repete a validação sob lock. Exclusiva por padrão; compartilhada só com `allowShared` (D-051).
   // RANGE/GLOBAL continuam podendo compartilhar o pool (D-008).
-  async assignExclusive(
+  async assignSingle(
     sessionId: string,
     proxyId: string,
+    opts: ShareOptions = {},
   ): Promise<ProxyAssignment> {
-    await this.ensureAvailable(proxyId);
+    await this.ensureAvailable(proxyId, undefined, opts);
     return this.setAssignment(sessionId, {
       mode: 'SINGLE',
       rangeStart: null,
       rangeEnd: null,
       strategy: 'STICKY',
       proxyId,
+      allowShared: opts.allowShared,
     });
   }
 
@@ -273,10 +342,17 @@ export class ProxyService implements OnApplicationBootstrap {
     sessionId: string,
     data: SetAssignmentData,
   ): Promise<ProxyAssignment> {
+    const allowShared = data.allowShared === true;
     if (data.mode === 'SINGLE') {
       if (!data.proxyId)
         throw new ProxyUnavailableError('mode SINGLE exige proxyId');
-      await this.ensureAvailable(data.proxyId, sessionId);
+      // Repetir o próprio SINGLE no mesmo proxy não é compartilhar de novo — mesmo que outra sessão
+      // tenha entrado nele com `allowSharedProxy` (o repositório confere de novo sob o lock).
+      const keepsOwn =
+        (await this.repo.liveSinglePin(sessionId)) === data.proxyId;
+      await this.ensureAvailable(data.proxyId, sessionId, {
+        allowShared: allowShared || keepsOwn,
+      });
     }
     // Modo e pin mudam juntos: uma reconexão não pode ler SINGLE com o pin anterior.
     return this.repo.setAssignment({
@@ -286,7 +362,7 @@ export class ProxyService implements OnApplicationBootstrap {
       rangeEnd: data.rangeEnd,
       strategy: data.strategy,
       ...(data.mode === 'SINGLE'
-        ? { currentProxyId: data.proxyId }
+        ? { currentProxyId: data.proxyId, allowShared }
         : data.mode === 'NONE'
           ? { currentProxyId: null }
           : {}),

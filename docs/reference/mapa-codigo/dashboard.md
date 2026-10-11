@@ -20,11 +20,14 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/components/chat/thread-context.ts` | 16 |
 | `dashboard/components/chat/Ticks.tsx` | 29 |
 | `dashboard/components/chat/use-media.ts` | 66 |
+| `dashboard/components/proxies/ProxyPicker.tsx` | 349 |
 | `dashboard/components/sessions/ConnectLinkDialog.tsx` | 505 |
-| `dashboard/lib/api.spec.ts` | 212 |
-| `dashboard/lib/api.ts` | 589 |
+| `dashboard/lib/api.spec.ts` | 261 |
+| `dashboard/lib/api.ts` | 599 |
 | `dashboard/lib/auth.tsx` | 90 |
 | `dashboard/lib/branding.tsx` | 129 |
+| `dashboard/lib/combobox-keys.spec.ts` | 132 |
+| `dashboard/lib/combobox-keys.ts` | 69 |
 | `dashboard/lib/connect-link-memory.spec.ts` | 53 |
 | `dashboard/lib/connect-link-memory.ts` | 46 |
 | `dashboard/lib/connect-link.spec.ts` | 781 |
@@ -44,8 +47,10 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/media.ts` | 32 |
 | `dashboard/lib/message-format.spec.ts` | 440 |
 | `dashboard/lib/message-format.ts` | 426 |
-| `dashboard/lib/proxy-suggestion.spec.ts` | 427 |
-| `dashboard/lib/proxy-suggestion.ts` | 223 |
+| `dashboard/lib/proxy-suggestion.spec.ts` | 504 |
+| `dashboard/lib/proxy-suggestion.ts` | 256 |
+| `dashboard/lib/proxy-usage.spec.ts` | 415 |
+| `dashboard/lib/proxy-usage.ts` | 335 |
 | `dashboard/lib/public-connect.spec.ts` | 243 |
 | `dashboard/lib/public-connect.ts` | 133 |
 | `dashboard/lib/send-feedback.spec.ts` | 61 |
@@ -70,8 +75,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/routes/License.tsx` | 157 |
 | `dashboard/routes/Login.tsx` | 81 |
 | `dashboard/routes/Monitor.tsx` | 137 |
-| `dashboard/routes/Proxies.tsx` | 635 |
-| `dashboard/routes/Sessions.tsx` | 956 |
+| `dashboard/routes/Proxies.tsx` | 942 |
+| `dashboard/routes/Sessions.tsx` | 1051 |
 | `dashboard/routes/Users.tsx` | 259 |
 | `dashboard/routes/Webhooks.tsx` | 257 |
 
@@ -305,6 +310,22 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `useInView(target, root, rootMargin)` · L40
   - chamado por: `ImageMedia` (MediaView.tsx:159)
 
+## `dashboard/components/proxies/ProxyPicker.tsx`
+
+349 linhas · caminho: `apps/dashboard/src/components/proxies/ProxyPicker.tsx`
+- importa (interno): `dashboard/lib/combobox-keys.ts`
+- importado por: `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`
+
+**Funções e constantes de topo**
+- `Dot({ tone })` · L55
+- `Badge({ tone, text })` · L64
+- `ProxyPicker({ value, options, onChange, labelledBy, describedBy, placeh…)` · L74
+  - chama: `comboKey` (combobox-keys.ts:39), `initialActive` (combobox-keys.ts:30)
+
+**Tipos**
+- type `ProxyPickerTone` L24
+- interface `ProxyPickerOption` L26 · 7 propriedade(s)
+
 ## `dashboard/components/sessions/ConnectLinkDialog.tsx`
 
 505 linhas · caminho: `apps/dashboard/src/components/sessions/ConnectLinkDialog.tsx`
@@ -318,7 +339,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/lib/api.spec.ts`
 
-212 linhas · caminho: `apps/dashboard/src/lib/api.spec.ts`
+261 linhas · caminho: `apps/dashboard/src/lib/api.spec.ts`
 - importa (interno): `dashboard/lib/api.ts`
 
 - describe “api.sessions.forward” · L17
@@ -335,48 +356,51 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “GET com o nome codificado na query, cookie, sem Content-Type e com o signal de quem chama” · L167
   - it “sem init: no-store do mesmo jeito; init do chamador pode sobrescrever” · L191
   - it “403 (OPERATOR) chega como ApiError para quem chama engolir” · L202
+- describe “api.proxies (E28)” · L214
+  - it “bulkRemove: POST na rota de lote com os ids no corpo, JSON e cookie” · L215
+  - it “setAssignment e sessions.create levam allowSharedProxy quando quem chama manda” · L232
 
 ## `dashboard/lib/api.ts`
 
-589 linhas · caminho: `apps/dashboard/src/lib/api.ts`
+599 linhas · caminho: `apps/dashboard/src/lib/api.ts`
 - importa (interno): `contracts/index.ts`
 - importado por: `dashboard/components/chat/ForwardDialog.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.spec.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/branding.tsx`, `dashboard/lib/media.ts`, `dashboard/lib/public-connect.spec.ts`, `dashboard/lib/public-connect.ts`, `dashboard/lib/use-live-stream.ts`, `dashboard/routes/ApiKeys.tsx`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Audit.tsx`, `dashboard/routes/Branding.tsx`, `dashboard/routes/Campaigns.tsx`, `dashboard/routes/Contacts.tsx`, `dashboard/routes/Dashboard.tsx`, `dashboard/routes/Groups.tsx`, `dashboard/routes/Health.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/License.tsx`, `dashboard/routes/Monitor.tsx`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`, `dashboard/routes/Users.tsx`, `dashboard/routes/Webhooks.tsx`
 
-**class `ApiError`** L63 · `extends Error`
+**class `ApiError`** L66 · `extends Error`
 - injeta (construtor): `status: number` · `message: string (param)` · `code: string` · `body: unknown`
-- `constructor(status, message, code, body)` · L64
-  - chamado por: `parseError` L130
+- `constructor(status, message, code, body)` · L67
+  - chamado por: `parseError` L133
 
 **Funções e constantes de topo**
-- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L58
+- `BASE` = `import.meta.env.VITE_API_URL ?? 'http://localhost:3000'` · L61
   - env: `VITE_API_URL`
-- `setUnauthorizedHandler(fn)` · L84
+- `setUnauthorizedHandler(fn)` · L87
   - chamado por: `AuthProvider` (auth.tsx:24)
-- `isAuthEndpoint(path)` · L89
-  - chamado por: `coreFetch` L113
-- `tryRefresh()` · L97
-  - chamado por: `coreFetch` L113
-- `coreFetch(path, init, allowRefresh)` · L113 · async
-  - chama: `isAuthEndpoint` L89, `tryRefresh` L97
-  - chamado por: `request` L147, `requestBlob` L166, `requestForm` L173
-- `parseError(res)` · L130 · async
-  - chama: `constructor` L64
-  - chamado por: `request` L147, `requestBlob` L166, `requestForm` L173
-- `request(path, init)` · L147 · async
-  - chama: `coreFetch` L113, `parseError` L130
-  - chamado por: `api` L181
-- `requestBlob(path, signal)` · L166 · async
-  - chama: `coreFetch` L113, `parseError` L130
-  - chamado por: `api` L181
-- `requestForm(path, form)` · L173 · async
-  - chama: `coreFetch` L113, `parseError` L130
-  - chamado por: `api` L181
-- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L181
-  - chama: `request` L147, `requestBlob` L166, `requestForm` L173
-  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/suggestion?sessionName=${encodeURIComponent(sess…`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${encodeURIComponent(id)}/connect-link`, `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIC…`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
+- `isAuthEndpoint(path)` · L92
+  - chamado por: `coreFetch` L116
+- `tryRefresh()` · L100
+  - chamado por: `coreFetch` L116
+- `coreFetch(path, init, allowRefresh)` · L116 · async
+  - chama: `isAuthEndpoint` L92, `tryRefresh` L100
+  - chamado por: `request` L150, `requestBlob` L169, `requestForm` L176
+- `parseError(res)` · L133 · async
+  - chama: `constructor` L67
+  - chamado por: `request` L150, `requestBlob` L169, `requestForm` L176
+- `request(path, init)` · L150 · async
+  - chama: `coreFetch` L116, `parseError` L133
+  - chamado por: `api` L184
+- `requestBlob(path, signal)` · L169 · async
+  - chama: `coreFetch` L116, `parseError` L133
+  - chamado por: `api` L184
+- `requestForm(path, form)` · L176 · async
+  - chama: `coreFetch` L116, `parseError` L133
+  - chamado por: `api` L184
+- `api` = `{ health: () => request<HealthResponse>('/health'), login: (username:…` · L184
+  - chama: `request` L150, `requestBlob` L169, `requestForm` L176
+  - HTTP: `request /api/api-keys`, `request /api/api-keys/${id}`, `request /api/audit?limit=${limit}&offset=${offset}`, `request /api/auth/login`, `request /api/auth/logout`, `request /api/auth/me`, `request /api/branding`, `request /api/campaigns`, `request /api/campaigns${sessionId ? `?sessionId=${sessionId}` : ''}`, `request /api/campaigns/${id}`, `request /api/campaigns/${id}/cancel`, `request /api/campaigns/${id}/pause`, `request /api/campaigns/${id}/resume`, `request /api/campaigns/${id}/start`, `request /api/inbox/conversations${qs ? `?${qs}` : ''}`, `request /api/inbox/messages${qs ? `?${qs}` : ''}`, `request /api/inbox/sessions/${encodeURIComponent(sessionId)}/triage`, `request /api/license`, `request /api/observability/summary`, `request /api/observability/timeline/${sessionId}?limit=${limit}`, `request /api/proxies`, `request /api/proxies/${id}`, `request /api/proxies/${id}/disable`, `request /api/proxies/${id}/enable`, `request /api/proxies/${id}/test`, `request /api/proxies/available`, `request /api/proxies/bulk`, `request /api/proxies/bulk-delete`, `request /api/proxies/suggestion?sessionName=${encodeURIComponent(sess…`, `request /api/proxies/test-all`, `request /api/proxies/webshare/status`, `request /api/proxies/webshare/sync`, `request /api/sessions`, `request /api/sessions/${encodeURIComponent(id)}/connect-link`, `request /api/sessions/${encodeURIComponent(id)}/messages/${encodeURIC…`, `request /api/sessions/${id}`, `request /api/sessions/${id}/logout`, `request /api/sessions/${id}/messages/conversations?limit=${limit}`, `request /api/sessions/${id}/messages/text`, `request /api/sessions/${id}/messages?chatId=${encodeURIComponent(chat…`, `request /api/sessions/${id}/new-qr`, `request /api/sessions/${id}/pairing-code`, `request /api/sessions/${id}/qr`, `request /api/sessions/${id}/restart`, `request /api/sessions/${id}/start`, `request /api/sessions/${id}/stop`, `request /api/sessions/${sessionId}/proxy`, `request /api/sessions/${sid}/channels`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/foll…`, `request /api/sessions/${sid}/channels/${encodeURIComponent(jid)}/unfo…`, `request /api/sessions/${sid}/contacts/${encodeURIComponent(jid)}/prof…`, `request /api/sessions/${sid}/contacts/block`, `request /api/sessions/${sid}/contacts/check`, `request /api/sessions/${sid}/contacts/directory?limit=${limit}&offset…`, `request /api/sessions/${sid}/groups`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/descri…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/invite…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/leave`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/partic…`, `request /api/sessions/${sid}/groups/${encodeURIComponent(jid)}/subject`, `request /api/users`, `request /api/users/${id}`, `request /api/users/${id}/password`, `request /api/webhooks`, `request /api/webhooks/${id}`, `request /api/webhooks/${id}/disable`, `request /api/webhooks/${id}/enable`, `request /api/webhooks/${id}/test`, `request /health`, `requestForm /api/sessions/${id}/messages/media`
 
 **Tipos**
-- type `Ok` L179
+- type `Ok` L182
 
 ## `dashboard/lib/auth.tsx`
 
@@ -387,9 +411,9 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `AuthContext` = `createContext<AuthState | null>(null)` · L22
 - `AuthProvider({ children })` · L24
-  - chama: `setUnauthorizedHandler` (api.ts:84), `clearRememberedLinkUrls` (connect-link-memory.ts:43), `isPublicPath` (connect-path.ts:5), `MediaCache.clear` (media-cache.ts:51)
+  - chama: `setUnauthorizedHandler` (api.ts:87), `clearRememberedLinkUrls` (connect-link-memory.ts:43), `isPublicPath` (connect-path.ts:5), `MediaCache.clear` (media-cache.ts:51)
 - `useAuth()` · L85
-  - chamado por: `Protected` (App.tsx:50), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:37), `Sessions` (Sessions.tsx:306), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
+  - chamado por: `Protected` (App.tsx:50), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:87), `Sessions` (Sessions.tsx:321), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
 
 **Tipos**
 - interface `AuthState` L15 · 4 propriedade(s)
@@ -419,6 +443,43 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 **Tipos**
 - interface `BrandingState` L90 · 2 propriedade(s)
+
+## `dashboard/lib/combobox-keys.spec.ts`
+
+132 linhas · caminho: `apps/dashboard/src/lib/combobox-keys.spec.ts`
+- importa (interno): `dashboard/lib/combobox-keys.ts`
+
+- describe “initialActive” · L39
+  - it “a escolha atual se habilitada; senão a 1ª habilitada; -1 sem nenhuma” · L40
+- describe “comboKey — fechado” · L48
+  - it “Alt+↓ também abre na escolha atual” · L53
+  - it “↓ sem escolha (ou escolha desabilitada) abre na 1ª habilitada” · L57
+  - it “↑ e Home abrem na 1ª; End abre na última (pulando desabilitadas)” · L65
+  - it “outras teclas (Tab, Esc, letras) não fazem nada com a lista fechada” · L77
+- describe “comboKey — aberto” · L84
+  - it “Alt+↑ escolhe a destacada; ↑ sozinho só move” · L89
+  - it “Enter sem destaque (ou em desabilitada) só fecha” · L94
+  - it “setas, Home/End e PageUp/PageDown movem pulando desabilitadas” · L102
+  - it “↓ na última fica na última (sem dar a volta)” · L119
+  - it “Esc fecha com preventDefault; Tab fecha SEM escolher e deixa o foco seguir” · L123
+  - it “letras não fazem nada (sem busca por digitação)” · L128
+
+## `dashboard/lib/combobox-keys.ts`
+
+69 linhas · caminho: `apps/dashboard/src/lib/combobox-keys.ts`
+- importa (interno): `dashboard/lib/proxy-usage.ts`
+- importado por: `dashboard/components/proxies/ProxyPicker.tsx`, `dashboard/lib/combobox-keys.spec.ts`
+
+**Funções e constantes de topo**
+- `initialActive(items, selectedIndex)` · L30
+  - chama: `moveActive` (proxy-usage.ts:287)
+  - chamado por: `ProxyPicker` (ProxyPicker.tsx:74), `comboKey` L39
+- `comboKey(input)` · L39
+  - chama: `initialActive` L30, `moveActive` (proxy-usage.ts:287)
+  - chamado por: `ProxyPicker` (ProxyPicker.tsx:74)
+
+**Tipos**
+- type `ComboKeyResult` L13
 
 ## `dashboard/lib/connect-link-memory.spec.ts`
 
@@ -840,7 +901,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `stripDevice(jid)` · L6
   - chamado por: `ChatThread` (ChatThread.tsx:39), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
 - `numberFromJid(jid)` · L11
-  - chamado por: `who` (Reactions.tsx:8), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `sessionNumbers` (session-filter.ts:100), `Atendimento` (Atendimento.tsx:73), `Sessions` (Sessions.tsx:306)
+  - chamado por: `who` (Reactions.tsx:8), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `sessionNumbers` (session-filter.ts:100), `Atendimento` (Atendimento.tsx:73), `Sessions` (Sessions.tsx:321)
 - `isPhoneJid(jid)` · L16
   - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54, `sendTarget` L22
 - `isGroupJid(jid)` · L18
@@ -1154,7 +1215,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/lib/proxy-suggestion.spec.ts`
 
-427 linhas · caminho: `apps/dashboard/src/lib/proxy-suggestion.spec.ts`
+504 linhas · caminho: `apps/dashboard/src/lib/proxy-suggestion.spec.ts`
 - importa (interno): `contracts/index.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/time-format.ts`
 
 - describe “isValidSessionName (mesma regex do create no gateway)” · L69
@@ -1173,66 +1234,189 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “manualChoiceLost: escolha manual saiu da lista → Sem proxy + aviso” · L172
   - it “manualChoiceLost com sugerido livre: os dois avisos e o botão” · L182
   - it “IN_USE: cita a sessão que está com o proxy; sem nome, "outra sessão"” · L192
-  - it “DEAD e DISABLED: avisam sem pré-selecionar” · L215
-  - it “REMOVED com proxy null: frase sem #N (nunca lê proxy.*)” · L240
-  - it “proxy null mesmo com available:true (defensivo) não quebra nem pré-seleciona” · L254
-  - it “label null: só "#N"” · L262
-  - it “diferença de caixa: pré-seleciona, cita o nome como foi apagado e avisa” · L273
-  - it “create segurado (held): pede para conferir e criar de novo” · L284
-  - it “tempo: "agora", horas e, depois de 24 h, data e hora” · L291
-  - it “data null (sem memória ou erro): nada muda” · L305
-- describe “mustHoldCreate (E26)” · L312
-  - it “segura: automático, nome válido e a sugestão desse nome ainda não chegou” · L315
-  - it “não segura com escolha do dono (manual ou Sem proxy)” · L320
-  - it “não segura se a sugestão já resolveu para esse nome” · L325
-  - it “não segura com nome inválido ou já em uso” · L329
-- describe “decideAfterHold (E26 — "Criar" segurado depois da consulta)” · L336
-  - it “sugestão pré-selecionável (via "Sem proxy" no clique) → segura” · L359
-  - it “sugestão null, indisponível ou REMOVED → cria com ""” · L363
-  - it “erro ou teto SEM mudança na tela → cria com o que está na tela” · L375
-  - it “erro ou teto COM mudança (o debounce pré-selecionou na espera) → segura” · L386
-  - it “o dono via o sugerido (resposta velha) e agora está IN_USE → segura” · L392
-  - it “pré-seleção igual à vista no clique → cria com ela” · L401
-  - it “escolha manual feita durante a espera → cria com a escolha” · L408
-  - it “nome mudado durante a espera → não cria” · L418
+  - it “IN_USE com o proxy na lista (vermelho): avisa que dá para escolher, sem pré-selecionar” · L218
+  - it “DEAD/DISABLED nunca ganham a dica de compartilhar (só IN_USE na lista)” · L240
+  - it “DEAD e DISABLED: avisam sem pré-selecionar” · L249
+  - it “REMOVED com proxy null: frase sem #N (nunca lê proxy.*)” · L274
+  - it “proxy null mesmo com available:true (defensivo) não quebra nem pré-seleciona” · L288
+  - it “label null: só "#N"” · L296
+  - it “diferença de caixa: pré-seleciona, cita o nome como foi apagado e avisa” · L307
+  - it “create segurado (held): pede para conferir e criar de novo” · L318
+  - it “tempo: "agora", horas e, depois de 24 h, data e hora” · L325
+  - it “data null (sem memória ou erro): nada muda” · L339
+- describe “mustHoldCreate (E26)” · L346
+  - it “segura: automático, nome válido e a sugestão desse nome ainda não chegou” · L349
+  - it “não segura com escolha do dono (manual ou Sem proxy)” · L354
+  - it “não segura se a sugestão já resolveu para esse nome” · L359
+  - it “não segura com nome inválido ou já em uso” · L363
+- describe “decideAfterHold (E26 — "Criar" segurado depois da consulta)” · L370
+  - it “sugestão pré-selecionável (via "Sem proxy" no clique) → segura” · L393
+  - it “sugestão null, indisponível ou REMOVED → cria com ""” · L397
+  - it “erro ou teto SEM mudança na tela → cria com o que está na tela” · L409
+  - it “erro ou teto COM mudança (o debounce pré-selecionou na espera) → segura” · L420
+  - it “o dono via o sugerido (resposta velha) e agora está IN_USE → segura” · L426
+  - it “pré-seleção igual à vista no clique → cria com ela” · L435
+  - it “escolha manual feita durante a espera → cria com a escolha” · L442
+  - it “nome mudado durante a espera → não cria” · L452
+- describe “suggestionView — sugerido livre que a lista mostra em uso (E28)” · L465
+  - it “não pré-seleciona, sem "sugerido"/botão, e avisa quem usa” · L468
+  - it “o "Criar" segurado recalcula com a lista: o valor final continua vazio (não cria com o vermelho)” · L480
+  - it “a lista sem ninguém no sugerido mantém a pré-seleção da E26” · L494
+  - it “sem `inUseBy` (chamador antigo) o comportamento da E26 não muda” · L500
 
 ## `dashboard/lib/proxy-suggestion.ts`
 
-223 linhas · caminho: `apps/dashboard/src/lib/proxy-suggestion.ts`
+256 linhas · caminho: `apps/dashboard/src/lib/proxy-suggestion.ts`
 - importa (interno): `contracts/index.ts`, `dashboard/lib/time-format.ts`
 - importado por: `dashboard/lib/proxy-suggestion.spec.ts`, `dashboard/routes/Sessions.tsx`
 
 **Funções e constantes de topo**
-- `SESSION_NAME_RE` = `/^[a-zA-Z0-9_-]{1,64}$/` · L13
-- `isValidSessionName(trimmed)` · L15
-  - chamado por: `mustHoldCreate` L178, `Sessions` (Sessions.tsx:306)
-- `proxyShortLabel(p)` · L65
-  - chamado por: `suggestionView` L111, `unavailableText` L92
-- `releasedText(releasedAt, now)` · L72
+- `SESSION_NAME_RE` = `/^[a-zA-Z0-9_-]{1,64}$/` · L16
+- `isValidSessionName(trimmed)` · L18
+  - chamado por: `mustHoldCreate` L211, `Sessions` (Sessions.tsx:321)
+- `proxyShortLabel(p)` · L73
+  - chamado por: `suggestionView` L128, `unavailableText` L101
+- `releasedText(releasedAt, now)` · L80
   - chama: `fullDateTime` (time-format.ts:13), `since` (time-format.ts:32)
-  - chamado por: `sessionRef` L79
-- `sessionRef(data, trimmedName, now)` · L79
-  - chama: `releasedText` L72
-  - chamado por: `suggestionView` L111
-- `unavailableText(data, ref)` · L92
-  - chama: `proxyShortLabel` L65
-  - chamado por: `suggestionView` L111
-- `suggestionView(input)` · L111
-  - chama: `proxyShortLabel` L65, `sessionRef` L79, `unavailableText` L92
-  - chamado por: `Sessions` (Sessions.tsx:306)
-- `mustHoldCreate(input)` · L178
-  - chama: `isValidSessionName` L15
-  - chamado por: `Sessions` (Sessions.tsx:306)
-- `decideAfterHold(input)` · L205
-  - chamado por: `Sessions` (Sessions.tsx:306)
+  - chamado por: `sessionRef` L87
+- `sessionRef(data, trimmedName, now)` · L87
+  - chama: `releasedText` L80
+  - chamado por: `suggestionView` L128
+- `unavailableText(data, ref, pickable)` · L101
+  - chama: `proxyShortLabel` L73
+  - chamado por: `suggestionView` L128
+- `suggestionView(input)` · L128
+  - chama: `proxyShortLabel` L73, `sessionRef` L87, `unavailableText` L101
+  - chamado por: `Sessions` (Sessions.tsx:321)
+- `mustHoldCreate(input)` · L211
+  - chama: `isValidSessionName` L18
+  - chamado por: `Sessions` (Sessions.tsx:321)
+- `decideAfterHold(input)` · L238
+  - chamado por: `Sessions` (Sessions.tsx:321)
 
 **Tipos**
-- interface `SuggestionState` L20 · 2 propriedade(s)
-- type `SuggestionTone` L25
-- interface `SuggestionNote` L27 · 2 propriedade(s)
-- interface `SuggestionViewInput` L32 · 6 propriedade(s)
-- interface `SuggestionView` L43 · 7 propriedade(s)
-- type `HoldDecision` L200
+- interface `SuggestionState` L23 · 2 propriedade(s)
+- type `SuggestionTone` L28
+- interface `SuggestionNote` L30 · 2 propriedade(s)
+- interface `SuggestionViewInput` L35 · 7 propriedade(s)
+- interface `SuggestionView` L51 · 7 propriedade(s)
+- type `HoldDecision` L233
+
+## `dashboard/lib/proxy-usage.spec.ts`
+
+415 linhas · caminho: `apps/dashboard/src/lib/proxy-usage.spec.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/proxy-usage.ts`
+
+- describe “proxyUsageView — criação (sem sessão própria)” · L53
+  - it “sem sessões → verde "livre"” · L54
+  - it “1 sessão → vermelho "em uso por 1 sessão" com o nome na dica” · L64
+  - it “3 sessões → plural e todos os nomes na ordem do gateway” · L74
+- describe “proxyUsageView — sessão já criada (conta só as OUTRAS)” · L87
+  - it “ninguém usa → "livre"” · L88
+  - it “só a própria usa → verde "só esta sessão"” · L96
+  - it “outra usa → vermelho "em uso por 1 outra sessão"” · L106
+  - it “a própria + 2 outras → "2 outras sessões" e a dica cita esta sessão” · L112
+- describe “isSelectableProxy / unavailableText” · L131
+  - it “habilitado e ALIVE/UNTESTED pode; desativado ou DEAD não” · L132
+  - it “motivo: desativado tem prioridade sobre DEAD; elegível → null” · L141
+- describe “proxyOptionLabel” · L155
+  - it “rótulo quando existe; senão host:porta; país e status” · L156
+- describe “needsShareConsent / consentimento na escolha / sharedNote” · L166
+  - it “só pede compartilhar quando o proxy está vermelho para quem escolhe” · L167
+  - it “consentFromPick: só uma opção vermelha escolhida conta; vazio não vira consentimento” · L177
+  - it “shareFromConsent: compartilha só o MESMO proxy que foi escolhido vermelho” · L185
+  - it “inUseErrorText: o 400 "em uso" ganha a dica de como compartilhar; o resto passa igual” · L197
+  - it “aviso de compartilhado: nomes, quantidade e o sujeito certo” · L206
+- describe “seleção para excluir em lote” · L227
+  - it “visibleSelection: só os que ainda existem, na ordem da lista” · L230
+  - it “selectAllState: none / some / all (ids que sumiram não contam)” · L237
+  - it “toggleOne marca e desmarca sem mutar o conjunto original” · L245
+  - it “toggleAll: parcial ou vazio → todos; todos → nenhum” · L252
+- describe “confirmação da exclusão em lote” · L259
+  - it “resumo: ids na ordem da lista, os em uso com sessões e as sessões afetadas sem repetir” · L269
+  - it “pergunta com plural certo” · L281
+  - it “sem nenhum em uso → sem aviso” · L290
+  - it “aviso nomeia proxies e sessões e explica o efeito (fixo × faixa/global)” · L296
+  - it “resultado: singular/plural e os que já não existiam” · L309
+- describe “moveActive (teclado do seletor, APG select-only)” · L322
+  - it “sem opção habilitada → -1” · L326
+  - it “first/last pulam desabilitadas nas pontas” · L332
+  - it “sem ativa (-1) → primeira habilitada para qualquer movimento relativo” · L337
+  - it “next/prev pulam desabilitadas e não dão a volta” · L343
+  - it “nas pontas com a atual desabilitada, vai para a ponta habilitada” · L350
+  - it “pageDown/pageUp saltam até 10 ou até a ponta” · L356
+  - it “pageDown/pageUp com o alvo desabilitado ficam na mais longe habilitada dentro do salto” · L364
+  - it “sem habilitada dentro do salto, vai à primeira depois dele (no sentido do salto)” · L371
+- describe “gateway anterior à E28 (sem `sessions` no item)” · L382
+  - it “hasUsageInfo distingue item com e sem uso” · L388
+  - it “vira "uso indisponível" (neutro), não pede compartilhar nem avisa” · L393
+  - it “confirmação do lote avisa que não deu para conferir o uso” · L404
+
+## `dashboard/lib/proxy-usage.ts`
+
+335 linhas · caminho: `apps/dashboard/src/lib/proxy-usage.ts`
+- importa (interno): `contracts/index.ts`
+- importado por: `dashboard/lib/combobox-keys.ts`, `dashboard/lib/proxy-usage.spec.ts`, `dashboard/routes/Proxies.tsx`, `dashboard/routes/Sessions.tsx`
+
+**Funções e constantes de topo**
+- `plural(n, one, many)` · L27
+  - chamado por: `bulkDeleteQuestion` L250, `bulkDeleteWarning` L256, `proxyUsageView` L41, `sharedNote` L159
+- `hasUsageInfo(p)` · L32
+  - chamado por: `bulkDeleteSummary` L223, `proxyUsageView` L41, `sessionsOf` L36, `Sessions` (Sessions.tsx:321)
+- `sessionsOf(p)` · L36
+  - chama: `hasUsageInfo` L32
+  - chamado por: `bulkDeleteSummary` L223, `proxyUsageView` L41
+- `proxyUsageView(p, ownSessionId)` · L41
+  - chama: `hasUsageInfo` L32, `plural` L27, `sessionsOf` L36
+  - chamado por: `needsShareConsent` L120, `sharedNote` L159, `assignmentOptions` (Proxies.tsx:726), `UsageCell` (Proxies.tsx:63), `Sessions` (Sessions.tsx:321)
+- `isSelectableProxy(p)` · L92
+  - chamado por: `assignmentOptions` (Proxies.tsx:726)
+- `unavailableText(p)` · L99
+  - chamado por: `assignmentOptions` (Proxies.tsx:726)
+- `proxyOptionLabel(p)` · L108
+  - chamado por: `assignmentOptions` (Proxies.tsx:726), `Sessions` (Sessions.tsx:321)
+- `needsShareConsent(p, ownSessionId)` · L120
+  - chama: `proxyUsageView` L41
+- `consentFromPick(id, tone)` · L136
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:321)
+- `shareFromConsent(proxyId, consent)` · L143
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:321)
+- `inUseErrorText(message)` · L151
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:321)
+- `sharedNote(p, ownSessionId)` · L159
+  - chama: `plural` L27, `proxyUsageView` L41
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:321)
+- `visibleSelection(selected, proxies)` · L179
+  - chamado por: `selectAllState` L186
+- `selectAllState(selected, proxies)` · L186
+  - chama: `visibleSelection` L179
+  - chamado por: `toggleAll` L206, `Proxies` (Proxies.tsx:87)
+- `toggleOne(selected, id)` · L195
+  - chamado por: `Proxies` (Proxies.tsx:87)
+- `toggleAll(selected, proxies)` · L206
+  - chama: `selectAllState` L186
+  - chamado por: `Proxies` (Proxies.tsx:87)
+- `bulkDeleteSummary(selected, proxies)` · L223
+  - chama: `hasUsageInfo` L32, `sessionsOf` L36
+  - chamado por: `Proxies` (Proxies.tsx:87)
+- `bulkDeleteQuestion(n)` · L250
+  - chama: `plural` L27
+  - chamado por: `Proxies` (Proxies.tsx:87)
+- `bulkDeleteWarning(s)` · L256
+  - chama: `plural` L27
+  - chamado por: `Proxies` (Proxies.tsx:87)
+- `bulkDeleteResultText(r)` · L271
+  - chamado por: `Proxies` (Proxies.tsx:87)
+- `moveActive(items, from, move)` · L287
+  - chamado por: `comboKey` (combobox-keys.ts:39), `initialActive` (combobox-keys.ts:30)
+
+**Tipos**
+- type `ProxyUsageTone` L15
+- interface `ProxyUsageView` L17 · 5 propriedade(s)
+- interface `ShareConsent` L131 · 2 propriedade(s)
+- type `SelectAllState` L176
+- interface `BulkDeleteSummary` L215 · 4 propriedade(s)
+- type `PickerMove` L281
 
 ## `dashboard/lib/public-connect.spec.ts`
 
@@ -1333,12 +1517,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `parseSessionFilter` L44
 - `parseSessionFilter(params)` · L44
   - chama: `isStatusFilter` L36
-  - chamado por: `Sessions` (Sessions.tsx:306)
+  - chamado por: `Sessions` (Sessions.tsx:321)
 - `sessionFilterToParams(filter, base)` · L56
-  - chamado por: `Sessions` (Sessions.tsx:306)
+  - chamado por: `Sessions` (Sessions.tsx:321)
 - `isSessionFilterActive(filter)` · L71
   - chama: `digitsOf` L82
-  - chamado por: `filterSessions` L135, `Sessions` (Sessions.tsx:306)
+  - chamado por: `filterSessions` L135, `Sessions` (Sessions.tsx:321)
 - `fold(text)` · L78
   - chamado por: `matchesSessionFilter` L114
 - `digitsOf(text)` · L82
@@ -1353,7 +1537,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `filterSessions` L135
 - `filterSessions(sessions, filter)` · L135
   - chama: `isSessionFilterActive` L71, `matchesSessionFilter` L114
-  - chamado por: `Sessions` (Sessions.tsx:306)
+  - chamado por: `Sessions` (Sessions.tsx:321)
 
 **Tipos**
 - type `SessionStatusFilter` L19
@@ -1378,12 +1562,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `clock(iso)` · L5
   - chamado por: `MessageBubble` (MessageBubble.tsx:30), `dayTime` (connect-link.ts:44), `successView` (connect-link.ts:308), `listTime` L24, `Atendimento` (Atendimento.tsx:73)
 - `fullDateTime(iso)` · L13
-  - chamado por: `MessageBubble` (MessageBubble.tsx:30), `releasedText` (proxy-suggestion.ts:72)
+  - chamado por: `MessageBubble` (MessageBubble.tsx:30), `releasedText` (proxy-suggestion.ts:80)
 - `listTime(iso, now)` · L24
   - chama: `clock` L5
   - chamado por: `Inbox` (Inbox.tsx:19)
 - `since(iso, now)` · L32
-  - chamado por: `lastSeenLabel` (connect-link.ts:615), `releasedText` (proxy-suggestion.ts:72), `Atendimento` (Atendimento.tsx:73)
+  - chamado por: `lastSeenLabel` (connect-link.ts:615), `releasedText` (proxy-suggestion.ts:80), `Atendimento` (Atendimento.tsx:73)
 
 ## `dashboard/lib/use-live-stream.ts`
 
@@ -1563,30 +1747,36 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/routes/Proxies.tsx`
 
-635 linhas · caminho: `apps/dashboard/src/routes/Proxies.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`
+942 linhas · caminho: `apps/dashboard/src/routes/Proxies.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/components/proxies/ProxyPicker.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/proxy-usage.ts`
 
 **Funções e constantes de topo**
-- `MODES` = `[ { value: 'NONE', label: 'Sem proxy' }, { value: 'SINGLE', label: 'P…` · L15
-- `statusBadge(status)` · L28
-  - chamado por: `Proxies` L37
-- `Proxies()` · L37
-  - chama: `useAuth` (auth.tsx:85), `statusBadge` L28
-- `Field({ label, children, })` · L472
-- `AssignmentRow({ session, proxies, assignment, onSaved, onError, })` · L487
+- `MODES` = `[ { value: 'NONE', label: 'Sem proxy' }, { value: 'SINGLE', label: 'P…` · L40
+- `statusBadge(status)` · L53
+  - chamado por: `Proxies` L87
+- `UsageCell({ proxy })` · L63
+  - chama: `proxyUsageView` (proxy-usage.ts:41)
+- `Proxies()` · L87
+  - chama: `useAuth` (auth.tsx:85), `bulkDeleteQuestion` (proxy-usage.ts:250), `bulkDeleteResultText` (proxy-usage.ts:271), `bulkDeleteSummary` (proxy-usage.ts:223), `bulkDeleteWarning` (proxy-usage.ts:256), `selectAllState` (proxy-usage.ts:186), `toggleAll` (proxy-usage.ts:206), `toggleOne` (proxy-usage.ts:195), `statusBadge` L53
+- `Field({ label, children, })` · L708
+- `assignmentOptions(proxies, sessionId, currentId)` · L726
+  - chama: `isSelectableProxy` (proxy-usage.ts:92), `proxyOptionLabel` (proxy-usage.ts:108), `proxyUsageView` (proxy-usage.ts:41), `unavailableText` (proxy-usage.ts:99)
+  - chamado por: `AssignmentRow` L758
+- `AssignmentRow({ session, proxies, assignment, onSaved, onError, onPickerO…)` · L758
+  - chama: `consentFromPick` (proxy-usage.ts:136), `inUseErrorText` (proxy-usage.ts:151), `sharedNote` (proxy-usage.ts:159), `shareFromConsent` (proxy-usage.ts:143), `assignmentOptions` L726
 
 ## `dashboard/routes/Sessions.tsx`
 
-956 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/session-filter.ts`
+1051 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/components/proxies/ProxyPicker.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/proxy-usage.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/session-filter.ts`
 
 **Funções e constantes de topo**
-- `suggestionWithCap(sessionName)` · L70 · async
-  - chamado por: `Sessions` L306
-- `StatusBadge({ status })` · L87
-- `ConnectModal({ session, onClose, onOpenLink, })` · L96
-- `Sessions()` · L306
-  - chama: `useAuth` (auth.tsx:85), `numberFromJid` (jid.ts:11), `decideAfterHold` (proxy-suggestion.ts:205), `isValidSessionName` (proxy-suggestion.ts:15), `mustHoldCreate` (proxy-suggestion.ts:178), `suggestionView` (proxy-suggestion.ts:111), `filterSessions` (session-filter.ts:135), `isSessionFilterActive` (session-filter.ts:71), `parseSessionFilter` (session-filter.ts:44), `sessionFilterToParams` (session-filter.ts:56), `suggestionWithCap` L70
+- `suggestionWithCap(sessionName)` · L85 · async
+  - chamado por: `Sessions` L321
+- `StatusBadge({ status })` · L102
+- `ConnectModal({ session, onClose, onOpenLink, })` · L111
+- `Sessions()` · L321
+  - chama: `useAuth` (auth.tsx:85), `numberFromJid` (jid.ts:11), `decideAfterHold` (proxy-suggestion.ts:238), `isValidSessionName` (proxy-suggestion.ts:18), `mustHoldCreate` (proxy-suggestion.ts:211), `suggestionView` (proxy-suggestion.ts:128), `consentFromPick` (proxy-usage.ts:136), `hasUsageInfo` (proxy-usage.ts:32), `inUseErrorText` (proxy-usage.ts:151), `proxyOptionLabel` (proxy-usage.ts:108), `proxyUsageView` (proxy-usage.ts:41), `sharedNote` (proxy-usage.ts:159), `shareFromConsent` (proxy-usage.ts:143), `filterSessions` (session-filter.ts:135), `isSessionFilterActive` (session-filter.ts:71), `parseSessionFilter` (session-filter.ts:44), `sessionFilterToParams` (session-filter.ts:56), `suggestionWithCap` L85
 
 ## `dashboard/routes/Users.tsx`
 

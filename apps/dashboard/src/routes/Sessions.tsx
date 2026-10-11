@@ -8,11 +8,15 @@ import {
 import { flushSync } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import type {
-  ProxyDto,
+  ProxyListItemDto,
   ProxySuggestionDto,
   SessionDto,
   SessionStatus,
 } from '@contracts';
+import {
+  ProxyPicker,
+  type ProxyPickerOption,
+} from '../components/proxies/ProxyPicker';
 import {
   CONNECT_LINK_WWEBJS_REASON,
   ConnectLinkDialog,
@@ -20,6 +24,17 @@ import {
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { numberFromJid } from '../lib/jid';
+import {
+  consentFromPick,
+  hasUsageInfo,
+  inUseErrorText,
+  isSelectableProxy,
+  proxyOptionLabel,
+  proxyUsageView,
+  shareFromConsent,
+  sharedNote,
+  type ShareConsent,
+} from '../lib/proxy-usage';
 import {
   decideAfterHold,
   isValidSessionName,
@@ -309,11 +324,21 @@ export function Sessions() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [engine, setEngine] = useState<'BAILEYS' | 'WWEBJS'>('BAILEYS');
-  // D-008 — proxy opcional na criação, só entre os LIVRES. E26/P-084: `proxyChoice` null =
-  // automático (aceita a sugestão), '' = o dono escolheu "Sem proxy", id = escolha manual. O valor
-  // do seletor é DERIVADO (`view.selectValue`): o que se vê é o que se envia.
+  // D-008 — proxy opcional na criação. E26/P-084: `proxyChoice` null = automático (aceita a
+  // sugestão), '' = o dono escolheu "Sem proxy", id = escolha manual. O valor do seletor é DERIVADO
+  // (`view.selectValue`): o que se vê é o que se envia. E28/P-107: a lista traz o pool com o uso —
+  // verde = livre, vermelho = já em uso (com quantas sessões), escolher vermelho compartilha.
   const [proxyChoice, setProxyChoice] = useState<string | null>(null);
-  const [availableProxies, setAvailableProxies] = useState<ProxyDto[]>([]);
+  const [proxyList, setProxyList] = useState<ProxyListItemDto[]>([]);
+  const selectableProxies = proxyList.filter(isSelectableProxy);
+  // E28/D-051 — consentimento de compartilhar registrado NA ESCOLHA (o dono pegou um vermelho na
+  // lista). Pré-seleção da sugestão e "Usar este proxy" nunca contam.
+  const [shareConsent, setShareConsent] = useState<ShareConsent | null>(null);
+  // Nomes de quem usa cada proxy segundo a lista (gateway anterior à E28: ninguém conhecido).
+  const inUseBy = (id: string): string[] => {
+    const p = proxyList.find((x) => x.id === id);
+    return p && hasUsageInfo(p) ? p.sessions.map((x) => x.name) : [];
+  };
   // E26/P-084 — resposta da sugestão junto do nome consultado (só vale se o campo tiver esse nome)
   // e do conjunto de sessões da consulta (`key`): entrou/saiu sessão → o "Criar" confere de novo.
   const [suggestion, setSuggestion] = useState<
@@ -323,9 +348,10 @@ export function Sessions() {
   const [submitting, setSubmitting] = useState<'hold' | 'create' | null>(null);
   // Nome cujo "Criar" foi segurado para mostrar a sugestão (texto "confira e clique em Criar").
   const [heldFor, setHeldFor] = useState<string | null>(null);
-  // Sobe quando o create falha (ex.: "Proxy já está em uso"): recarrega a lista de livres.
+  // Sobe quando o create falha (ex.: "Proxy já está em uso") e ao abrir o seletor (E28: contagem
+  // fresca no clique): recarrega a lista do pool.
   const [reloadTick, setReloadTick] = useState(0);
-  const proxySelectRef = useRef<HTMLSelectElement>(null);
+  const proxySelectRef = useRef<HTMLDivElement>(null);
   const submittingRef = useRef(false);
   // Muda ao fechar o formulário ou sair da tela: um "Criar" segurado não cria mais.
   const formGen = useRef(0);
@@ -387,18 +413,41 @@ export function Sessions() {
   const view = suggestionView({
     trimmedName: trimmed,
     suggestion: nameTaken ? null : suggestion,
-    availableProxies,
+    selectableProxies,
     choice: proxyChoice,
     now: Date.now(),
     held: heldFor === trimmed,
+    inUseBy,
   });
   const suggestedId = view.suggestedId;
+  // E28 — opções do seletor: "Sem proxy" + os selecionáveis em verde/vermelho. O sugerido que a
+  // lista ainda não trazia (lista velha) chega sem uso: o servidor acabou de dizer que está livre.
+  const proxyOptions: ProxyPickerOption[] = [
+    { value: '', label: 'Sem proxy (padrão)', tone: 'none' },
+    ...view.options.map((p): ProxyPickerOption => {
+      const u = proxyUsageView(
+        proxyList.find((x) => x.id === p.id) ?? { sessions: [] },
+      );
+      return {
+        value: p.id,
+        label: proxyOptionLabel(p),
+        tone: u.tone === 'unknown' ? 'none' : u.tone,
+        badge: u.text,
+        title: u.title,
+        tags: p.id === suggestedId ? ['sugerido'] : undefined,
+      };
+    }),
+  ];
+  const chosenProxy = proxyList.find((p) => p.id === view.selectValue);
+  const shareNote = chosenProxy ? sharedNote(chosenProxy) : null;
   // Estado atual para o "Criar" segurado reler depois do await (o dono pode mexer na espera).
   const latest = useRef({
     trimmed,
     engine,
     proxyChoice,
-    availableProxies,
+    selectableProxies,
+    inUseBy,
+    shareConsent,
     sessionsKey,
     selectValue: view.selectValue,
   });
@@ -407,7 +456,9 @@ export function Sessions() {
       trimmed,
       engine,
       proxyChoice,
-      availableProxies,
+      selectableProxies,
+      inUseBy,
+      shareConsent,
       sessionsKey,
       selectValue: view.selectValue,
     };
@@ -419,17 +470,25 @@ export function Sessions() {
     [],
   );
 
-  // Proxies livres (D-008). E26: recarrega também quando entra/sai sessão (apagar a antiga libera o
-  // proxy dela) e depois de um create que falhou (`reloadTick`). Falha em silêncio MANTENDO a
-  // última lista boa (um 502 momentâneo não derruba a escolha manual; o POST revalida no gateway);
-  // na 1ª carga depois de abrir a lista já é [] (estado inicial / closeForm).
+  // Pool com o uso de cada proxy (E28; antes só os livres, D-008). E26: recarrega também quando
+  // entra/sai sessão (apagar a antiga libera o proxy dela), depois de um create que falhou e ao
+  // abrir o seletor (`reloadTick`). Falha em silêncio MANTENDO a última lista boa (um 502
+  // momentâneo não derruba a escolha manual; o POST revalida no gateway); na 1ª carga depois de
+  // abrir a lista já é [] (estado inicial / closeForm).
   useEffect(() => {
     if (!creating) return;
     let cancelled = false;
     api.proxies
-      .listAvailable()
+      .list()
+      .then(async (list) => {
+        if (list.every(hasUsageInfo)) return list;
+        // Gateway anterior à E28 (sem o uso no item): volta à lista de livres (D-008) — tudo nela
+        // é livre de fato, então o verde não mente e escolher não cai em 400 "em uso".
+        const free = await api.proxies.listAvailable();
+        return free.map((p) => ({ ...p, sessionCount: 0, sessions: [] }));
+      })
       .then((list) => {
-        if (!cancelled) setAvailableProxies(list);
+        if (!cancelled) setProxyList(list);
       })
       .catch(() => {
         /* mantém a última lista boa */
@@ -483,13 +542,15 @@ export function Sessions() {
     setProxyChoice(null);
     setSuggestion(null);
     setHeldFor(null);
-    setAvailableProxies([]);
+    setProxyList([]);
+    setShareConsent(null);
   }
 
   async function createSession(
     sessionName: string,
     sessionEngine: 'BAILEYS' | 'WWEBJS',
     proxyId: string,
+    share: boolean,
   ) {
     setSubmitting('create');
     try {
@@ -497,12 +558,14 @@ export function Sessions() {
         name: sessionName,
         engine: sessionEngine,
         ...(proxyId ? { proxyId } : {}),
+        // E28/D-051: só quando o dono ESCOLHEU um proxy que estava vermelho naquela hora.
+        ...(proxyId && share ? { allowSharedProxy: true } : {}),
       });
       closeForm();
       await refresh();
       setConnect(s);
     } catch (e) {
-      setError((e as Error).message);
+      setError(inUseErrorText((e as Error).message));
       // Ex.: 400 "Proxy já está em uso" (outra sessão pegou o proxy): recarrega os livres e as
       // sessões — se entrou sessão, o `sessionsKey` muda, a sugestão é refeita e o próximo "Criar"
       // volta a conferir (sem repetir o POST com o proxy ocupado).
@@ -553,9 +616,10 @@ export function Sessions() {
             ? suggestionView({
                 trimmedName: t,
                 suggestion: fresh,
-                availableProxies: cur.availableProxies,
+                selectableProxies: cur.selectableProxies,
                 choice: cur.proxyChoice,
                 now: Date.now(),
+                inUseBy: cur.inUseBy,
               })
             : null,
         });
@@ -573,10 +637,22 @@ export function Sessions() {
           return;
         }
         if (fresh) setSuggestion(fresh);
-        await createSession(t, cur.engine, decision.proxyId);
+        // Compartilha só se o proxy enviado foi ESCOLHIDO vermelho pelo dono (a escolha pode ter
+        // mudado na espera — vale a registrada agora em `cur`).
+        await createSession(
+          t,
+          cur.engine,
+          decision.proxyId,
+          shareFromConsent(decision.proxyId, cur.shareConsent),
+        );
         return;
       }
-      await createSession(t, engine, view.selectValue);
+      await createSession(
+        t,
+        engine,
+        view.selectValue,
+        shareFromConsent(view.selectValue, shareConsent),
+      );
     } finally {
       submittingRef.current = false;
       setSubmitting(null);
@@ -665,28 +741,34 @@ export function Sessions() {
                   <option value="WWEBJS">WhatsApp Web.js</option>
                 </select>
               </label>
-              <label className="space-y-1">
-                <span className="text-xs text-zinc-400">
-                  Proxy (só os livres aparecem)
+              {/* E28: fora de <label> — clicar numa opção da lista dentro do <label> reabriria o
+                  seletor. Abrir recarrega o pool (contagem de uso fresca no clique). */}
+              <div className="w-104 max-w-full space-y-1">
+                {/* Clicar no rótulo foca o campo, como num <label>. */}
+                <span
+                  id="proxy-rotulo"
+                  onClick={() => proxySelectRef.current?.focus()}
+                  className="block text-xs text-zinc-400"
+                >
+                  Proxy · <span className="text-emerald-400">verde</span> livre
+                  · <span className="text-red-400">vermelho</span> já em uso
                 </span>
-                <select
+                <ProxyPicker
                   ref={proxySelectRef}
                   value={view.selectValue}
+                  options={proxyOptions}
                   // '' (Sem proxy) também é escolha explícita do dono: não volta a pré-selecionar.
-                  onChange={(e) => setProxyChoice(e.target.value)}
-                  aria-describedby="proxy-sugestao"
-                  className="block rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-                >
-                  <option value="">Sem proxy (padrão)</option>
-                  {view.options.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      #{p.position} · {p.label ?? `${p.host}:${p.port}`}
-                      {p.country ? ` · ${p.country}` : ''} · {p.status}
-                      {p.id === suggestedId ? ' · sugerido' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  // E28: a escolha registra se o proxy estava vermelho (consentimento de compartilhar).
+                  onChange={(id, option) => {
+                    setProxyChoice(id);
+                    setShareConsent(consentFromPick(id, option.tone));
+                  }}
+                  labelledBy="proxy-rotulo"
+                  describedBy="proxy-sugestao proxy-compartilhado"
+                  onOpen={() => setReloadTick((n) => n + 1)}
+                  className="w-full"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={submitting !== null}
@@ -719,10 +801,23 @@ export function Sessions() {
             >
               {view.note ? view.note.text : null}
             </p>
+            {/* E28/P-107 — escolheu um proxy vermelho: avisa com quem vai dividir o IP. */}
+            <p
+              id="proxy-compartilhado"
+              role="status"
+              aria-live="polite"
+              className="mt-3 text-xs text-amber-300 empty:mt-0"
+            >
+              {shareNote}
+            </p>
             {view.canApplySuggestion && suggestedId && (
               <button
                 type="button"
-                onClick={() => setProxyChoice(suggestedId)}
+                // O sugerido aqui está livre (verde): não é consentimento de compartilhar.
+                onClick={() => {
+                  setProxyChoice(suggestedId);
+                  setShareConsent(null);
+                }}
                 className="mt-2 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800"
               >
                 Usar este proxy

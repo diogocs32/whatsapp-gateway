@@ -35,7 +35,7 @@ function setup(existing: Session[], maxSessions: number) {
   // Não instancia manager/engine nem conecta conta: só a porta start é observada.
   const manager = { start: vi.fn(async () => undefined) };
   const license = { effective: vi.fn(() => ({ maxSessions })) };
-  const proxies = { ensureAvailable: vi.fn(), assignExclusive: vi.fn() };
+  const proxies = { ensureAvailable: vi.fn(), assignSingle: vi.fn() };
   return {
     repo,
     manager,
@@ -85,7 +85,7 @@ describe('SessionsController — limite de sessões da licença', () => {
       expect(repo.create).not.toHaveBeenCalled();
       expect(manager.start).not.toHaveBeenCalled();
       expect(proxies.ensureAvailable).not.toHaveBeenCalled();
-      expect(proxies.assignExclusive).not.toHaveBeenCalled();
+      expect(proxies.assignSingle).not.toHaveBeenCalled();
     },
   );
 
