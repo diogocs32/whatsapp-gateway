@@ -4,6 +4,23 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-11 — E28/P-107: proxies em lote e uso visível nos seletores (sem deploy)
+
+- Tela Proxies: marcar vários (checkbox por linha + "marcar todos") e excluir com UMA
+  confirmação na própria página, que avisa quais proxies estão em uso e por quais sessões;
+  coluna "Sessões" no pool. Rota aditiva `POST /api/proxies/bulk-delete {ids}` (ADMIN, 200,
+  `{deleted, notFound}`), em transação com lock das linhas.
+- Seletor de proxy da sessão já criada (Proxies → Atribuição por sessão) e do formulário "Nova
+  sessão": verde = livre, vermelho = já em uso, com quantas sessões usam (nomes na dica e no
+  aviso); a criação deixa de esconder os ocupados. Escolher um vermelho compartilha o IP.
+- Contrato aditivo: `GET /api/proxies` traz `sessionCount`/`sessions`; `allowSharedProxy` no
+  `PUT /api/sessions/{sessao}/proxy` e no `POST /api/sessions` (sem ele, a exclusividade de
+  sempre: 400 "em uso"; repetir o próprio SINGLE, mesmo dividido, não precisa). Nunca libera proxy
+  desabilitado/DEAD. O painel só compartilha o proxy que o dono escolheu vermelho naquela hora
+  (pré-seleção e verde que virou vermelho nunca contam). Decisão D-051; sem migration/env.
+- Deploy manual dos dois apps, gateway antes do painel.
+  [Checkpoint](docs/sessions/DONE-2026-10-11-0835-e28-proxies-lote-uso.md).
+
 ## 2026-10-04 — E21/P-106: triagem independente braces (sem deploy)
 
 - Única cópia dev3.0.3 afetada por GHSA-vfj7-8cjw-p6xm, sem release npm

@@ -6,7 +6,7 @@
 - **Processo:** ondas M0–M6 definidas em [`DOCUMENTO_CONEXOZENVO_NESTJS.md`](../DOCUMENTO_CONEXOZENVO_NESTJS.md) (raiz)
 - **Onda atual:** M3 · Qualidade — **CONCLUÍDA e EM PRODUÇÃO em 18/08/2026** (sessão `2026-08-18-0545-m3-qualidade`, D-018: fronteiras no CI + testes unitários de domínio + coverage; deploy ~11:50 UTC validado). Continuação incremental = P-022. (M2 concluída no mesmo dia — D-017.)
 - **Próxima onda:** M4 · Segurança (backup testado — A1 segue a MAIS urgente —, rotação de secrets, npm audit no CI)
-- **Execução em curso (desde25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. Base reconfirmada04/10 antes da feature: `origin/main=d19f056e5006b4ee18e0a0638a1979ba0d6de4c4`, PR #43 MERGED/ci/imagens/advisories verdes. E21/P-106 bracesdev3.0.3 triada documentalmente: afetada por GHSA-vfj7-8cjw-p6xm, sem release npm corrigida publicada; PR upstream72 aberto propõe limite de profundidade. Deps/lock/patches/allowScripts intactos, sem correção/aceite. Fonte/grafo distinguem imports, matching workspace picomatch e helpers que chamam braces; entrada não confiável pelo produto não demonstrada. Probes benignos/4controles/rede negada,1259unitgateway+292painel/gates/imagens e3smokes finais frescos node/read-only/sem rede aprovados; scan pós-prune remove cadeia dev. Brace-expansion runtime2.1.7×2/dev1.1.21/5.0.12/ip-address10.7.1/sharp0.35.5/librsvg2.63.2 preservados. Audit full17high/17pacotes/7GHSAs e omit13high/13pacotes/6GHSAs, todos objetos idênticos ao PR43, ambos exit1. [DONE](sessions/DONE-2026-10-04-1541-e21-braces-p106.md); PR/revisão/CI/merge finais canônicos no PR desta feature. P-106 parcial/braces e basic-ftp afetados sem aceite; equipe gateway reavalia02/11 ou antes com candidato compatível. Próximo E21/P-022: reconciliação baseline agregada e lacuna restante demonstrada. Prisma/Puppeteer seguem P-038/P-062, P-022 parcial/P-100/P-101/P-102 abertas/P-099 sem drenar. D-027/D-049/D-050/C/D/E/F/B-004/B-005/B-007 e snapshots7dias/24h manuais preservados; nenhuma consulta produtiva, último SHA documentado768fb26. [Mapa](MAPA-CODIGO.md).
+- **Execução em curso (desde25/09):** [roteiro](ROTEIRO-ONDAS-2026-09.md), uma etapa por chat. **11/10: E28/P-107 (pedido do dono, D-051) — proxies em lote + seletores verde/vermelho com nº de sessões, compartilhar por opt-in; sem deploy ([DONE](sessions/DONE-2026-10-11-0835-e28-proxies-lote-uso.md)); a fila volta para E21/P-022 baseline.** Base reconfirmada04/10 antes da feature: `origin/main=d19f056e5006b4ee18e0a0638a1979ba0d6de4c4`, PR #43 MERGED/ci/imagens/advisories verdes. E21/P-106 bracesdev3.0.3 triada documentalmente: afetada por GHSA-vfj7-8cjw-p6xm, sem release npm corrigida publicada; PR upstream72 aberto propõe limite de profundidade. Deps/lock/patches/allowScripts intactos, sem correção/aceite. Fonte/grafo distinguem imports, matching workspace picomatch e helpers que chamam braces; entrada não confiável pelo produto não demonstrada. Probes benignos/4controles/rede negada,1259unitgateway+292painel/gates/imagens e3smokes finais frescos node/read-only/sem rede aprovados; scan pós-prune remove cadeia dev. Brace-expansion runtime2.1.7×2/dev1.1.21/5.0.12/ip-address10.7.1/sharp0.35.5/librsvg2.63.2 preservados. Audit full17high/17pacotes/7GHSAs e omit13high/13pacotes/6GHSAs, todos objetos idênticos ao PR43, ambos exit1. [DONE](sessions/DONE-2026-10-04-1541-e21-braces-p106.md); PR/revisão/CI/merge finais canônicos no PR desta feature. P-106 parcial/braces e basic-ftp afetados sem aceite; equipe gateway reavalia02/11 ou antes com candidato compatível. Próximo E21/P-022: reconciliação baseline agregada e lacuna restante demonstrada. Prisma/Puppeteer seguem P-038/P-062, P-022 parcial/P-100/P-101/P-102 abertas/P-099 sem drenar. D-027/D-049/D-050/C/D/E/F/B-004/B-005/B-007 e snapshots7dias/24h manuais preservados; nenhuma consulta produtiva, último SHA documentado768fb26. [Mapa](MAPA-CODIGO.md).
 
 ## Roadmap (R2)
 
@@ -21,6 +21,19 @@
 | M6   | Roadmaps estratégicos: ENGINE META CLOUD → multi-tenant RLS → multi-engine → /api/v1 | ⬜            |
 
 ## Estado de produção
+
+> **11/10/2026 (E28/P-107, D-051, pedido do dono — sem deploy):** tela Proxies ganha marcar vários
+> e excluir com UMA confirmação (rota aditiva `POST /api/proxies/bulk-delete`, ADMIN, lock das linhas)
+> e coluna Sessões; seletores de proxy da sessão já criada e do "Nova sessão" mostram verde (livre) /
+> vermelho (em uso, "em uso por N sessões" + nomes) e deixam compartilhar. `GET /api/proxies` traz
+> `sessionCount`/`sessions`; `allowSharedProxy` (PUT/POST) é opt-in — sem ele, exclusividade D-008/
+> D-041 idêntica (repetir o próprio SINGLE dividido não precisa dela); desabilitado/DEAD nunca
+> liberados; o painel só compartilha o que o dono escolheu vermelho naquela hora. Sem migration/env.
+> Gateway 1966 (unit+e2e, 4 mutações recusadas) + painel 351 locais, harnesses visuais (Chrome
+> headless, gateway falso, inclusive gateway antigo), revisão independente aplicada; P-108 registrada.
+> [Checkpoint](sessions/DONE-2026-10-11-0835-e28-proxies-lote-uso.md). Deploy manual dos dois apps,
+> gateway antes do painel. Nenhuma conta/QR/envio real/produção/Dokploy; último SHA produtivo
+> documentado `768fb26`, sem consulta ao vivo.
 
 > **04/10/2026 (E21/P-106 braces, triagem documental/sem deploy):** cópia dev3.0.3
 > segue afetada; sem release npm corrigida, PR upstream72 open/mergedfalse.
