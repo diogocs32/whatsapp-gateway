@@ -3,6 +3,8 @@ import type {
   AuditLogDto,
   AuthUser,
   Branding,
+  BulkDeleteProxiesRequest,
+  BulkDeleteProxiesResult,
   BulkImportProxiesRequest,
   BulkImportResult,
   CampaignDto,
@@ -40,6 +42,7 @@ import type {
   ProfilePictureDto,
   ProxyAssignmentDto,
   ProxyDto,
+  ProxyListItemDto,
   ProxySuggestionResponse,
   ProxyTestResult,
   QrResponse,
@@ -411,8 +414,9 @@ export const api = {
   },
 
   proxies: {
-    list: () => request<ProxyDto[]>('/api/proxies'),
-    // Proxies livres p/ o dropdown da criação de sessão (D-008).
+    // E28 (P-107): cada proxy vem com as sessões que o usam (verde/vermelho nos seletores).
+    list: () => request<ProxyListItemDto[]>('/api/proxies'),
+    // Proxies livres (D-008). Desde a E28 o painel usa `list` e mostra os ocupados em vermelho.
     listAvailable: () => request<ProxyDto[]>('/api/proxies/available'),
     // E26/P-084 — proxy que a sessão apagada com esse nome usava (sugestão na criação). ADMIN
     // (OPERATOR leva 403). `init` leva o `signal` (debounce e teto do "Criar"). `no-store`: sem
@@ -437,6 +441,12 @@ export const api = {
       }),
     remove: (id: string) =>
       request<Ok>(`/api/proxies/${id}`, { method: 'DELETE' }),
+    // E28 (P-107): exclui os marcados de uma vez (uma confirmação só no painel).
+    bulkRemove: (body: BulkDeleteProxiesRequest) =>
+      request<BulkDeleteProxiesResult>('/api/proxies/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     enable: (id: string) =>
       request<Ok>(`/api/proxies/${id}/enable`, { method: 'POST' }),
     disable: (id: string) =>

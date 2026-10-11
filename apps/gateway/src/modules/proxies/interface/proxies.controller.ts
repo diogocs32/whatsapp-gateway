@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Post,
@@ -11,7 +12,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { ProxySuggestionResponse } from '@whatsapp-gateway/contracts';
+import type {
+  BulkDeleteProxiesResult,
+  ProxyListItemDto,
+  ProxySuggestionResponse,
+} from '@whatsapp-gateway/contracts';
 import { ApiKeyAuthGuard } from '../../iam/interface/api-key-auth.guard';
 import { MinRole } from '../../iam/interface/roles.decorator';
 import { RolesGuard } from '../../iam/interface/roles.guard';
@@ -19,6 +24,7 @@ import { ProxyService } from '../application/proxy.service';
 import { ProxyUnavailableError } from '../application/proxy-unavailable.error';
 import type { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import {
+  bulkDeleteSchema,
   bulkImportSchema,
   createProxySchema,
   proxySuggestionQuerySchema,
@@ -60,13 +66,19 @@ function assignmentToDto(a: ProxyAssignment) {
 export class ProxiesController {
   constructor(private readonly service: ProxyService) {}
 
+  // E28 (P-107, D-051): cada item traz quantas sessões vivas usam o proxy e quais (ADITIVO).
   @Get('proxies')
-  async list() {
-    return (await this.service.list()).map(toDto);
+  async list(): Promise<ProxyListItemDto[]> {
+    return (await this.service.listWithUsage()).map(({ proxy, sessions }) => ({
+      ...toDto(proxy),
+      sessionCount: sessions.length,
+      sessions: sessions.map((s) => ({ id: s.id, name: s.name })),
+    }));
   }
 
-  // Proxies LIVRES (enabled, não-DEAD, sem sessão usando) — alimenta o dropdown da criação de
-  // sessão (D-008). Rota estática declarada antes das rotas com :id.
+  // Proxies LIVRES (enabled, não-DEAD, sem sessão usando) — D-008, para integradores. Desde a E28
+  // o painel lista o pool com o uso (GET /proxies) e marca os ocupados em vez de escondê-los.
+  // Rota estática declarada antes das rotas com :id.
   @Get('proxies/available')
   async listAvailable() {
     return (await this.service.listAvailable()).map(toDto);
@@ -131,6 +143,20 @@ export class ProxiesController {
       );
     }
     return this.service.bulkImport(parsed.data.text, parsed.data.protocol);
+  }
+
+  // E28 (P-107): exclui vários de uma vez (o painel marca e confirma uma vez só). 200, não 201:
+  // nada é criado. Inexistentes voltam em `notFound` sem falhar o lote.
+  @Post('proxies/bulk-delete')
+  @HttpCode(200)
+  async bulkDelete(@Body() body: unknown): Promise<BulkDeleteProxiesResult> {
+    const parsed = bulkDeleteSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    return this.service.removeMany(parsed.data.ids);
   }
 
   @Post('proxies/test-all')
@@ -204,6 +230,7 @@ export class ProxiesController {
         rangeEnd: d.rangeEnd ?? null,
         strategy: d.strategy,
         proxyId: d.proxyId ?? null,
+        allowShared: d.allowSharedProxy === true,
       })
       .catch((error: unknown) => {
         if (error instanceof ProxyUnavailableError)

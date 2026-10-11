@@ -1,6 +1,7 @@
 import type { Proxy, ProxyAssignment } from './proxy.entity';
 import type { Prisma } from '../../../infra/prisma/prisma.service';
 import type { ReleasedAssignment } from './proxy-suggestion';
+import type { ProxyUsageSession } from './proxy-usage';
 import type {
   ProxyMode,
   ProxyProtocol,
@@ -22,6 +23,13 @@ export interface CreateProxyInput {
   country: string | null;
 }
 
+export interface DeletedProxy {
+  id: string;
+  position: number;
+  // Sessões vivas que usavam o proxy, lidas sob o lock da exclusão (para o aviso no log).
+  sessions: ProxyUsageSession[];
+}
+
 export interface UpdateConnectionInput {
   host: string;
   port: number;
@@ -37,6 +45,9 @@ export interface SetAssignmentInput {
   rangeEnd: number | null;
   strategy: ProxyStrategy;
   currentProxyId?: string | null;
+  // E28 (D-051): SINGLE aceita proxy já usado por outra sessão viva (escolha explícita do dono).
+  // Ausente/false = exclusividade D-008/D-041. Não dispensa existir/habilitado/não-DEAD.
+  allowShared?: boolean;
 }
 
 export interface ProxyRepository {
@@ -55,6 +66,9 @@ export interface ProxyRepository {
   ): Promise<void>;
   setEnabled(id: string, enabled: boolean): Promise<void>;
   delete(id: string): Promise<void>;
+  // E28 (P-107): apaga, sob lock das linhas, os proxies da lista que existem; devolve os apagados
+  // (id, posição e quem os usava, em ordem de posição). Ids inexistentes são ignorados.
+  deleteMany(ids: readonly string[]): Promise<DeletedProxy[]>;
 
   getAssignment(
     sessionId: string,
@@ -73,6 +87,14 @@ export interface ProxyRepository {
   usedProxyIds(excludeSessionId?: string): Promise<string[]>;
   // Nome da sessão viva que usa o proxy (mesma régua do usedProxyIds) — ou null.
   proxyOwnerName(proxyId: string): Promise<string | null>;
+  // E28 (P-107, D-051): sessões vivas que usam cada proxy (régua do domínio `proxyUsageMap`).
+  proxyUsage(): Promise<Map<string, ProxyUsageSession[]>>;
+  // E28: proxy do SINGLE atual da sessão VIVA (null sem atribuição SINGLE ou sessão apagada).
+  // Repetir o próprio pin não é compartilhar de novo.
+  liveSinglePin(
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string | null>;
 
   // E26 (P-084, D-038) — carimbo da atribuição SINGLE com proxy de uma sessão já apagada.
   // Devolve quantas linhas carimbou (0 = a sessão não tinha proxy fixo).

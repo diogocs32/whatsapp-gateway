@@ -14,6 +14,9 @@ export const createSessionSchema = z.object({
   // D-008 — opcional/ADITIVO: id de um proxy LIVRE (GET /proxies/available) p/ a sessão já
   // nascer com atribuição SINGLE/STICKY. Ausente = sem proxy (comportamento de sempre).
   proxyId: z.string().min(1).optional(),
+  // E28 (D-051) — ADITIVO: true aceita `proxyId` já usado por outra sessão (compartilhado).
+  // Ausente/false = só proxy livre (400 "em uso", como sempre).
+  allowSharedProxy: z.boolean().optional(),
 });
 
 export const pairingSchema = z.object({

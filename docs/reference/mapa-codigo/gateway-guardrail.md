@@ -121,7 +121,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - publica evento: `'wa.event'`
 - `getState(sessionId)` · L218 · async
   - chama: `newId` (ulid.ts:4)
-  - chamado por: `canSendCold` L469, `evaluate` L251, `health` L647, `SessionsController.getConfig` (sessions.controller.ts:194), `SessionsController.patchConfig` (sessions.controller.ts:201)
+  - chamado por: `canSendCold` L469, `evaluate` L251, `health` L647, `SessionsController.getConfig` (sessions.controller.ts:205), `SessionsController.patchConfig` (sessions.controller.ts:212)
   - banco: `sessionGuardrail.upsert`
 - `fleetMedianReplyRate()` · L232 · async
   - chama: `cfg` L157
@@ -157,13 +157,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - banco: `sessionGuardrail.upsert`
 - `setManualState(ref, action)` · L631 · async
   - chama: `apply` L341
-  - chamado por: `SessionsController.override` (sessions.controller.ts:321)
+  - chamado por: `SessionsController.override` (sessions.controller.ts:332)
   - banco: `waSession.findFirst`
 - `health(ref)` · L647 · async
   - chama: `getState` L218, `ReplyRateService.compute` (reply-rate.service.ts:69)
-  - chamado por: `SessionsController.health` (sessions.controller.ts:185)
+  - chamado por: `SessionsController.health` (sessions.controller.ts:196)
 - `statesFor(sessionIds)` · L673 · async
-  - chamado por: `SessionsController.list` (sessions.controller.ts:159)
+  - chamado por: `SessionsController.list` (sessions.controller.ts:170)
   - banco: `sessionGuardrail.findMany`
 
 **Funções e constantes de topo**

@@ -43,6 +43,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/nest12-contract.e2e-spec.ts` | 687 |
 | `gateway/test/nest12-shutdown.e2e-spec.ts` | 481 |
 | `gateway/test/new-recipients.e2e-spec.ts` | 528 |
+| `gateway/test/proxies-lote-uso.e2e-spec.ts` | 642 |
 | `gateway/test/proxies.e2e-spec.ts` | 118 |
 | `gateway/test/proxy-affinity.e2e-spec.ts` | 451 |
 | `gateway/test/proxy-create-session.e2e-spec.ts` | 154 |
@@ -696,6 +697,34 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “EventBus → MessagePersister preserva resposta recebida no mesmo segundo do envio” · L454
   - it “EventBus → MessagePersister/ReactionPersister muda a métrica sem criar mensagem de reação” · L489
 
+## `gateway/test/proxies-lote-uso.e2e-spec.ts`
+
+642 linhas · caminho: `apps/gateway/test/proxies-lote-uso.e2e-spec.ts`
+- importa (interno): `infra/prisma/prisma.service.ts`, `shared-kernel/ulid.ts`, `gateway/test/setup-app.ts`
+
+- describe “Proxies em lote e uso por proxy (e2e, E28)” · L16
+  - describe “uso por proxy + compartilhamento opt-in” · L177
+    - it “proxy sem sessão → sessionCount 0 e sessions [] (campos aditivos no GET /api/proxies)” · L187
+    - it “sessão criada com o proxy → contado com id e nome” · L196
+    - it “sem allowSharedProxy a 2ª sessão com o mesmo proxy → 400 "em uso" e nenhuma sessão órfã (D-008)” · L206
+    - it “allowSharedProxy:false se comporta como ausente (400)” · L215
+    - it “allowSharedProxy:true cria a 2ª sessão SINGLE/STICKY no mesmo proxy” · L228
+    - it “/proxies/available continua escondendo o proxy em uso (semântica D-008 intacta)” · L255
+    - it “PUT SINGLE de sessão existente: sem flag 400; com flag 200 e passa a contar” · L266
+    - it “PUT pelo NOME da sessão viva com a flag também grava (P-097 preservado)” · L298
+    - it “repetir o próprio SINGLE já compartilhado, sem a flag → 200 nas duas sessões” · L319
+    - it “sessão em RANGE com afinidade no proxy compartilhado: passar a SINGLE nele exige a flag” · L331
+    - it “RANGE/GLOBAL ignoram allowSharedProxy (gravam o modo pedido)” · L361
+    - it “allowSharedProxy não-booleano → 400 no PUT e no POST (sem sessão órfã)” · L421
+    - it “régua do "em uso": RANGE conta pela afinidade; NONE com sobra e atribuição órfã não contam” · L438
+  - describe “POST /api/proxies/bulk-delete” · L483
+    - it “sem autenticação → 401” · L484
+    - it “OPERATOR → 403 e nada é apagado (rota é ADMIN)” · L494
+    - it “apaga os marcados (200, não 201), ignora repetidos, devolve inexistentes e preserva o resto” · L523
+    - it “repetir o mesmo lote (outra aba) → 200 com tudo em notFound” · L541
+    - it “lote espera quem segura o lock do proxy e o aviso enxerga a atribuição gravada nesse meio” · L555
+    - it “apagar proxy em uso: a atribuição da sessão fica pendurada (sem FK) e o PUT nele passa a 400” · L613
+
 ## `gateway/test/proxies.e2e-spec.ts`
 
 118 linhas · caminho: `apps/gateway/test/proxies.e2e-spec.ts`
@@ -879,7 +908,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 197 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
-- importado por: `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/refresh-token-purge.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/send-contracts.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
+- importado por: `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies-lote-uso.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/refresh-token-purge.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/send-contracts.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L13

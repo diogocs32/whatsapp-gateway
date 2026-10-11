@@ -180,6 +180,9 @@ export interface CreateSessionRequest {
   // D-008 (ADITIVO): id de um proxy LIVRE (GET /api/proxies/available) — a sessão nasce com
   // atribuição SINGLE/STICKY a ele. Ausente/undefined = sem proxy (comportamento anterior).
   proxyId?: string;
+  // E28 (D-051, ADITIVO): true aceita `proxyId` já usado por outra sessão (fica compartilhado).
+  // Ausente/false = só proxy livre (400 "em uso", como sempre).
+  allowSharedProxy?: boolean;
 }
 
 export interface QrResponse {
@@ -668,6 +671,33 @@ export interface ProxyDto {
   enabled: boolean;
 }
 
+// E28 (P-107, D-051) — sessão viva que sai pelo proxy: `currentProxyId` de atribuição com mode ≠
+// NONE (em RANGE/GLOBAL é a afinidade atual, D-041). Sessão apagada não conta.
+export interface ProxySessionRefDto {
+  id: string;
+  name: string;
+}
+
+// GET /api/proxies — cada item traz o uso (ADITIVO, E28): quantas sessões vivas usam o proxy e
+// quais, em ordem de nome. `sessionCount === sessions.length`.
+export interface ProxyListItemDto extends ProxyDto {
+  sessionCount: number;
+  sessions: ProxySessionRefDto[];
+}
+
+// E28 (P-107) — POST /api/proxies/bulk-delete (ADMIN, 200): exclui vários de uma vez. Ids repetidos
+// contam uma vez; inexistentes voltam em `notFound` sem falhar o lote. Como no DELETE unitário, a
+// atribuição que apontava para um proxy apagado fica sem ele: SINGLE não conecta até receber outro
+// proxy; RANGE/GLOBAL escolhem outro na próxima conexão.
+export interface BulkDeleteProxiesRequest {
+  ids: string[]; // 1..1000
+}
+
+export interface BulkDeleteProxiesResult {
+  deleted: number;
+  notFound: string[];
+}
+
 // E26 (P-084, D-038) — GET /api/proxies/suggestion?sessionName=X: o proxy fixo (SINGLE) que a sessão
 // apagada com esse nome usava (nome igual sem diferenciar caixa; prefere a mesma caixa e a exclusão
 // mais recente). O painel pré-seleciona quando `available`; senão só avisa.
@@ -712,6 +742,9 @@ export interface SetProxyAssignmentRequest {
   rangeEnd?: number | null;
   strategy?: ProxyStrategy;
   proxyId?: string | null;
+  // E28 (D-051, ADITIVO): true aceita no SINGLE um proxy já usado por outra sessão (compartilhado);
+  // existir, estar habilitado e não-DEAD continua obrigatório. Ausente/false = exclusivo (400).
+  allowSharedProxy?: boolean;
 }
 
 export interface ProxyTestResult {

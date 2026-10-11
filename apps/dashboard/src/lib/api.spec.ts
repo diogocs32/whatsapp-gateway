@@ -209,3 +209,52 @@ describe('api.proxies.suggestion', () => {
     expect(err).toMatchObject({ status: 403 });
   });
 });
+
+// E28/P-107 — exclusão em lote e compartilhamento explícito do proxy.
+describe('api.proxies (E28)', () => {
+  it('bulkRemove: POST na rota de lote com os ids no corpo, JSON e cookie', async () => {
+    const fetchMock = vi.fn(async (..._args: unknown[]) =>
+      json(200, { deleted: 2, notFound: [] }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const out = await api.proxies.bulkRemove({ ids: ['01A', '01B'] });
+    expect(out).toEqual({ deleted: 2, notFound: [] });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${BASE}/api/proxies/bulk-delete`);
+    expect(init.method).toBe('POST');
+    expect(init.credentials).toBe('include');
+    expect(JSON.parse(init.body as string)).toEqual({ ids: ['01A', '01B'] });
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe(
+      'application/json',
+    );
+  });
+
+  it('setAssignment e sessions.create levam allowSharedProxy quando quem chama manda', async () => {
+    const fetchMock = vi.fn(async (..._args: unknown[]) => json(200, {}));
+    vi.stubGlobal('fetch', fetchMock);
+    await api.proxies.setAssignment('01SESSAO', {
+      mode: 'SINGLE',
+      proxyId: 'P1',
+      allowSharedProxy: true,
+    });
+    await api.sessions.create({
+      name: 'vendas',
+      proxyId: 'P1',
+      allowSharedProxy: true,
+    });
+    const calls = fetchMock.mock.calls as [string, RequestInit][];
+    expect(calls[0][0]).toBe(`${BASE}/api/sessions/01SESSAO/proxy`);
+    expect(calls[0][1].method).toBe('PUT');
+    expect(JSON.parse(calls[0][1].body as string)).toEqual({
+      mode: 'SINGLE',
+      proxyId: 'P1',
+      allowSharedProxy: true,
+    });
+    expect(calls[1][0]).toBe(`${BASE}/api/sessions`);
+    expect(JSON.parse(calls[1][1].body as string)).toEqual({
+      name: 'vendas',
+      proxyId: 'P1',
+      allowSharedProxy: true,
+    });
+  });
+});

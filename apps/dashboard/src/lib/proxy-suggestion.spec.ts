@@ -59,7 +59,7 @@ function view(over: Partial<SuggestionViewInput>) {
   return suggestionView({
     trimmedName: 'vendas',
     suggestion: null,
-    availableProxies: [P1, P3, P5],
+    selectableProxies: [P1, P3, P5],
     choice: null,
     now: NOW,
     ...over,
@@ -106,7 +106,7 @@ describe('suggestionView (E26)', () => {
   });
 
   it('lista chegando DEPOIS da sugestão: pré-seleciona do mesmo jeito', () => {
-    const before = view({ suggestion: state(sug()), availableProxies: [] });
+    const before = view({ suggestion: state(sug()), selectableProxies: [] });
     // Sem lista, o sugerido entra como opção extra (o servidor acabou de validar).
     expect(before.options).toEqual([P3]);
     expect(before.selectValue).toBe('p3');
@@ -116,7 +116,7 @@ describe('suggestionView (E26)', () => {
   });
 
   it('available fora da lista (lista velha): vira opção extra, na ordem de posição, pré-selecionada', () => {
-    const v = view({ suggestion: state(sug()), availableProxies: [P1, P5] });
+    const v = view({ suggestion: state(sug()), selectableProxies: [P1, P5] });
     expect(v.options.map((p) => p.id)).toEqual(['p1', 'p3', 'p5']);
     expect(v.preselectId).toBe('p3');
     expect(v.selectValue).toBe('p3');
@@ -134,7 +134,7 @@ describe('suggestionView (E26)', () => {
     const v = view({
       trimmedName: 'suporte',
       suggestion: state(sug(), 'vendas'),
-      availableProxies: [P1],
+      selectableProxies: [P1],
     });
     expect(v.options).toEqual([P1]);
     expect(v.selectValue).toBe('');
@@ -175,7 +175,7 @@ describe('suggestionView (E26)', () => {
     expect(v.selectValue).toBe('');
     expect(v.note).toEqual({
       tone: 'warn',
-      text: 'Atenção: O proxy escolhido não está mais livre.',
+      text: 'Atenção: O proxy escolhido não está mais disponível (excluído, desativado ou DEAD).',
     });
   });
 
@@ -185,7 +185,7 @@ describe('suggestionView (E26)', () => {
     expect(v.canApplySuggestion).toBe(true);
     expect(v.note?.tone).toBe('warn');
     expect(v.note?.text).toBe(
-      'Atenção: O proxy escolhido não está mais livre. A sessão "vendas" (apagada há 3 min) usava o #3 · BR-01, que está livre.',
+      'Atenção: O proxy escolhido não está mais disponível (excluído, desativado ou DEAD). A sessão "vendas" (apagada há 3 min) usava o #3 · BR-01, que está livre.',
     );
   });
 
@@ -195,7 +195,7 @@ describe('suggestionView (E26)', () => {
       reason: 'IN_USE',
       inUseBySession: 'vendas-02',
     });
-    const v = view({ suggestion: state(inUse), availableProxies: [P1, P5] });
+    const v = view({ suggestion: state(inUse), selectableProxies: [P1, P5] });
     expect(v.preselectId).toBeNull();
     expect(v.selectValue).toBe('');
     expect(v.options).toEqual([P1, P5]);
@@ -206,10 +206,44 @@ describe('suggestionView (E26)', () => {
     });
     const anon = view({
       suggestion: state({ ...inUse, inUseBySession: null }),
+      selectableProxies: [P1, P5],
     });
     expect(anon.note?.text).toBe(
       'Atenção: A sessão "vendas" (apagada há 3 min) usava o #3 · BR-01, mas ele já está em uso por outra sessão.',
     );
+  });
+
+  // E28/P-107 — a lista traz também os proxies em uso (vermelhos): o aviso diz que dá para
+  // compartilhar, mas NUNCA pré-seleciona (compartilhar é escolha explícita).
+  it('IN_USE com o proxy na lista (vermelho): avisa que dá para escolher, sem pré-selecionar', () => {
+    const inUse = sug({
+      available: false,
+      reason: 'IN_USE',
+      inUseBySession: 'vendas-02',
+    });
+    const v = view({ suggestion: state(inUse) });
+    expect(v.preselectId).toBeNull();
+    expect(v.selectValue).toBe('');
+    expect(v.suggestedId).toBeNull();
+    expect(v.canApplySuggestion).toBe(false);
+    expect(v.options).toEqual([P1, P3, P5]);
+    expect(v.note).toEqual({
+      tone: 'warn',
+      text: 'Atenção: A sessão "vendas" (apagada há 3 min) usava o #3 · BR-01, mas ele já está em uso pela sessão "vendas-02". Para compartilhar, escolha-o na lista (em vermelho).',
+    });
+    // o dono escolheu o vermelho: fica selecionado e o aviso some do modo "sugestão"
+    const chosen = view({ suggestion: state(inUse), choice: 'p3' });
+    expect(chosen.selectValue).toBe('p3');
+    expect(chosen.manualChoiceLost).toBe(false);
+  });
+
+  it('DEAD/DISABLED nunca ganham a dica de compartilhar (só IN_USE na lista)', () => {
+    for (const reason of ['DEAD', 'DISABLED'] as const) {
+      const v = view({
+        suggestion: state(sug({ available: false, reason })),
+      });
+      expect(v.note?.text).not.toContain('compartilhar');
+    }
   });
 
   it('DEAD e DISABLED: avisam sem pré-selecionar', () => {
@@ -221,7 +255,7 @@ describe('suggestionView (E26)', () => {
           proxy: { ...P3, status: 'DEAD' },
         }),
       ),
-      availableProxies: [P1],
+      selectableProxies: [P1],
     });
     expect(dead.selectValue).toBe('');
     expect(dead.options).toEqual([P1]);
@@ -263,7 +297,7 @@ describe('suggestionView (E26)', () => {
     const noLabel = proxy({ label: null });
     const v = view({
       suggestion: state(sug({ proxy: noLabel })),
-      availableProxies: [noLabel],
+      selectableProxies: [noLabel],
     });
     expect(v.note?.text).toBe(
       'Sugestão: #3 era o proxy da sessão "vendas" (apagada há 3 min). Pode trocar se quiser.',
@@ -422,5 +456,48 @@ describe('decideAfterHold (E26 — "Criar" segurado depois da consulta)', () => 
     expect(decide({ data: undefined, currentTrimmed: '' })).toEqual({
       action: 'abort',
     });
+  });
+});
+
+// Revisão E28: a resposta da sugestão pode ser mais velha que a lista do pool (recarregada ao abrir
+// o seletor). Se a lista mostra o sugerido "livre" EM USO, nada de pré-selecionar — compartilhar
+// nunca é automático; vira o aviso de "em uso" com quem usa (pela lista).
+describe('suggestionView — sugerido livre que a lista mostra em uso (E28)', () => {
+  const inUseBy = (id: string) => (id === 'p3' ? ['vendas-02', 'outra'] : []);
+
+  it('não pré-seleciona, sem "sugerido"/botão, e avisa quem usa', () => {
+    const v = view({ suggestion: state(sug()), inUseBy });
+    expect(v.preselectId).toBeNull();
+    expect(v.selectValue).toBe('');
+    expect(v.suggestedId).toBeNull();
+    expect(v.canApplySuggestion).toBe(false);
+    expect(v.note).toEqual({
+      tone: 'warn',
+      text: 'Atenção: A sessão "vendas" (apagada há 3 min) usava o #3 · BR-01, mas ele já está em uso pela sessão "vendas-02". Para compartilhar, escolha-o na lista (em vermelho).',
+    });
+  });
+
+  it('o "Criar" segurado recalcula com a lista: o valor final continua vazio (não cria com o vermelho)', () => {
+    const fresh = view({ suggestion: state(sug()), inUseBy });
+    expect(
+      decideAfterHold({
+        shown: '',
+        trimmed: 'vendas',
+        currentTrimmed: 'vendas',
+        data: sug(),
+        cur: { proxyChoice: null, selectValue: '' },
+        view: fresh,
+      }),
+    ).toEqual({ action: 'create', proxyId: '' });
+  });
+
+  it('a lista sem ninguém no sugerido mantém a pré-seleção da E26', () => {
+    const v = view({ suggestion: state(sug()), inUseBy: () => [] });
+    expect(v.preselectId).toBe('p3');
+    expect(v.selectValue).toBe('p3');
+  });
+
+  it('sem `inUseBy` (chamador antigo) o comportamento da E26 não muda', () => {
+    expect(view({ suggestion: state(sug()) }).selectValue).toBe('p3');
   });
 });

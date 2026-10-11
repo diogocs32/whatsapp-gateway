@@ -108,7 +108,17 @@ export class SessionsController {
         parsed.error.issues[0]?.message ?? 'Dados inválidos',
       );
     }
-    const { name, engine, mode, phoneNumber, autostart, proxyId } = parsed.data;
+    const {
+      name,
+      engine,
+      mode,
+      phoneNumber,
+      autostart,
+      proxyId,
+      allowSharedProxy,
+    } = parsed.data;
+    // E28 (D-051): compartilhar o proxy com outra sessão só por escolha explícita.
+    const share = { allowShared: allowSharedProxy === true };
     if (mode === 'pairing' && !phoneNumber) {
       throw new BadRequestException(
         'phoneNumber é obrigatório no modo pairing',
@@ -126,7 +136,7 @@ export class SessionsController {
     // D-008 — valida ANTES de criar (proxy inválido não deixa sessão órfã pra trás).
     if (proxyId) {
       try {
-        await this.proxies.ensureAvailable(proxyId);
+        await this.proxies.ensureAvailable(proxyId, undefined, share);
       } catch (e) {
         throw new BadRequestException((e as Error).message);
       }
@@ -140,11 +150,12 @@ export class SessionsController {
       autostart,
     });
     // A atribuição precisa existir ANTES do start (a engine resolve o proxy na conexão).
-    // assignExclusive re-valida a exclusividade; se outro create levou o proxy no meio tempo,
-    // desfaz a sessão recém-criada e devolve o erro (sem sessão órfã, sem proxy duplicado).
+    // assignSingle re-valida (a exclusividade, salvo `allowSharedProxy`); se outro create levou o
+    // proxy no meio tempo, desfaz a sessão recém-criada e devolve o erro (sem sessão órfã, sem
+    // proxy duplicado sem o dono pedir).
     if (proxyId) {
       try {
-        await this.proxies.assignExclusive(created.id, proxyId);
+        await this.proxies.assignSingle(created.id, proxyId, share);
       } catch (e) {
         await this.repo.delete(created.id);
         throw new BadRequestException((e as Error).message);

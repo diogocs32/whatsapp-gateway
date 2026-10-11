@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import {
-  PrismaService,
-  type Prisma,
-} from '../../../infra/prisma/prisma.service';
+import { Prisma, PrismaService } from '../../../infra/prisma/prisma.service';
 import { newId } from '../../../shared-kernel/ulid';
 import { ProxyUnavailableError } from '../application/proxy-unavailable.error';
 import { Proxy, ProxyAssignment } from '../domain/proxy.entity';
 import type { ReleasedAssignment } from '../domain/proxy-suggestion';
+import { proxyUsageMap, type ProxyUsageSession } from '../domain/proxy-usage';
 import type {
   CreateProxyInput,
+  DeletedProxy,
   ProxyRepository,
   SetAssignmentInput,
   UpdateConnectionInput,
@@ -182,6 +181,26 @@ export class PrismaProxyRepository implements ProxyRepository {
     await this.prisma.proxy.delete({ where: { id } });
   }
 
+  // E28 (P-107). Prisma 7.10 não tem deleteMany que devolva as linhas: trava com FOR UPDATE (em
+  // ordem de posição — dois lotes concorrentes não se cruzam), lê quem usa os travados (depois do
+  // lock: um PUT SINGLE que gravou antes já aparece) e apaga. Um PUT SINGLE concorrente, que também
+  // trava a linha do proxy, espera e depois não acha mais o proxy apagado.
+  async deleteMany(ids: readonly string[]): Promise<DeletedProxy[]> {
+    if (ids.length === 0) return [];
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ id: string; position: number }>>`
+        SELECT id, position FROM proxies
+         WHERE id IN (${Prisma.join([...ids])})
+         ORDER BY position
+           FOR UPDATE`;
+      if (rows.length === 0) return [];
+      const lockedIds = rows.map((r) => r.id);
+      const usage = await this.usageOf(tx, lockedIds);
+      await tx.proxy.deleteMany({ where: { id: { in: lockedIds } } });
+      return rows.map((r) => ({ ...r, sessions: usage.get(r.id) ?? [] }));
+    });
+  }
+
   async getAssignment(
     sessionId: string,
     tx?: Prisma.TransactionClient,
@@ -223,16 +242,23 @@ export class PrismaProxyRepository implements ProxyRepository {
           throw new ProxyUnavailableError(
             'Proxy está DEAD — teste-o ou escolha outro',
           );
-        const owners = await tx.$queryRaw<Array<{ sessionId: string }>>`
-          SELECT a."sessionId" FROM session_proxy_assignments a
-          JOIN wa_sessions s ON s.id = a."sessionId"
-          WHERE a."currentProxyId" = ${input.currentProxyId}
-            AND a.mode <> 'NONE' AND a."sessionId" <> ${input.sessionId}
-          LIMIT 1`;
-        if (owners.length)
-          throw new ProxyUnavailableError(
-            'Proxy já está em uso por outra sessão',
-          );
+        // E28 (D-051): compartilhar é escolha explícita; sem ela, exclusividade D-008/D-041. Repetir
+        // o próprio SINGLE no mesmo proxy não é compartilhar de novo (pode já estar dividido).
+        const keepsOwn =
+          (await this.liveSinglePin(input.sessionId, tx)) ===
+          input.currentProxyId;
+        if (!input.allowShared && !keepsOwn) {
+          const owners = await tx.$queryRaw<Array<{ sessionId: string }>>`
+            SELECT a."sessionId" FROM session_proxy_assignments a
+            JOIN wa_sessions s ON s.id = a."sessionId"
+            WHERE a."currentProxyId" = ${input.currentProxyId}
+              AND a.mode <> 'NONE' AND a."sessionId" <> ${input.sessionId}
+            LIMIT 1`;
+          if (owners.length)
+            throw new ProxyUnavailableError(
+              'Proxy já está em uso por outra sessão',
+            );
+        }
       }
       const row = await tx.sessionProxyAssignment.upsert({
         where: { sessionId: input.sessionId },
@@ -315,6 +341,56 @@ export class PrismaProxyRepository implements ProxyRepository {
       orderBy: { createdAt: 'asc' },
     });
     return owner?.name ?? null;
+  }
+
+  async proxyUsage(): Promise<Map<string, ProxyUsageSession[]>> {
+    return this.usageOf(this.prisma);
+  }
+
+  async liveSinglePin(
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string | null> {
+    const rows = await (tx ?? this.prisma).$queryRaw<
+      Array<{ currentProxyId: string | null }>
+    >`
+      SELECT a."currentProxyId" FROM session_proxy_assignments a
+        JOIN wa_sessions s ON s.id = a."sessionId"
+       WHERE a."sessionId" = ${sessionId} AND a.mode = 'SINGLE'`;
+    return rows[0]?.currentProxyId ?? null;
+  }
+
+  // E28: UMA consulta (foto única — sessão criada entre duas leituras não some nem aparece pela
+  // metade) com as atribuições de sessões vivas; a régua final e a ordem são as do domínio.
+  private async usageOf(
+    client: Prisma.TransactionClient,
+    proxyIds?: readonly string[],
+  ): Promise<Map<string, ProxyUsageSession[]>> {
+    const rows = await client.$queryRaw<
+      Array<{
+        sessionId: string;
+        mode: string;
+        currentProxyId: string;
+        name: string;
+      }>
+    >`
+      SELECT a."sessionId", a.mode::text AS mode, a."currentProxyId", s.name
+        FROM session_proxy_assignments a
+        JOIN wa_sessions s ON s.id = a."sessionId"
+       WHERE a."currentProxyId" IS NOT NULL AND a.mode <> 'NONE'
+       ${
+         proxyIds
+           ? Prisma.sql`AND a."currentProxyId" IN (${Prisma.join([...proxyIds])})`
+           : Prisma.empty
+       }`;
+    return proxyUsageMap(
+      rows.map((r) => ({
+        sessionId: r.sessionId,
+        mode: r.mode as ProxyMode,
+        currentProxyId: r.currentProxyId,
+      })),
+      rows.map((r) => ({ id: r.sessionId, name: r.name })),
+    );
   }
 
   async markReleased(
