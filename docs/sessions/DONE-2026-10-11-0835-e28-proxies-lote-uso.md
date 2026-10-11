@@ -90,8 +90,10 @@
 - Tailwind 4: `w-<number>` = `calc(var(--spacing) * <number>)` (espelho local
   `~/dioggo-agents/agentes/docs/tailwind/4/width.mdx:31`); cores `red-300/400` e `emerald-300/400` em
   `node_modules/tailwindcss/theme.css:13-14,85-86` (o harness confere o oklch exato).
-- PostgreSQL 18: `SELECT … ORDER BY … FOR UPDATE` trava na ordem do resultado (mesmo padrão do
-  `FOR UPDATE` do PUT SINGLE da E15/D-041).
+- PostgreSQL 18: `SELECT … ORDER BY … FOR UPDATE` ordena antes de travar ("ORDER BY is applied
+  first. The command sorts the result, but might then block trying to obtain a lock" — espelho local
+  `~/dioggo-agents/agentes/docs/postgresql/18/postgresql-18-full.txt:123081-123084`), então dois lotes
+  travam na mesma ordem; mesmo padrão do `FOR UPDATE` do PUT SINGLE da E15/D-041.
 
 ## Progresso
 
