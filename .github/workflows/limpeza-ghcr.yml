@@ -1,0 +1,101 @@
+# Limpeza das imagens antigas no GHCR (A5/D-052, 27/10/2026) — "deixar só as últimas 11".
+#
+# Por pacote (gateway e dashboard): guarda as KEEP_RECENT imagens sha-* mais recentes e TODAS as que
+# têm as etiquetas fixas producao ou producao-anterior (mesmo mais antigas), para sempre haver como
+# voltar uma versão; apaga o resto, inclusive as versões que ficaram sem etiqueta quando a producao
+# mudou de imagem. Cada imagem é um manifesto só (ci.yml confere após o envio; a promoção usa
+# --prefer-index=false): apagar uma versão sem etiqueta não quebra outra imagem.
+#
+# Só à mão, por enquanto: sem marcar "apagar", apenas lista o que apagaria. O agendamento semanal
+# entra depois de o dono conferir a lista de uma rodada simulada (ordem de adoção — P-109).
+# Travas: nenhuma versão → erro; apagar de verdade sem nenhuma versão com a etiqueta producao →
+# erro, nada apagado (a lista pode estar errada). Na simulação a falta da producao só avisa, para a
+# lista poder ser conferida antes da primeira promoção.
+# Pré-requisito (dono — B-008): o repositório com papel Admin em cada pacote (página do pacote →
+# Package settings → Manage Actions access); sem isso o DELETE falha.
+name: limpeza-ghcr
+
+on:
+  workflow_dispatch:
+    inputs:
+      apagar:
+        description: 'Apagar de verdade (desmarcado: só lista o que seria apagado)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: limpeza-ghcr
+  cancel-in-progress: false
+
+env:
+  OWNER: diogocs32
+  KEEP_RECENT: '11'
+
+jobs:
+  limpeza:
+    name: Limpeza (${{ matrix.package }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      # Um pacote com problema não deve impedir a limpeza (ou a listagem) do outro.
+      fail-fast: false
+      matrix:
+        package: [conexozenvo-gateway, conexozenvo-dashboard]
+    steps:
+      - name: Escolher o que guardar e apagar o resto
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE: ${{ matrix.package }}
+          APAGAR: ${{ inputs.apagar == true }}
+        run: |
+          set -euo pipefail
+          api="/users/${OWNER}/packages/container/${PACKAGE}/versions"
+
+          # Todas as versões, da mais nova para a mais antiga.
+          gh api --paginate "${api}?per_page=100" --jq '.[]' \
+            | jq -s 'sort_by(.created_at) | reverse' > versions.json
+
+          total=$(jq 'length' versions.json)
+          if [ "${total}" -eq 0 ]; then
+            echo "::error::Nenhuma versão encontrada em ${PACKAGE}: nada é apagado."
+            exit 1
+          fi
+          tem_producao=true
+          jq -e 'any(.[]; .metadata.container.tags | index("producao"))' versions.json >/dev/null || tem_producao=false
+
+          # Guardadas: as etiquetas fixas e as KEEP_RECENT imagens sha-* mais recentes.
+          jq --argjson n "${KEEP_RECENT}" '
+            (map(select(.metadata.container.tags
+                  | any(. == "producao" or . == "producao-anterior"))) | map(.id)) as $fixas
+            | (map(select(.metadata.container.tags | any(startswith("sha-")))) | .[:$n] | map(.id)) as $recentes
+            | map(select(.id as $id | ($fixas + $recentes) | index($id) | not))
+          ' versions.json > apagar.json
+
+          echo "${PACKAGE}: ${total} versões; a apagar: $(jq 'length' apagar.json)"
+          echo "Guardadas:"
+          jq -r --slurpfile a apagar.json '
+            .[] | select(.id as $id | ($a[0] | map(.id) | index($id)) | not)
+            | "  \(.created_at)  \(.metadata.container.tags | join(",") | if . == "" then "(sem etiqueta)" else . end)"
+          ' versions.json
+          echo "A apagar:"
+          jq -r '.[] | "  \(.created_at)  \(.metadata.container.tags | join(",") | if . == "" then "(sem etiqueta)" else . end)"' apagar.json
+
+          if [ "${APAGAR}" != "true" ]; then
+            [ "${tem_producao}" = true ] || echo "::warning::${PACKAGE} ainda não tem a etiqueta producao (nenhuma promoção feita): apagar de verdade seria recusado."
+            echo "ℹ️  Simulação: nada foi apagado. Para apagar, rode de novo marcando \"apagar\"."
+            exit 0
+          fi
+          if [ "${tem_producao}" != true ]; then
+            echo "::error::Etiqueta producao não encontrada em ${PACKAGE}: a lista pode estar errada, e nada é apagado."
+            exit 1
+          fi
+
+          for id in $(jq -r '.[].id' apagar.json); do
+            gh api --method DELETE "${api}/${id}" --silent
+          done
+          echo "✅ Limpeza de ${PACKAGE} feita."

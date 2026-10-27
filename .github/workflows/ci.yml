@@ -1,6 +1,10 @@
 # CI (item 15 da auditoria 07/2026): lint + typecheck + e2e (contra a MESMA infra do dev, via
 # docker compose) + builds. Deploy no Dokploy permanece manual (D-027).
 #
+# A5/D-052 (27/10/2026): em push na main o job `imagens` envia as imagens testadas ao GHCR com a
+# etiqueta sha-<commit>; a promoção à produção é o deploy-production.yml (manual) + Deploy no
+# Dokploy; a retenção é o limpeza-ghcr.yml. Runbook: docs/deploy-dokploy.md §6.
+#
 # P-055 (25/09/2026) — guardas de build, pré-requisito do stop-first (B-004): o job `imagens`
 # constrói as MESMAS imagens que o Dokploy constrói (apps/dashboard/Dockerfile e
 # apps/gateway/Dockerfile, contexto = raiz), com as guardas do Dockerfile do gateway (patches
@@ -107,10 +111,34 @@ jobs:
       - name: Build (dashboard)
         run: npm run dashboard:build
 
+  # A5/D-052 (27/10/2026) — imagem pronta, promoção por etiqueta: em PR monta e testa as duas
+  # imagens, sem envio; em push na main, as MESMAS imagens testadas vão ao GHCR só com a etiqueta
+  # imutável sha-<12 do commit> (nada de main/latest). O job só começa depois do `ci` (needs) e o
+  # envio é o último passo: só vai ao GHCR imagem com o CI inteiro aprovado. A produção puxa a
+  # etiqueta móvel `producao`, que só o deploy-production.yml move (à mão); o Dokploy não monta nada.
   imagens:
+    needs: ci
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GATEWAY_IMAGE: ghcr.io/diogocs32/conexozenvo-gateway
+      DASHBOARD_IMAGE: ghcr.io/diogocs32/conexozenvo-dashboard
+      PUBLICAR: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # Build-time (embutida no bundle — apps/dashboard/Dockerfile:4-5): era Build Time Argument do
+      # Dokploy; com a imagem montada aqui, vem da variável de repositório VITE_API_URL (não secreta).
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
     steps:
+      - name: Variável VITE_API_URL definida (obrigatória para publicar o dashboard)
+        if: env.PUBLICAR == 'true'
+        run: |
+          if [ -z "${VITE_API_URL}" ]; then
+            echo "::error::Falta a variável de repositório VITE_API_URL (Settings → Secrets and variables → Actions → Variables): sem ela o bundle do dashboard sai sem o endereço da API de produção."
+            exit 1
+          fi
+
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (node24)
         with:
           persist-credentials: false
@@ -123,8 +151,17 @@ jobs:
       # Os dois apps do Dokploy são construídos com estes Dockerfiles (contexto = raiz). Quebra de
       # build aqui = PR vermelho, em vez de deploy travado no Dokploy (ex.: 25/09, o dashboard
       # quebraria com o `--error-on-fail` se a pasta patches/ continuasse no build dele).
+      # `--provenance=false --sbom=false`: sem eles, o Docker com image store do containerd monta um
+      # índice com atestado (manifesto sem etiqueta) — a limpeza do GHCR o apagaria e quebraria a
+      # imagem. Cada imagem tem de ser UM manifesto (conferido após o envio). Teste de 27/10 num
+      # registry local, Docker 29.8 / buildx 0.37.1: sem as flags → image.index; com → image.manifest.
       - name: Build da imagem do dashboard (apps/dashboard/Dockerfile — o mesmo do Dokploy)
-        run: docker build -f apps/dashboard/Dockerfile -t dashboard:ci .
+        run: |
+          docker build --provenance=false --sbom=false \
+            --build-arg VITE_API_URL \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -f apps/dashboard/Dockerfile -t dashboard:ci .
 
       # E16 / R15: a troca de nginx exige servir os assets e as rotas da SPA de verdade.
       - name: Smoke HTTP do dashboard (imagem pronta, sem conta/API)
@@ -135,7 +172,11 @@ jobs:
 
       # As guardas do gateway rodam DENTRO do build: se falharem, o `docker build` sai com erro.
       - name: Build da imagem do gateway (apps/gateway/Dockerfile — o mesmo do Dokploy)
-        run: docker build -f apps/gateway/Dockerfile -t gateway:ci .
+        run: |
+          docker build --provenance=false --sbom=false \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -f apps/gateway/Dockerfile -t gateway:ci .
 
       - name: Infra (Postgres + Redis + MinIO)
         run: docker compose up -d --wait
@@ -225,3 +266,59 @@ jobs:
             exit 1
           fi
           echo "login: 10 × 401 e a 11ª = 429 (origin-form, %-encoding e forma absoluta no mesmo balde)"
+
+      # A5/D-052: só em push na main, e como ÚLTIMO passo — as imagens acima já passaram por build,
+      # guardas e smokes; o que vai ao GHCR é exatamente o que está no daemon (docker push da imagem
+      # carregada, sem rebuild). Login pelo CLI com o GITHUB_TOKEN (via env, nunca no texto do run).
+      - name: Enviar as imagens ao GHCR (etiqueta sha-<commit>)
+        if: env.PUBLICAR == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          echo "${GH_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+          tag="sha-${GITHUB_SHA::12}"
+          publicar() {
+            docker tag "$1" "$2:${tag}"
+            docker push "$2:${tag}"
+            # Um manifesto só (sem índice/atestado): é o que a limpeza do GHCR pressupõe.
+            tipo=$(docker buildx imagetools inspect --raw "$2:${tag}" | jq -r .mediaType)
+            case "${tipo}" in
+              *image.manifest*) echo "✅ $2:${tag} (${tipo})" ;;
+              *)
+                echo "::error::$2:${tag} foi enviada como ${tipo}; esperado um manifesto só (a limpeza apagaria partes dele)."
+                exit 1
+                ;;
+            esac
+          }
+          publicar gateway:ci "${GATEWAY_IMAGE}"
+          publicar dashboard:ci "${DASHBOARD_IMAGE}"
+          {
+            echo "### Imagens no GHCR"
+            echo "- \`${GATEWAY_IMAGE}:${tag}\`"
+            echo "- \`${DASHBOARD_IMAGE}:${tag}\`"
+            echo
+            echo "Publicar: Actions → deploy-production → app + image_tag=\`${tag}\` + confirm=\`promover\`; depois Deploy no Dokploy (docs/deploy-dokploy.md §6)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Portão único (A5/D-052): é o check a marcar como obrigatório na proteção da main (ação do
+  # dono — B-008). `!cancelled()` em vez de always(): roda com sucesso ou falha dos anteriores, mas
+  # não numa execução cancelada.
+  ci-completo:
+    name: CI (portão)
+    needs: [ci, imagens]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Conferir os jobs obrigatórios
+        env:
+          RES_CI: ${{ needs.ci.result }}
+          RES_IMAGENS: ${{ needs.imagens.result }}
+        run: |
+          echo "ci=${RES_CI} imagens=${RES_IMAGENS}"
+          if [ "${RES_CI}" != success ] || [ "${RES_IMAGENS}" != success ]; then
+            echo "::error::job obrigatório sem sucesso (ci=${RES_CI}, imagens=${RES_IMAGENS})"
+            exit 1
+          fi
