@@ -1110,3 +1110,50 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
   Revisão independente (gateway e painel) aplicada antes do commit. Sem migration/env. Deploy manual dos dois apps,
   **gateway antes do painel** (painel novo com gateway velho não quebra, mas tudo aparece verde — o
   gateway velho não manda o uso —, escolher um proxy ocupado volta 400 "em uso" e o lote volta 404).
+
+## D-052 — 2026-10-27 — Deploy por imagem pronta no GHCR, promoção por etiqueta e retenção das últimas 11 (A5)
+
+- **Contexto:** pedido do dono (27/10, via chat maestro): deploy do jeito que o Prontuário
+  (`diogocs32/prontuario-oficial`) já usa — imagem montada uma vez no CI, promoção por etiqueta,
+  limpeza que guarda só as últimas imagens. Coincide com a A5 do [ADOCAO.md](ADOCAO.md) (R15 🔴:
+  build no servidor, sem registry, rollback por rebuild). O dono pôs a A5 à frente da E21/P-022 do
+  roteiro e escolheu: passos a+b+c neste chat; nomes `conexozenvo-gateway`/`conexozenvo-dashboard`;
+  migrations seguem no entrypoint.
+- **Decisão:** (1) `ci.yml`: `imagens` passa a depender do `ci`; em push na main, as MESMAS imagens
+  testadas vão ao GHCR só com `sha-<12 do commit>`, como ÚLTIMO passo, via `docker push` da imagem do
+  daemon; build com `--provenance=false --sbom=false` e conferência do `mediaType` após o envio (um
+  manifesto por imagem); portão `ci-completo` (`!cancelled()`). (2) `deploy-production.yml` manual:
+  `app` (gateway/dashboard) + `image_tag` (`^sha-[0-9a-f]{12}$`) + `confirm=promover`, entradas só por
+  env; guarda a atual como `producao-anterior` e move `producao` com
+  `imagetools create --prefer-index=false`; não chama o Dokploy (Deploy à mão — D-027). (3)
+  `limpeza-ghcr.yml`: guarda 11 `sha-*` + `producao`/`producao-anterior` por pacote; só à mão até o dono
+  conferir uma lista simulada (agendamento = P-109); apagar exige a etiqueta `producao` (sentinela —
+  sem homologação aqui). (4) `VITE_API_URL` sai do Build Time Argument do Dokploy para a variável de
+  repositório `vars.VITE_API_URL`; o CI recusa publicar sem ela. (5) Migrations continuam no
+  entrypoint; a volta por etiqueta exige migration expand/contract (acrescenta primeiro, remove numa
+  publicação seguinte). (6) Logins pelo CLI (`docker login --password-stdin`), sem action de terceiro.
+- **Diferenças em relação ao Prontuário (deliberadas):** duas imagens (entrada `app`, matrix na
+  limpeza); sem homologação (sentinela `producao`, sem job de staging); **gateway sem start-first** —
+  stop-first explícito (B-004/D-020), volume da sessão e 1 réplica; migration no entrypoint em vez de
+  tarefa manual com cópia do banco (não há backup — B-005); na simulação, a falta da sentinela só avisa
+  (para a lista poder ser conferida antes da primeira promoção).
+- **Alternativas rejeitadas:** `push: true` do build-push-action (índice com atestados que a limpeza
+  apagaria); rebuild no job de envio ou artefato `docker save` entre jobs (não é o mesmo artefato /
+  imagem do gateway grande); config do dashboard em runtime (mudança de código, fora da A5);
+  agendar a limpeza já agora (a ordem de adoção pede lista conferida antes).
+- **Consequências:** o PR fica mais lento (`imagens` espera o `ci`); merge exige `VITE_API_URL`
+  definida antes; até o passo d (B-008) a produção segue com build do Git e nada muda nela.
+  Itens da A5 que ficam para depois (P-109): agendamento da limpeza, retry de banco no entrypoint,
+  graceful shutdown auditado, primeira tag/release 0.2.0, ensaio de rollback.
+- **Fontes conferidas:** GitHub Docs, "Working with the Container registry" ("When you first publish
+  a package, the default visibility is private"; delete via REST exige "admin permission to the
+  package") e "Configuring a package's access control and visibility" ("Manage Actions access" →
+  Role) — 27/10; Dokploy (espelho local `agentes/docs/dokploy/latest/core/(Git-Sources)/Docker.mdx`:
+  Source Docker + registry URL/usuário/senha); teste local 27/10, Docker 29.8.0 / buildx 0.37.1, driver
+  `docker` padrão, `registry:2`: build padrão → `image.index.v1`; com as flags → `image.manifest.v1`;
+  `imagetools create --prefer-index=false` mantém o digest; ensaio promoção → troca → mesma imagem
+  (sem efeito) → volta. Referência: `~/Projects/Prontuario_medico/.github/workflows/`
+  (`ci-cd.yml` job `docker-image`, `deploy-production.yml`, `limpeza-ghcr.yml`).
+- **Aceite:** actionlint 1.7.7 limpo nos três workflows; jq da limpeza com lista simulada (15 `sha-` +
+  fixas antigas + sem etiqueta → apaga só as esperadas); CI do PR verde; no merge, o job `imagens`
+  envia as duas `sha-` e o passo de conferência mostra `image.manifest`.

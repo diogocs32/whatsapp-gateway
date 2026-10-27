@@ -1,0 +1,119 @@
+# Promoção à produção (A5/D-052, 27/10/2026) — NÃO monta nada: move a etiqueta fixa `producao` de
+# uma das imagens (gateway ou dashboard) para uma sha-<commit> que já passou pelo CI completo da main
+# (só ela existe no GHCR — ci.yml, job `imagens`). É o 1º de dois passos: o 2º é o Deploy à mão da
+# aplicação no painel do Dokploy (auto-deploy desligado — D-027). Este workflow não chama o Dokploy:
+# duas decisões, em dois sistemas, com dois logins.
+#
+# Antes de mover a `producao`, a imagem que estava nela ganha a etiqueta `producao-anterior` (a
+# limpeza do GHCR guarda as duas). Voltar uma versão = rodar de novo com a sha- anterior + Deploy.
+# Seguro só com migration compatível com a versão anterior (expand/contract — D-052).
+# Runbook: docs/deploy-dokploy.md §6.
+name: deploy-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Aplicação a promover'
+        required: true
+        type: choice
+        options:
+          - gateway
+          - dashboard
+      image_tag:
+        description: 'Etiqueta imutável sha-<12 do commit> (ex.: sha-c937a60f1b2e) — imagem com CI completo aprovado na main'
+        required: true
+        type: string
+      confirm:
+        description: 'Digite "promover" para confirmar'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+# Duas promoções da mesma aplicação ao mesmo tempo embaralhariam a `producao-anterior`.
+concurrency:
+  group: deploy-production-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  promover:
+    name: Promover (etiqueta producao)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # As entradas chegam ao script só por variável de ambiente, nunca coladas no texto do run
+      # (injeção de script — "Security hardening for GitHub Actions").
+      - name: Validar as entradas
+        env:
+          APP: ${{ inputs.app }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "${CONFIRM}" != "promover" ]; then
+            echo "::error::Confirmação inválida — digite exatamente 'promover' no campo confirm."
+            exit 1
+          fi
+          if ! printf '%s' "${IMAGE_TAG}" | grep -Eq '^sha-[0-9a-f]{12}$'; then
+            echo "::error::Promova sempre uma etiqueta imutável sha-<12 do commit> (recebi '${IMAGE_TAG}'): producao e producao-anterior são móveis."
+            exit 1
+          fi
+          case "${APP}" in
+            gateway) echo "IMAGE_NAME=ghcr.io/diogocs32/conexozenvo-gateway" >> "$GITHUB_ENV" ;;
+            dashboard) echo "IMAGE_NAME=ghcr.io/diogocs32/conexozenvo-dashboard" >> "$GITHUB_ENV" ;;
+            *) echo "::error::Aplicação desconhecida: '${APP}'"; exit 1 ;;
+          esac
+
+      - name: Login no GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "${GH_TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+      # `imagetools inspect` (e não `docker manifest inspect`): é o mesmo comando dos passos seguintes
+      # e o que foi testado num registry local em 27/10 (Docker 29.8 / buildx 0.37.1, driver docker
+      # padrão — sem setup-buildx).
+      - name: Conferir que a imagem existe no GHCR
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null || {
+            echo "::error::${IMAGE_NAME}:${IMAGE_TAG} não existe no GHCR — só se promove imagem enviada pelo CI completo da main."
+            exit 1
+          }
+          echo "✅ Imagem encontrada: ${IMAGE_NAME}:${IMAGE_TAG}"
+
+      # Na primeira promoção não há `producao`; promover de novo a mesma imagem não mexe na anterior.
+      - name: Guardar a imagem atual como producao-anterior
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if ! atual=$(docker buildx imagetools inspect "${IMAGE_NAME}:producao" --format '{{.Manifest.Digest}}' 2>/dev/null); then
+            echo "ℹ️  Ainda não há imagem com a etiqueta producao: nada a guardar como producao-anterior."
+            exit 0
+          fi
+          nova=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" --format '{{.Manifest.Digest}}')
+          if [ "${atual}" = "${nova}" ]; then
+            echo "ℹ️  A producao já é ${IMAGE_TAG}: a producao-anterior fica como está."
+            exit 0
+          fi
+          docker buildx imagetools create --prefer-index=false \
+            --tag "${IMAGE_NAME}:producao-anterior" "${IMAGE_NAME}@${atual}"
+          echo "🏷️  ${IMAGE_NAME}:producao-anterior → ${atual}"
+
+      # Cópia no próprio GHCR, sem baixar: --prefer-index=false mantém o MESMO manifesto (mesmo digest
+      # — conferido no teste local de 27/10).
+      - name: Mover a etiqueta producao
+        env:
+          APP: ${{ inputs.app }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          docker buildx imagetools create --prefer-index=false \
+            --tag "${IMAGE_NAME}:producao" "${IMAGE_NAME}:${IMAGE_TAG}"
+          echo "🏷️  ${IMAGE_NAME}:producao → ${IMAGE_TAG}"
+          {
+            echo "### ${APP}: producao → \`${IMAGE_TAG}\`"
+            echo "Segundo passo (manual): Deploy da aplicação ${APP} no painel do Dokploy (docs/deploy-dokploy.md §6)."
+          } >> "$GITHUB_STEP_SUMMARY"

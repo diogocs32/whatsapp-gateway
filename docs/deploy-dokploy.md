@@ -154,6 +154,73 @@ traefik.http.services.<service>.loadBalancer.responseForwarding.flushInterval=10
 2. Gateway (deploy → confere `/health` em `https://api.conexozenvo.com/health`).
 3. Dashboard (deploy → abre `https://app.conexozenvo.com`, login admin).
 
+## 6. Deploy por imagem do GHCR (A5 — D-052, desde 27/10/2026)
+
+> **Estado:** os workflows existem (passos a–c da adoção); as duas aplicações do Dokploy **seguem
+> com build do Git** até o dono fazer o passo d (B-008). Até lá, as seções 2 e 3 descrevem a produção.
+
+**Princípio:** a imagem é montada e testada **uma vez**, no CI (`ci.yml`, job `imagens`), e vai ao
+GHCR só com a etiqueta imutável `sha-<12 primeiros do commit>`. O Dokploy não monta nada: puxa sempre
+a etiqueta móvel `producao`. Publicar = mover a `producao` para uma `sha-` já testada + **Deploy** no
+painel. Voltar = mover de volta + Deploy. Sem rebuild.
+
+| Imagem    | Pacote no GHCR                            |
+| --------- | ----------------------------------------- |
+| gateway   | `ghcr.io/diogocs32/conexozenvo-gateway`   |
+| dashboard | `ghcr.io/diogocs32/conexozenvo-dashboard` |
+
+Pacotes **privados** (padrão do GHCR na primeira publicação). Cada imagem é **um manifesto só**
+(`--provenance=false --sbom=false`; o CI confere o `mediaType` após o envio) — índice com atestado
+deixaria manifestos sem etiqueta que a limpeza apagaria, quebrando a imagem.
+
+### 6.1 Publicar uma versão
+
+1. PR mergeado na main com CI verde → o resumo do job `imagens` mostra a etiqueta (`sha-…`).
+2. GitHub → **Actions → deploy-production → Run workflow**: `app` (gateway ou dashboard),
+   `image_tag` = `sha-…`, `confirm` = `promover`. A imagem que estava na `producao` ganha a etiqueta
+   `producao-anterior`.
+3. Dokploy → aplicação correspondente → **Deploy** (o workflow NÃO chama o Dokploy — D-027).
+   Gateway antes do painel quando o contrato mudou.
+4. Registro: etiqueta git `vX.Y.Z` no commit publicado, entrada no CHANGELOG e, no ESTADO.md, a
+   versão anterior e a nova.
+
+### 6.2 Voltar uma versão
+
+Rodar o deploy-production com a `sha-` boa (na página do pacote ela aparece ao lado da etiqueta
+`producao-anterior`) e apertar **Deploy**. Seguro só quando as migrations são compatíveis com a
+versão anterior: o entrypoint do gateway segue rodando `prisma migrate deploy` na subida (decisão
+D-052), então **toda migration acrescenta primeiro e só remove numa publicação seguinte**
+(expand/contract) — uma imagem antiga precisa funcionar sobre o banco novo.
+
+### 6.3 Limpeza das imagens antigas (`limpeza-ghcr.yml`)
+
+Guarda as **11** `sha-*` mais recentes de cada pacote + as que têm `producao` ou `producao-anterior`;
+apaga o resto (inclusive as que ficaram sem etiqueta). **Só à mão por enquanto:** Actions →
+limpeza-ghcr → Run workflow; sem marcar `apagar`, apenas lista. Apagar de verdade é recusado
+enquanto o pacote não tiver a etiqueta `producao`. O agendamento semanal (segunda 06:00 UTC) entra
+depois de o dono conferir a lista de uma rodada simulada (P-109).
+
+### 6.4 Passo d — trocar a aplicação para imagem (ação do dono, B-008)
+
+Ordem: a) CI envia a `sha-` (feito no merge) → b) limpeza simulada conferida → c) primeira
+promoção pelo workflow → **d)** trocar no Dokploy, uma aplicação por vez:
+
+1. Pré-requisitos no GitHub: variável de repositório `VITE_API_URL` (o mesmo valor do Build Time
+   Argument atual do dashboard) **antes do merge** desta onda; token clássico só com `read:packages`
+   para o Dokploy; papel **Admin** do repositório em cada pacote (Package settings → Manage Actions
+   access) para a limpeza.
+2. Conferir no servidor que a arquitetura é `x86_64` (`uname -m`): a imagem do CI é `linux/amd64`.
+3. Aplicação → **General → Source: Docker**: imagem `ghcr.io/diogocs32/conexozenvo-<app>:producao`,
+   registry `ghcr.io`, usuário `diogocs32` e o token do item 1.
+4. **Gateway:** manter Environment, o volume `gateway-wwebjs` → `/data/wwebjs`, 1 réplica, e o
+   Update/Rollback Config com **stop-first** (B-004, §2) — o Zero Downtime start-first do Prontuário
+   **não serve** aqui (duas instâncias abririam as mesmas contas). Reinício com sessão real
+   conectada: uma vez, em janela calma.
+5. **Dashboard:** o Build Time Argument `VITE_API_URL` deixa de ter efeito (o valor vem do CI);
+   start-first serve.
+6. Auto-deploy **desligado** (D-027) e "Clean Cache" desligado. **Deploy** → conferir `/health` e o
+   login do painel.
+
 ## Troubleshooting
 
 **`Error: No start command could be found` / `Nixpacks build failed`**
@@ -173,4 +240,4 @@ Depois **Save** → **Deploy**. O `Dockerfile Path` é relativo ao Context. Para
 - Imagem do gateway inclui **Chromium** (engine WWEBJS). Para usar só Baileys, edite o `apt-get` do
   `apps/gateway/Dockerfile` (remova `chromium` e `fonts-liberation`) — fica bem menor.
 - Build via CI/CD (GitHub Actions → imagem pré-pronta) é o ideal de produção segundo a doc (o servidor
-  só faz deploy, sem gastar CPU/RAM em build). Começar com build no Dokploy é aceitável.
+  só faz deploy, sem gastar CPU/RAM em build) — adotado na A5: ver §6 (D-052).

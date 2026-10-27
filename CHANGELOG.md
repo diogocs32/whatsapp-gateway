@@ -4,6 +4,20 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-10-27 — E29/A5: deploy por imagem pronta no GHCR (sem mudança na produção)
+
+- CI: em push na main, as imagens do gateway e do dashboard que passaram por build, guardas e
+  smokes vão ao GHCR (`ghcr.io/diogocs32/conexozenvo-gateway` e `-dashboard`) só com a etiqueta
+  imutável `sha-<commit>`, um manifesto por imagem (conferido após o envio). O job `imagens` passa a
+  esperar o `ci`; novo portão `CI (portão)`. O dashboard recebe o `VITE_API_URL` da variável de
+  repositório.
+- Novo `deploy-production.yml` (manual): promove uma `sha-` à etiqueta `producao` de uma das
+  aplicações, guardando a anterior como `producao-anterior`; o Deploy continua à mão no Dokploy.
+- Novo `limpeza-ghcr.yml` (manual por enquanto): guarda as 11 `sha-` mais recentes + `producao`/
+  `producao-anterior`, apaga o resto; sem marcar "apagar", só lista.
+- Decisão D-052; runbook em `docs/deploy-dokploy.md` §6; ações do dono em B-008; resto da A5 em P-109.
+  [Checkpoint](docs/sessions/DONE-2026-10-27-adocao-a5-deploy.md).
+
 ## 2026-10-11 — E28/P-107: proxies em lote e uso visível nos seletores (sem deploy)
 
 - Tela Proxies: marcar vários (checkbox por linha + "marcar todos") e excluir com UMA
