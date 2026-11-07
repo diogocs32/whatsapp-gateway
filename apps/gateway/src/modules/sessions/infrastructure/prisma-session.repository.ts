@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService, Prisma } from '../../../infra/prisma/prisma.service';
 import type { Engine, SessionStatus } from '../domain/session-status';
+import { SessionNameTakenError } from '../domain/session-name-taken.error';
 import { Session, type SessionErrorDetails } from '../domain/session.entity';
 import type {
   ConnectSnapshot,
@@ -139,6 +140,25 @@ export class PrismaSessionRepository implements SessionRepository {
 
   async delete(id: string): Promise<void> {
     await this.prisma.waSession.delete({ where: { id } });
+  }
+
+  // E30 (P-110): só a coluna `name` muda. Linha inexistente → null (P2025: apagada entre o ensure
+  // do controller e esta escrita); nome já usado → SessionNameTakenError (P2002 do @unique — a
+  // corrida que a pré-checagem do controller não enxerga). Mesmo padrão de leitura do `code` que o
+  // guardrail.service.ts e o send-intent.service.ts usam.
+  async rename(id: string, name: string): Promise<Session | null> {
+    try {
+      const r = await this.prisma.waSession.update({
+        where: { id },
+        data: { name },
+      });
+      return this.toDomain(r);
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      if (code === 'P2025') return null;
+      if (code === 'P2002') throw new SessionNameTakenError(name);
+      throw e;
+    }
   }
 
   async findConnectSnapshot(id: string): Promise<ConnectSnapshot | null> {

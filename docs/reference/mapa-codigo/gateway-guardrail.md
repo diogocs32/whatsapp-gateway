@@ -121,7 +121,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - publica evento: `'wa.event'`
 - `getState(sessionId)` · L218 · async
   - chama: `newId` (ulid.ts:4)
-  - chamado por: `canSendCold` L469, `evaluate` L251, `health` L647, `SessionsController.getConfig` (sessions.controller.ts:205), `SessionsController.patchConfig` (sessions.controller.ts:212)
+  - chamado por: `canSendCold` L469, `evaluate` L251, `health` L647, `SessionsController.getConfig` (sessions.controller.ts:242), `SessionsController.patchConfig` (sessions.controller.ts:249)
   - banco: `sessionGuardrail.upsert`
 - `fleetMedianReplyRate()` · L232 · async
   - chama: `cfg` L157
@@ -145,7 +145,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `ForwardService.runReserved` (forward.service.ts:170), `MessagesController.assertColdAllowed` (messages.controller.ts:257)
 - `canSendMessage(sessionId)` · L488 · async
   - chama: `emit` L190, `emitFailed` L459
-  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `canSendCold` L469, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:1398)
+  - chamado por: `CampaignQueue.process` (campaign-queue.ts:235), `canSendCold` L469, `ForwardService.runReserved` (forward.service.ts:170), `SessionManager.sending` (session-manager.service.ts:1411)
   - banco: `sessionGuardrail.findUnique`
 - `recordReachoutRestriction(sessionId, signal, options)` · L506 · async
   - chama: `emit` L190, `emitFailed` L459, `recordHardSignal` L599
@@ -157,13 +157,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - banco: `sessionGuardrail.upsert`
 - `setManualState(ref, action)` · L631 · async
   - chama: `apply` L341
-  - chamado por: `SessionsController.override` (sessions.controller.ts:332)
+  - chamado por: `SessionsController.override` (sessions.controller.ts:369)
   - banco: `waSession.findFirst`
 - `health(ref)` · L647 · async
   - chama: `getState` L218, `ReplyRateService.compute` (reply-rate.service.ts:69)
-  - chamado por: `SessionsController.health` (sessions.controller.ts:196)
+  - chamado por: `SessionsController.health` (sessions.controller.ts:233)
 - `statesFor(sessionIds)` · L673 · async
-  - chamado por: `SessionsController.list` (sessions.controller.ts:170)
+  - chamado por: `SessionsController.list` (sessions.controller.ts:173)
   - banco: `sessionGuardrail.findMany`
 
 **Funções e constantes de topo**
@@ -188,7 +188,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **class `SessionQuarantinedException`** L5 · `extends HttpException`
 - injeta (construtor): `state: string (param)` · `reason: string | null (param)`
 - `constructor(state, reason)` · L6
-  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:257), `SessionManager.sending` (session-manager.service.ts:1398)
+  - chamado por: `MessagesController.assertColdAllowed` (messages.controller.ts:257), `SessionManager.sending` (session-manager.service.ts:1411)
 
 ## `modules/guardrail/undelivered-detector.service.spec.ts`
 

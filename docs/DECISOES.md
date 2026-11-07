@@ -1110,3 +1110,44 @@ forward.service.ts` (o `sendWithIntent` é do controller e `sessions` não pode 
   Revisão independente (gateway e painel) aplicada antes do commit. Sem migration/env. Deploy manual dos dois apps,
   **gateway antes do painel** (painel novo com gateway velho não quebra, mas tudo aparece verde — o
   gateway velho não manda o uso —, escolher um proxy ocupado volta 400 "em uso" e o lote volta 404).
+
+## D-053 — 2026-11-07 — Nome da sessão é editável (`PATCH /api/sessions/{sessao}`); o `id` é a identidade (E30/P-110)
+
+- **Contexto:** pedido do dono (07/11): "gostaria também que fosse possivel editar o nome, pois as vezes
+  quero trocar o nome, preciso excluir a sessão e criar novamente". Excluir e recriar derruba a conexão
+  (QR de novo), perde histórico e atribuição e, pela D-038, só o proxy fixo era sugerido de volta. Até
+  aqui o nome era imutável (entidade `readonly`, repositório sem `rename`) porque o `SessionRefPipe` o
+  trata como referência estável das integrações ("se o número cair, basta recriar a sessão com o mesmo
+  nome que a URL continua idêntica"). Levantamento antes de mexer: nada em runtime depende do nome —
+  credenciais Baileys (Postgres), perfil WWEBJS (`session-<id>`), proxy, mensagens, guard-rail,
+  campanhas e links de conexão são por `id`; em memória só o mapa `SessionManager.names` (campo
+  `session` do envelope `wa.event`); guardrail, inbox e proxies leem o nome do banco a cada uso.
+- **Decisão:** (1) rota ADITIVA `PATCH /api/sessions/{sessao}` `{ name }` (ADMIN, como criar/excluir);
+  a regra do nome é UMA (`sessionNameSchema`, a mesma do create); 409 se OUTRA sessão já tem o nome
+  (pré-checagem + `SessionNameTakenError` do @unique, para a corrida); 404 se a sessão sumiu entre a
+  leitura e a escrita; mesmo nome = 200 sem escrever. (2) O `id` (ULID) é a identidade: nada mais é
+  tocado e a sessão NÃO reinicia; `SessionManager.noteRename` só atualiza o nome que sai no envelope
+  dos eventos desta réplica. (3) O nome antigo deixa de resolver em `/api/sessions/{sessao}`
+  imediatamente — o mesmo efeito que excluir e recriar já tinha sobre quem integra pelo nome (n8n),
+  agora sem perder a conexão; o painel avisa isso no próprio editor. (4) `SessionRefPipe` continua
+  aceitando id OU nome. (5) O carimbo `releasedSessionName` (D-038) segue gravado com o nome vigente na
+  exclusão — renomear e depois apagar sugere o proxy para o nome NOVO.
+- **Alternativas rejeitadas:** `POST /sessions/{sessao}/rename` (ação dedicada — o PATCH no recurso já
+  cobre campos futuros, ex. `autostart`); exigir a sessão parada para renomear (nada depende do nome em
+  runtime além do envelope — pararia uma conexão viva à toa); apelido/`displayName` separado do nome da
+  URL (duas identidades para o dono gerir; o pedido é trocar o nome que ele vê e usa); nome antigo
+  continuar resolvendo por um prazo (fora do pedido; se integradores pedirem, vira pendência própria);
+  tela nova de filtro (a tela de Sessões já tem o filtro P-089 desde a E27 — só falta deploy).
+- **Consequências:** contrato aditivo (`UpdateSessionRequest` em `packages/contracts`, INTEGRACAO §11);
+  workflows n8n que usam o nome antigo recebem 404 até serem atualizados; em sobreposição de réplicas
+  (start-first, B-004) a réplica que não recebeu o PATCH pode emitir o envelope com o nome antigo até
+  reiniciar a sessão. Sem migration/env. Deploy manual dos dois apps, gateway antes do painel (painel
+  novo com gateway velho: o ✎ cai em 404 "Cannot PATCH" na região viva do editor, sem efeito).
+- **Fontes conferidas:** Prisma error reference via Context7 `/prisma/web` (07/11): `P2002` = unique
+  constraint failed (→ 409), `P2025` = record not found no `update` (→ 404); zod 3.25.76 instalado
+  (`min/max/regex(…, message?)` em `node_modules/zod/v3/types.d.ts:248-256`); `@Patch` já em uso em
+  `/sessions/:id/config` (Nest 12.1.1); upstream das engines: Baileys `latest` = 7.0.0-rc14 =
+  instalada. Provas: unit do controller (12 casos), e2e de sessões (+7), painel (+4), suíte completa
+  (gateway 1310 unit + 680 e2e, painel 355), harness no Chrome headless (puppeteer-core 24.38.0) com
+  login real no gateway LOCAL (banco de dev, sem conta/QR) 15/16 — a restante são os 401 das sondas
+  `/auth/me`/`/auth/refresh` antes do login, pré-existentes.

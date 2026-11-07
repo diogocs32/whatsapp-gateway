@@ -555,6 +555,22 @@ POST /api/sessions              # { "name": "vendas-02", "engine": "BAILEYS", "p
   Por compatibilidade, referência inexistente/órfã ainda é aceita; nenhum 404 novo foi introduzido.
   Payloads de pedido/resposta permanecem iguais.
 
+### Renomear sessão (E30 · P-110 · D-053, aditivo)
+
+```
+PATCH /api/sessions/{sessao}     # { "name": "vendas-03" } — ADMIN
+→ 200 SessionDto (mesmo id, name novo) · 400 formato · 404 sessão · 409 nome já usado por outra sessão
+```
+
+- Mesma regra do nome do `POST /api/sessions`: 1–64 caracteres de `[a-zA-Z0-9_-]`, único. Mandar o
+  nome atual devolve 200 sem alterar nada.
+- O `id` não muda e a sessão **não reinicia**: credenciais, proxy, mensagens, guard-rail, campanhas e
+  links de conexão ficam; o webhook passa a sair com `session` = nome novo.
+- O nome **antigo deixa de resolver na hora** em `/api/sessions/{sessao}/...` (404) — o mesmo efeito
+  que excluir e recriar já tinha, agora sem perder a conexão. Quem integra pelo nome (node n8n,
+  workflows) atualiza a referência; quem usa o `id` não percebe.
+- O node n8n 0.4.1 não tem a operação: use um nó HTTP Request com `X-Api-Key`.
+
 ### Inventário pessoal × Business (E20, aditivo)
 
 `GET /api/sessions/account-inventory/snapshot` retorna

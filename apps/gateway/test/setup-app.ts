@@ -25,6 +25,8 @@ export const fakeSessionManager = {
   isBusy: () => false,
   isRehydrated: () => true,
   hasEngine: () => false,
+  // E30 (P-110) — renomear: só troca o nome no envelope dos eventos da réplica.
+  noteRename: () => undefined,
   newQrForConnectLink: async (_id: string, check: () => Promise<void>) => {
     await check();
   },

@@ -28,6 +28,7 @@ import { ConnectLinkService } from '../application/connect-link.service';
 import { SessionConfigService } from '../application/session-config.service';
 import { SessionManager } from '../application/session-manager.service';
 import { SessionRefPipe } from './session-ref.pipe';
+import { SessionNameTakenError } from '../domain/session-name-taken.error';
 import type { Session } from '../domain/session.entity';
 import {
   SESSION_REPOSITORY,
@@ -41,6 +42,7 @@ import {
   profilePhotoSchema,
   profileStatusSchema,
   sessionConfigSchema,
+  updateSessionSchema,
 } from './dto';
 
 function toDto(s: Session) {
@@ -127,6 +129,7 @@ export class SessionsController {
     if (await this.repo.findByName(name)) {
       throw new ConflictException('Já existe uma sessão com esse nome');
     }
+    await this.ensureNameNotShadowed(name);
     const maxSessions = this.license.effective().maxSessions;
     if ((await this.repo.list()).length >= maxSessions) {
       throw new ConflictException(
@@ -190,6 +193,40 @@ export class SessionsController {
   @Get(':id')
   async get(@Param('id', SessionRefPipe) id: string) {
     return toDto(await this.ensure(id));
+  }
+
+  // E30 (P-110, D-053) — editar a sessão já criada: hoje só o nome. Rota ADITIVA (R0): o `id`
+  // (ULID) não muda, a sessão NÃO reinicia e a engine não é tocada (credenciais, proxy, mensagens e
+  // guard-rail são por id). O nome ANTIGO deixa de resolver em `/api/sessions/{sessao}` na hora —
+  // quem integra pelo nome (n8n) passa a usar o novo; é o mesmo efeito de excluir e recriar, só que
+  // sem perder a conexão. ADMIN como criar/excluir.
+  @Patch(':id')
+  @MinRole('ADMIN')
+  async update(@Param('id', SessionRefPipe) id: string, @Body() body: unknown) {
+    const parsed = updateSessionSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      );
+    }
+    const current = await this.ensure(id);
+    const { name } = parsed.data;
+    if (name === current.name) return toDto(current);
+    await this.ensureNameNotShadowed(name, id);
+    let renamed: Session | null;
+    try {
+      renamed = await this.repo.rename(id, name);
+    } catch (e) {
+      // Nome de OUTRA sessão: quem decide é o @unique de wa_sessions.name (vale também na corrida).
+      if (e instanceof SessionNameTakenError) {
+        throw new ConflictException('Já existe uma sessão com esse nome');
+      }
+      throw e;
+    }
+    if (!renamed) throw new NotFoundException('Sessão não encontrada');
+    // O envelope dos eventos (`session`) desta réplica passa a sair com o nome novo sem reiniciar.
+    this.manager.noteRename(id, name);
+    return toDto(renamed);
   }
 
   // G7 — saúde da sessão (estado guard-rail + reply-rate + sinais). G8 preenche cap_base/cap_atual.
@@ -434,5 +471,21 @@ export class SessionsController {
     const s = await this.repo.findById(id);
     if (!s) throw new NotFoundException('Sessão não encontrada');
     return s;
+  }
+
+  // E30: o SessionRefPipe resolve `:id` primeiro por id e só depois por nome. Um nome igual ao ID de
+  // OUTRA sessão (ULID = 26 caracteres de [0-9A-Z], que passam no formato) deixaria esta sessão
+  // inalcançável pelo nome e mandaria a integração para a conta errada — o @unique do nome não
+  // enxerga isso, por isso a checagem explícita no create e no rename. O próprio id não conta.
+  private async ensureNameNotShadowed(
+    name: string,
+    selfId?: string,
+  ): Promise<void> {
+    const byId = await this.repo.findById(name);
+    if (byId && byId.id !== selfId) {
+      throw new ConflictException(
+        'Esse nome coincide com o id de outra sessão; escolha outro',
+      );
+    }
   }
 }
