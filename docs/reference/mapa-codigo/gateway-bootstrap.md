@@ -89,7 +89,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `buildFastifyAdapter(maxFileBytes)` · L11
   - chama: `rejectAmbiguousAbsoluteForm` (route-url.ts:39), `stampRouteUrl` (route-url.ts:20)
-  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:103)
+  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:105)
 
 ## `bootstrap/http-logger.spec.ts`
 
@@ -247,7 +247,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `PUBLIC_CONNECT_READ_RATE_LIMIT` = `{ max: 120, timeWindow: '1 minute', } as const` · L25
 - `PUBLIC_CONNECT_NEW_QR_RATE_LIMIT` = `{ max: 10, timeWindow: '1 minute', } as const` · L29
 - `registerRateLimit(app, max)` · L36 · async
-  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:103)
+  - chamado por: `bootstrap` (main.ts:16), `createTestApp` (setup-app.ts:105)
 
 ## `bootstrap/route-url.ts`
 

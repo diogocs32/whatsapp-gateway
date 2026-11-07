@@ -51,6 +51,7 @@ import type {
   SetProxyAssignmentRequest,
   TimelineEvent,
   UpdateBrandingRequest,
+  UpdateSessionRequest,
   UpdateUserRequest,
   UserDto,
   UsersListResponse,
@@ -255,6 +256,13 @@ export const api = {
         body: JSON.stringify(body),
       }),
     get: (id: string) => request<SessionDto>(`/api/sessions/${id}`),
+    // E30/P-110 — editar a sessão (hoje só o nome). ADMIN; 409 se o nome já existe; o id não muda
+    // e a sessão não reinicia. Devolve o SessionDto atualizado.
+    update: (id: string, body: UpdateSessionRequest) =>
+      request<SessionDto>(`/api/sessions/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
     start: (id: string) =>
       request<Ok>(`/api/sessions/${id}/start`, { method: 'POST' }),
     stop: (id: string) =>

@@ -52,6 +52,7 @@ import {
   sessionFilterToParams,
   type SessionFilter,
 } from '../lib/session-filter';
+import { RENAME_HINT, checkRename } from '../lib/session-rename';
 
 const STATUS_META: Record<SessionStatus, { label: string; cls: string }> = {
   WORKING: { label: 'Conectado', cls: 'bg-emerald-500/15 text-emerald-400' },
@@ -362,6 +363,16 @@ export function Sessions() {
   const linkSession = linkFor
     ? (sessions.find((s) => s.id === linkFor) ?? null)
     : null;
+  // E30/P-110 — renomear na própria linha (antes só excluindo e recriando). Estado só do editor
+  // (id, texto, erro, salvando) — o polling de 3 s continua trocando a lista por baixo sem mexer no
+  // que está sendo digitado. O id não muda e a sessão não reinicia; o gateway revalida e responde
+  // 409 se o nome já existir.
+  const [rename, setRename] = useState<{
+    id: string;
+    value: string;
+    error: string | null;
+    saving: boolean;
+  } | null>(null);
   // P-089 — filtro por nome, status e número. Estado LOCAL síncrono (é ele que controla os
   // inputs) e a URL (?nome=&status=&numero=) só como espelho, para sobreviver ao recarregar e poder
   // ser compartilhada. Input controlado direto pela URL quebra a digitação: o BrowserRouter aplica
@@ -668,6 +679,43 @@ export function Sessions() {
     }
   }
 
+  function startRename(s: SessionDto) {
+    setRename({ id: s.id, value: s.name, error: null, saving: false });
+  }
+
+  function cancelRename() {
+    setRename(null);
+  }
+
+  async function submitRename(s: SessionDto) {
+    if (!rename || rename.id !== s.id || rename.saving) return;
+    // Checagem local (formato e nome já usado na lista COMPLETA); o gateway decide de verdade.
+    const check = checkRename(rename.value, s, sessions);
+    if (check.kind === 'unchanged') {
+      setRename(null);
+      return;
+    }
+    if (check.kind !== 'ok') {
+      setRename({ ...rename, error: check.message });
+      return;
+    }
+    setRename({ ...rename, error: null, saving: true });
+    try {
+      const updated = await api.sessions.update(s.id, { name: check.name });
+      setRename(null);
+      // Modal "Conectar" aberto para esta sessão mostra o nome novo no título.
+      setConnect((c) => (c && c.id === updated.id ? updated : c));
+      await refresh();
+    } catch (e) {
+      // Funcional: se o dono cancelou durante a espera, não reabre o editor.
+      setRename((r) =>
+        r && r.id === s.id
+          ? { ...r, saving: false, error: (e as Error).message }
+          : r,
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
@@ -928,7 +976,86 @@ export function Sessions() {
               )}
               {visible.map((s) => (
                 <tr key={s.id} className="hover:bg-zinc-900/40">
-                  <td className="px-4 py-3 font-medium">{s.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {rename && rename.id === s.id ? (
+                      // E30 — editor inline: Enter salva, Esc cancela; dica/erro na região viva.
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void submitRename(s);
+                        }}
+                        aria-label={`Renomear ${s.name}`}
+                        className="space-y-1"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            value={rename.value}
+                            onChange={(e) =>
+                              setRename({
+                                ...rename,
+                                value: e.target.value,
+                                error: null,
+                              })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') {
+                                e.preventDefault();
+                                cancelRename();
+                              }
+                            }}
+                            autoFocus
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            maxLength={64}
+                            disabled={rename.saving}
+                            aria-label="Novo nome"
+                            aria-invalid={rename.error ? true : undefined}
+                            aria-describedby={`renomear-${s.id}-aviso`}
+                            className="w-48 max-w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm font-normal outline-none focus:border-emerald-500"
+                          />
+                          <button
+                            type="submit"
+                            disabled={rename.saving}
+                            className="rounded-md bg-emerald-600/90 px-2.5 py-1 text-xs font-normal text-white hover:bg-emerald-500 disabled:opacity-50"
+                          >
+                            {rename.saving ? 'Salvando…' : 'Salvar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRename}
+                            disabled={rename.saving}
+                            className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs font-normal hover:bg-zinc-800 disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                        <p
+                          id={`renomear-${s.id}-aviso`}
+                          role="status"
+                          aria-live="polite"
+                          className={`max-w-sm text-xs font-normal ${
+                            rename.error ? 'text-red-400' : 'text-zinc-500'
+                          }`}
+                        >
+                          {rename.error ?? RENAME_HINT}
+                        </p>
+                      </form>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span>{s.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => startRename(s)}
+                          aria-label={`Renomear ${s.name}`}
+                          title="Renomear"
+                          className="rounded-md border border-zinc-700 px-1.5 py-0.5 text-xs font-normal text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                        >
+                          ✎
+                        </button>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={s.status} />
                     {s.lastError && s.status !== 'WORKING' && (

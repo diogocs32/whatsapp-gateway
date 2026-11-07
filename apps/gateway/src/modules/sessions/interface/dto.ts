@@ -1,12 +1,16 @@
 import { z } from 'zod';
 import { isWwebjsVersionMode } from '../domain/wwebjs-version';
 
+// Nome da sessão — a MESMA regra no create e no rename (E30): é a referência estável das
+// integrações em `/api/sessions/{nome}`, por isso só caracteres seguros em URL.
+export const sessionNameSchema = z
+  .string()
+  .min(1, 'Informe o nome da sessão')
+  .max(64, 'Nome com até 64 caracteres')
+  .regex(/^[a-zA-Z0-9_-]+$/, 'Use apenas letras, números, _ ou -');
+
 export const createSessionSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Use apenas letras, números, _ ou -'),
+  name: sessionNameSchema,
   engine: z.enum(['BAILEYS', 'WWEBJS']).default('BAILEYS'),
   mode: z.enum(['qr', 'pairing']).default('qr'),
   phoneNumber: z.string().min(8).max(20).optional(),
@@ -18,6 +22,9 @@ export const createSessionSchema = z.object({
   // Ausente/false = só proxy livre (400 "em uso", como sempre).
   allowSharedProxy: z.boolean().optional(),
 });
+
+// E30 (P-110, D-053) — PATCH /sessions/:id: o que pode mudar depois de criada. Hoje só o nome.
+export const updateSessionSchema = z.object({ name: sessionNameSchema });
 
 export const pairingSchema = z.object({
   phoneNumber: z.string().min(8).max(20),

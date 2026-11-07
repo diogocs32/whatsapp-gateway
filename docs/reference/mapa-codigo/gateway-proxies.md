@@ -188,16 +188,16 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `ProxiesController.listAvailable` (proxies.controller.ts:82)
 - `ensureAvailable(proxyId, ownSessionId, opts)` · L302 · async
   - chama: `ProxyUnavailableError.constructor` (proxy-unavailable.error.ts:3), `ProxyRepository.findById` (proxy.repository.ts:59), `ProxyRepository.usedProxyIds` (proxy.repository.ts:87)
-  - chamado por: `assignSingle` L325, `setAssignment` L341, `SessionsController.create` (sessions.controller.ts:102)
+  - chamado por: `assignSingle` L325, `setAssignment` L341, `SessionsController.create` (sessions.controller.ts:104)
 - `assignSingle(sessionId, proxyId, opts)` · L325 · async
   - chama: `ensureAvailable` L302, `setAssignment` L341
-  - chamado por: `SessionsController.create` (sessions.controller.ts:102)
+  - chamado por: `SessionsController.create` (sessions.controller.ts:104)
 - `setAssignment(sessionId, data)` · L341 · async
   - chama: `ProxyUnavailableError.constructor` (proxy-unavailable.error.ts:3), `ensureAvailable` L302, `ProxyRepository.liveSinglePin` (proxy.repository.ts:94), `ProxyRepository.setAssignment` (proxy.repository.ts:79)
   - chamado por: `assignSingle` L325, `ProxiesController.setAssignment` (proxies.controller.ts:216)
 - `markReleased(sessionId, sessionName)` · L374 · async
   - chama: `ProxyRepository.markReleased` (proxy.repository.ts:101)
-  - chamado por: `SessionsController.remove` (sessions.controller.ts:369)
+  - chamado por: `SessionsController.remove` (sessions.controller.ts:406)
 - `suggestionFor(sessionName)` · L395 · async
   - chama: `pickReleased` (proxy-suggestion.ts:18), `suggestionAvailability` (proxy-suggestion.ts:40), `ProxyRepository.findById` (proxy.repository.ts:59), `ProxyRepository.findReleasedByName` (proxy.repository.ts:108), `ProxyRepository.proxyOwnerName` (proxy.repository.ts:89)
   - chamado por: `ProxiesController.suggestion` (proxies.controller.ts:89)

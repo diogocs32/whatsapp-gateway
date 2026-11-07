@@ -78,15 +78,15 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `checkQuotaSnapshot(id)` · L90 · @Get('check-quota')
   - chama: `ContactCheckQuotaService.snapshot` (contact-check-quota.service.ts:77)
 - `check(id, body)` · L96 · async · @Post('check')
-  - chama: `ContactCheckQuotaService.observe` (contact-check-quota.service.ts:61), `SessionManager.checkNumbers` (session-manager.service.ts:1555)
+  - chama: `ContactCheckQuotaService.observe` (contact-check-quota.service.ts:61), `SessionManager.checkNumbers` (session-manager.service.ts:1568)
 - `profilePicture(id, jid)` · L114 · async · @Get(':jid/profile-picture')
-  - chama: `SessionManager.profilePicture` (session-manager.service.ts:1561)
+  - chama: `SessionManager.profilePicture` (session-manager.service.ts:1574)
 - `block(id, body)` · L129 · async · @Post('block')
-  - chama: `SessionManager.setBlock` (session-manager.service.ts:1564)
+  - chama: `SessionManager.setBlock` (session-manager.service.ts:1577)
 - `save(id, body)` · L148 · async · @Post('save')
-  - chama: `SessionManager.saveContact` (session-manager.service.ts:1571)
+  - chama: `SessionManager.saveContact` (session-manager.service.ts:1584)
 - `remove(id, body)` · L172 · async · @Post('remove')
-  - chama: `SessionManager.removeContact` (session-manager.service.ts:1578)
+  - chama: `SessionManager.removeContact` (session-manager.service.ts:1591)
 
 **Funções e constantes de topo**
 - `checkSchema` = `z.object({ numbers: z.array(z.string().min(5).max(40)).min(1).max(50)…` · L22

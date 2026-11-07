@@ -46,6 +46,10 @@ export interface SessionRepository {
     details: SessionErrorDetails,
   ): Promise<boolean>;
   delete(id: string): Promise<void>;
+  // E30 (P-110): troca só o nome; o `id` e tudo que é por id (credenciais, atribuição de proxy,
+  // mensagens, guard-rail) ficam. `null` = a sessão não existe mais (apagada no meio); nome já usado
+  // por outra sessão → lança `SessionNameTakenError` (domínio) para o chamador responder 409.
+  rename(id: string, name: string): Promise<Session | null>;
   findAutostart(): Promise<Session[]>;
   findConnectSnapshot(id: string): Promise<ConnectSnapshot | null>;
   // Corrige o último número conhecido (ex.: conexão desfeita por número errado não pode virar a

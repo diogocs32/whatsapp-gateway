@@ -185,6 +185,14 @@ export interface CreateSessionRequest {
   allowSharedProxy?: boolean;
 }
 
+// E30 (P-110, D-053 — ADITIVO): PATCH /api/sessions/{sessao} — o que pode mudar depois de criada.
+// Hoje só `name` (mesma regra do create: 1–64 de [a-zA-Z0-9_-], único; 409 se já existe). Renomear
+// não reinicia a sessão nem muda o `id`; o nome ANTIGO deixa de resolver em /api/sessions/{sessao}
+// na hora — integrações que referenciam a sessão pelo nome (n8n) precisam passar a usar o novo.
+export interface UpdateSessionRequest {
+  name: string;
+}
+
 export interface QrResponse {
   status: SessionStatus;
   qr: string | null; // data URL base64 (image/png) ou null

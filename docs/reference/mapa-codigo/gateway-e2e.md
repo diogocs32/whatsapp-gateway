@@ -54,8 +54,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `gateway/test/session-account-inventory.e2e-spec.ts` | 213 |
 | `gateway/test/session-lease.e2e-spec.ts` | 486 |
 | `gateway/test/session-status-dedup.e2e-spec.ts` | 149 |
-| `gateway/test/sessions.e2e-spec.ts` | 179 |
-| `gateway/test/setup-app.ts` | 197 |
+| `gateway/test/sessions.e2e-spec.ts` | 356 |
+| `gateway/test/setup-app.ts` | 199 |
 | `gateway/test/undelivered-observer.e2e-spec.ts` | 95 |
 | `gateway/test/webhook-bullmq6.e2e-spec.ts` | 526 |
 | `gateway/test/webhooks.e2e-spec.ts` | 170 |
@@ -890,7 +890,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `gateway/test/sessions.e2e-spec.ts`
 
-179 linhas · caminho: `apps/gateway/test/sessions.e2e-spec.ts`
+356 linhas · caminho: `apps/gateway/test/sessions.e2e-spec.ts`
 - importa (interno): `infra/prisma/prisma.service.ts`, `modules/sessions/infrastructure/baileys/baileys-cache-observer.ts`, `gateway/test/setup-app.ts`
 
 - describe “Sessions (e2e)” · L7
@@ -903,30 +903,40 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - it “POST /pairing-code de sessão WORKING → 409 sem código (socket sintético)” · L102
   - it “conta pre-keys só da sessão escolhida, sem incluir outros tipos ou sessões” · L135
   - it “nome inválido → 400 (validação zod)” · L169
+  - describe “PATCH /api/sessions/:id — renomear (E30)” · L180
+    - it “sem auth → 401” · L227
+    - it “OPERATOR → 403 (renomear é ADMIN, como criar e excluir) e nada muda” · L237
+    - it “sessão inexistente → 404” · L252
+    - it “nome inválido → 400 e o nome fica” · L262
+    - it “renomeia pelo nome antigo: id igual, nome novo resolve, o antigo some” · L283
+    - it “mesmo nome → 200 sem mudança” · L302
+    - it “nome igual ao ID de outra sessão → 409 (o pipe resolveria a outra sessão)” · L314
+    - it “POST /api/sessions com nome igual ao id de uma sessão existente → 409” · L329
+    - it “nome de outra sessão → 409 e as duas ficam como estavam” · L341
 
 ## `gateway/test/setup-app.ts`
 
-197 linhas · caminho: `apps/gateway/test/setup-app.ts`
+199 linhas · caminho: `apps/gateway/test/setup-app.ts`
 - importa (interno): `app.module.ts`, `bootstrap/fastify-adapter.ts`, `bootstrap/logging-exception.filter.ts`, `bootstrap/rate-limit.ts`, `infra/prisma/prisma.service.ts`, `modules/sessions/application/session-manager.service.ts`
 - importado por: `gateway/test/ack-persistence.e2e-spec.ts`, `gateway/test/audit.e2e-spec.ts`, `gateway/test/auth.e2e-spec.ts`, `gateway/test/baileys-disconnect.e2e-spec.ts`, `gateway/test/baileys-offline.e2e-spec.ts`, `gateway/test/baileys-qr-exhaustion.e2e-spec.ts`, `gateway/test/baileys-restriction.e2e-spec.ts`, `gateway/test/bullmq-redis-compat.e2e-spec.ts`, `gateway/test/bullmq-shutdown-pending.e2e-spec.ts`, `gateway/test/campaign-bullmq6.e2e-spec.ts`, `gateway/test/campaign-recovery.e2e-spec.ts`, `gateway/test/connect-links.e2e-spec.ts`, `gateway/test/contacts-quota.e2e-spec.ts`, `gateway/test/conversas-encaminhar.e2e-spec.ts`, `gateway/test/conversas-grupo.e2e-spec.ts`, `gateway/test/conversas-reacoes.e2e-spec.ts`, `gateway/test/f5.e2e-spec.ts`, `gateway/test/f6.e2e-spec.ts`, `gateway/test/g4.e2e-spec.ts`, `gateway/test/g5.e2e-spec.ts`, `gateway/test/g6.e2e-spec.ts`, `gateway/test/g7.e2e-spec.ts`, `gateway/test/g8.e2e-spec.ts`, `gateway/test/health.e2e-spec.ts`, `gateway/test/inbox-triage.e2e-spec.ts`, `gateway/test/media.e2e-spec.ts`, `gateway/test/messaging.e2e-spec.ts`, `gateway/test/nest12-contract.e2e-spec.ts`, `gateway/test/new-recipients.e2e-spec.ts`, `gateway/test/proxies-lote-uso.e2e-spec.ts`, `gateway/test/proxies.e2e-spec.ts`, `gateway/test/proxy-affinity.e2e-spec.ts`, `gateway/test/proxy-create-session.e2e-spec.ts`, `gateway/test/proxy-suggestion.e2e-spec.ts`, `gateway/test/refresh-token-purge.e2e-spec.ts`, `gateway/test/reply-rate-identity.e2e-spec.ts`, `gateway/test/send-contracts.e2e-spec.ts`, `gateway/test/session-account-inventory.e2e-spec.ts`, `gateway/test/session-lease.e2e-spec.ts`, `gateway/test/sessions.e2e-spec.ts`, `gateway/test/undelivered-observer.e2e-spec.ts`, `gateway/test/webhooks.e2e-spec.ts`
 
 **Funções e constantes de topo**
 - `fakeSessionManager` = `{ start: async () => undefined, stop: async () => undefined, restart:…` · L13
-- `createTestApp(managerOverride, options)` · L103 · async
+- `createTestApp(managerOverride, options)` · L105 · async
   - chama: `buildFastifyAdapter` (fastify-adapter.ts:11), `new LoggingExceptionFilter` (logging-exception.filter.ts), `registerRateLimit` (rate-limit.ts:36)
-- `inject(app, opts)` · L144
-  - chamado por: `login` L168
-- `readSetCookie(res, name)` · L156
-- `login(app)` · L168 · async
-  - chama: `inject` L144
-- `seedSession(app, name)` · L181 · async
+- `inject(app, opts)` · L146
+  - chamado por: `login` L170
+- `readSetCookie(res, name)` · L158
+- `login(app)` · L170 · async
+  - chama: `inject` L146
+- `seedSession(app, name)` · L183 · async
   - banco: `waSession.create`, `waSession.deleteMany`
-- `removeSession(app, name)` · L190 · async
+- `removeSession(app, name)` · L192 · async
   - banco: `waSession.deleteMany`
 
 **Tipos**
-- interface `InjectOpts` L130 · 4 propriedade(s)
-- interface `InjectResponse` L137 · 4 propriedade(s)
+- interface `InjectOpts` L132 · 4 propriedade(s)
+- interface `InjectResponse` L139 · 4 propriedade(s)
 
 ## `gateway/test/undelivered-observer.e2e-spec.ts`
 

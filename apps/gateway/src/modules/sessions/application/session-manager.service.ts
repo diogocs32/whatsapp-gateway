@@ -593,6 +593,16 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
     return this.rehydrated;
   }
 
+  // E30 (P-110) — renomear sem reiniciar: o envelope dos eventos (`session`, em `onEvent`) lê o
+  // mapa `names`. Grava SEMPRE (não só com engine viva): um start em andamento leu o nome antigo do
+  // banco antes do lease e só preenche o mapa se ele ainda estiver vazio (`startUnlocked`), então o
+  // rename que chegar nessa janela — ou com a sessão parada/reiniciando — prevalece. A entrada de uma
+  // sessão parada some no `remove`. Em OUTRA réplica (sobreposição start-first, B-004) o nome antigo
+  // pode sair no envelope até ela reiniciar a sessão.
+  noteRename(sessionId: string, name: string): void {
+    this.names.set(sessionId, name);
+  }
+
   hasEngine(sessionId: string): boolean {
     return this.engines.has(sessionId);
   }
@@ -783,7 +793,10 @@ export class SessionManager implements OnApplicationBootstrap, OnModuleDestroy {
       this.bootRetries.delete(sessionId);
     }
     if (autostartOnly && this.engines.has(sessionId)) return;
-    this.names.set(sessionId, session.name);
+    // E30: `session.name` foi lido antes do lease; se um rename chegou nesse meio tempo, `noteRename`
+    // já gravou o nome novo — não sobrescrever. O `drain` apaga a entrada ao parar, então uma entrada
+    // presente aqui é sempre a mais recente.
+    if (!this.names.has(sessionId)) this.names.set(sessionId, session.name);
     const engine = this.getOrCreateEngine(sessionId, session.engine);
     await this.startWithTimeout(sessionId, engine.start());
   }
