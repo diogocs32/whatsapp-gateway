@@ -1,6 +1,6 @@
 # Sessão: e30b-ordenar-sessoes
 
-- **Status:** ✅ DONE — E30b/P-111 (Onda 9, produto) em código; PR/CI/merge ao fim no PR desta feature; sem deploy.
+- **Status:** ✅ DONE — E30b/P-111 (Onda 9, produto) em código; **PR #48 aberto para aprovação e merge do dono** (pedido explícito dele neste chat); sem deploy.
 - **Início:** 07/11/2026 07:41 BRT (2º chat da E30, logo após o merge do PR #47).
 - **Objetivo:** P-111 — ordenar a tabela de Sessões clicando no cabeçalho, crescente e decrescente,
   "como é de padrão usado em muitos locais".
