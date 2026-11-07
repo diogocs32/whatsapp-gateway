@@ -4,6 +4,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · Versiona
 Histórico anterior a 10/07/2026 (F1–F9 do blueprint + auditoria 07/2026) está no `git log` e em
 [docs/auditoria-2026-07.md](docs/auditoria-2026-07.md) — este arquivo passa a valer a partir da onda M0.
 
+## 2026-11-07 — E30b/P-111: ordenar a tabela de Sessões pelo cabeçalho (sem deploy)
+
+- Tela de Sessões: clicar em Nome, Status, Número ou Engine ordena a tabela — crescente, depois
+  decrescente, depois a ordem original; seta ▲/▼ na coluna ativa. Nome em ordem pt-BR sem
+  caixa/acento e numérica (`contato-9` antes de `contato-10`); Status pelo rótulo exibido; Número pelo
+  que a coluna mostra, com "—" sempre no fim. A ordenação fica na URL (`?ordem=&direcao=`) junto do
+  filtro e sobrevive ao recarregar. Só painel, nenhuma rota nova.
+  [Checkpoint](docs/sessions/DONE-2026-11-07-0741-e30b-ordenar-sessoes.md).
+
 ## 2026-11-07 — E30/P-110: renomear sessão sem excluir e recriar (sem deploy)
 
 - Tela de Sessões: botão ✎ ao lado do nome abre um editor na própria linha (Enter salva, Esc
