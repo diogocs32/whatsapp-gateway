@@ -53,6 +53,14 @@ import {
   type SessionFilter,
 } from '../lib/session-filter';
 import { RENAME_HINT, checkRename } from '../lib/session-rename';
+import {
+  nextSessionSort,
+  parseSessionSort,
+  sessionSortToParams,
+  sortSessions,
+  type SessionSort,
+  type SessionSortKey,
+} from '../lib/session-sort';
 
 const STATUS_META: Record<SessionStatus, { label: string; cls: string }> = {
   WORKING: { label: 'Conectado', cls: 'bg-emerald-500/15 text-emerald-400' },
@@ -106,6 +114,56 @@ function StatusBadge({ status }: { status: SessionStatus }) {
     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${m.cls}`}>
       {m.label}
     </span>
+  );
+}
+
+// E30b/P-111 — cabeçalho clicável (padrão de tabela): seta ▲ crescente / ▼ decrescente na coluna
+// ativa, ↕ apagado nas demais; `aria-sort` só na coluna ordenada; o `title` diz o que o próximo
+// clique faz. O botão é o alvo (foco por teclado, Enter/Espaço).
+function SortHeader({
+  label,
+  column,
+  sort,
+  onSort,
+}: {
+  label: string;
+  column: SessionSortKey;
+  sort: SessionSort | null;
+  onSort: (column: SessionSortKey) => void;
+}) {
+  const active = sort?.key === column ? sort.direction : null;
+  const next = nextSessionSort(sort, column);
+  const title =
+    next === null
+      ? 'Voltar à ordem original'
+      : `Ordenar por ${label.toLowerCase()} (${next.direction === 'asc' ? 'crescente' : 'decrescente'})`;
+  return (
+    <th
+      scope="col"
+      aria-sort={
+        active === 'asc'
+          ? 'ascending'
+          : active === 'desc'
+            ? 'descending'
+            : undefined
+      }
+      className="px-4 py-3 font-medium"
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        title={title}
+        className="inline-flex items-center gap-1 rounded font-medium hover:text-zinc-200 focus-visible:outline-2 focus-visible:outline-emerald-500"
+      >
+        {label}
+        <span
+          aria-hidden="true"
+          className={`text-xs ${active ? 'text-emerald-400' : 'text-zinc-600'}`}
+        >
+          {active === 'asc' ? '▲' : active === 'desc' ? '▼' : '↕'}
+        </span>
+      </button>
+    </th>
   );
 }
 
@@ -385,7 +443,21 @@ export function Sessions() {
     parseSessionFilter(searchParams),
   );
   const filtering = isSessionFilterActive(filter);
-  const visible = filterSessions(sessions, filter);
+  // E30b/P-111 — ordenação pelo cabeçalho, mesmo padrão do filtro: estado local síncrono e a URL
+  // (?ordem=&direcao=) só como espelho. Clique na mesma coluna: crescente → decrescente → original.
+  const [sort, setSortState] = useState<SessionSort | null>(() =>
+    parseSessionSort(searchParams),
+  );
+  const toggleSort = (key: SessionSortKey) => {
+    const next = nextSessionSort(sort, key);
+    setSortState(next);
+    setSearchParams((prev) => sessionSortToParams(next, prev), {
+      replace: true,
+    });
+  };
+  const visible = sortSessions(filterSessions(sessions, filter), sort, {
+    statusLabel: (st) => STATUS_META[st].label,
+  });
   const setFilter = (patch: Partial<SessionFilter>) => {
     // O onChange re-renderiza de forma síncrona: `filter` aqui é sempre o atual.
     const next = { ...filter, ...patch };
@@ -939,11 +1011,33 @@ export function Sessions() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-900/60 text-left text-zinc-400">
               <tr>
-                <th className="px-4 py-3 font-medium">Nome</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Número</th>
-                <th className="px-4 py-3 font-medium">Engine</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
+                <SortHeader
+                  label="Nome"
+                  column="name"
+                  sort={sort}
+                  onSort={toggleSort}
+                />
+                <SortHeader
+                  label="Status"
+                  column="status"
+                  sort={sort}
+                  onSort={toggleSort}
+                />
+                <SortHeader
+                  label="Número"
+                  column="number"
+                  sort={sort}
+                  onSort={toggleSort}
+                />
+                <SortHeader
+                  label="Engine"
+                  column="engine"
+                  sort={sort}
+                  onSort={toggleSort}
+                />
+                <th scope="col" className="px-4 py-3 text-right font-medium">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">

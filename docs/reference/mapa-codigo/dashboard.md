@@ -59,6 +59,8 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/lib/session-filter.ts` | 142 |
 | `dashboard/lib/session-rename.spec.ts` | 61 |
 | `dashboard/lib/session-rename.ts` | 37 |
+| `dashboard/lib/session-sort.spec.ts` | 174 |
+| `dashboard/lib/session-sort.ts` | 121 |
 | `dashboard/lib/time-format.spec.ts` | 25 |
 | `dashboard/lib/time-format.ts` | 40 |
 | `dashboard/lib/use-live-stream.ts` | 73 |
@@ -78,7 +80,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 | `dashboard/routes/Login.tsx` | 81 |
 | `dashboard/routes/Monitor.tsx` | 137 |
 | `dashboard/routes/Proxies.tsx` | 942 |
-| `dashboard/routes/Sessions.tsx` | 1178 |
+| `dashboard/routes/Sessions.tsx` | 1272 |
 | `dashboard/routes/Users.tsx` | 259 |
 | `dashboard/routes/Webhooks.tsx` | 257 |
 
@@ -415,7 +417,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `AuthProvider({ children })` · L24
   - chama: `setUnauthorizedHandler` (api.ts:88), `clearRememberedLinkUrls` (connect-link-memory.ts:43), `isPublicPath` (connect-path.ts:5), `MediaCache.clear` (media-cache.ts:51)
 - `useAuth()` · L85
-  - chamado por: `Protected` (App.tsx:50), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:87), `Sessions` (Sessions.tsx:322), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
+  - chamado por: `Protected` (App.tsx:50), `ConnectLinkDialog` (ConnectLinkDialog.tsx:55), `ApiKeys` (ApiKeys.tsx:13), `Atendimento` (Atendimento.tsx:73), `Audit` (Audit.tsx:15), `Branding` (Branding.tsx:7), `Campaigns` (Campaigns.tsx:15), `Contacts` (Contacts.tsx:12), `Dashboard` (Dashboard.tsx:16), `Groups` (Groups.tsx:7), `Health` (Health.tsx:37), `Inbox` (Inbox.tsx:19), `License` (License.tsx:11), `Login` (Login.tsx:6), `Monitor` (Monitor.tsx:14), `Proxies` (Proxies.tsx:87), `Sessions` (Sessions.tsx:380), `Users` (Users.tsx:16), `Webhooks` (Webhooks.tsx:7)
 
 **Tipos**
 - interface `AuthState` L15 · 4 propriedade(s)
@@ -897,13 +899,13 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 ## `dashboard/lib/jid.ts`
 
 86 linhas · caminho: `apps/dashboard/src/lib/jid.ts`
-- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.spec.ts`, `dashboard/lib/session-filter.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/Sessions.tsx`
+- importado por: `dashboard/components/chat/ChatThread.tsx`, `dashboard/components/chat/MessageBubble.tsx`, `dashboard/components/chat/Reactions.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/connect-link.ts`, `dashboard/lib/forward.ts`, `dashboard/lib/jid.spec.ts`, `dashboard/lib/session-filter.ts`, `dashboard/lib/session-sort.ts`, `dashboard/routes/Atendimento.tsx`, `dashboard/routes/Inbox.tsx`, `dashboard/routes/Sessions.tsx`
 
 **Funções e constantes de topo**
 - `stripDevice(jid)` · L6
   - chamado por: `ChatThread` (ChatThread.tsx:39), `forwardTargets` (forward.ts:174), `groupSenderLabel` L54
 - `numberFromJid(jid)` · L11
-  - chamado por: `who` (Reactions.tsx:8), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `sessionNumbers` (session-filter.ts:100), `Atendimento` (Atendimento.tsx:73), `Sessions` (Sessions.tsx:322)
+  - chamado por: `who` (Reactions.tsx:8), `defaultExpectedPhone` (connect-link.ts:579), `describeLink` (connect-link.ts:630), `displayName` L27, `groupSenderLabel` L54, `sendTarget` L22, `sessionNumbers` (session-filter.ts:100), `sessionNumberKey` (session-sort.ts:77), `Atendimento` (Atendimento.tsx:73), `Sessions` (Sessions.tsx:380)
 - `isPhoneJid(jid)` · L16
   - chamado por: `who` (Reactions.tsx:8), `groupSenderLabel` L54, `sendTarget` L22
 - `isGroupJid(jid)` · L18
@@ -1275,7 +1277,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 **Funções e constantes de topo**
 - `SESSION_NAME_RE` = `/^[a-zA-Z0-9_-]{1,64}$/` · L16
 - `isValidSessionName(trimmed)` · L18
-  - chamado por: `mustHoldCreate` L211, `checkRename` (session-rename.ts:20), `Sessions` (Sessions.tsx:322)
+  - chamado por: `mustHoldCreate` L211, `checkRename` (session-rename.ts:20), `Sessions` (Sessions.tsx:380)
 - `proxyShortLabel(p)` · L73
   - chamado por: `suggestionView` L128, `unavailableText` L101
 - `releasedText(releasedAt, now)` · L80
@@ -1289,12 +1291,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `suggestionView` L128
 - `suggestionView(input)` · L128
   - chama: `proxyShortLabel` L73, `sessionRef` L87, `unavailableText` L101
-  - chamado por: `Sessions` (Sessions.tsx:322)
+  - chamado por: `Sessions` (Sessions.tsx:380)
 - `mustHoldCreate(input)` · L211
   - chama: `isValidSessionName` L18
-  - chamado por: `Sessions` (Sessions.tsx:322)
+  - chamado por: `Sessions` (Sessions.tsx:380)
 - `decideAfterHold(input)` · L238
-  - chamado por: `Sessions` (Sessions.tsx:322)
+  - chamado por: `Sessions` (Sessions.tsx:380)
 
 **Tipos**
 - interface `SuggestionState` L23 · 2 propriedade(s)
@@ -1364,30 +1366,30 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `plural(n, one, many)` · L27
   - chamado por: `bulkDeleteQuestion` L250, `bulkDeleteWarning` L256, `proxyUsageView` L41, `sharedNote` L159
 - `hasUsageInfo(p)` · L32
-  - chamado por: `bulkDeleteSummary` L223, `proxyUsageView` L41, `sessionsOf` L36, `Sessions` (Sessions.tsx:322)
+  - chamado por: `bulkDeleteSummary` L223, `proxyUsageView` L41, `sessionsOf` L36, `Sessions` (Sessions.tsx:380)
 - `sessionsOf(p)` · L36
   - chama: `hasUsageInfo` L32
   - chamado por: `bulkDeleteSummary` L223, `proxyUsageView` L41
 - `proxyUsageView(p, ownSessionId)` · L41
   - chama: `hasUsageInfo` L32, `plural` L27, `sessionsOf` L36
-  - chamado por: `needsShareConsent` L120, `sharedNote` L159, `assignmentOptions` (Proxies.tsx:726), `UsageCell` (Proxies.tsx:63), `Sessions` (Sessions.tsx:322)
+  - chamado por: `needsShareConsent` L120, `sharedNote` L159, `assignmentOptions` (Proxies.tsx:726), `UsageCell` (Proxies.tsx:63), `Sessions` (Sessions.tsx:380)
 - `isSelectableProxy(p)` · L92
   - chamado por: `assignmentOptions` (Proxies.tsx:726)
 - `unavailableText(p)` · L99
   - chamado por: `assignmentOptions` (Proxies.tsx:726)
 - `proxyOptionLabel(p)` · L108
-  - chamado por: `assignmentOptions` (Proxies.tsx:726), `Sessions` (Sessions.tsx:322)
+  - chamado por: `assignmentOptions` (Proxies.tsx:726), `Sessions` (Sessions.tsx:380)
 - `needsShareConsent(p, ownSessionId)` · L120
   - chama: `proxyUsageView` L41
 - `consentFromPick(id, tone)` · L136
-  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:322)
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:380)
 - `shareFromConsent(proxyId, consent)` · L143
-  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:322)
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:380)
 - `inUseErrorText(message)` · L151
-  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:322)
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:380)
 - `sharedNote(p, ownSessionId)` · L159
   - chama: `plural` L27, `proxyUsageView` L41
-  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:322)
+  - chamado por: `AssignmentRow` (Proxies.tsx:758), `Sessions` (Sessions.tsx:380)
 - `visibleSelection(selected, proxies)` · L179
   - chamado por: `selectAllState` L186
 - `selectAllState(selected, proxies)` · L186
@@ -1519,12 +1521,12 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `parseSessionFilter` L44
 - `parseSessionFilter(params)` · L44
   - chama: `isStatusFilter` L36
-  - chamado por: `Sessions` (Sessions.tsx:322)
+  - chamado por: `Sessions` (Sessions.tsx:380)
 - `sessionFilterToParams(filter, base)` · L56
-  - chamado por: `Sessions` (Sessions.tsx:322)
+  - chamado por: `Sessions` (Sessions.tsx:380)
 - `isSessionFilterActive(filter)` · L71
   - chama: `digitsOf` L82
-  - chamado por: `filterSessions` L135, `Sessions` (Sessions.tsx:322)
+  - chamado por: `filterSessions` L135, `Sessions` (Sessions.tsx:380)
 - `fold(text)` · L78
   - chamado por: `matchesSessionFilter` L114
 - `digitsOf(text)` · L82
@@ -1539,7 +1541,7 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
   - chamado por: `filterSessions` L135
 - `filterSessions(sessions, filter)` · L135
   - chama: `isSessionFilterActive` L71, `matchesSessionFilter` L114
-  - chamado por: `Sessions` (Sessions.tsx:322)
+  - chamado por: `Sessions` (Sessions.tsx:380)
 
 **Tipos**
 - type `SessionStatusFilter` L19
@@ -1568,10 +1570,52 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 - `RENAME_TAKEN` = `'Já existe uma sessão com esse nome.'` · L12
 - `checkRename(raw, current, sessions)` · L20
   - chama: `isValidSessionName` (proxy-suggestion.ts:18)
-  - chamado por: `Sessions` (Sessions.tsx:322)
+  - chamado por: `Sessions` (Sessions.tsx:380)
 
 **Tipos**
 - type `RenameCheck` L14
+
+## `dashboard/lib/session-sort.spec.ts`
+
+174 linhas · caminho: `apps/dashboard/src/lib/session-sort.spec.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/session-sort.ts`
+
+- describe “session-sort (E30b/P-111)” · L43
+  - it “sem ordenação devolve cópia na ordem original” · L64
+  - it “nome: pt-BR, sem caixa/acento, numérico; decrescente inverte” · L70
+  - it “status: pelo rótulo exibido; empate mantém a ordem original” · L87
+  - it “número: numérico, pelo conectado ou último conectado; sem número SEMPRE no fim” · L104
+  - it “engine: BAILEYS antes de WWEBJS; empate na ordem original” · L128
+  - it “ciclo do clique: crescente → decrescente → original; outra coluna recomeça crescente” · L141
+  - it “URL: ida e volta em pt-BR, preserva os parâmetros do filtro, limpa ao voltar à original” · L153
+  - it “URL: coluna desconhecida = sem ordenação; direção desconhecida = crescente” · L162
+
+## `dashboard/lib/session-sort.ts`
+
+121 linhas · caminho: `apps/dashboard/src/lib/session-sort.ts`
+- importa (interno): `contracts/index.ts`, `dashboard/lib/jid.ts`
+- importado por: `dashboard/lib/session-sort.spec.ts`, `dashboard/routes/Sessions.tsx`
+
+**Funções e constantes de topo**
+- `parseSessionSort(params)` · L31
+  - chamado por: `Sessions` (Sessions.tsx:380)
+- `sessionSortToParams(sort, base)` · L42
+  - chamado por: `Sessions` (Sessions.tsx:380)
+- `nextSessionSort(current, key)` · L59
+  - chamado por: `Sessions` (Sessions.tsx:380), `SortHeader` (Sessions.tsx:123)
+- `collator` = `new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true, })` · L70
+- `sessionNumberKey(s)` · L77
+  - chama: `numberFromJid` (jid.ts:11)
+  - chamado por: `sortSessions` L89
+- `sortSessions(list, sort, labels)` · L89
+  - chama: `sessionNumberKey` L77
+  - chamado por: `Sessions` (Sessions.tsx:380)
+
+**Tipos**
+- type `SessionSortKey` L9
+- type `SessionSortDirection` L10
+- interface `SessionSort` L11 · 2 propriedade(s)
+- interface `SessionSortLabels` L84 · 1 propriedade(s)
 
 ## `dashboard/lib/time-format.spec.ts`
 
@@ -1797,16 +1841,18 @@ Legenda: `L` = linha · **chama**/**chamado por** = chamadas resolvidas pelo typ
 
 ## `dashboard/routes/Sessions.tsx`
 
-1178 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
-- importa (interno): `contracts/index.ts`, `dashboard/components/proxies/ProxyPicker.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/proxy-usage.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/session-filter.ts`, `dashboard/lib/session-rename.ts`
+1272 linhas · caminho: `apps/dashboard/src/routes/Sessions.tsx`
+- importa (interno): `contracts/index.ts`, `dashboard/components/proxies/ProxyPicker.tsx`, `dashboard/components/sessions/ConnectLinkDialog.tsx`, `dashboard/lib/api.ts`, `dashboard/lib/auth.tsx`, `dashboard/lib/jid.ts`, `dashboard/lib/proxy-usage.ts`, `dashboard/lib/proxy-suggestion.ts`, `dashboard/lib/session-filter.ts`, `dashboard/lib/session-rename.ts`, `dashboard/lib/session-sort.ts`
 
 **Funções e constantes de topo**
-- `suggestionWithCap(sessionName)` · L86 · async
-  - chamado por: `Sessions` L322
-- `StatusBadge({ status })` · L103
-- `ConnectModal({ session, onClose, onOpenLink, })` · L112
-- `Sessions()` · L322
-  - chama: `useAuth` (auth.tsx:85), `numberFromJid` (jid.ts:11), `decideAfterHold` (proxy-suggestion.ts:238), `isValidSessionName` (proxy-suggestion.ts:18), `mustHoldCreate` (proxy-suggestion.ts:211), `suggestionView` (proxy-suggestion.ts:128), `consentFromPick` (proxy-usage.ts:136), `hasUsageInfo` (proxy-usage.ts:32), `inUseErrorText` (proxy-usage.ts:151), `proxyOptionLabel` (proxy-usage.ts:108), `proxyUsageView` (proxy-usage.ts:41), `sharedNote` (proxy-usage.ts:159), `shareFromConsent` (proxy-usage.ts:143), `filterSessions` (session-filter.ts:135), `isSessionFilterActive` (session-filter.ts:71), `parseSessionFilter` (session-filter.ts:44), `sessionFilterToParams` (session-filter.ts:56), `checkRename` (session-rename.ts:20), `suggestionWithCap` L86
+- `suggestionWithCap(sessionName)` · L94 · async
+  - chamado por: `Sessions` L380
+- `StatusBadge({ status })` · L111
+- `SortHeader({ label, column, sort, onSort, })` · L123
+  - chama: `nextSessionSort` (session-sort.ts:59)
+- `ConnectModal({ session, onClose, onOpenLink, })` · L170
+- `Sessions()` · L380
+  - chama: `useAuth` (auth.tsx:85), `numberFromJid` (jid.ts:11), `decideAfterHold` (proxy-suggestion.ts:238), `isValidSessionName` (proxy-suggestion.ts:18), `mustHoldCreate` (proxy-suggestion.ts:211), `suggestionView` (proxy-suggestion.ts:128), `consentFromPick` (proxy-usage.ts:136), `hasUsageInfo` (proxy-usage.ts:32), `inUseErrorText` (proxy-usage.ts:151), `proxyOptionLabel` (proxy-usage.ts:108), `proxyUsageView` (proxy-usage.ts:41), `sharedNote` (proxy-usage.ts:159), `shareFromConsent` (proxy-usage.ts:143), `filterSessions` (session-filter.ts:135), `isSessionFilterActive` (session-filter.ts:71), `parseSessionFilter` (session-filter.ts:44), `sessionFilterToParams` (session-filter.ts:56), `checkRename` (session-rename.ts:20), `nextSessionSort` (session-sort.ts:59), `parseSessionSort` (session-sort.ts:31), `sessionSortToParams` (session-sort.ts:42), `sortSessions` (session-sort.ts:89), `suggestionWithCap` L94
 
 ## `dashboard/routes/Users.tsx`
 
